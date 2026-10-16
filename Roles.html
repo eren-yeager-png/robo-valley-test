@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<title>RoboValley | Join the Community</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* Layout: product prototype. Top bar + three tabs (Choose role → Dashboard → Release plan).
+   Join view = role radio list left, value panel right; stacks on phones. Navy/teal follows the DPR house style. */
+:root{
+  --bg:#f4f6f8; --surface:#ffffff; --line:#dbe1e8; --fg:#13213b; --muted:#5a6779;
+  --navy:#14284b; --teal:#0d7f81; --teal-soft:#e2f2f2; --amber:#c9780a; --amber-soft:#fdf1dc;
+  --display:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Telugu",Arial,sans-serif;
+  --mono:ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d1420; --surface:#152033; --line:#26344c; --fg:#e8edf5; --muted:#9aa8bd;
+  --navy:#9fb8e8; --teal:#46c2c2; --teal-soft:#123536; --amber:#f0a840; --amber-soft:#3a2a10; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1420; --surface:#152033; --line:#26344c; --fg:#e8edf5; --muted:#9aa8bd;
+  --navy:#9fb8e8; --teal:#46c2c2; --teal-soft:#123536; --amber:#f0a840; --amber-soft:#3a2a10; color-scheme:dark}
+
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15.5px;line-height:1.5;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:18px 40px;display:flex;flex-direction:column;gap:18px}
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
+.brand{font-family:var(--display);font-weight:700;font-size:1.45rem;color:var(--navy);letter-spacing:.02em}
+.brand small{display:block;font-family:var(--mono);font-size:.68rem;font-weight:400;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button{font-family:var(--body);font-weight:600;font-size:.92rem;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--navy);border-color:var(--navy);color:var(--surface)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.note{font-size:.82rem;color:var(--muted);background:var(--amber-soft);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+h1{font-family:var(--display);font-size:clamp(1.7rem,3.4vw,2.4rem);line-height:1.15;margin:0;color:var(--navy);text-wrap:balance}
+h2{font-family:var(--display);font-size:1.45rem;margin:0;text-wrap:balance}
+h3{font-size:1rem;margin:0}
+p{margin:0}
+.lead{color:var(--muted);max-width:65ch}
+.lbl{font-family:var(--mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
+.chip{font-family:var(--mono);font-size:.68rem;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.join{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px;align-items:start}
+fieldset{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 12px 14px;margin:0;display:flex;flex-direction:column;gap:4px}
+legend{font-family:var(--display);font-weight:700;font-size:1.05rem;padding:0 6px}
+.grp{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:10px 4px 2px}
+.role{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.role:hover{background:var(--bg)}
+.role input{margin-top:4px;accent-color:var(--teal)}
+.role:has(input:checked){background:var(--teal-soft);border-color:var(--teal)}
+.role b{display:block;font-weight:600}
+.role span{font-size:.82rem;color:var(--muted)}
+.value{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.vhead{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline;justify-content:space-between}
+.gets{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.gets li{border:1px solid var(--line);border-left:3px solid var(--teal);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.gets li .chip{align-self:flex-start}
+[hidden]{display:none!important}
+.needs{display:flex;flex-direction:column;gap:8px}
+.needlist{display:flex;flex-wrap:wrap;gap:8px}
+.need{display:flex;gap:8px;align-items:flex-start;padding:7px 12px;border:1px solid var(--line);border-radius:999px;cursor:pointer;font-size:.9rem;background:var(--bg)}
+.need input{margin-top:3px;accent-color:var(--teal)}
+.need:has(input:checked){border-color:var(--teal);background:var(--teal-soft)}
+.match{font-weight:600;color:var(--teal)}
+.benefits{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.benefits li{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1.3fr);gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px 14px;transition:opacity .2s,border-color .2s}
+.benefits .you{color:var(--muted);font-size:.9rem}
+.benefits .arrow{color:var(--teal);font-weight:700}
+.benefits .get{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.benefits li.hit{border-color:var(--teal);border-left:4px solid var(--teal);background:var(--teal-soft)}
+.benefits li.dim{opacity:.45}
+.steps{margin:6px 0 0;padding-left:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:4px 20px}
+@media (max-width:560px){.benefits li{grid-template-columns:1fr}.benefits .arrow{display:none}}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.cols ul{margin:6px 0 0;padding-left:18px}
+.cta{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{font-family:var(--body);font-weight:600;font-size:.95rem;padding:10px 18px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:#1b1206}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 14px;border-top:1px solid var(--line);padding-top:14px}
+form label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;font-weight:600}
+form input,form select{font-family:var(--body);font-size:.95rem;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+form .full{grid-column:1/-1}
+.check{flex-direction:row!important;align-items:flex-start;font-weight:400!important}
+.status{grid-column:1/-1;font-size:.9rem;color:var(--teal)}
+.dash{display:flex;flex-direction:column;gap:16px}
+.dbar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.dbar select{font-family:var(--body);font-size:.95rem;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.kpi b{display:block;font-family:var(--display);font-size:1.7rem;color:var(--navy);font-variant-numeric:tabular-nums;line-height:1.2}
+.kpi span{font-size:.82rem;color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card header{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.items li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.items li:first-child{border-top:0}
+.items small{display:block;color:var(--muted);font-size:.8rem}
+.items button{flex:none;font-family:var(--body);font-size:.8rem;font-weight:600;padding:4px 10px;border-radius:6px;border:1px solid var(--teal);background:transparent;color:var(--teal);cursor:pointer;align-self:center}
+.plan{display:flex;flex-direction:column;gap:16px}
+.phase{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.phase header{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem;min-width:640px}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+td:first-child{font-family:var(--mono);color:var(--teal);white-space:nowrap}
+.why{font-family:var(--mono);font-size:.68rem;padding:1px 6px;border-radius:4px;white-space:nowrap}
+.why.join{background:var(--teal-soft);color:var(--teal)}
+.why.part{background:var(--amber-soft);color:var(--amber)}
+.why.ret{background:var(--bg);color:var(--navy);border:1px solid var(--line)}
+.why.trust{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.loops{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.loops div{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--surface)}
+@media (max-width:760px){.join{grid-template-columns:1fr}}
+/* role list with expandable value */
+.rlist{display:flex;flex-direction:column;gap:18px}
+.rgroup{display:flex;flex-direction:column;gap:8px}
+.ritem{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.ritem.open{border-color:var(--teal);box-shadow:0 6px 24px -16px var(--teal)}
+.rhead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 16px;align-items:center;padding:12px 16px}
+.rhead b{display:block;font-weight:700;color:var(--navy);font-size:1.02rem}
+.rhead .hint{font-size:.84rem;color:var(--muted)}
+.rhead .tag{font-size:.9rem;margin-top:2px}
+.vbtn{display:inline-flex;align-items:center;gap:6px;font-family:var(--body);font-weight:600;font-size:.9rem;padding:8px 14px;border-radius:999px;border:1px solid var(--teal);background:transparent;color:var(--teal);cursor:pointer;white-space:nowrap}
+.vbtn .chev{transition:transform .2s}
+.vbtn[aria-expanded="true"]{background:var(--teal);color:#fff}
+.vbtn[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.rbody{border-top:1px solid var(--line);padding:18px;display:flex;flex-direction:column;gap:16px}
+.rbody[hidden]{display:none}
+.saver{font-size:.8rem;color:var(--muted)}
+@media (max-width:520px){.rhead{grid-template-columns:1fr}.vbtn{justify-self:start}}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div class="brand">RoboValley Community<small>Digital-Kshetra · Web portal first release</small></div>
+    <div class="tabs" role="tablist" aria-label="Portal sections">
+      <button type="button" role="tab" id="t-join" aria-selected="true" aria-controls="v-join">1 · Choose your role</button>
+      <button type="button" role="tab" id="t-dash" aria-selected="false" aria-controls="v-dash">2 · Your dashboard</button>
+      <button type="button" role="tab" id="t-plan" aria-selected="false" aria-controls="v-plan">Release plan</button>
+    </div>
+  </div>
+  <p class="note">Prototype for the portal and app teams (v1.1: roles list with expandable value). Dashboards use example data. Sign-up here sends nothing.</p>
+
+  <!-- JOIN -->
+  <section id="v-join" role="tabpanel" aria-labelledby="t-join">
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+      <h1>Connect your school, your students and your partners to robotics, AI and STEM.</h1>
+      <p class="lead">Find your role and tap <b>View value</b> to see what you get. You join with one role; more roles open after your account is verified.</p>
+      <p class="saver">Only the role you open is loaded, so the page stays light on slow connections and mobile data.</p>
+    </div>
+    <div class="rlist" id="roles"></div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="v-dash" role="tabpanel" aria-labelledby="t-dash" hidden>
+    <div class="dash">
+      <div class="dbar">
+        <div><h2 id="dtitle"></h2><p class="lead" id="dsub"></p></div>
+        <label class="lbl" for="dsel">Preview as
+          <select id="dsel"></select>
+        </label>
+      </div>
+      <div class="kpis" id="kpis"></div>
+      <div class="cards" id="cards"></div>
+    </div>
+  </section>
+
+  <!-- PLAN -->
+  <section id="v-plan" role="tabpanel" aria-labelledby="t-plan" hidden>
+    <div class="plan">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <h1>What to build first</h1>
+        <p class="lead">Release 1 is the web portal with only the functions that give each member a reason to join, take part and come back. Paid services and the mobile app follow once these work well. F-IDs map to the build items (B-IDs) in the Community Blueprint.</p>
+        <div class="cta"><span class="why join">JOIN</span><span class="why part">PARTICIPATE</span><span class="why ret">RETURN</span><span class="why trust">TRUST</span><span class="lead" style="font-size:.85rem">= the reason each feature exists</span></div>
+      </div>
+      <div id="phases"></div>
+      <div class="phase">
+        <header><h2>Reasons to come back every week</h2></header>
+        <div class="loops" id="loops"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+// ---------------- roles: value preview + dashboard (example data) ----------------
+const ROLES=[
+ {code:"ST",group:"Learners & families",name:"Student",hint:"Class 6–12, ITI, polytechnic or college",
+  head:"Build real robots, get help from mentors, and show what you can do.",
+  gets:[["V-ST-01","Projects matched to your class and your school's kits"],["V-ST-02","Free mentor help when you are stuck"],["V-ST-03","Competitions and club activities near you"],["V-ST-04","A portfolio and certificates colleges and employers can check"]],
+  shows:["Next project step","Mentor slots this week","Competitions you can enter"],ask:["Class, school (UDISE code) and district","Subjects you like"],level:"OTP login · guardian consent if under 18",
+  kpis:[["3","projects in progress"],["2","badges earned"],["14","days to RoboCity League"],["1","mentor session booked"]],
+  cards:[
+   {t:"Suitable projects",f:"F-05",items:[["Line-follower robot","Arduino kit in your ATL · Level 2","Start"],["Smart dustbin","Ultrasonic sensor · Level 1","Start"],["Plant-watering alarm","Soil sensor · Level 2","Start"]]},
+   {t:"Mentors for you",f:"F-07",items:[["Ravi K., embedded engineer","Free · Sat 10:00 online","Book"],["Priya S., B.Tech robotics","Free · Sun 16:00 online","Book"]]},
+   {t:"Competitions",f:"F-09",items:[["RoboCity League · district round","your district · team of 3 · closes in 14 days","Join"],["ATL Marathon","National · idea stage","View"]]},
+   {t:"Courses",f:"F-08",items:[["Block coding to Arduino","6 sessions · Telugu / English","Enrol"],["Intro to AI for school","4 sessions · free","Enrol"]]},
+   {t:"Kits available at your school",f:"F-06",items:[["Arduino starter kit ×10","4 free this week","Reserve"],["3D printer","Booked till Thursday","Wait-list"]]},
+   {t:"Team up",f:"F-10",items:[["Looking for a coder","Team 'AgriBots', Class 9","Ask"],["Drone club starting","nearby town · open to all schools","Join"]]},
+  ]},
+ {code:"PA",group:"Learners & families",name:"Parent / guardian",hint:"Follow your child's learning",
+  head:"See what your child learns and find safe, affordable activities.",
+  gets:[["V-PA-01","Your child's progress, badges and upcoming events"],["V-PA-02","Verified clubs, mentors and courses only"],["V-PA-03","Course fees and ratings side by side"]],
+  shows:["Child's progress","Upcoming events","Courses with fees"],ask:["Link to your child's account","Contact preference"],level:"OTP login",
+  kpis:[["5","sessions this month"],["2","badges earned"],["1","event coming up"],["₹0","spent so far"]],
+  cards:[
+   {t:"Your child's progress",f:"F-11",items:[["Line-follower robot","Step 3 of 5","View"],["Badge: First circuit","Earned last week","View"]]},
+   {t:"Upcoming",f:"F-09",items:[["RoboCity League district round","Sat 12 Dec · your district","Details"]]},
+   {t:"Courses",f:"F-08",items:[["Summer robotics camp","10 days · ₹1,500 · rated 4.6","Compare"],["Intro to AI","Free · 4 sessions","Compare"]]},
+  ]},
+ {code:"TC",group:"Schools",name:"Teacher / ATL in-charge",hint:"Run tinkering, science or computer classes",
+  head:"Ready lessons, kits that work and mentors who help your students.",
+  gets:[["V-TC-01","Lesson plans matched to your lab's kits"],["V-TC-02","Mentors and trainers who support your classes"],["V-TC-03","Teacher training with certificates"],["V-TC-04","Student teams entered into competitions in a few clicks"]],
+  shows:["This week's ATL lessons","Kit status","Student team progress"],ask:["School UDISE code / ATL code","Subjects you teach"],level:"OTP login · school confirms you",
+  kpis:[["126","students in your labs"],["68%","lab hours used"],["4","teams registered"],["2","trainings due"]],
+  cards:[
+   {t:"Lessons for this week",f:"F-05",items:[["Sensors & alarms (Class 7)","45 min · uses Arduino kit","Open"],["Intro to drones (Class 9)","2 periods · video + demo","Open"]]},
+   {t:"Kit & lab status",f:"F-06",items:[["Arduino kits","10 of 12 working","Report fault"],["3D printer","Filament low","Request"]]},
+   {t:"Mentors for your class",f:"F-07",items:[["Online mentor for Class 9 drone project","Fridays 3 pm","Request"]]},
+   {t:"Teacher training",f:"F-08",items:[["ATL in-charge certification","6 hours · online","Enrol"]]},
+   {t:"Competitions",f:"F-09",items:[["RoboCity League district round","Register school teams","Register"]]},
+  ]},
+ {code:"SA",group:"Schools",name:"School administrator",hint:"Principal, headmaster or school admin",
+  head:"Bring your whole school on board and show results to parents and management.",
+  gets:[["V-SA-01","Register your school and invite teachers and students in bulk"],["V-SA-02","Lab use, participation and results on one page"],["V-SA-03","Partners, trainers and sponsors for your school"],["V-SA-04","School profile that shows achievements"]],
+  shows:["Students and teachers active","Lab utilisation","Partner offers"],ask:["UDISE code and school details","Lab and ATL details"],level:"School verification",
+  kpis:[["412","students joined"],["9","teachers active"],["68%","lab utilisation"],["3","partner offers"]],
+  cards:[
+   {t:"Onboarding",f:"F-03",items:[["Invite students by class list (CSV)","212 invited · 168 joined","Invite more"],["Teachers","9 of 11 joined","Remind"]]},
+   {t:"Partner offers",f:"F-10",items:[["CSR: 10 kits for Class 8","Offered by a nearby town company","Review"],["Trainer visit: drone workshop","Free pilot","Accept"]]},
+   {t:"Results to share",f:"F-04",items:[["2 teams in district round","RoboCity League","Share"],["15 projects completed","This term","Report"]]},
+  ]},
+ {code:"MG",group:"Schools",name:"Management / district officials",hint:"School management, trust or education department",
+  head:"See participation and lab use across all your schools.",
+  gets:[["V-MG-01","School-wise and district-wise dashboards"],["V-MG-02","Which labs are idle and why"],["V-MG-03","Programme partners and CSR in one place"]],
+  shows:["Schools onboarded","Lab utilisation by school","Teacher training coverage"],ask:["Organisation and schools you oversee"],level:"Organisation verification",
+  kpis:[["38","schools onboarded"],["54%","average lab use"],["7","idle labs"],["61%","teachers trained"]],
+  cards:[
+   {t:"Labs needing attention",f:"F-04",items:[["Govt High School A","No sessions in 30 days","Follow up"],["Govt Upper Primary School B","Kits faulty","Assign trainer"]]},
+   {t:"Top performing schools",f:"F-04",items:[["Girls' Residential School C","92% lab use · 4 teams","View"]]},
+   {t:"Partners & CSR",f:"F-10",items:[["2 CSR offers waiting","For 12 schools","Review"]]},
+  ]},
+ {code:"ME",group:"Partners",name:"Mentor / subject expert",hint:"Engineer, faculty, senior student or retired professional",
+  head:"Help learners in your subject and build a mentor reputation.",
+  gets:[["V-ME-01","Requests matched to your subjects"],["V-ME-02","Your own slots and limits"],["V-ME-03","Mentor recognition and ratings"]],
+  shows:["Requests waiting","Your sessions","Your ratings"],ask:["Subjects and level","Hours per month"],level:"Identity verification",
+  kpis:[["6","requests waiting"],["11","sessions this month"],["4.8","average rating"]],
+  cards:[
+   {t:"Requests for you",f:"F-07",items:[["Class 9 team: motor driver not working","Arduino · your district","Accept"],["ITI student: PLC basics","Online","Accept"]]},
+   {t:"Teams before competitions",f:"F-09",items:[["3 teams want a coach","RoboCity League","View"]]},
+  ]},
+ {code:"TR",group:"Partners",name:"Trainer / course provider",hint:"Independent trainer, institute or STEM company",
+  head:"Reach schools and learners who need your courses.",
+  gets:[["V-TR-01","Schools and learners discover your courses"],["V-TR-02","Demand by district and subject"],["V-TR-03","Ratings that build trust"]],
+  shows:["Enrolments","Demand by district","Course ratings"],ask:["Courses, fees, schedule","Sample lesson"],level:"Identity or organisation verification",
+  kpis:[["84","enrolments"],["4.5","course rating"],["12","school enquiries"]],
+  cards:[
+   {t:"School enquiries",f:"F-10",items:[["Govt High School D","Drone workshop for 40 students","Respond"]]},
+   {t:"Demand near you",f:"F-04",items:[["AI basics","High demand · your district","List a course"]]},
+  ]},
+ {code:"KS",group:"Partners",name:"Kit maker / supplier",hint:"STEM kits, components and lab equipment",
+  head:"Reach ATLs and clubs; see what kits schools need.",
+  gets:[["V-KS-01","Demand from schools by kit type and district"],["V-KS-02","Your kits linked to ready projects"],["V-KS-03","Ratings and fault reports to improve products"]],
+  shows:["Kit demand","Fault reports","Project links"],ask:["Catalogue and support terms"],level:"Organisation verification",
+  kpis:[["23","schools using your kits"],["5","open fault reports"],["4.3","product rating"]],
+  cards:[
+   {t:"Demand",f:"F-06",items:[["Sensor packs","18 schools short","View"]]},
+   {t:"Fault reports",f:"F-06",items:[["Motor driver burnt","2 schools","Respond"]]},
+  ]},
+ {code:"SP",group:"Partners",name:"CSR sponsor",hint:"Company or foundation funding education",
+  head:"Fund labs, teams and learners and see the results.",
+  gets:[["V-SP-01","Funding needs listed by school and district"],["V-SP-02","Outcomes of what you funded"],["V-SP-03","Visibility at events and competitions"]],
+  shows:["Needs to fund","Funded items","Outcomes"],ask:["CSR focus, budget and regions"],level:"Organisation verification",
+  kpis:[["12","schools funded"],["640","students reached"],["9","teams competing"]],
+  cards:[
+   {t:"Needs to fund",f:"F-10",items:[["10 kits · Girls' Residential School C","₹45,000","Fund"],["Team travel · state round","₹12,000","Fund"]]},
+   {t:"Your impact",f:"F-04",items:[["Lab use in funded schools","+31% this term","Report"]]},
+  ]},
+ {code:"IP",group:"Partners",name:"College / industry partner",hint:"Engineering college, ITI, company or startup",
+  head:"Find talent early and give students real problems to solve.",
+  gets:[["V-IP-01","Student portfolios by skill"],["V-IP-02","Post problem statements and internships"],["V-IP-03","Outreach to schools in your area"]],
+  shows:["Talent by skill","Applications","Projects on your problems"],ask:["Organisation, skills needed"],level:"Organisation verification",
+  kpis:[["57","portfolios match your skills"],["3","problem statements live"],["14","applications"]],
+  cards:[
+   {t:"Talent",f:"F-11",items:[["Embedded systems · 12 students","Portfolios verified","View"]]},
+   {t:"Your problem statements",f:"F-10",items:[["Weed-detection robot","4 teams working","View"]]},
+  ]},
+];
+
+// ---------------- "What's in it for you": need → benefit, plus first month ----------------
+const NEEDS={
+ ST:{needs:[
+   ["I don't know where to start with robotics","Step-by-step projects, from easy to advanced, matched to your class","V-ST-01"],
+   ["My school has kits but no one to guide me","Projects that use the exact kits in your school's lab","V-ST-01"],
+   ["I get stuck and need someone to help","Free mentors you can book online, in Telugu or English","V-ST-02"],
+   ["I want to take part in competitions","Competitions and teams near you, registration in a few clicks","V-ST-03"],
+   ["I want to meet others who build things","Clubs and project teams across schools","V-ST-03"],
+   ["I want proof of my skills for college or jobs","A portfolio and certificates that colleges and employers can check","V-ST-04"]],
+  start:["Day 1 · Pick your first project","Week 1 · Book a free mentor session","Month 1 · Earn your first badge and join a team"]},
+ PA:{needs:[
+   ["I want to know what my child is learning","Your child's projects, badges and progress on one screen","V-PA-01"],
+   ["I worry about who my child talks to online","Only verified mentors, and moderated chats for under-18s","V-PA-02"],
+   ["I want affordable, good courses","Fees and ratings of courses side by side","V-PA-03"],
+   ["I want useful activities in the holidays","Camps and events near you","V-PA-01"]],
+  start:["Day 1 · Link your child's account","Week 1 · See their first project","Month 1 · Compare holiday camps"]},
+ TC:{needs:[
+   ["I don't have time to plan ATL lessons","Ready lesson plans for the kits in your lab","V-TC-01"],
+   ["Kits break and I don't know who to ask","Report a fault and get help from suppliers and trainers","V-TC-02"],
+   ["I want experts to support my students","Mentors and trainers who join your classes","V-TC-02"],
+   ["I need training myself","Teacher training with certificates","V-TC-03"],
+   ["Entering competitions is too much paperwork","Register student teams in a few clicks","V-TC-04"]],
+  start:["Day 1 · Add your lab's kits","Week 1 · Run a ready-made lesson","Month 1 · Enter a team in a competition"]},
+ SA:{needs:[
+   ["Our ATL / lab is underused","Lab use made visible, with lessons and trainers to fill it","V-SA-02"],
+   ["Getting everyone onboard takes effort","Invite all teachers and students at once from a class list","V-SA-01"],
+   ["We need sponsors and partners","Partner, trainer and CSR offers for your school","V-SA-03"],
+   ["I want to show results to parents and management","A school page and reports of achievements","V-SA-04"]],
+  start:["Day 1 · Register your school with its UDISE code","Week 1 · Invite teachers and students","Month 1 · Share your first progress report"]},
+ MG:{needs:[
+   ["I can't see which labs are actually used","School-wise and district-wise dashboards","V-MG-01"],
+   ["Idle labs waste money","A list of idle labs and the reasons","V-MG-02"],
+   ["Partners approach each school separately","Programme partners and CSR in one place","V-MG-03"],
+   ["I need evidence for reviews","Reports you can share upward","V-MG-01"]],
+  start:["Day 1 · Add the schools you oversee","Week 1 · See your first dashboard","Month 1 · Follow up on idle labs"]},
+ ME:{needs:[
+   ["I want to give back but don't know who needs help","Requests matched to your subjects","V-ME-01"],
+   ["My time is limited","Your own slots and limits; accept only what fits","V-ME-02"],
+   ["I want my mentoring to be recognised","Ratings, badges and a mentor profile","V-ME-03"]],
+  start:["Day 1 · List your subjects and free hours","Week 1 · Run your first session","Month 1 · Get your first ratings"]},
+ TR:{needs:[
+   ["Schools don't know about my courses","Schools and learners discover and book your courses","V-TR-01"],
+   ["I don't know where the demand is","Demand by district and subject","V-TR-02"],
+   ["New learners don't trust me yet","Ratings from verified learners","V-TR-03"]],
+  start:["Day 1 · List a course","Week 1 · Answer your first school enquiry","Month 1 · Collect your first ratings"]},
+ KS:{needs:[
+   ["I don't know which schools need kits","Demand by kit type and district","V-KS-01"],
+   ["Schools don't know how to use my kits","Your kits linked to ready-made projects and lessons","V-KS-02"],
+   ["I hear about faults too late","Fault reports and ratings straight from schools","V-KS-03"]],
+  start:["Day 1 · Add your catalogue","Week 1 · Link kits to projects","Month 1 · See demand from schools"]},
+ SP:{needs:[
+   ["I want my CSR to reach the right schools","Funding needs listed by school and district","V-SP-01"],
+   ["I need proof of impact","Outcomes of every item you fund","V-SP-02"],
+   ["I want visibility for our support","Recognition at events and competitions","V-SP-03"]],
+  start:["Day 1 · Set your focus and regions","Week 1 · Fund your first item","Month 1 · Receive your first impact report"]},
+ IP:{needs:[
+   ["We struggle to find skilled freshers","Student portfolios filtered by skill","V-IP-01"],
+   ["We have problems students could solve","Post problem statements and internships","V-IP-02"],
+   ["We want to reach schools nearby","Outreach to schools in your area","V-IP-03"]],
+  start:["Day 1 · Post the skills you need","Week 1 · Post a problem statement","Month 1 · Shortlist talent"]},
+};
+
+// ---------------- release plan ----------------
+const PHASES=[
+ {name:"Release 1 · Web portal core",sub:"Essential functions so members have a clear reason to join, take part and return.",rows:[
+  ["F-01","Role picker with value preview","Every visitor","join","B-01"],
+  ["F-02","Sign-up with one role, mobile OTP, guardian consent for minors","Everyone","join","B-02, B-06"],
+  ["F-03","School registration (UDISE / ATL code) and bulk invite of teachers and students","School admin, teachers","join","B-03, B-13"],
+  ["F-04","Role dashboards","Every role","ret","B-20"],
+  ["F-05","Project library and lesson plans by class and kit","Students, teachers","part","B-15"],
+  ["F-06","Kit and lab inventory for each school; kit catalogue","Teachers, admins, suppliers","part","B-13"],
+  ["F-07","Mentor directory and free session booking","Students, teachers, mentors","part","B-07"],
+  ["F-08","Courses, workshops and teacher training listings","Students, teachers, trainers","part","B-08"],
+  ["F-09","Competitions and events calendar with team registration","Students, teachers","part","B-14"],
+  ["F-10","Collaboration board: teams, school requests, partner offers","All","part","B-08, B-17"],
+  ["F-11","Student portfolio and certificates","Students, parents, partners","ret","B-04"],
+  ["F-12","Ratings after sessions and courses","All","trust","B-18"],
+  ["F-13","Weekly digest by email and WhatsApp","All","ret","B-21"],
+  ["F-14","Telugu and English","All","join","B-22"],
+  ["F-15","Admin console and moderation","Platform team","trust","B-23"],
+ ]},
+ {name:"Release 2 · Grow the community",sub:"Once schools and students use Release 1 every week.",rows:[
+  ["F-16","Paid courses and UPI payments","Trainers, parents","part","B-11"],
+  ["F-17","CSR desk: fund a lab, team or seat; impact reports","Sponsors, schools","part","B-12"],
+  ["F-18","Subject expertise assessment for paid mentors","Mentors, trainers","trust","B-03"],
+  ["F-19","Marketplace for kits and projects","Suppliers, students","part","B-09"],
+  ["F-20","Tiers, badges and value ledger","All","ret","B-18, B-19"],
+  ["F-21","DigiLocker, APAAR and national learning platforms integration","Students, schools","trust","B-24"],
+  ["F-22","District analytics for management","Management","ret","B-20"],
+ ]},
+ {name:"Release 3 · Mobile app",sub:"Android first, after the web platform works well.",rows:[
+  ["F-23","Android app: feed, quick actions, QR check-in, offline lessons","Students, teachers","ret","—"],
+  ["F-24","Push notifications","All","ret","B-21"],
+  ["F-25","Internships, jobs and gigs board","Students, industry","part","B-10"],
+ ]},
+];
+const LOOPS=[
+ ["New matches","Each week: new projects, mentors and competitions that fit the member's profile."],
+ ["Progress","Next step in a project, badges earned, class and school progress."],
+ ["Deadlines","Competition and course reminders on WhatsApp."],
+ ["Recognition","Ratings, certificates and featured projects on the school page."],
+ ["Requests","Mentors, trainers and sponsors see new requests waiting for them."],
+];
+
+// ---------------- render ----------------
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let current="ST";
+
+// role list: one row per role, value loads only when opened
+(function(){const box=$("#roles");const groups={};
+  ROLES.forEach(r=>{if(!groups[r.group]){const g=document.createElement("div");g.className="rgroup";g.innerHTML=`<div class="grp">${esc(r.group)}</div>`;box.appendChild(g);groups[r.group]=g;}
+    const it=document.createElement("div");it.className="ritem";it.id="item-"+r.code;
+    it.innerHTML=`<div class="rhead"><div><b>${esc(r.name)}</b><span class="hint">${esc(r.hint)}</span><p class="tag">${esc(r.head)}</p></div>
+      <button type="button" class="vbtn" aria-expanded="false" aria-controls="body-${r.code}" data-code="${r.code}">View value <span class="chev" aria-hidden="true">▾</span></button></div>
+      <div class="rbody" id="body-${r.code}" hidden></div>`;
+    groups[r.group].appendChild(it);});
+  box.addEventListener("click",e=>{const b=e.target.closest(".vbtn");if(!b)return;
+    const code=b.dataset.code,open=b.getAttribute("aria-expanded")==="true";
+    document.querySelectorAll(".ritem").forEach(it=>{it.classList.remove("open");const bb=it.querySelector(".vbtn");bb.setAttribute("aria-expanded","false");bb.firstChild.textContent="View value ";const body=it.querySelector(".rbody");body.hidden=true;body.innerHTML="";});
+    if(open)return;
+    current=code;const it=$("#item-"+code),body=$("#body-"+code);
+    it.classList.add("open");b.setAttribute("aria-expanded","true");b.firstChild.textContent="Hide value ";
+    body.hidden=false;renderValue(body);syncDash();
+    it.scrollIntoView({behavior:"smooth",block:"start"});});
+})();
+
+function role(){return ROLES.find(r=>r.code===current);}
+function renderValue(el){const r=role(),N=NEEDS[r.code];
+  el.innerHTML=`
+   <div class="vhead"><h2>What's in it for you: ${esc(r.name)}</h2><span class="chip">Role ${r.code}</span></div>
+   <div class="needs">
+     <div class="lbl">Tick what you need</div>
+     <div class="needlist" id="needlist">${N.needs.map((n,i)=>`<label class="need"><input type="checkbox" id="n-${r.code}-${i}" value="${i}"><span>${esc(n[0])}</span></label>`).join("")}</div>
+     <p class="match" id="match" aria-live="polite">Here is how the community helps with each need.</p>
+   </div>
+   <ul class="benefits" id="benefits">${N.needs.map((n,i)=>`<li data-i="${i}"><div class="you">You: ${esc(n[0])}</div><div class="arrow" aria-hidden="true">→</div><div class="get"><b>${esc(n[1])}</b><span class="chip">${n[2]}</span></div></li>`).join("")}</ul>
+   <div><div class="lbl">Your first month</div><ol class="steps">${N.start.map(s=>`<li>${esc(s)}</li>`).join("")}</ol></div>
+   <div class="cols">
+     <div><div class="lbl">Your dashboard shows</div><ul>${r.shows.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
+     <div><div class="lbl">We will ask for</div><ul>${r.ask.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
+     <div><div class="lbl">To join</div><ul><li>${esc(r.level)}</li><li>Add more roles after verification</li></ul></div>
+   </div>
+   <div class="cta"><button type="button" class="btn primary" id="joinbtn">Join as ${esc(r.name.toLowerCase())}</button>
+     <button type="button" class="btn" id="peek">See a sample dashboard</button></div>
+   <form id="signup" hidden novalidate>
+     <label>Full name<input id="f-name" name="name" required autocomplete="name"></label>
+     <label>Mobile number<input id="f-mobile" name="mobile" inputmode="numeric" pattern="[6-9][0-9]{9}" required placeholder="10 digits"></label>
+     <label>District<input id="f-district" name="district" required autocomplete="address-level2" placeholder="Your district"></label>
+     ${["ST","TC","SA"].includes(r.code)?`<label>School UDISE code<input id="f-udise" name="udise" inputmode="numeric" placeholder="11 digits"></label>`:""}
+     <label>Language<select id="f-lang" name="lang"><option>Telugu</option><option>English</option></select></label>
+     <label>Joining as<input id="f-role" value="${esc(r.name)}" readonly></label>
+     ${r.code==="ST"?`<label class="check full"><input type="checkbox" id="f-guard"> I am under 18 and a parent or guardian will give consent</label>`:""}
+     <div class="cta full"><button class="btn primary" type="submit">Send OTP</button></div>
+     <p class="status" id="fstatus" aria-live="polite"></p>
+   </form>`;
+  const nl=$("#needlist");
+  nl.addEventListener("change",()=>{const picked=[...nl.querySelectorAll("input:checked")].map(x=>+x.value);
+    document.querySelectorAll("#benefits li").forEach(li=>{const on=picked.includes(+li.dataset.i);li.classList.toggle("hit",on);li.classList.toggle("dim",picked.length>0&&!on);});
+    $("#match").textContent=picked.length?`The community covers ${picked.length===1?"your need":picked.length===2?"both your needs":"all "+picked.length+" of your needs"}. Join to get ${picked.length===1?"this benefit":"these benefits"}.`:"Here is how the community helps with each need.";
+    $("#joinbtn").textContent=picked.length?`Join and get ${picked.length===1?"this benefit":"these "+picked.length+" benefits"}`:`Join as ${r.name.toLowerCase()}`;});
+  $("#joinbtn").onclick=()=>{$("#signup").hidden=false;$("#f-name").focus();};
+  $("#peek").onclick=()=>tab("dash");
+  $("#signup").onsubmit=e=>{e.preventDefault();const m=$("#f-mobile").value.trim(),n=$("#f-name").value.trim(),d=$("#f-district").value;
+    const s=$("#fstatus");
+    if(!n||!d){s.textContent="Enter your name and district to continue.";return;}
+    if(!/^[6-9]\d{9}$/.test(m)){s.textContent="Enter a 10-digit Indian mobile number starting with 6, 7, 8 or 9.";return;}
+    s.textContent=`Prototype only: nothing was sent. In the live portal ${m} would now receive an OTP and ${n} would land on the ${r.name.toLowerCase()} dashboard.`;};
+}
+
+function renderDash(){const r=role();
+  $("#dtitle").textContent=`${r.name} dashboard`;
+  $("#dsub").textContent=r.head+" Example data.";
+  $("#kpis").innerHTML=r.kpis.map(k=>`<div class="kpi"><b>${esc(k[0])}</b><span>${esc(k[1])}</span></div>`).join("");
+  $("#cards").innerHTML=r.cards.map(c=>`<section class="card"><header><h3>${esc(c.t)}</h3><span class="chip">${c.f}</span></header>
+    <ul class="items">${c.items.map(i=>`<li><div>${esc(i[0])}<small>${esc(i[1])}</small></div><button type="button">${esc(i[2])}</button></li>`).join("")}</ul></section>`).join("");
+}
+function syncDash(){$("#dsel").value=current;renderDash();}
+$("#dsel").innerHTML=ROLES.map(r=>`<option value="${r.code}">${esc(r.name)}</option>`).join("");
+$("#dsel").onchange=e=>{current=e.target.value;renderDash();};
+
+function renderPlan(){
+  const tag={join:"JOIN",part:"PARTICIPATE",ret:"RETURN",trust:"TRUST"};
+  $("#phases").innerHTML=PHASES.map(p=>`<section class="phase"><header><h2>${esc(p.name)}</h2><span class="lead">${esc(p.sub)}</span></header>
+    <div class="tw"><table><thead><tr><th>ID</th><th>Feature</th><th>For</th><th>Why</th><th>Blueprint</th></tr></thead><tbody>
+    ${p.rows.map(r=>`<tr><td>${r[0]}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td><span class="why ${r[3]}">${tag[r[3]]}</span></td><td>${esc(r[4])}</td></tr>`).join("")}
+    </tbody></table></div></section>`).join("");
+  $("#loops").innerHTML=LOOPS.map(l=>`<div><b>${esc(l[0])}</b><p class="lead" style="font-size:.88rem">${esc(l[1])}</p></div>`).join("");
+}
+
+function tab(k){["join","dash","plan"].forEach(x=>{$("#t-"+x).setAttribute("aria-selected",x===k?"true":"false");$("#v-"+x).hidden=x!==k;});
+  if(k==="dash")syncDash();window.scrollTo({top:0});}
+["join","dash","plan"].forEach(x=>$("#t-"+x).onclick=()=>tab(x));
+
+renderDash();renderPlan();
+if(["join","dash","plan"].includes(location.hash.slice(1)))tab(location.hash.slice(1));
+</script>

@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoboValley | Join the Community — sign-up flow</title>
+<style>
+:root{
+  --bg:#f4f6f8;--surface:#fff;--line:#dbe1e8;--fg:#13213b;--muted:#5a6779;
+  --navy:#14284b;--teal:#0d7f81;--teal-soft:#e2f2f2;--amber:#c9780a;--amber-soft:#fdf1dc;--red:#b42318;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Telugu",Arial,sans-serif;
+  --mono:ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1420;--surface:#152033;--line:#26344c;--fg:#e8edf5;--muted:#9aa8bd;
+  --navy:#9fb8e8;--teal:#46c2c2;--teal-soft:#123536;--amber:#f0a840;--amber-soft:#3a2a10;--red:#ff8a80;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15.5px/1.55 var(--font)}
+.wrap{max-width:1100px;margin:0 auto;padding:18px 16px 48px;display:flex;flex-direction:column;gap:18px}
+.top{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;justify-content:space-between}
+.brand{font-weight:800;font-size:1.35rem;color:var(--navy)}
+.brand small{display:block;font:400 .68rem var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.note{font-size:.82rem;color:var(--muted);background:var(--amber-soft);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+h1{font-size:clamp(1.4rem,3vw,1.9rem);line-height:1.2;margin:0;color:var(--navy)}
+h2{font-size:1.3rem;margin:0;color:var(--navy)}
+p{margin:0}
+.muted{color:var(--muted)}
+.lbl{font:600 .7rem var(--mono);text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
+/* journey map */
+.map{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.maphead{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.path{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.path button{font:600 .85rem var(--font);padding:6px 14px;border:0;background:transparent;color:var(--fg);cursor:pointer}
+.path button[aria-pressed="true"]{background:var(--navy);color:var(--surface)}
+.trackwrap{overflow-x:auto;padding:4px 2px 2px}
+.track{list-style:none;margin:0;padding:0;display:flex;min-width:560px}
+.stp{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;min-width:84px}
+.stp::before{content:"";position:absolute;top:18px;right:50%;width:100%;height:4px;background:var(--line);z-index:0}
+.stp:first-child::before{display:none}
+.stp.done::before,.stp.now::before{background:var(--teal)}
+.stp button{position:relative;z-index:1;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;border:3px solid var(--line);background:var(--surface);color:var(--muted);font:700 1rem var(--font);cursor:pointer}
+.stp.done button{background:var(--teal);border-color:var(--teal);color:#fff}
+.stp.now button{background:var(--navy);border-color:var(--teal);color:var(--surface);box-shadow:0 0 0 5px var(--teal-soft)}
+.stp .nm{font-size:.82rem;font-weight:600;line-height:1.25;color:var(--fg);padding:0 4px}
+.stp.todo .nm{color:var(--muted);font-weight:500}
+.stp .st{font:600 .66rem var(--mono);text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:999px}
+.stp.done .st{background:var(--teal-soft);color:var(--teal)}
+.stp.now .st{background:var(--navy);color:var(--surface)}
+.stp.todo .st{color:var(--muted);border:1px solid var(--line)}
+.stp.minor .nm::after{content:" (under 18)";font-weight:400;color:var(--amber)}
+.status{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:.9rem}
+.status b{color:var(--navy)}
+.meter{flex:1;min-width:140px;height:8px;border-radius:999px;background:var(--line);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--teal);transition:width .3s}
+/* role + value list on step 1 */
+.rlist{display:flex;flex-direction:column;gap:14px}
+.rgrp{display:flex;flex-direction:column;gap:8px}
+.ritem{border:1px solid var(--line);border-radius:12px;background:var(--bg);overflow:hidden}
+.ritem.sel{border-color:var(--teal);background:var(--teal-soft)}
+.rhead{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px 12px;align-items:center;padding:12px 14px}
+.rhead input{width:auto;accent-color:var(--teal);margin:0}
+.rhead b{display:block;color:var(--navy)}
+.rhead .hint{font-size:.8rem;color:var(--muted)}
+.rhead .tag{font-size:.88rem;margin-top:2px}
+.vbtn{font:600 .85rem var(--font);padding:7px 12px;border-radius:999px;border:1px solid var(--teal);background:var(--surface);color:var(--teal);cursor:pointer;white-space:nowrap}
+.vbtn[aria-expanded="true"]{background:var(--teal);color:#fff}
+.rval{border-top:1px solid var(--line);background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.rval[hidden]{display:none}
+.vlist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.vlist li{border:1px solid var(--line);border-left:3px solid var(--teal);border-radius:8px;padding:8px 10px;font-size:.9rem}
+.first{margin:0;padding-left:20px;font-size:.88rem;color:var(--muted)}
+@media (max-width:560px){.rhead{grid-template-columns:auto minmax(0,1fr)}.vbtn{grid-column:2;justify-self:start}}
+/* page frame */
+.frame{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 10px 30px -22px rgba(0,0,0,.4)}
+.urlbar{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--bg);border-bottom:1px solid var(--line);font:.8rem var(--mono);color:var(--muted)}
+.urlbar .dots{display:flex;gap:5px}.urlbar .dots i{width:9px;height:9px;border-radius:50%;background:var(--line);display:block}
+.urlbar .url{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.page{padding:24px clamp(16px,4vw,40px) 28px;display:flex;flex-direction:column;gap:18px;max-width:760px;margin:0 auto}
+.progress{display:flex;flex-direction:column;gap:6px}
+.bar{height:6px;border-radius:999px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--teal);transition:width .3s}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 16px}
+label.f{display:flex;flex-direction:column;gap:5px;font-weight:600;font-size:.88rem}
+label.f small{font-weight:400;color:var(--muted)}
+input,select,textarea{font:inherit;font-size:.95rem;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);width:100%}
+textarea{min-height:70px;resize:vertical}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.full{grid-column:1/-1}
+.req::after{content:" *";color:var(--red)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:flex;gap:8px;align-items:center;padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:var(--bg);cursor:pointer;font-size:.9rem;font-weight:500}
+.chip input{width:auto;accent-color:var(--teal)}
+.chip:has(input:checked){border-color:var(--teal);background:var(--teal-soft)}
+.roles{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.role{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--bg)}
+.role input{width:auto;margin-top:4px;accent-color:var(--teal)}
+.role b{display:block;color:var(--navy)}
+.role span{font-size:.8rem;color:var(--muted)}
+.role:has(input:checked){border-color:var(--teal);background:var(--teal-soft)}
+.otp{display:flex;gap:8px}
+.otp input{width:48px;height:54px;text-align:center;font-size:1.4rem;font-weight:700;padding:0}
+.box{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--bg);font-size:.9rem}
+.box.info{border-left:4px solid var(--teal)}
+.box.warn{border-left:4px solid var(--amber);background:var(--amber-soft)}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:.92rem}
+.check input{width:auto;margin-top:4px;accent-color:var(--teal)}
+.check a{color:var(--teal)}
+.actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:16px}
+.btn{font:600 .95rem var(--font);padding:10px 20px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.btn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+.btn.link{border:0;background:none;color:var(--teal);padding:10px 4px}
+.err{color:var(--red);font-size:.88rem;min-height:1.2em}
+.welcome{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.welcome div{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg)}
+.welcome b{display:block;color:var(--navy)}
+.levels{display:flex;flex-wrap:wrap;gap:6px;font-size:.8rem}
+.levels span{padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.levels span.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.spec{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.spec table{width:100%;border-collapse:collapse;font-size:.85rem}
+.spec th,.spec td{text-align:left;vertical-align:top;padding:7px 8px;border-bottom:1px solid var(--line)}
+.spec th{font:600 .68rem var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.spec td:first-child{font-family:var(--mono);color:var(--teal);white-space:nowrap}
+.tw{overflow-x:auto}
+@media (max-width:520px){.otp input{width:40px;height:48px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">RoboValley Community<small>Join flow · screens J-01 (adults) and J-02 (under 18)</small></div>
+  </div>
+  <p class="note">Design prototype v1.1 for the portal team. Nothing is sent or saved. Click any step to jump to that page, or fill in the pages in order.</p>
+
+  <section class="map" aria-label="Sign-up journey">
+    <div class="maphead">
+      <h2>Pages after “Join Community”</h2>
+      <div class="path" role="group" aria-label="Show path for">
+        <button type="button" id="p-adult" aria-pressed="true">18 and over</button>
+        <button type="button" id="p-minor" aria-pressed="false">Under 18</button>
+      </div>
+    </div>
+    <div class="trackwrap"><ol class="track" id="steps"></ol></div>
+    <div class="status" id="status"></div>
+  </section>
+
+  <div class="frame">
+    <div class="urlbar"><span class="dots"><i></i><i></i><i></i></span><span class="url" id="url"></span></div>
+    <div class="page" id="page" aria-live="polite"></div>
+  </div>
+
+  <section class="spec">
+    <h2 style="margin-bottom:8px">Page list for the developer</h2>
+    <div class="tw"><table id="spec"></table></div>
+  </section>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const ROLES=[
+ ["ST","Student","School, ITI, polytechnic or college"],
+ ["PA","Parent / guardian","Follow your child's learning"],
+ ["TC","Teacher / lab in-charge","Run tinkering or science classes"],
+ ["SA","School administrator","Principal or school admin"],
+ ["MG","Management / education official","Oversee several schools"],
+ ["ME","Mentor / subject expert","Guide young makers"],
+ ["TR","Trainer / course provider","Offer courses and workshops"],
+ ["AR","Artisan / traditional artist","Bring your craft or art form"],
+ ["KS","Kit maker / supplier","STEM kits and components"],
+ ["FS","3D printing / fabrication service","Printing and making services"],
+ ["SP","CSR sponsor","Fund labs, kits and makers"],
+ ["IP","College / industry partner","Find talent, share problems"],
+];
+const VALUE={
+ ST:["Build real robots, get help from mentors, and show what you can do.",["Projects matched to your class and your school's kits","Free mentor help when you are stuck","Competitions and club activities near you","A portfolio and certificates colleges and employers can check"],["Day 1 · Pick your first project","Week 1 · Book a free mentor session","Month 1 · Earn your first badge and join a team"]],
+ PA:["See what your child learns and find safe, affordable activities.",["Your child's progress, badges and upcoming events","Verified clubs, mentors and courses only","Course fees and ratings side by side"],["Day 1 · Link your child's account","Week 1 · See their first project","Month 1 · Compare holiday camps"]],
+ TC:["Ready lessons, kits that work and mentors who help your students.",["Lesson plans matched to your lab's kits","Mentors and trainers who support your classes","Teacher training with certificates","Student teams entered into competitions in a few clicks"],["Day 1 · Add your lab's kits","Week 1 · Run a ready-made lesson","Month 1 · Enter a team in a competition"]],
+ SA:["Bring your whole school on board and show results to parents and management.",["Register your school and invite teachers and students in bulk","Lab use, participation and results on one page","Partners, trainers and sponsors for your school","School profile that shows achievements"],["Day 1 · Register your school","Week 1 · Invite teachers and students","Month 1 · Share your first progress report"]],
+ MG:["See participation and lab use across all your schools.",["School-wise and district-wise dashboards","Which labs are idle and why","Programme partners and CSR in one place"],["Day 1 · Add the schools you oversee","Week 1 · See your first dashboard","Month 1 · Follow up on idle labs"]],
+ ME:["Help learners in your subject and build a mentor reputation.",["Requests matched to your subjects","Your own slots and limits","Mentor recognition and ratings"],["Day 1 · List your subjects and free hours","Week 1 · Run your first session","Month 1 · Get your first ratings"]],
+ TR:["Reach schools and learners who need your courses.",["Schools and learners discover your courses","Demand by district and subject","Ratings that build trust"],["Day 1 · List a course","Week 1 · Answer your first school enquiry","Month 1 · Collect your first ratings"]],
+ AR:["Give your craft new life with technology, new products and new markets.",["Partner with young makers to add motion, light and sound","New products, buyers and audiences for your art","Recognition through Heritage-Tech challenges and awards"],["Day 1 · Show your craft on your profile","Week 1 · Meet a maker team","Month 1 · Start a heritage-tech project"]],
+ KS:["Reach labs and clubs; see what kits schools need.",["Demand from schools by kit type and district","Your kits linked to ready projects","Ratings, fault reports and kit-sharing programmes"],["Day 1 · Add your catalogue","Week 1 · Link kits to projects","Month 1 · See demand from schools"]],
+ FS:["Offer printing and making services to learners and makers.",["Requests from students, clubs and startups","Your machines listed for booking","Ratings and the Best 3D Printing Service award"],["Day 1 · List your services and machines","Week 1 · Take your first order","Month 1 · Collect your first ratings"]],
+ SP:["Fund labs, teams and learners and see the results.",["Funding needs listed by school and district","Outcomes of what you funded","Visibility at events and competitions"],["Day 1 · Set your focus and regions","Week 1 · Fund your first item","Month 1 · Receive your first impact report"]],
+ IP:["Find talent early and give students real problems to solve.",["Student portfolios by skill","Post problem statements and internships","Outreach to schools in your area"],["Day 1 · Post the skills you need","Week 1 · Post a problem statement","Month 1 · Shortlist talent"]],
+};
+const GROUPS=[["Learners & families",["ST","PA"]],["Schools",["TC","SA","MG"]],["Partners & providers",["ME","TR","AR","KS","FS","SP","IP"]]];
+const ROLE_FIELDS={
+ ST:[["sel","Class or course",["Class 6–8","Class 9–10","Class 11–12","ITI","Polytechnic","Degree / B.Tech","Other"],1],["txt","School or college name","",1],["txt","School UDISE code","11 digits, if you know it",0],["chips","Interested in",["Robotics","Electronics","Coding","AI","Drones","3D design","Heritage crafts + tech"],0]],
+ PA:[["txt","Your child's name","",1],["txt","Child's mobile number or invite code","To link your accounts",0],["chips","You want to see",["Progress and badges","Events near me","Courses and fees","Holiday camps"],0]],
+ TC:[["txt","School name","",1],["txt","School UDISE or ATL code","",1],["chips","Subjects you teach",["Science","Maths","Computers","ATL / tinkering","Vocational"],1]],
+ SA:[["txt","School name","",1],["txt","School UDISE code","",1],["sel","Your designation",["Principal","Headmaster","School admin","Other"],1],["txt","Number of students (approx.)","",0]],
+ MG:[["txt","Organisation or office","",1],["sel","Your designation",["Trust / management","Education official","Programme manager","Other"],1],["txt","Number of schools you oversee","",0]],
+ ME:[["chips","Your subjects",["Robotics","Embedded","Electronics","Coding","AI / ML","Mechanical","Drones","Design"],1],["sel","Experience",["Student (senior)","1–5 years","5–15 years","15+ years / retired"],1],["sel","Hours you can give per month",["1–2","3–5","6–10","10+"],1],["chips","Language",["Telugu","English","Hindi"],0]],
+ TR:[["txt","Your name or organisation","",1],["txt","Courses you offer","e.g. Arduino basics, drone workshop",1],["sel","Mode",["Online","In person","Both"],1]],
+ AR:[["txt","Your craft or art form","e.g. lacquer toys, classical dance, weaving",1],["txt","Town or village","",0],["chips","You are interested in",["Adding motion / light / sound","New products and markets","Teaching makers","Performances with robots"],0]],
+ KS:[["txt","Company name","",1],["chips","What you supply",["Robotics kits","Sensors and electronics","Mechanical parts","Drones","3D printers / filament","Lab furniture"],1],["chips","Open to",["Kit lending","Refurbishing old kits","Donating kits"],0]],
+ FS:[["txt","Business or lab name","",1],["chips","Services",["3D printing","Laser cutting","PCB making","CNC","Design help"],1],["txt","Town / district","",0]],
+ SP:[["txt","Company or foundation","",1],["chips","CSR focus",["School labs","Kits","Mobile labs","Competitions","Girls in STEM","Rural reach"],1],["txt","Contact person's designation","",0]],
+ IP:[["txt","Organisation name","",1],["sel","Type",["Engineering college","ITI / polytechnic","Company","Startup"],1],["txt","Skills you are looking for","",0]],
+};
+
+// state
+const S={path:"adult",i:0,d:{role:"",name:"",mobile:"",email:"",district:"",lang:"Telugu",age:"",pname:"",pmobile:"",prel:"",consent:{},profile:{}}};
+const isMinor=()=>S.path==="minor";
+
+function steps(){
+  const base=[
+   {id:"role",name:"Choose your role",url:"/community/join"},
+   {id:"details",name:"Your details",url:"/community/join/details"},
+   {id:"otp",name:"Verify mobile",url:"/community/join/verify"},
+  ];
+  const minor=[
+   {id:"parent",name:"Parent / guardian",url:"/community/join/guardian",minor:1},
+   {id:"pconsent",name:"Parent's consent",url:"/community/join/guardian/consent",minor:1},
+  ];
+  const rest=[
+   {id:"consent",name:"Privacy and consent",url:"/community/join/consent"},
+   {id:"profile",name:"About you",url:"/community/join/profile"},
+   {id:"welcome",name:"Welcome",url:"/community/welcome"},
+  ];
+  return isMinor()?[...base,...minor,...rest]:[...base,...rest];
+}
+
+function renderMap(){
+  const st=steps(),cur=S.i,done=cur;
+  $("#steps").innerHTML=st.map((x,k)=>{const c=k<cur?"done":k===cur?"now":"todo";
+    return `<li class="stp ${c}${x.minor?" minor":""}"><button type="button" data-k="${k}" aria-label="Step ${k+1}: ${esc(x.name)}"${k===cur?' aria-current="step"':""}>${k<cur?"✓":k+1}</button><span class="nm">${esc(x.name)}</span><span class="st">${c==="done"?"Done":c==="now"?"You are here":"To do"}</span></li>`;}).join("");
+  const pct=Math.round(done/(st.length-1)*100);
+  $("#status").innerHTML=`<span>Step <b>${cur+1} of ${st.length}</b> · ${esc(st[cur].name)}</span><div class="meter" aria-hidden="true"><i style="width:${pct}%"></i></div><span><b>${done}</b> done · <b>${st.length-1-done}</b> to go</span>`;
+  const w=document.querySelector(".trackwrap"),c=document.querySelector(".stp.now");if(w&&c)w.scrollLeft=c.offsetLeft-w.clientWidth/2+c.clientWidth/2;
+  $("#spec").innerHTML=`<thead><tr><th>#</th><th>Page</th><th>URL</th><th>Asks for</th><th>Release</th></tr></thead><tbody>${st.map((x,k)=>`<tr><td>${k+1}</td><td>${esc(x.name)}</td><td>${esc(x.url)}</td><td>${esc(SPEC[x.id])}</td><td>${x.minor?"R1":"R0"}</td></tr>`).join("")}</tbody>`;
+}
+const SPEC={
+ role:"One primary role, each with a View value button that opens what the role gets (pre-selected if the visitor came from the role-value page)",
+ details:"Name, mobile, email (optional), district, language, age group",
+ otp:"6-digit code sent by SMS to the mobile number",
+ parent:"Parent / guardian name, relationship, mobile number",
+ pconsent:"Parent enters OTP on their own phone and gives consent",
+ consent:"Agree to Privacy Notice, Terms and Community Rules; optional updates by WhatsApp / email; photo consent",
+ profile:"Role-specific questions (school, subjects, organisation…); can be skipped and finished later",
+ welcome:"Nothing to fill — next steps, dashboard link, how to get verified, social media",
+};
+
+function go(k){const st=steps();S.i=Math.max(0,Math.min(k,st.length-1));render();window.scrollTo({top:0,behavior:"smooth"});}
+function render(){
+  const st=steps(),s=st[S.i];
+  $("#url").textContent="robovalley.in"+s.url;
+  renderMap();
+  $("#page").innerHTML=`<span class="lbl">Step ${S.i+1} of ${st.length}</span>`+PAGES[s.id]();
+  const back=$("#back"),next=$("#next");
+  if(back)back.onclick=()=>go(S.i-1);
+  if(next)next.onclick=()=>{const e=(VALID[s.id]||(()=>""))();if(e){$("#err").textContent=e;return;}go(S.i+1);};
+  (AFTER[s.id]||(()=>{}))();
+}
+const nav=(nextLabel="Continue",extra="")=>`<p class="err" id="err" role="alert"></p><div class="actions">${S.i>0?`<button type="button" class="btn" id="back">← Back</button>`:"<span></span>"}<div style="display:flex;gap:10px;align-items:center">${extra}<button type="button" class="btn primary" id="next">${nextLabel}</button></div></div>`;
+const roleName=()=>(ROLES.find(r=>r[0]===S.d.role)||[,"member"])[1];
+
+const PAGES={
+ role:()=>`<h1>Join the RoboValley Community</h1>
+  <p class="muted">Choose the one role that fits you best. Tap <b>View value</b> to see what you get. You can add more roles later, after your account is verified.</p>
+  <div class="rlist" id="roles">${GROUPS.map(([g,codes])=>`<div class="rgrp"><div class="lbl">${esc(g)}</div>${codes.map(c=>{const r=ROLES.find(x=>x[0]===c),v=VALUE[c];
+    return `<div class="ritem${S.d.role===c?" sel":""}" id="ri-${c}"><div class="rhead"><input type="radio" name="role" value="${c}" id="rr-${c}"${S.d.role===c?" checked":""}>
+      <label for="rr-${c}" style="cursor:pointer"><b>${esc(r[1])}</b><span class="hint">${esc(r[2])}</span><p class="tag">${esc(v[0])}</p></label>
+      <button type="button" class="vbtn" data-v="${c}" aria-expanded="false" aria-controls="rv-${c}">View value ▾</button></div>
+      <div class="rval" id="rv-${c}" hidden></div></div>`;}).join("")}</div>`).join("")}</div>
+  <p class="muted" style="font-size:.85rem">Already a member? <a href="#" style="color:var(--teal)">Sign in</a></p>${nav()}`,
+ details:()=>`<h1>Your details</h1>
+  <p class="muted">Joining as <b>${esc(roleName())}</b>. Use your email address and password to access your account.</p>
+  <div class="grid">
+   <label class="f full"><span class="req">Full name</span><input id="d-name" autocomplete="name" value="${esc(S.d.name)}"></label>
+   <label class="f"><span class="req">Mobile number</span><input id="d-mobile" inputmode="numeric" maxlength="10" placeholder="10 digits" value="${esc(S.d.mobile)}"><small>We'll send a code to verify it</small></label>
+
+   <label class="f"><span class="req">Email address</span><input id="d-email" type="email" autocomplete="email" required value="${esc(S.d.email)}"></label> 
+   <label class="f"><span class="req">Password</span><input id="d-password" type="password" autocomplete="new-password" minlength="8" required><small>Use at least 8 characters.</small></label>
+   <label class="f"><span class="req">Confirm password</span><input id="d-confirm-password" type="password" autocomplete="new-password" minlength="8" required></label>
+   <label class="f"><span class="req">District</span><input id="d-district" autocomplete="address-level2" value="${esc(S.d.district)}"></label>
+   <label class="f"><span>Preferred language</span><select id="d-lang">${["Telugu","English","Hindi"].map(l=>`<option${S.d.lang===l?" selected":""}>${l}</option>`).join("")}</select></label>
+   <fieldset class="full" style="border:0;padding:0;margin:0"><legend class="req" style="font-weight:600;font-size:.88rem;margin-bottom:6px">Your age</legend>
+    <div class="chips"><label class="chip"><input type="radio" name="age" value="adult"${S.d.age==="adult"?" checked":""}>18 or older</label><label class="chip"><input type="radio" name="age" value="minor"${S.d.age==="minor"?" checked":""}>Under 18</label></div></fieldset>
+  </div>
+  <div class="box info">We collect only what is needed to run your account. Details: <a href="#" style="color:var(--teal)">Privacy Notice</a>.</div>${nav("Send OTP")}`,
+
+ otp:()=>`<h1>Verify your mobile</h1>
+  <p class="muted">Enter the 6-digit code sent to <b>+91 ${esc(S.d.mobile||"98xxxxxx10")}</b>. <a href="#" id="chg" style="color:var(--teal)">Change number</a></p>
+  <div class="otp" id="otp">${[0,1,2,3,4,5].map(i=>`<input inputmode="numeric" maxlength="1" aria-label="Digit ${i+1}">`).join("")}</div>
+  <p class="muted" style="font-size:.85rem">Didn't get it? <button type="button" class="btn link" id="resend">Resend code</button> <span id="timer"></span></p>
+  <div class="box">Prototype: any 6 digits work. Live rule: 5 wrong attempts lock the number for 30 minutes; the code expires in 10 minutes.</div>${nav("Verify")}`,
+
+ parent:()=>`<h1>Your parent or guardian</h1>
+  <p class="muted">Because you are under 18, a parent or guardian must agree before your account opens. We'll send them a code.</p>
+  <div class="grid">
+   <label class="f"><span class="req">Parent / guardian name</span><input id="g-name" value="${esc(S.d.pname)}"></label>
+   <label class="f"><span class="req">Relationship</span><select id="g-rel"><option value="">Choose</option>${["Mother","Father","Guardian","Other"].map(x=>`<option${S.d.prel===x?" selected":""}>${x}</option>`).join("")}</select></label>
+   <label class="f"><span class="req">Their mobile number</span><input id="g-mobile" inputmode="numeric" maxlength="10" placeholder="Must be different from yours" value="${esc(S.d.pmobile)}"></label>
+  </div>
+  <div class="box info">Until your parent agrees, you can browse projects but cannot chat, book mentors or join teams.</div>${nav("Send code to parent")}`,
+
+ pconsent:()=>`<h1>Parent's consent</h1>
+  <p class="muted">This page opens on the <b>parent's phone</b> from the SMS link.</p>
+  <div class="box">Your child <b>${esc(S.d.name||"[child's name]")}</b> wants to join the RoboValley Community as a student.</div>
+  <ul style="margin:0;padding-left:20px" class="muted"><li>We collect: name, class, school, district, and projects your child uploads.</li><li>Contact with adults happens only through moderated channels.</li><li>You can see your child's activity and withdraw consent at any time.</li></ul>
+  <label class="f" style="max-width:260px"><span class="req">Code sent to +91 ${esc(S.d.pmobile||"9xxxxxxxxx")}</span><input id="pc-otp" inputmode="numeric" maxlength="6" placeholder="6 digits"></label>
+  <label class="check"><input type="checkbox" id="pc-ok"> <span>I am the parent or legal guardian and I agree to my child joining, as described in the <a href="#">Privacy Notice</a>.</span></label>${nav("Give consent")}`,
+
+ consent:()=>`<h1>Privacy and consent</h1>
+  <p class="muted">Please read and agree to continue. You can change the optional choices at any time in Settings.</p>
+  <label class="check"><input type="checkbox" id="c-privacy"${S.d.consent.privacy?" checked":""}> <span class="req">I have read the <a href="#">Privacy Notice</a> (version 1.0) and agree to my data being used as described</span></label>
+  <label class="check"><input type="checkbox" id="c-terms"${S.d.consent.terms?" checked":""}> <span class="req">I agree to the <a href="#">Terms of Use</a> and <a href="#">Community Rules</a></span></label>
+  <div class="lbl" style="margin-top:6px">Optional</div>
+  <label class="check"><input type="checkbox" id="c-wa"${S.d.consent.wa?" checked":""}> Send me event and challenge updates on WhatsApp</label>
+  <label class="check"><input type="checkbox" id="c-mail"${S.d.consent.mail?" checked":""}> Send me a weekly email digest</label>
+  <label class="check"><input type="checkbox" id="c-photo"${S.d.consent.photo?" checked":""}> RoboValley may feature my projects and photos on its website and social media</label>
+  ${isMinor()?`<div class="box warn">Your parent has agreed. Optional choices for under-18s are also shown to your parent.</div>`:""}${nav("Agree and continue")}`,
+
+ profile:()=>{const f=ROLE_FIELDS[S.d.role]||ROLE_FIELDS.ST;return `<h1>About you</h1>
+  <p class="muted">A few questions for <b>${esc(roleName())}</b> so we can show you the right projects, people and opportunities.</p>
+  <div class="grid">${f.map((q,k)=>{const [t,l,o,req]=q,id="q"+k,v=S.d.profile[id]||"";
+    if(t==="txt")return `<label class="f${l.length>30?" full":""}"><span class="${req?"req":""}">${esc(l)}</span><input id="${id}" placeholder="${esc(o)}" value="${esc(v)}"></label>`;
+    if(t==="sel")return `<label class="f"><span class="${req?"req":""}">${esc(l)}</span><select id="${id}"><option value="">Choose</option>${o.map(x=>`<option${v===x?" selected":""}>${esc(x)}</option>`).join("")}</select></label>`;
+    return `<fieldset class="full" style="border:0;padding:0;margin:0"><legend class="${req?"req":""}" style="font-weight:600;font-size:.88rem;margin-bottom:6px">${esc(l)}</legend><div class="chips" id="${id}">${o.map(x=>`<label class="chip"><input type="checkbox" value="${esc(x)}"${(v||[]).includes?.(x)?" checked":""}>${esc(x)}</label>`).join("")}</div></fieldset>`;}).join("")}</div>
+  ${nav("Finish",`<button type="button" class="btn link" id="skip">Skip for now</button>`)}`;},
+
+ welcome:()=>`<h1>Welcome to the RoboValley Community, ${esc((S.d.name||"maker").split(" ")[0])}!</h1>
+  <p class="muted">Your account is ready as a <b>${esc(roleName())}</b>.</p>
+  <div><div class="lbl" style="margin-bottom:6px">Your level</div><div class="levels"><span>L0 Visitor</span><span class="on">L1 Registered</span><span>L2 Verified</span><span>L3 Expertise assessed</span><span>L4 Trusted associate</span></div></div>
+  <div class="welcome">
+   <div><b>1 · Open your dashboard</b><span class="muted">See projects, events and people matched to you.</span></div>
+   <div><b>2 · Get verified</b><span class="muted">Verify your identity or organisation to add roles and offer services.</span></div>
+   <div><b>3 · Take part</b><span class="muted">Join a challenge, a club or book a mentor.</span></div>
+  </div>
+  <div class="box info">Follow RoboValley on LinkedIn, Facebook, Instagram, YouTube, X and WhatsApp for challenge and event news.</div>
+  <div class="actions"><button type="button" class="btn" id="restart">Start again</button><button type="button" class="btn primary">Go to my dashboard →</button></div>`,
+};
+
+const VALID={
+ role:()=>S.d.role?"":"Choose a role to continue.",
+
+details:()=>{const d=S.d;
+   if(!d.name.trim())return "Enter your full name.";
+   if(!/^[6-9]\d{9}$/.test(d.mobile))return "Enter a 10-digit mobile number starting with 6, 7, 8 or 9.";
+   if(!d.email.trim())return "Enter your email address.";
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email))return "Enter a valid email address.";
+   const password=$("#d-password").value;
+   const confirmPassword=$("#d-confirm-password").value;
+   if(password.length<8)return "Password must contain at least 8 characters.";
+   if(password!==confirmPassword)return "Passwords do not match.";
+   if(!d.district.trim())return "Enter your district.";
+   if(!d.age)return "Tell us whether you are 18 or older.";
+   if(d.age==="minor"&&d.role!=="ST")return "Members under 18 can join only as a student.";
+   return "";},
+
+ otp:()=>[...document.querySelectorAll("#otp input")].map(x=>x.value).join("").length===6?"":"Enter all 6 digits.",
+ parent:()=>{const d=S.d;if(!d.pname.trim()||!d.prel)return "Enter your parent's name and relationship.";
+   if(!/^[6-9]\d{9}$/.test(d.pmobile))return "Enter a valid 10-digit mobile number for your parent.";
+   if(d.pmobile===d.mobile)return "Your parent's number must be different from yours.";return "";},
+ pconsent:()=>(/^\d{6}$/.test($("#pc-otp").value)&&$("#pc-ok").checked)?"":"Enter the 6-digit code and tick the consent box.",
+ consent:()=>(S.d.consent.privacy&&S.d.consent.terms)?"":"Please agree to the Privacy Notice, Terms of Use and Community Rules to continue.",
+ profile:()=>{const f=ROLE_FIELDS[S.d.role]||ROLE_FIELDS.ST;for(let k=0;k<f.length;k++){if(!f[k][3])continue;const v=S.d.profile["q"+k];if(!v||(Array.isArray(v)&&!v.length))return `Please answer: ${f[k][1]}.`;}return "";},
+};
+
+const AFTER={
+ role:()=>{const box=$("#roles");
+   const pick=c=>{S.d.role=c;$("#rr-"+c).checked=true;document.querySelectorAll(".ritem").forEach(x=>x.classList.toggle("sel",x.id==="ri-"+c));$("#err").textContent="";};
+   box.onchange=e=>{if(e.target.name==="role")pick(e.target.value);};
+   box.onclick=e=>{const b=e.target.closest(".vbtn"),j=e.target.closest("[data-join]");
+     if(j){pick(j.dataset.join);go(S.i+1);return;}
+     if(!b)return;const c=b.dataset.v,open=b.getAttribute("aria-expanded")==="true";
+     document.querySelectorAll(".vbtn").forEach(x=>{x.setAttribute("aria-expanded","false");x.textContent="View value ▾";});
+     document.querySelectorAll(".rval").forEach(x=>{x.hidden=true;x.innerHTML="";});
+     if(open)return;const v=VALUE[c],r=ROLES.find(x=>x[0]===c),el=$("#rv-"+c);
+     el.innerHTML=`<div class="lbl">What you get</div><ul class="vlist">${v[1].map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+       <div class="lbl">Your first month</div><ol class="first">${v[2].map(x=>`<li>${esc(x)}</li>`).join("")}</ol>
+       <div><button type="button" class="btn primary" data-join="${c}">Join as ${esc(r[1])} →</button></div>`;
+     el.hidden=false;b.setAttribute("aria-expanded","true");b.textContent="Hide value ▴";};},
+ details:()=>{
+   [["d-name","name"],["d-mobile","mobile"],["d-email","email"],["d-district","district"],["d-lang","lang"]].forEach(([id,k])=>{$("#"+id).oninput=e=>S.d[k]=e.target.value.trim?e.target.value:e.target.value;$("#"+id).onchange=$("#"+id).oninput;});
+    $("#d-password").oninput=e=>S.d.password=e.target.value;
+   $("#d-confirm-password").oninput=e=>S.d.confirmPassword=e.target.value;
+   document.querySelectorAll('input[name="age"]').forEach(r=>r.onchange=()=>{S.d.age=r.value;setPath(r.value==="minor"?"minor":"adult",true);});},
+ otp:()=>{const ins=[...document.querySelectorAll("#otp input")];ins[0].focus();
+   ins.forEach((x,k)=>{x.oninput=()=>{x.value=x.value.replace(/\D/g,"");if(x.value&&ins[k+1])ins[k+1].focus();};x.onkeydown=e=>{if(e.key==="Backspace"&&!x.value&&ins[k-1])ins[k-1].focus();};});
+   let t=30;const tm=$("#timer"),rs=$("#resend");rs.disabled=true;const iv=setInterval(()=>{t--;tm.textContent=t>0?`in ${t}s`:"";if(t<=0){rs.disabled=false;clearInterval(iv);}},1000);tm.textContent="in 30s";
+   $("#chg").onclick=e=>{e.preventDefault();go(1);};},
+ parent:()=>{[["g-name","pname"],["g-rel","prel"],["g-mobile","pmobile"]].forEach(([id,k])=>{$("#"+id).oninput=e=>S.d[k]=e.target.value;$("#"+id).onchange=$("#"+id).oninput;});},
+ consent:()=>{[["c-privacy","privacy"],["c-terms","terms"],["c-wa","wa"],["c-mail","mail"],["c-photo","photo"]].forEach(([id,k])=>$("#"+id).onchange=e=>S.d.consent[k]=e.target.checked);},
+ profile:()=>{const f=ROLE_FIELDS[S.d.role]||ROLE_FIELDS.ST;f.forEach((q,k)=>{const el=$("#q"+k);
+   if(q[0]==="chips")el.onchange=()=>S.d.profile["q"+k]=[...el.querySelectorAll("input:checked")].map(x=>x.value);
+   else el.oninput=el.onchange=()=>S.d.profile["q"+k]=el.value;});
+   $("#skip").onclick=()=>go(S.i+1);},
+ welcome:()=>$("#restart").onclick=()=>{S.d={role:"",name:"",mobile:"",email:"",district:"",lang:"Telugu",age:"",pname:"",pmobile:"",prel:"",consent:{},profile:{}};setPath("adult");go(0);},
+};
+
+function setPath(p,keep){S.path=p;$("#p-adult").setAttribute("aria-pressed",p==="adult");$("#p-minor").setAttribute("aria-pressed",p==="minor");if(!keep)S.i=0;renderMap();}
+$("#p-adult").onclick=()=>{setPath("adult");if(S.d.age==="minor")S.d.age="adult";render();};
+$("#p-minor").onclick=()=>{setPath("minor");S.d.age="minor";if(!S.d.role)S.d.role="ST";render();};
+$("#steps").onclick=e=>{const b=e.target.closest("button[data-k]");if(b)go(+b.dataset.k);};
+
+// pre-select role from the landing page link, e.g. ?role=TC
+const qr=new URLSearchParams(location.search).get("role");if(qr&&ROLES.some(r=>r[0]===qr))S.d.role=qr;
+render();
+</script>
+</body>
+</html>
