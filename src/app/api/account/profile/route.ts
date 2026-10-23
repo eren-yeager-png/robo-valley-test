@@ -2,7 +2,7 @@ import { getCurrentUser } from "../../../../lib/currentUser";
 import { pool } from "../../../../lib/db";
 import { json, readJson, sameOrigin } from "../../../../lib/http";
 import { LANGUAGES } from "../../../../lib/roles";
-import { LIMITS, validateProfile } from "../../../../lib/validation";
+import { hasControlChars, LIMITS, validateProfile } from "../../../../lib/validation";
 
 export const runtime = "nodejs";
 
@@ -41,12 +41,14 @@ export async function PATCH(req: Request) {
     const v = typeof body.fullName === "string" ? body.fullName.trim() : "";
     if (!v) errors.fullName = "Enter your full name.";
     else if (v.length > LIMITS.name) errors.fullName = "Name is too long.";
+    else if (hasControlChars(v)) errors.fullName = "Name contains invalid characters.";
     else fullName = v;
   }
   if ("district" in body) {
     const v = typeof body.district === "string" ? body.district.trim() : "";
     if (!v) errors.district = "Enter your district.";
     else if (v.length > LIMITS.district) errors.district = "District is too long.";
+    else if (hasControlChars(v)) errors.district = "District contains invalid characters.";
     else district = v;
   }
   if ("language" in body) {

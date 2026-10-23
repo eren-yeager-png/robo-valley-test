@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import type { PoolClient } from "pg";
-import { claimVerification, type VerifiedVia } from "./otp";
+import { claimVerification, isWellFormedToken, type Queryable, type VerifiedVia } from "./otp";
 import type { SignupInput } from "./validation";
 
 export const BCRYPT_ROUNDS = 12;
@@ -18,33 +18,32 @@ export class DuplicateEmailError extends Error {}
 export type CreatedUser = { id: string; fullName: string; email: string; role: string; ageCategory: string };
 
 export async function createAccount(db: Db, input: SignupInput): Promise<CreatedUser> {
-  // Server-side proof of OTP verification. Tokens are claimed atomically (single use);
-  // they are restored if the account could not be created.
-  const claims: Array<{ restore: () => void }> = [];
-  const restoreAll = () => claims.forEach((c) => c.restore());
+  // Cheap checks first: a malformed token never reaches the database or the (slow) password hash.
+  if (!isWellFormedToken(input.verification.signup)) throw new VerificationRequiredError("signup");
+  if (input.guardian && !isWellFormedToken(input.verification.guardian)) throw new VerificationRequiredError("guardian");
 
-  // Tokens are bound to the normalized email, so the stored email is always the verified one.
-  const own = claimVerification(input.verification.signup, "signup", input.email);
-  if (!own) throw new VerificationRequiredError("signup");
-  claims.push(own);
-
-  let guardianVia: VerifiedVia = "mock";
-  if (input.guardian) {
-    const gc = claimVerification(input.verification.guardian, "guardian", input.guardian.email);
-    if (!gc) {
-      restoreAll();
-      throw new VerificationRequiredError("guardian");
-    }
-    claims.push(gc);
-    guardianVia = gc.via;
-  }
-
-  let client: PoolClient | undefined;
+  const client = await db.connect();
   try {
-    const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
-    client = await db.connect();
     await client.query("BEGIN");
     try {
+      // Server-side proof of email verification. The single-use tokens are consumed INSIDE this transaction
+      // (one DELETE ... RETURNING each, so two parallel signups cannot share a token). If anything below fails
+      // and the transaction rolls back, the tokens are automatically valid again. They are bound to the
+      // normalised email, so the stored email is always the verified one.
+      const q = client as unknown as Queryable;
+      const own = await claimVerification(input.verification.signup, "signup", input.email, undefined, q);
+      if (!own) throw new VerificationRequiredError("signup");
+
+      let guardianVia: VerifiedVia = "mock";
+      if (input.guardian) {
+        const gc = await claimVerification(input.verification.guardian, "guardian", input.guardian.email, undefined, q);
+        if (!gc) throw new VerificationRequiredError("guardian");
+        guardianVia = gc.via;
+      }
+
+      // Only now (proof of verification exists) spend the time on hashing the password.
+      const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
+
       const u = await client.query(
         `INSERT INTO users
            (full_name, email, mobile, role, district, preferred_language, age, age_category,
@@ -78,11 +77,10 @@ export async function createAccount(db: Db, input: SignupInput): Promise<Created
       throw err;
     }
   } catch (err) {
-    restoreAll();
     const e = err as { code?: string; constraint?: string };
     if (e?.code === "23505" && /email/i.test(e.constraint ?? "")) throw new DuplicateEmailError();
     throw err;
   } finally {
-    client?.release();
+    client.release();
   }
 }

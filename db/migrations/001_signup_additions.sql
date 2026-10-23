@@ -1,17 +1,24 @@
 -- RoboValley signup additions (migration 001)
 -- Additive and backward-compatible: only ADD ... IF NOT EXISTS. Nothing is
 -- dropped, renamed, truncated or rewritten. Safe to run more than once.
--- NOT applied automatically. Review, then run it yourself, e.g.:
---   psql "$DATABASE_URL" -f db/migrations/001_signup_additions.sql
+-- NOT applied automatically. Review, then run it yourself (as the owner of `users`), e.g.:
+--   npm run db:migrate -- --expect-db <database name> --only 001          (dry run: shows the target, changes nothing)
+--   npm run db:migrate -- --expect-db <database name> --only 001 --apply
 
 BEGIN;
 
--- Safety guard: abort (and change nothing) if this script is run against any
--- database other than robovalley_auth, e.g. because -d was forgotten.
+-- Safety guard (fails closed): this script runs only if the operator has explicitly named the database
+-- they intend to change (session setting rv.expected_db) AND it matches the database we are connected to.
+-- No database name is hard-coded here. Set it by running through: npm run db:migrate -- --expect-db <name> --apply
 DO $$
+DECLARE
+  expected text := nullif(current_setting('rv.expected_db', true), '');
 BEGIN
-  IF current_database() <> 'robovalley_auth' THEN
-    RAISE EXCEPTION 'Wrong database: %. Expected robovalley_auth.', current_database();
+  IF expected IS NULL THEN
+    RAISE EXCEPTION 'rv.expected_db is not set. Run this through "npm run db:migrate -- --expect-db <database name>" so the target database is confirmed. Nothing was changed.';
+  END IF;
+  IF current_database() <> expected THEN
+    RAISE EXCEPTION 'Wrong database: connected to "%" but expected "%". Nothing was changed.', current_database(), expected;
   END IF;
 END $$;
 

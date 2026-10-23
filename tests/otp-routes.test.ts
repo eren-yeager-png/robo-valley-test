@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { __resetOtpStore } from "../src/lib/otp";
+import "./helpers"; // gives this file its own in-process PostgreSQL (real migrations), emptied before each test
 import { POST as requestRoute } from "../src/app/api/auth/otp/request/route";
 import { POST as verifyRoute } from "../src/app/api/auth/otp/verify/route";
+
+vi.mock("../src/lib/db", async () => { const c = await import("./helpers/currentPool"); return { get pool() { return c.getPool(); } }; });
 
 const call = (route: typeof requestRoute, body: unknown) =>
   route(new Request("http://t/x", { method: "POST", body: JSON.stringify(body) }));
 
-beforeEach(() => { __resetOtpStore(); vi.stubEnv("OTP_PROVIDER", "mock"); });
+beforeEach(() => { vi.stubEnv("OTP_PROVIDER", "mock"); });
 afterEach(() => vi.unstubAllEnvs());
 
 describe("OTP routes (mock provider)", () => {

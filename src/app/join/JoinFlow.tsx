@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { GROUPS, GUARDIAN_RELATIONSHIPS, LANGUAGES, MINOR_ALLOWED_ROLES, ROLE_FIELDS, ROLES } from "../../lib/roles";
 import { VALUE } from "../../lib/roleValue";
@@ -262,7 +263,7 @@ export default function JoinFlow() {
               ))}
             </div>
             {Err("role")}
-            <p className="muted" style={{ fontSize: ".85rem" }}>Already a member? <a href="/login">Sign in</a></p>
+            <p className="muted" style={{ fontSize: ".85rem" }}>Already a member? <Link href="/login">Sign in</Link></p>
             {Nav({ label: "Continue", onClick: onNext })}
           </>
         );

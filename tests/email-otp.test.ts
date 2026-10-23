@@ -1,13 +1,13 @@
 // Resend email OTP. The `resend` SDK is mocked: these tests NEVER send a real email.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { makeFakePool } from "./helpers";
-import { __resetOtpStore, MAX_ATTEMPTS, RESEND_COOLDOWN_MS } from "../src/lib/otp";
+import { makeFakePool, testDb } from "./helpers";
+import { MAX_ATTEMPTS } from "../src/lib/otp";
 
-const m = vi.hoisted(() => ({ send: vi.fn(), ctorKeys: [] as string[], pool: undefined as unknown }));
+const m = vi.hoisted(() => ({ send: vi.fn(), ctorKeys: [] as string[] }));
 vi.mock("resend", () => ({
   Resend: class { constructor(key: string) { m.ctorKeys.push(key); } emails = { send: m.send }; },
 }));
-vi.mock("../src/lib/db", () => ({ get pool() { return m.pool; } }));
+vi.mock("../src/lib/db", async () => { const c = await import("./helpers/currentPool"); return { get pool() { return c.getPool(); } }; });
 
 import { POST as requestRoute } from "../src/app/api/auth/otp/request/route";
 import { POST as verifyRoute } from "../src/app/api/auth/otp/verify/route";
@@ -22,7 +22,6 @@ const sentCode = () => (m.send.mock.calls.at(-1)![0].text as string).match(/\b(\
 
 let logs: string[];
 beforeEach(() => {
-  __resetOtpStore();
   m.send.mockReset().mockResolvedValue({ data: { id: "email_1" }, error: null });
   m.ctorKeys.length = 0;
   vi.stubEnv("OTP_PROVIDER", "resend");
@@ -104,7 +103,7 @@ describe("provider failures (no silent fallback to mock)", () => {
     const res = await ask();
     expect(res.status).toBe(502);
     const v = await post(verifyRoute, { email: "asha@example.com", purpose: "signup", code: "123456" });
-    expect((await v.json()).error).toBe("OTP_NOT_FOUND");
+    expect((await v.json()).error).toBe("OTP_EXPIRED"); // the voided code is dead
   });
 
   it("missing RESEND_API_KEY → 503 and nothing is sent", async () => {
@@ -154,13 +153,11 @@ describe("OTP rules with email delivery", () => {
     expect((await post(verifyRoute, { email: "asha@example.com", purpose: "signup", code: good })).status).toBe(429);
   });
 
-  it("expired code is rejected", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
+  it("expired code is rejected (expiry is judged by the database clock)", async () => {
     await ask();
     const code = sentCode();
-    vi.setSystemTime(Date.now() + 10 * 60 * 1000 + 1000);
+    await testDb().raw.exec("update otp_challenges set expires_at = now() - interval '1 second'"); // age it past its 10 minutes
     const res = await post(verifyRoute, { email: "asha@example.com", purpose: "signup", code });
-    vi.useRealTimers();
     expect((await res.json()).error).toBe("OTP_EXPIRED");
   });
 
@@ -174,11 +171,9 @@ describe("OTP rules with email delivery", () => {
   });
 
   it("allows another email after the cooldown window for the same address", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
     await ask();
-    vi.setSystemTime(Date.now() + RESEND_COOLDOWN_MS + 1000);
+    await testDb().raw.exec("update otp_challenges set last_sent_at = last_sent_at - interval '31 seconds'"); // the 30 s cooldown has passed
     expect((await ask()).status).toBe(200);
-    vi.useRealTimers();
     expect(m.send).toHaveBeenCalledTimes(2);
   });
 });
@@ -199,7 +194,7 @@ describe("signup requires the verified email", () => {
   }
 
   it("rejects signup without verification", async () => {
-    const pool = makeFakePool(); m.pool = pool.pool;
+    const pool = makeFakePool();
     const res = await signup(body({}));
     expect(res.status).toBe(403);
     expect((await res.json()).error).toBe("VERIFICATION_REQUIRED");
@@ -207,15 +202,16 @@ describe("signup requires the verified email", () => {
   });
 
   it("rejects a token verified for a different email than the one being registered", async () => {
-    const pool = makeFakePool(); m.pool = pool.pool;
+    const pool = makeFakePool();
     const token = await verifyEmail("someone.else@example.com");
     const res = await signup(body({ signup: token }));
     expect(res.status).toBe(403);
-    expect(pool.calls).toHaveLength(0);
+    expect(pool.calls.filter((c) => /INSERT INTO (users|guardian_details)/.test(c.sql))).toHaveLength(0);
+    expect((await testDb().raw.query("select count(*)::int n from users")).rows[0]).toMatchObject({ n: 0 });
   });
 
   it("creates the account with the verified email and records email_verification='email'", async () => {
-    const pool = makeFakePool(); m.pool = pool.pool;
+    const pool = makeFakePool();
     const token = await verifyEmail("asha@example.com");
     const res = await signup(body({ signup: token }, { email: "ASHA@example.com" }));
     expect(res.status).toBe(201);
@@ -228,7 +224,7 @@ describe("signup requires the verified email", () => {
   });
 
   it("minor: the student's token cannot stand in for the guardian's", async () => {
-    const pool = makeFakePool(); m.pool = pool.pool;
+    const pool = makeFakePool();
     const mine = await verifyEmail("ravi@example.com");
     const minor = {
       role: "ST", fullName: "Ravi", mobile: "9123456780", email: "ravi@example.com", password: "longenough1", confirmPassword: "longenough1",
@@ -238,11 +234,13 @@ describe("signup requires the verified email", () => {
     };
     // student's token cannot stand in for the guardian
     expect((await signup({ ...minor, verification: { signup: mine, guardian: mine } })).status).toBe(403);
-    expect(pool.calls).toHaveLength(0);
+    expect(pool.calls.filter((c) => /INSERT INTO (users|guardian_details)/.test(c.sql))).toHaveLength(0);
+    expect((await testDb().raw.query("select count(*)::int n from users")).rows[0]).toMatchObject({ n: 0 });
+    expect((await testDb().raw.query("select count(*)::int n from email_verifications")).rows[0]).toMatchObject({ n: 1 }); // the student's token is still unused
   });
 
   it("minor happy path: both emails verified through Resend", async () => {
-    const pool = makeFakePool(); m.pool = pool.pool;
+    const pool = makeFakePool();
     const mine = await verifyEmail("ravi@example.com");
     const theirs = await verifyEmail("lakshmi@example.com", "guardian");
     const res = await signup({

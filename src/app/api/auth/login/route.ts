@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
 import { json, readJson, sameOrigin } from "../../../../lib/http";
-import { recordFailure, recordSuccess, retryAfterSeconds } from "../../../../lib/loginThrottle";
+import { maybeCleanupLoginAttempts, recordSuccess, reserveAttempt } from "../../../../lib/loginThrottle";
 import {
   assertSessionConfigured, canSignIn, createSessionToken, destinationFor, SESSION_COOKIE,
   sessionCookieOptions, SessionConfigError,
@@ -45,15 +45,18 @@ export async function POST(req: Request) {
   }
   const password = b.password as string;
 
-  const wait = retryAfterSeconds(email!);
-  if (wait > 0) {
-    return json(
-      { success: false, error: "TOO_MANY_ATTEMPTS", message: "Too many failed attempts. Please try again later.", retryAfterSeconds: wait },
-      429, { "Retry-After": String(wait) }
-    );
-  }
-
   try {
+    // Count this attempt BEFORE checking the password (cleared again if the password is right), so a burst of
+    // parallel requests cannot all be checked before the first failure is recorded.
+    const gate = await reserveAttempt(email!);
+    if (!gate.allowed) {
+      return json(
+        { success: false, error: "TOO_MANY_ATTEMPTS", message: "Too many failed attempts. Please try again later.", retryAfterSeconds: gate.retryAfterSeconds },
+        429, { "Retry-After": String(gate.retryAfterSeconds) }
+      );
+    }
+    await maybeCleanupLoginAttempts();
+
     const { rows } = await pool.query(
       "SELECT id, full_name, email, role, password_hash, email_verification FROM users WHERE lower(email) = $1",
       [email]
@@ -64,14 +67,13 @@ export async function POST(req: Request) {
     const matches = await bcrypt.compare(tooLong ? "x" : password, user?.password_hash ?? (await getDummyHash()));
 
     if (!user || !matches || tooLong) {
-      recordFailure(email!);
-      return json(INVALID, 401); // same body whether the account exists or not
+      return json(INVALID, 401); // same body whether the account exists or not (the attempt was already counted)
     }
+    await recordSuccess(email!); // the password was right: clear the counter
     if (!canSignIn(user.email_verification)) {
       return json({ success: false, error: "EMAIL_NOT_VERIFIED", message: "Please verify your email address before signing in." }, 403);
     }
 
-    recordSuccess(email!);
     const remember = b.remember === true;
     const id = String(user.id);
     const { token, maxAgeSeconds } = createSessionToken({ id, role: user.role }, remember);

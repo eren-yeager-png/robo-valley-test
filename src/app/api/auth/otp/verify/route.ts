@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   if (typeof b.code !== "string" || !/^\d{6}$/.test(b.code)) return json({ success: false, error: "INVALID_CODE_FORMAT", message: "Enter all 6 digits." }, 400);
 
   try {
-    const { verificationToken, via } = verifyOtp(b.purpose as OtpPurpose, email, b.code);
+    const { verificationToken, via } = await verifyOtp(b.purpose as OtpPurpose, email, b.code);
     return json({
       success: true,
       purpose: b.purpose,

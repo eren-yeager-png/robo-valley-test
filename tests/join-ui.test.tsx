@@ -3,11 +3,10 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import bcrypt from "bcryptjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { makeFakePool, pgError } from "./helpers";
-import { __resetOtpStore } from "../src/lib/otp";
+import { makeFakePool, pgError, testDb } from "./helpers";
 
-const h = vi.hoisted(() => ({ pool: undefined as unknown, push: vi.fn() }));
-vi.mock("../src/lib/db", () => ({ get pool() { return h.pool; } }));
+const h = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("../src/lib/db", async () => { const c = await import("./helpers/currentPool"); return { get pool() { return c.getPool(); } }; });
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: h.push }) }));
 
 import JoinFlow from "../src/app/join/JoinFlow";
@@ -22,9 +21,7 @@ let signupDelay: Promise<void> | null = null;
 let stripDevOtp = false; // simulates the Resend provider: no devOtp, emailSent=true
 
 beforeEach(() => {
-  __resetOtpStore();
   db = makeFakePool();
-  h.pool = db.pool;
   h.push.mockReset();
   lastDevOtp = ""; requests = []; signupDelay = null; stripDevOtp = false;
   window.scrollTo = vi.fn() as never;
@@ -189,7 +186,7 @@ describe("adult journey (UI → API → database)", () => {
     await waitFor(() => expect(heading()).toBe("Verify your email"));
     const first = lastDevOtp;
     // fast-forward the server-side cooldown and the client countdown
-    __resetOtpStore();
+    await testDb().raw.exec("update otp_challenges set last_sent_at = last_sent_at - interval '1 minute'"); // the server-side 30 s cooldown has passed
     vi.spyOn(Date, "now").mockReturnValue(Date.now() + 31_000);
     const resend = screen.getByRole("button", { name: /Resend code/ }) as HTMLButtonElement;
     await waitFor(() => expect(resend.disabled).toBe(false), { timeout: 3000 });
@@ -310,7 +307,6 @@ describe("error and loading states", () => {
 
   it("duplicate email returns to the details step with the error and keeps entered data", async () => {
     db = makeFakePool((sql) => (/INSERT INTO users/.test(sql) ? pgError("23505", "users_email_key") : undefined));
-    h.pool = db.pool;
     const user = setup();
     await toProfile(user);
     await next(user, /^Finish$/);

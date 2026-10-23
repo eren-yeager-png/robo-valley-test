@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { normalizeEmail } from "../../lib/validation";
 import "../join/join.css";
@@ -93,7 +94,7 @@ export default function LoginForm() {
             <button type="submit" className="btn primary block" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
           </form>
 
-          <p className="alt">Don't have an account? <a href="/join">Sign up</a></p>
+          <p className="alt">Don't have an account? <Link href="/join">Sign up</Link></p>
         </div>
       </main>
     </div>

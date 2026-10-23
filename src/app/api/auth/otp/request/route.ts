@@ -20,13 +20,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    const r = requestOtp(purpose, email);
+    const r = await requestOtp(purpose, email);
 
     if (r.provider === "resend") {
       try {
         await sendOtpEmail(email, r.code);
       } catch (err) {
-        r.rollback(); // a failed send must not consume the cooldown, and no code stays valid
+        await r.rollback().catch(() => undefined); // a failed send must not consume the cooldown, and no code stays valid
         if (err instanceof EmailConfigError) {
           console.error("otp email: RESEND_API_KEY is not configured");
           return json({ success: false, error: "EMAIL_NOT_CONFIGURED", message: "Email service is not configured." }, 503);

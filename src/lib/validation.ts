@@ -22,7 +22,13 @@ export function normalizeMobile(v: unknown): string | null {
   return /^[6-9]\d{9}$/.test(s) ? s : null;
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/**
+ * Control characters (including NUL) are never valid in names, emails or answers. PostgreSQL rejects NUL in
+ * text and in jsonb, which used to surface as a 500 instead of a validation error.
+ */
+export const hasControlChars = (s: string) => /[\u0000-\u001F\u007F]/.test(s);
+
+const EMAIL_RE = /^[^\s@\u0000-\u001F\u007F]+@[^\s@\u0000-\u001F\u007F]+\.[^\s@\u0000-\u001F\u007F]+$/;
 /** Trim + lower-case. Returns null if it is not a plausible email address. */
 export function normalizeEmail(v: unknown): string | null {
   if (typeof v !== "string") return null;
@@ -64,6 +70,7 @@ export function validateProfile(role: string, rawProfile: unknown, errors: Field
       const t = str(v);
       if (v !== undefined && typeof v !== "string") errors[key] = "Invalid answer.";
       else if (t.length > LIMITS.text) errors[key] = "Answer is too long.";
+      else if (hasControlChars(t)) errors[key] = "Answer contains invalid characters.";
       else if (!t && f.required) errors[key] = `Please answer: ${f.label}.`;
       else if (t) profile[f.key] = t;
     } else if (f.type === "sel") {
@@ -93,6 +100,7 @@ export function validateSignup(raw: unknown): { ok: true; data: SignupInput } | 
   const fullName = str(raw.fullName);
   if (!fullName) errors.fullName = "Enter your full name.";
   else if (fullName.length > LIMITS.name) errors.fullName = "Name is too long.";
+  else if (hasControlChars(fullName)) errors.fullName = "Name contains invalid characters.";
 
   const mobile = normalizeMobile(raw.mobile);
   if (!mobile) errors.mobile = "Enter a 10-digit mobile number starting with 6, 7, 8 or 9.";
@@ -108,6 +116,7 @@ export function validateSignup(raw: unknown): { ok: true; data: SignupInput } | 
   const district = str(raw.district);
   if (!district) errors.district = "Enter your district.";
   else if (district.length > LIMITS.district) errors.district = "District is too long.";
+  else if (hasControlChars(district)) errors.district = "District contains invalid characters.";
 
   const language = raw.language === undefined || raw.language === "" ? "Telugu" : str(raw.language);
   if (!(LANGUAGES as readonly string[]).includes(language)) errors.language = "Choose a supported language.";
@@ -128,6 +137,7 @@ export function validateSignup(raw: unknown): { ok: true; data: SignupInput } | 
     const gEmail = normalizeEmail(g.email);
     if (!gName) errors["guardian.name"] = "Enter your parent or guardian's name.";
     else if (gName.length > LIMITS.name) errors["guardian.name"] = "Name is too long.";
+    else if (hasControlChars(gName)) errors["guardian.name"] = "Name contains invalid characters.";
     if (!(GUARDIAN_RELATIONSHIPS as readonly string[]).includes(gRel)) errors["guardian.relationship"] = "Choose the relationship.";
     if (!gMobile) errors["guardian.mobile"] = "Enter a valid 10-digit mobile number for your parent.";
     else if (gMobile === mobile) errors["guardian.mobile"] = "Your parent's number must be different from yours.";

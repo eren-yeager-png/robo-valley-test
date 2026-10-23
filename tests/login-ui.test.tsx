@@ -1,28 +1,24 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import bcrypt from "bcryptjs";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { __resetLoginThrottle } from "../src/lib/loginThrottle";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { seedUser, testDb } from "./helpers";
 
-const h = vi.hoisted(() => ({ query: vi.fn(), replace: vi.fn(), refresh: vi.fn() }));
-vi.mock("../src/lib/db", () => ({ pool: { query: h.query } }));
+const h = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
+vi.mock("../src/lib/db", async () => { const c = await import("./helpers/currentPool"); return { get pool() { return c.getPool(); } }; });
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: h.replace, refresh: h.refresh, push: vi.fn() }) }));
 
 import LoginForm from "../src/app/login/LoginForm";
 import { POST as loginRoute } from "../src/app/api/auth/login/route";
 
 const PASSWORD = "correct horse";
-let HASH: string;
 let calls: Array<Record<string, unknown>>;
 let gate: Promise<void> | null;
-beforeAll(async () => { HASH = await bcrypt.hash(PASSWORD, 4); });
 
-beforeEach(() => {
-  __resetLoginThrottle();
+beforeEach(async () => {
+  await seedUser(); // the account the UI signs in to (database was emptied by ./helpers)
   calls = []; gate = null;
   h.replace.mockReset(); h.refresh.mockReset();
-  h.query.mockReset().mockResolvedValue({ rows: [{ id: "7", full_name: "Asha Rao", email: "asha@example.com", role: "TC", password_hash: HASH, email_verification: "email" }] });
   vi.stubEnv("SESSION_SECRET", "unit-test-secret-unit-test-secret-1234");
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
@@ -120,7 +116,7 @@ describe("submitting", () => {
   });
 
   it("an unknown email shows the very same message", async () => {
-    h.query.mockResolvedValue({ rows: [] });
+    await testDb().raw.exec("delete from users"); // no such account
     const user = setup();
     await user.type(email(), "nobody@example.com");
     await user.type(pw(), "whatever123");
@@ -155,9 +151,9 @@ describe("submitting", () => {
   });
 
   it("unverified email: shows the verification message", async () => {
-    h.query.mockResolvedValue({ rows: [{ id: "7", full_name: "A", email: "a@e.co", role: "ST", password_hash: HASH, email_verification: "none" }] });
+    await testDb().raw.exec("update users set email_verification = 'none'");
     const user = setup();
-    await user.type(email(), "a@e.co");
+    await user.type(email(), "asha@example.com");
     await user.type(pw(), PASSWORD);
     await user.click(submit());
     await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/verify your email/));
