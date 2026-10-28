@@ -42,12 +42,10 @@ export default function LoginForm() {
         body: JSON.stringify({ email, password, remember }),
       });
       const data = await res.json().catch(() => ({}));
-      if (data.success) {
-        const to = typeof data.redirectTo === "string" && data.redirectTo.startsWith("/") && !data.redirectTo.startsWith("//") ? data.redirectTo : "/dashboard";
-        router.replace(to);
-        router.refresh();
-        return; // keep the button disabled while navigating
-      }
+     if (data.success) {
+  window.location.replace("https://techytree.in/");
+  return;
+}
       if (data.fieldErrors) setErrors(data.fieldErrors);
       setFormError(data.message ?? "Something went wrong. Please try again.");
       setPassword(""); // keep the email, clear the password after a failed attempt
