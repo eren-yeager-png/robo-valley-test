@@ -43,7 +43,8 @@ export default function LoginForm() {
       });
       const data = await res.json().catch(() => ({}));
      if (data.success) {
-  window.location.replace("https://techytree.in/");
+  // Admins go to the admin dashboard (only this one fixed path is honoured); everyone else keeps the existing redirect.
+  window.location.replace(data.redirectTo === "/admin/dashboard" ? "/admin/dashboard" : "https://techytree.in/");
   return;
 }
       if (data.fieldErrors) setErrors(data.fieldErrors);
@@ -66,8 +67,8 @@ export default function LoginForm() {
           </div>
 
           <form onSubmit={onSubmit} noValidate aria-busy={busy}>
-            <label className="f"><span className="req">Email address</span>
-              <input ref={emailRef} type="email" name="email" autoComplete="email" inputMode="email" value={email} maxLength={254}
+            <label className="f" htmlFor="login-email"><span className="req">Email address</span>
+              <input ref={emailRef} id="login-email" type="email" name="email" autoComplete="username" inputMode="email" value={email} maxLength={254}
                 onChange={(e) => { setEmail(e.target.value); clear("email"); }} {...ea("email")} />
               {Err("email")}
             </label>
