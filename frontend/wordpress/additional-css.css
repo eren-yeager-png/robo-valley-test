@@ -1,0 +1,40 @@
+/* RoboValley: "Sign In / Login" header button (Astra HTML 1). Same look as the Contact button. */
+.ast-header-html-1 .ast-builder-html-element p {
+	margin: 0;
+}
+.ast-header-html-1 a.rv-signin {
+	display: inline-block;
+	padding: 12px 24px;
+	border: 2px solid var(--ast-global-color-0);
+	border-radius: 5px;
+	background-color: transparent;
+	color: var(--ast-global-color-0);
+	font-family: "Rubik", sans-serif;
+	font-weight: 500;
+	font-size: 16px;
+	line-height: 1.3;
+	white-space: nowrap;
+	text-decoration: none;
+	transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+.ast-header-html-1 a.rv-signin:hover {
+	background-color: var(--ast-global-color-1);
+	border-color: var(--ast-global-color-1);
+	color: #ffffff;
+}
+.ast-header-html-1 a.rv-signin:focus-visible {
+	outline: 3px solid var(--ast-global-color-0);
+	outline-offset: 3px;
+}
+/* Below 1140px the header has no room for a second button: hide it there. */
+@media (max-width: 1139px) {
+	.ast-header-html-1 {
+		display: none !important;
+	}
+}
+/* Below 1140px (Sign In hidden) keep Contact as the visually last item: Astra removes the last item's right padding. */
+@media (max-width: 1139px) {
+	.site-header-section > .ast-header-button-1 {
+		padding-right: 0;
+	}
+}

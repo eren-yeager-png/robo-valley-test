@@ -1,0 +1,21 @@
+{
+    "post_id": 432,
+    "title": "Home",
+    "slug": "robovalley-home-draft",
+    "status": "publish",
+    "post_modified": "2026-10-23 17:13:45",
+    "front_page": true,
+    "meta": {
+        "_elementor_edit_mode": "builder",
+        "_elementor_page_settings": {
+            "hide_title": "yes",
+            "eael_ext_toc_title": "Table of Contents"
+        },
+        "_elementor_template_type": "wp-page",
+        "_elementor_version": "4.3.5",
+        "_wp_page_template": "elementor_header_footer",
+        "ast-site-content-layout": "full-width-container",
+        "robovalley_landing": "1",
+        "site-post-title": "disabled"
+    }
+}

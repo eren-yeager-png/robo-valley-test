@@ -1,0 +1,27 @@
+# RoboValley WordPress frontend: keep private and generated files out of the repository.
+
+# Database dumps, backups and exports
+*.sql
+*.sql.gz
+*.wpress
+*.tar.gz
+*.zip
+*.bak
+backups/
+
+# Logs, caches and test output (the test scripts write screenshots next to themselves)
+*.log
+cache/
+tests/**/shots*/
+tests/**/*.txt
+
+# Local configuration and secrets
+.env*
+wp-config.php
+*.pem
+*.key
+
+# Dependencies and OS files
+node_modules/
+Thumbs.db
+.DS_Store

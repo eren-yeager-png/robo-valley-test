@@ -1,0 +1,206 @@
+<script>
+/* RoboValley Find a Service: load RoboValley's self-hosted fonts (robovalley-landing plugin) on this page only. */
+( function () {
+	if ( document.getElementById( 'rv-fas-fonts' ) ) {
+		return;
+	}
+	var ref = document.querySelector( 'link[href*="/wp-content/"], script[src*="/wp-content/"]' );
+	if ( ! ref ) {
+		return;
+	}
+	var link = document.createElement( 'link' );
+	link.id = 'rv-fas-fonts';
+	link.rel = 'stylesheet';
+	link.href = ( ref.href || ref.src ).split( '/wp-content/' )[0] + '/wp-content/plugins/robovalley-landing/assets/robovalley-fonts.css';
+	document.head.appendChild( link );
+}() );
+</script>
+<style>
+/* RoboValley Find a Service - every rule is scoped to rv-fas- classes on this page. */
+.rv-fas{--rv-fas-bg:#f5f4ef;--rv-fas-surface:#fff;--rv-fas-tint:#e3ede7;--rv-fas-tint-2:#dfece4;--rv-fas-brand:#17694f;--rv-fas-brand-dark:#123f33;--rv-fas-fg:#15302a;--rv-fas-muted:#56675f;--rv-fas-line:#d6dfd9;--rv-fas-line-2:#b9cfc4;--rv-fas-amber:#e8a33a;--rv-fas-amber-ink:#5a3b06;--rv-fas-amber-bg:#fbefd9;--rv-fas-radius:18px;--rv-fas-ring:0 0 0 3px rgba(23,105,79,.2);--rv-fas-shadow:0 1px 2px rgba(21,48,42,.06),0 10px 28px rgba(21,48,42,.08);--rv-fas-display:'Bricolage Grotesque','Mulish',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-family:'Mulish',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:16px;line-height:1.5;color:var(--rv-fas-fg);box-sizing:border-box}
+.rv-fas *,.rv-fas *::before,.rv-fas *::after{box-sizing:inherit}
+.rv-fas [hidden]{display:none!important}
+.rv-fas-sr{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* Native Elementor widgets in the intro (colours and sizes are set in Elementor; only the brand fonts come from here). */
+.rv-fas-title .elementor-heading-title{font-family:'Bricolage Grotesque','Mulish',system-ui,sans-serif;letter-spacing:-.02em}
+.rv-fas-intro-text,.rv-fas-notice{font-family:'Mulish',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+.rv-fas-intro-text{max-width:740px}
+.rv-fas-intro-text p,.rv-fas-notice p{margin:0}
+/* Search panel */
+.rv-fas-panel{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) minmax(0,.85fr) auto;grid-template-areas:"service location radius submit" "cats cats cats cats";gap:20px 22px;align-items:start;margin:8px 0 0;padding:24px;background:var(--rv-fas-surface);border:1px solid var(--rv-fas-line);border-radius:22px;box-shadow:var(--rv-fas-shadow)}
+.rv-fas-field{position:relative;min-width:0}
+.rv-fas-field--service{grid-area:service}.rv-fas-field--location{grid-area:location}.rv-fas-field--radius{grid-area:radius}
+.rv-fas .rv-fas-label{display:block;margin:0 0 8px;font-size:14px;font-weight:800;line-height:22px;color:var(--rv-fas-brand-dark)}
+.rv-fas .rv-fas-input{width:100%;height:48px;margin:0;padding:0 14px;font:inherit;font-size:16px;color:var(--rv-fas-fg);background:#fff;border:1.5px solid var(--rv-fas-line);border-radius:12px;box-shadow:none;outline:0;transition:border-color .15s,box-shadow .15s}
+.rv-fas .rv-fas-input::placeholder{color:#7d8c85;opacity:1}
+.rv-fas .rv-fas-input:focus{border-color:var(--rv-fas-brand);box-shadow:var(--rv-fas-ring)}
+.rv-fas-combo{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:48px;padding:5px 8px;background:#fff;border:1.5px solid var(--rv-fas-line);border-radius:12px;cursor:text;transition:border-color .15s,box-shadow .15s}
+.rv-fas-combo:focus-within{border-color:var(--rv-fas-brand);box-shadow:var(--rv-fas-ring)}
+.rv-fas .rv-fas-combo .rv-fas-input{flex:1 1 140px;min-width:120px;height:34px;padding:0 6px;border:0;box-shadow:none}
+.rv-fas-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.rv-fas-chip{display:inline-flex;align-items:center;gap:2px;margin:0;padding:3px 4px 3px 12px;font-size:14px;font-weight:700;line-height:1.3;color:var(--rv-fas-brand-dark);background:var(--rv-fas-tint);border-radius:999px}
+.rv-fas .rv-fas-chip button{display:inline-grid;place-items:center;width:24px;height:24px;margin:0;padding:0;font:inherit;font-size:16px;line-height:1;color:inherit;background:transparent;border:0;border-radius:50%;cursor:pointer}
+.rv-fas .rv-fas-chip button:hover,.rv-fas .rv-fas-chip button:focus-visible{color:#fff;background:var(--rv-fas-brand);outline:0}
+.rv-fas-suggest{position:absolute;z-index:40;top:calc(100% + 6px);left:0;right:0;max-height:320px;overflow:auto;margin:0;padding:6px;list-style:none;background:#fff;border:1px solid var(--rv-fas-line);border-radius:14px;box-shadow:0 14px 36px rgba(21,48,42,.16)}
+.rv-fas-option{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0;padding:10px 12px;font-weight:700;border-radius:10px;cursor:pointer}
+.rv-fas-option.is-active,.rv-fas-option:hover{background:var(--rv-fas-tint)}
+.rv-fas-option-note{flex:none;font-size:12.5px;font-weight:600;color:var(--rv-fas-muted)}
+.rv-fas-option--empty{display:block;font-weight:600;color:var(--rv-fas-muted);cursor:default}
+.rv-fas-option--empty:hover{background:transparent}
+.rv-fas-place-row{display:flex;gap:8px}
+.rv-fas-place-row .rv-fas-input{flex:1 1 auto;min-width:0}
+.rv-fas .rv-fas-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;margin:0;padding:0 20px;font:inherit;font-size:15px;font-weight:800;line-height:1;letter-spacing:0;text-transform:none;text-decoration:none;white-space:nowrap;border:1.5px solid transparent;border-radius:999px;box-shadow:none;cursor:pointer;transition:background-color .15s,color .15s,border-color .15s,transform .15s,box-shadow .15s}
+.rv-fas .rv-fas-btn svg{flex:none;width:18px;height:18px}
+.rv-fas .rv-fas-btn--primary,.rv-fas .rv-fas-btn--primary:focus,.rv-fas .rv-fas-btn--primary:visited{color:#fff;background:var(--rv-fas-brand);border-color:var(--rv-fas-brand)}
+.rv-fas .rv-fas-btn--primary:hover{color:#fff;background:var(--rv-fas-brand-dark);border-color:var(--rv-fas-brand-dark);transform:translateY(-1px);box-shadow:0 6px 16px rgba(18,63,51,.25)}
+.rv-fas .rv-fas-btn--ghost,.rv-fas .rv-fas-btn--ghost:focus,.rv-fas .rv-fas-btn--ghost:visited{color:var(--rv-fas-brand);background:#fff;border-color:var(--rv-fas-line-2)}
+.rv-fas .rv-fas-btn--ghost:hover{color:var(--rv-fas-brand-dark);background:var(--rv-fas-tint);border-color:var(--rv-fas-brand);transform:translateY(-1px)}
+.rv-fas .rv-fas-btn:focus-visible{outline:3px solid rgba(23,105,79,.4);outline-offset:2px}
+.rv-fas .rv-fas-btn[disabled],.rv-fas .rv-fas-btn[aria-disabled="true"]{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+.rv-fas .rv-fas-btn--small{height:38px;padding:0 14px;font-size:14px}
+.rv-fas .rv-fas-link{display:inline;margin:0;padding:0;font:inherit;font-weight:800;color:var(--rv-fas-brand);text-align:left;text-decoration:underline;text-underline-offset:2px;background:none;border:0;cursor:pointer}
+.rv-fas .rv-fas-link:hover,.rv-fas .rv-fas-link:focus{color:var(--rv-fas-brand-dark);background:none}
+.rv-fas-loc-status{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin:8px 0 0;font-size:14px;line-height:1.45;color:var(--rv-fas-muted)}
+.rv-fas-loc-status--ok{color:var(--rv-fas-brand);font-weight:700}
+.rv-fas-loc-status--busy{color:var(--rv-fas-brand-dark)}
+.rv-fas-loc-status--warn{padding:8px 12px;color:var(--rv-fas-amber-ink);background:var(--rv-fas-amber-bg);border-radius:10px}
+.rv-fas-places{margin:8px 0 0;padding:10px 12px;font-size:14px;background:var(--rv-fas-bg);border-radius:12px}
+.rv-fas-places p{margin:0 0 4px;font-weight:700;color:var(--rv-fas-muted)}
+.rv-fas-places ul{margin:0;padding:0;list-style:none}
+.rv-fas-places li{margin:4px 0 0}
+.rv-fas .rv-fas-range{display:block;width:100%;height:48px;margin:0;padding:0;background:transparent;border:0;cursor:pointer;-webkit-appearance:none;appearance:none;--rv-fas-fill:24.24%}
+.rv-fas .rv-fas-range:focus{outline:0}
+.rv-fas .rv-fas-range::-webkit-slider-runnable-track{height:8px;border-radius:999px;background:linear-gradient(to right,var(--rv-fas-brand) var(--rv-fas-fill),var(--rv-fas-line) var(--rv-fas-fill))}
+.rv-fas .rv-fas-range::-webkit-slider-thumb{width:28px;height:28px;margin-top:-10px;background:#fff;border:3px solid var(--rv-fas-brand);border-radius:50%;box-shadow:0 2px 6px rgba(21,48,42,.25);-webkit-appearance:none;appearance:none}
+.rv-fas .rv-fas-range::-moz-range-track{height:8px;background:var(--rv-fas-line);border:0;border-radius:999px}
+.rv-fas .rv-fas-range::-moz-range-progress{height:8px;background:var(--rv-fas-brand);border-radius:999px}
+.rv-fas .rv-fas-range::-moz-range-thumb{width:22px;height:22px;background:#fff;border:3px solid var(--rv-fas-brand);border-radius:50%;box-shadow:0 2px 6px rgba(21,48,42,.25)}
+.rv-fas .rv-fas-range:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 5px rgba(23,105,79,.25)}
+.rv-fas .rv-fas-range:focus-visible::-moz-range-thumb{box-shadow:0 0 0 5px rgba(23,105,79,.25)}
+.rv-fas-radius-out{font-weight:800;color:var(--rv-fas-brand)}
+.rv-fas-scale{display:flex;justify-content:space-between;margin:-6px 0 0;font-size:12px;color:var(--rv-fas-muted)}
+.rv-fas-submit{grid-area:submit;padding-top:30px}
+.rv-fas-submit .rv-fas-btn{min-width:140px}
+.rv-fas-cats{grid-area:cats;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:16px;border-top:1px dashed var(--rv-fas-line)}
+.rv-fas-cats-label{margin-right:4px;font-size:14px;font-weight:800;color:var(--rv-fas-muted)}
+.rv-fas .rv-fas-cat{display:inline-flex;align-items:center;gap:8px;height:36px;margin:0;padding:0 14px 0 10px;font:inherit;font-size:14px;font-weight:700;color:var(--rv-fas-fg);background:#fff;border:1.5px solid var(--rv-fas-line);border-radius:999px;cursor:pointer;transition:background-color .15s,color .15s,border-color .15s,transform .15s}
+.rv-fas .rv-fas-cat:hover{color:var(--rv-fas-fg);background:#fff;border-color:var(--rv-fas-brand);transform:translateY(-1px)}
+.rv-fas .rv-fas-cat:focus{color:var(--rv-fas-fg);background:#fff}
+.rv-fas .rv-fas-cat:focus-visible{outline:3px solid rgba(23,105,79,.4);outline-offset:2px}
+.rv-fas .rv-fas-cat[aria-pressed="true"]{color:#fff;background:var(--rv-fas-brand);border-color:var(--rv-fas-brand)}
+.rv-fas-dot{width:10px;height:10px;background:var(--rv-fas-c,var(--rv-fas-brand));border-radius:50%}
+.rv-fas-cat[aria-pressed="true"] .rv-fas-dot{box-shadow:0 0 0 2px #fff}
+.rv-fas-cat-wrap{position:relative;display:inline-flex}
+.rv-fas .rv-fas-tip{position:absolute;z-index:30;bottom:calc(100% + 10px);left:50%;padding:7px 12px;font-size:13px;font-weight:800;line-height:1.2;white-space:nowrap;color:#fff;background:var(--rv-fas-brand-dark);border-radius:10px;box-shadow:0 8px 20px rgba(21,48,42,.22);opacity:0;visibility:hidden;pointer-events:none;transform:translate(-50%,4px);transition:opacity .15s,transform .15s,visibility .15s}
+.rv-fas-tip::after{content:"";position:absolute;top:100%;left:50%;margin-left:-6px;border:6px solid transparent;border-top-color:var(--rv-fas-brand-dark)}
+.rv-fas-tip::before{content:"";position:absolute;top:100%;left:0;right:0;height:12px}
+.rv-fas-cat-wrap:hover .rv-fas-tip,.rv-fas-cat-wrap:focus-within .rv-fas-tip,.rv-fas-cat-wrap.is-tip .rv-fas-tip{opacity:1;visibility:visible;transform:translate(-50%,0)}
+.rv-fas-cat-wrap.is-tip-off .rv-fas-tip{opacity:0;visibility:hidden}
+@media (hover:hover){.rv-fas-cat-wrap:hover .rv-fas-tip{pointer-events:auto}} /* hoverable with a mouse; never blocks taps on the chip row above */
+.rv-fas-option--soon{color:var(--rv-fas-muted);cursor:default}
+.rv-fas-option--soon:hover{background:transparent}
+.rv-fas-option--soon .rv-fas-option-note{color:var(--rv-fas-amber-ink)}
+.rv-fas .rv-fas-soon-badge{display:inline-block;margin:0 0 8px;padding:3px 10px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--rv-fas-amber-ink);background:var(--rv-fas-amber-bg);border-radius:999px}
+/* Results and map */
+.rv-fas-results-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px}
+.rv-fas .rv-fas-summary{margin:0;font-size:17px;font-weight:800;line-height:1.4;color:var(--rv-fas-brand-dark)}
+.rv-fas-demo-tag{flex:none;padding:5px 10px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--rv-fas-amber-ink);background:var(--rv-fas-amber-bg);border:1px solid #f0cf96;border-radius:999px}
+.rv-fas-layout{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:24px;align-items:start}
+.rv-fas-map-col{position:sticky;top:24px}
+.rv-fas-map{position:relative;z-index:0;height:min(640px,calc(100vh - 48px));min-height:440px;overflow:hidden;background:var(--rv-fas-tint-2);border:1px solid var(--rv-fas-line);border-radius:var(--rv-fas-radius);box-shadow:var(--rv-fas-shadow)}
+.rv-fas .rv-fas-map-msg{position:absolute;z-index:1000;inset:0;display:flex;align-items:center;justify-content:center;margin:0;padding:24px;font-weight:700;text-align:center;color:var(--rv-fas-muted)}
+.rv-fas .rv-fas-map-msg.is-error{color:var(--rv-fas-amber-ink);background:var(--rv-fas-amber-bg)}
+.rv-fas .rv-fas-map-msg.is-banner{inset:auto 12px 12px 12px;padding:10px 14px;font-size:14px;color:var(--rv-fas-amber-ink);background:var(--rv-fas-amber-bg);border-radius:12px;pointer-events:none}
+.rv-fas-alert{display:flex;flex-wrap:wrap;gap:6px 10px;margin:0 0 14px;padding:12px 16px;font-size:15px;color:var(--rv-fas-amber-ink);background:var(--rv-fas-amber-bg);border:1px solid #f0cf96;border-radius:14px}
+.rv-fas-list{display:grid;gap:14px;margin:0;padding:0;list-style:none}
+.rv-fas-card{margin:0;padding:18px 18px 16px;background:#fff;border:1.5px solid var(--rv-fas-line);border-radius:var(--rv-fas-radius);box-shadow:0 1px 2px rgba(21,48,42,.05);cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .2s}
+.rv-fas-card:hover{border-color:var(--rv-fas-line-2);box-shadow:var(--rv-fas-shadow);transform:translateY(-2px)}
+.rv-fas-card.is-selected{border-color:var(--rv-fas-brand);box-shadow:var(--rv-fas-ring),var(--rv-fas-shadow)}
+.rv-fas-card-head{display:flex;align-items:flex-start;gap:10px}
+.rv-fas-rank{flex:none;display:grid;place-items:center;width:28px;height:28px;font-size:13px;font-weight:800;color:var(--rv-fas-brand-dark);background:var(--rv-fas-tint);border-radius:50%}
+.rv-fas-card.is-selected .rv-fas-rank{color:var(--rv-fas-amber-ink);background:var(--rv-fas-amber)}
+.rv-fas .rv-fas-card-title{flex:1;margin:2px 0 0;font-family:var(--rv-fas-display);font-size:18px;font-weight:700;line-height:1.25;letter-spacing:-.01em;color:var(--rv-fas-brand-dark)}
+.rv-fas-dist{flex:none;padding:3px 10px;font-size:14px;font-weight:800;color:var(--rv-fas-brand);background:var(--rv-fas-tint);border-radius:999px}
+.rv-fas-tags{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0 38px;padding:0;list-style:none}
+.rv-fas-tag{display:inline-flex;align-items:center;gap:6px;margin:0;padding:3px 10px 3px 8px;font-size:12.5px;font-weight:700;color:var(--rv-fas-fg);background:#f1f5f3;border-radius:999px}
+.rv-fas-tag::before{content:"";width:8px;height:8px;background:var(--rv-fas-c,var(--rv-fas-brand));border-radius:50%}
+.rv-fas-tag--demo{color:var(--rv-fas-amber-ink);background:var(--rv-fas-amber-bg)}
+.rv-fas-tag--demo::before{background:var(--rv-fas-amber)}
+.rv-fas-meta{display:grid;gap:6px;margin:12px 0 0 38px;font-size:14.5px}
+.rv-fas-meta>div{display:grid;grid-template-columns:78px minmax(0,1fr);gap:8px}
+.rv-fas-meta dt{margin:0;font-size:13px;font-weight:800;color:var(--rv-fas-muted)}
+.rv-fas-meta dd{margin:0;overflow-wrap:anywhere}
+.rv-fas-meta a{color:var(--rv-fas-brand);font-weight:700}
+.rv-fas-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0 0 38px}
+.rv-fas-nosite{font-size:13px;color:var(--rv-fas-muted)}
+.rv-fas-state{padding:24px;background:#fff;border:1.5px dashed var(--rv-fas-line-2);border-radius:var(--rv-fas-radius)}
+.rv-fas .rv-fas-state h3{margin:0 0 6px;font-family:var(--rv-fas-display);font-size:20px;font-weight:700;color:var(--rv-fas-brand-dark)}
+.rv-fas-state p{margin:0 0 10px}
+.rv-fas-state-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.rv-fas-state--loading{padding:0;background:transparent;border:0}
+.rv-fas-state--loading .rv-fas-state-msg{margin:0 0 12px;font-weight:700;color:var(--rv-fas-brand-dark)}
+.rv-fas-skel{height:150px;margin:0 0 14px;background:linear-gradient(90deg,#eaf0ec 0,#f7f9f8 40%,#eaf0ec 80%);background-size:200% 100%;border-radius:var(--rv-fas-radius);animation:rv-fas-shimmer 1.2s linear infinite}
+@keyframes rv-fas-shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
+.rv-fas-pin-wrap,.rv-fas-origin-wrap{background:none;border:0}
+.rv-fas-pin{position:absolute;top:0;left:3px;display:grid;place-items:center;width:28px;height:28px;background:var(--rv-fas-brand);border:2px solid #fff;border-radius:50% 50% 50% 0;box-shadow:0 2px 6px rgba(0,0,0,.3);transform:rotate(-45deg);transition:transform .15s}
+.rv-fas-pin>span{font:800 12px/1 'Mulish',system-ui,sans-serif;color:#fff;transform:rotate(45deg)}
+.rv-fas-pin.is-active{background:var(--rv-fas-amber);transform:rotate(-45deg) scale(1.3)}
+.rv-fas-pin.is-active>span{color:var(--rv-fas-amber-ink)}
+.rv-fas-origin{display:block;width:18px;height:18px;background:var(--rv-fas-brand-dark);border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 5px rgba(18,63,51,.25)}
+.rv-fas .leaflet-container{font-family:'Mulish',system-ui,sans-serif}
+.rv-fas .leaflet-popup-content-wrapper{border-radius:14px}
+.rv-fas .leaflet-popup-content{margin:14px 16px}
+.rv-fas-pop h4{margin:2px 0 4px;font-family:var(--rv-fas-display);font-size:15px;line-height:1.25;color:var(--rv-fas-brand-dark)}
+.rv-fas-pop p{margin:2px 0!important;font-size:13px;line-height:1.4}
+.rv-fas-pop .rv-fas-pop-tag{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--rv-fas-amber-ink)}
+.rv-fas-pop a{font-weight:800;color:var(--rv-fas-brand)}
+@media (max-width:1100px){
+	.rv-fas-panel{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"service location" "radius submit" "cats cats"}
+}
+@media (max-width:1024px){
+	.rv-fas-layout{grid-template-columns:minmax(0,1fr)}
+	.rv-fas-map-col{position:relative;top:auto;order:-1}
+	.rv-fas-map{height:380px;min-height:0}
+}
+@media (max-width:640px){
+	.rv-fas-panel{grid-template-columns:minmax(0,1fr);grid-template-areas:"service" "location" "radius" "cats" "submit";gap:18px;padding:18px 16px;border-radius:18px}
+	.rv-fas-place-row{flex-direction:column}
+	.rv-fas-place-row .rv-fas-btn,.rv-fas-submit .rv-fas-btn{width:100%}
+	.rv-fas-submit{padding-top:0}
+	.rv-fas-results-head{flex-direction:column;align-items:flex-start}
+	.rv-fas-map{height:320px}
+	.rv-fas-tags,.rv-fas-meta,.rv-fas-actions{margin-left:0}
+	.rv-fas-meta>div{grid-template-columns:minmax(0,1fr);gap:0}
+}
+@media (prefers-reduced-motion:reduce){
+	.rv-fas *,.rv-fas *::before,.rv-fas *::after{transition:none!important;animation:none!important}
+}
+</style>
+<div class="rv-fas rv-fas-panel-wrap">
+<form class="rv-fas-panel" id="rv-fas-form" role="search" aria-label="Find a service" novalidate>
+	<div class="rv-fas-field rv-fas-field--service">
+		<label class="rv-fas-label" for="rv-fas-service">Service</label>
+		<div class="rv-fas-combo" id="rv-fas-combo">
+			<ul class="rv-fas-chips" id="rv-fas-chips" aria-label="Selected services" hidden></ul>
+			<input class="rv-fas-input" id="rv-fas-service" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="rv-fas-service-list" autocomplete="off" spellcheck="false" placeholder="Search services, e.g. ATL Labs">
+		</div>
+		<ul class="rv-fas-suggest" id="rv-fas-service-list" role="listbox" aria-label="Matching services" hidden></ul>
+	</div>
+	<div class="rv-fas-field rv-fas-field--location">
+		<label class="rv-fas-label" for="rv-fas-place">Location</label>
+		<div class="rv-fas-place-row">
+			<input class="rv-fas-input" id="rv-fas-place" type="text" autocomplete="off" placeholder="City, area, town, PIN code or address" aria-describedby="rv-fas-loc-status">
+			<button type="button" class="rv-fas-btn rv-fas-btn--ghost" id="rv-fas-geo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Use my location</button>
+		</div>
+		<div class="rv-fas-loc-status" id="rv-fas-loc-status" role="status" aria-live="polite"><span id="rv-fas-loc-text">Allow location access to discover services near you.</span><button type="button" class="rv-fas-link" id="rv-fas-geo-retry" hidden>Try again</button></div>
+		<div class="rv-fas-places" id="rv-fas-places" hidden></div>
+	</div>
+	<div class="rv-fas-field rv-fas-field--radius">
+		<label class="rv-fas-label" for="rv-fas-radius">Search radius: <output class="rv-fas-radius-out" id="rv-fas-radius-out" for="rv-fas-radius">25 km</output></label>
+		<input class="rv-fas-range" id="rv-fas-radius" type="range" min="1" max="100" step="1" value="25" aria-valuetext="25 km">
+		<div class="rv-fas-scale" aria-hidden="true"><span>1 km</span><span>50 km</span><span>100 km</span></div>
+	</div>
+	<div class="rv-fas-cats" id="rv-fas-cats" role="group" aria-label="Popular services"></div>
+	<div class="rv-fas-submit"><button type="submit" class="rv-fas-btn rv-fas-btn--primary" id="rv-fas-go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search</button></div>
+</form>
+</div>
