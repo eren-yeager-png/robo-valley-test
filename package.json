@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "seed:admins": "node --env-file-if-exists=.env.local scripts/seed-admins.mjs"
   },
   "keywords": [],
   "author": "",
