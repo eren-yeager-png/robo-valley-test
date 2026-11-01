@@ -1,0 +1,186 @@
+<!-- RoboValley Find a Service: SCHOOL DIRECTORY search (centrally stored data uploaded by an administrator).
+     Everyone (visitors, members, admins) searches the same active dataset through GET /api/services/search.
+     The section stays hidden when no API address is configured (window.RoboValleyApi.base), so the page is unchanged until then.
+     Text from the API is only ever inserted with textContent, never as HTML. -->
+<section class="rv-fas rv-fas-dir" id="rv-fas-dir" aria-labelledby="rv-fas-dir-h" hidden>
+	<h2 class="rv-fas-dir-h" id="rv-fas-dir-h">School directory</h2>
+	<p class="rv-fas-dir-sub">Search schools by name and location.</p>
+	<form class="rv-fas-dir-form" id="rv-fas-dir-form" role="search" aria-label="Search the school directory" novalidate>
+		<div class="rv-fas-field">
+			<label class="rv-fas-label" for="rv-fas-dir-q">School name</label>
+			<input class="rv-fas-input" id="rv-fas-dir-q" type="search" maxlength="100" autocomplete="off" spellcheck="false" placeholder="e.g. Kendriya Vidyalaya">
+		</div>
+		<div class="rv-fas-field">
+			<label class="rv-fas-label" for="rv-fas-dir-loc">Location</label>
+			<input class="rv-fas-input" id="rv-fas-dir-loc" type="search" maxlength="100" autocomplete="off" spellcheck="false" placeholder="District, state or PIN code">
+		</div>
+		<div class="rv-fas-submit"><button type="submit" class="rv-fas-btn rv-fas-btn--primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search</button></div>
+	</form>
+	<div class="rv-fas-results-head"><p class="rv-fas-summary" id="rv-fas-dir-summary" role="status" aria-live="polite"></p></div>
+	<div class="rv-fas-alert" id="rv-fas-dir-alert" role="alert" hidden></div>
+	<div class="rv-fas-state" id="rv-fas-dir-state" hidden></div>
+	<ol class="rv-fas-list" id="rv-fas-dir-list" aria-label="Schools"></ol>
+	<nav class="rv-fas-dir-pager" id="rv-fas-dir-pager" aria-label="Result pages" hidden>
+		<button type="button" class="rv-fas-btn rv-fas-btn--ghost rv-fas-btn--small" id="rv-fas-dir-prev">Previous</button>
+		<span id="rv-fas-dir-page" aria-live="polite"></span>
+		<button type="button" class="rv-fas-btn rv-fas-btn--ghost rv-fas-btn--small" id="rv-fas-dir-next">Next</button>
+	</nav>
+</section>
+<style>
+/* Scoped to rv-fas-dir. Cards, buttons, inputs and states reuse the page's existing rv-fas-* styles. */
+.rv-fas-dir{margin:0}
+.rv-fas-dir[hidden]{display:none!important}
+.rv-fas-dir-h{margin:0 0 4px;font-family:var(--rv-fas-display);font-size:34px;font-weight:700;line-height:1.15;letter-spacing:-.01em;color:var(--rv-fas-brand-dark)}
+.rv-fas-dir-sub{margin:0 0 16px;color:var(--rv-fas-muted)}
+.rv-fas-dir-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:18px 22px;align-items:end;margin:0 0 22px;padding:22px;background:var(--rv-fas-surface);border:1px solid var(--rv-fas-line);border-radius:var(--rv-fas-radius);box-shadow:var(--rv-fas-shadow)}
+.rv-fas-dir-form .rv-fas-field,.rv-fas-dir-form .rv-fas-submit{grid-area:auto;min-width:0}
+.rv-fas-dir .rv-fas-list{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.rv-fas-dir .rv-fas-card{cursor:default;min-width:0}
+.rv-fas-dir .rv-fas-card-title{overflow-wrap:anywhere}
+.rv-fas-dir-meta{margin:8px 0 0;font-size:15px;color:var(--rv-fas-fg)}
+.rv-fas-dir-udise{margin:2px 0 0;font-size:14px;color:var(--rv-fas-muted)}
+.rv-fas-dir details{margin:10px 0 0;font-size:14px}
+.rv-fas-dir summary{cursor:pointer;font-weight:800;color:var(--rv-fas-brand)}
+.rv-fas-dir dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:8px 0 0}
+.rv-fas-dir dt{font-weight:800;color:var(--rv-fas-brand-dark)}
+.rv-fas-dir dd{margin:0;overflow-wrap:anywhere}
+.rv-fas-dir-pager{display:flex;align-items:center;justify-content:center;gap:16px;margin:22px 0 0;font-weight:800;color:var(--rv-fas-brand-dark)}
+.rv-fas-dir-pager .rv-fas-btn{width:auto;min-width:0}
+.rv-fas-dir .rv-fas-results-head{margin:0 0 14px}
+@media (max-width:1024px){.rv-fas-dir-form{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.rv-fas-dir-form .rv-fas-submit{grid-column:1 / -1}}
+@media (max-width:600px){.rv-fas-dir-h{font-size:28px}.rv-fas-dir-form{grid-template-columns:minmax(0,1fr);padding:18px 16px;gap:16px}.rv-fas-dir .rv-fas-list{grid-template-columns:minmax(0,1fr)}}
+</style>
+<script>
+( function () {
+	var root = document.getElementById( 'rv-fas-dir' );
+	var api = ( window.RoboValleyApi && window.RoboValleyApi.base ) || '';
+	if ( ! root || ! api || ! window.fetch ) {
+		return;
+	}
+	root.hidden = false;
+	var $ = function ( id ) { return document.getElementById( id ); };
+	var form = $( 'rv-fas-dir-form' ), inQ = $( 'rv-fas-dir-q' ), inLoc = $( 'rv-fas-dir-loc' );
+	var summary = $( 'rv-fas-dir-summary' ), alertBox = $( 'rv-fas-dir-alert' ), stateBox = $( 'rv-fas-dir-state' );
+	var list = $( 'rv-fas-dir-list' ), pager = $( 'rv-fas-dir-pager' ), pageLbl = $( 'rv-fas-dir-page' );
+	var prev = $( 'rv-fas-dir-prev' ), next = $( 'rv-fas-dir-next' );
+	var SIZE = 12;
+	var S = { q: '', loc: '', page: 1 };
+	var seq = 0, ctl = null, timer = 0;
+
+	function el( tag, cls, text ) {
+		var n = document.createElement( tag );
+		if ( cls ) { n.className = cls; }
+		if ( text != null ) { n.textContent = text; }
+		return n;
+	}
+	function fmt( n ) { return Number( n ).toLocaleString( 'en-IN' ); }
+	function clearState() { stateBox.hidden = true; stateBox.textContent = ''; alertBox.hidden = true; alertBox.textContent = ''; }
+	function showState( title, text, withClear ) {
+		stateBox.textContent = '';
+		stateBox.appendChild( el( 'h3', '', title ) );
+		stateBox.appendChild( el( 'p', '', text ) );
+		if ( withClear ) {
+			var actions = el( 'div', 'rv-fas-state-actions' );
+			var b = el( 'button', 'rv-fas-btn rv-fas-btn--ghost rv-fas-btn--small', 'Clear search' );
+			b.type = 'button';
+			b.addEventListener( 'click', function () { inQ.value = ''; inLoc.value = ''; S.q = ''; S.loc = ''; S.page = 1; load(); inQ.focus(); } );
+			actions.appendChild( b );
+			stateBox.appendChild( actions );
+		}
+		stateBox.hidden = false;
+	}
+
+	function card( r, n ) {
+		var li = el( 'li', 'rv-fas-card' );
+		var head = el( 'div', 'rv-fas-card-head' );
+		var rank = el( 'span', 'rv-fas-rank', String( n ) );
+		rank.setAttribute( 'aria-hidden', 'true' );
+		head.appendChild( rank );
+		head.appendChild( el( 'h3', 'rv-fas-card-title', r.schoolName ) );
+		li.appendChild( head );
+		var place = [ r.district, r.state ].filter( Boolean ).join( ', ' );
+		if ( r.pincode ) { place += ( place ? ' – ' : '' ) + r.pincode; }
+		if ( place ) { li.appendChild( el( 'p', 'rv-fas-dir-meta', place ) ); }
+		if ( r.udiseCode ) { li.appendChild( el( 'p', 'rv-fas-dir-udise', 'UDISE code: ' + r.udiseCode ) ); }
+		var keys = Object.keys( r.details || {} ).filter( function ( k ) { return r.details[ k ] !== ''; } );
+		if ( keys.length > 1 ) {
+			var d = el( 'details' );
+			d.appendChild( el( 'summary', '', 'All details' ) );
+			var dl = el( 'dl' );
+			keys.forEach( function ( k ) {
+				dl.appendChild( el( 'dt', '', k.replace( /_/g, ' ' ) ) );
+				dl.appendChild( el( 'dd', '', r.details[ k ] ) );
+			} );
+			d.appendChild( dl );
+			li.appendChild( d );
+		}
+		return li;
+	}
+
+	function load() {
+		var mine = ++seq;
+		if ( ctl ) { ctl.abort(); }
+		ctl = window.AbortController ? new AbortController() : null;
+		clearState();
+		summary.textContent = 'Searching…';
+		var qs = 'q=' + encodeURIComponent( S.q ) + '&location=' + encodeURIComponent( S.loc ) + '&page=' + S.page + '&pageSize=' + SIZE;
+		fetch( api + '/api/services/search?' + qs, { cache: 'no-store', signal: ctl ? ctl.signal : undefined } )
+			.then( function ( r ) { return r.json().catch( function () { return {}; } ).then( function ( d ) { return { ok: r.ok, d: d }; } ); } )
+			.then( function ( res ) {
+				if ( mine !== seq ) { return; }
+				list.textContent = '';
+				pager.hidden = true;
+				var d = res.d;
+				if ( ! res.ok || ! d.success ) {
+					summary.textContent = '';
+					alertBox.textContent = ( d && d.message ) || 'Search is not available right now. Please try again.';
+					alertBox.hidden = false;
+					return;
+				}
+				if ( ! d.dataset ) {
+					summary.textContent = '';
+					showState( 'The school directory is not available yet', 'No school data has been published. Please check back soon.', false );
+					return;
+				}
+				if ( d.total === 0 ) {
+					summary.textContent = '0 schools found';
+					showState( 'No schools found', 'Try a shorter name, check the spelling, or search by district or PIN code.', !! ( S.q || S.loc ) );
+					return;
+				}
+				var from = ( d.page - 1 ) * d.pageSize + 1, to = from + d.results.length - 1;
+				summary.textContent = 'Showing ' + fmt( from ) + '–' + fmt( to ) + ' of ' + fmt( d.total ) + ( d.total === 1 ? ' school' : ' schools' );
+				d.results.forEach( function ( r, i ) { list.appendChild( card( r, from + i ) ); } );
+				var pages = Math.ceil( d.total / d.pageSize );
+				if ( pages > 1 ) {
+					pageLbl.textContent = 'Page ' + d.page + ' of ' + fmt( pages );
+					prev.disabled = d.page <= 1;
+					next.disabled = d.page >= pages;
+					pager.hidden = false;
+				}
+			} )
+			.catch( function ( e ) {
+				if ( mine !== seq || ( e && e.name === 'AbortError' ) ) { return; }
+				list.textContent = '';
+				pager.hidden = true;
+				summary.textContent = '';
+				alertBox.textContent = 'Could not reach the server. Check your connection and try again.';
+				alertBox.hidden = false;
+			} );
+	}
+
+	function submit() {
+		clearTimeout( timer );
+		S.q = inQ.value.trim();
+		S.loc = inLoc.value.trim();
+		S.page = 1;
+		load();
+	}
+	form.addEventListener( 'submit', function ( e ) { e.preventDefault(); submit(); } );
+	[ inQ, inLoc ].forEach( function ( i ) { i.addEventListener( 'input', function () { clearTimeout( timer ); timer = setTimeout( submit, 400 ); } ); } );
+	prev.addEventListener( 'click', function () { if ( S.page > 1 ) { S.page--; load(); root.scrollIntoView( { block: 'start' } ); } } );
+	next.addEventListener( 'click', function () { S.page++; load(); root.scrollIntoView( { block: 'start' } ); } );
+	document.addEventListener( 'rv-dir-refresh', function () { S.page = 1; load(); } ); // after an admin publishes new data
+
+	load();
+}() );
+</script>

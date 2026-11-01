@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       RoboValley Landing
  * Description:       Scoped styles, self-hosted fonts and the slider and chart scripts for the RoboValley landing page. Loads only on pages flagged with the robovalley_landing meta.
- * Version:           1.2.0
+ * Version:           1.3.0
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            RoboValley
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ROBOVALLEY_LANDING_VERSION', '1.2.1' );
+define( 'ROBOVALLEY_LANDING_VERSION', '1.3.0' );
 
 /**
  * Per-page opt-in flag. Editable through the REST API by users who can edit the page.
@@ -105,4 +105,49 @@ add_filter(
 		}
 		return $classes;
 	}
+);
+
+/**
+ * Address of the RoboValley API (the Next.js app), e.g. https://app.techytree.in or http://localhost:3000.
+ * Set it in Settings (option robovalley_api_base) or with the robovalley_api_base filter. Empty = the API features
+ * (admin Upload Files, school directory search, "Admin" header label) stay switched off and the site is unchanged.
+ */
+function robovalley_landing_api_base() {
+	$base = apply_filters( 'robovalley_api_base', get_option( 'robovalley_api_base', '' ) );
+	$base = is_string( $base ) ? esc_url_raw( trim( $base ), array( 'http', 'https' ) ) : '';
+	return untrailingslashit( $base );
+}
+
+// Defines window.RoboValleyApi in the page head so the Find a Service widgets and the header script can read it.
+add_action(
+	'wp_head',
+	function () {
+		$base = robovalley_landing_api_base();
+		if ( '' === $base ) {
+			return;
+		}
+		echo '<script>window.RoboValleyApi=' . wp_json_encode( array( 'base' => $base ) ) . ';</script>' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_json_encode output.
+	},
+	1
+);
+
+// Header account label (every page): "Admin" instead of Sign In for a signed-in administrator.
+add_action(
+	'wp_enqueue_scripts',
+	function () {
+		if ( '' === robovalley_landing_api_base() || robovalley_landing_is_elementor_editing() ) {
+			return;
+		}
+		wp_enqueue_script(
+			'robovalley-account',
+			plugin_dir_url( __FILE__ ) . 'assets/robovalley-account.js',
+			array(),
+			ROBOVALLEY_LANDING_VERSION,
+			array(
+				'in_footer' => true,
+				'strategy'  => 'defer',
+			)
+		);
+	},
+	20
 );

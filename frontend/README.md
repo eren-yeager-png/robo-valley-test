@@ -92,8 +92,12 @@ The rest of the homepage (headings, text, buttons, images, the WPForms form, lay
 | `widgets/01-search-panel.a51f0c7.html` | HTML `a51f0c7` "Find a Service – search panel (fonts, styles, form)" | All the page's CSS, the search form and the Popular services chip row (incl. the "Coming Soon!" tooltip styles) |
 | `widgets/02-demo-data.a51f0d2.html` | HTML `a51f0d2` "Find a Service – DEMO DATA (replace with real providers later)" | Categories and facilities as JSON (`<script type="application/json" id="rv-fas-data">`). **Demonstration data only.** |
 | `widgets/03-results-map-script.a51f0d3.html` | HTML `a51f0d3` "Find a Service – results, map and script" | Results list, Leaflet map, location search, radius filter, Coming Soon behaviour |
+| `widgets/04-upload-button.a51f0e2.html` | HTML `a51f0e2` (in the title row next to the heading) | **Admin-only** "Upload Files" button, dialog, preview and confirm. Ships no button markup: the script asks the API (`GET /api/auth/me`) and only for an admin creates the button, so visitors and regular users never have it in the page. Needs `robovalley_api_base` (below). |
+| `widgets/05-school-directory.a51f0e4.html` | HTML `a51f0e4` (new container under the results) | "School directory": search by school name and location against the centrally stored dataset (`GET /api/services/search`), paginated, friendly empty state. Hidden until `robovalley_api_base` is set. |
 
 All CSS classes on this page start with `rv-fas-`, so they don't affect other pages. The page currently has 1 live category (ATL Labs, 5 demo facilities). Five categories are marked Coming Soon: Robotics Labs, STEM Labs, 3D Printing Facilities, Robotics Training Centres and Innovation Centres. Selecting one shows a "Coming Soon!" panel instead of results.
+
+**API address.** The two new widgets and the header "Admin" label read `window.RoboValleyApi.base`, printed by the plugin from the WordPress option `robovalley_api_base` (or the `robovalley_api_base` filter). Empty = these features stay off and the page is exactly as before. The plugin (v1.3.0) also loads `assets/robovalley-account.js` on every page: for a signed-in **administrator** the header Sign In button reads "Admin" (no name, no email); for everyone else it is unchanged. The API must be same-site with this WordPress site and list its origin in `ALLOWED_ORIGINS` (see the main README, section 5d).
 
 ### Header (all pages)
 

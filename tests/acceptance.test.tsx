@@ -86,7 +86,7 @@ describe("AC1 adult signup -> email OTP -> login -> dashboard", () => {
 
     const lr = await signIn("ASHA@example.com", "correct horse");
     expect(lr.status).toBe(200);
-    expect((await lr.json()).redirectTo).toBe("/dashboard");
+    expect((await lr.json()).redirectTo).toBe("https://techytree.in/"); // the normal website, same for every role
 
     const page = await html(DashboardHome());
     expect(page).toContain("Welcome, Asha!");

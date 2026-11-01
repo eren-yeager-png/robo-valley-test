@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
+import { allowedOrigins } from "../../../../lib/cors";
 import { sameOrigin } from "../../../../lib/http";
 import {
   assertSessionConfigured,
@@ -12,16 +13,12 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED_ORIGINS = [
-  "https://techytree.in",
-  "https://www.techytree.in",
-];
 
 function getAllowedOrigin(req: Request): string | null | false {
   const origin = req.headers.get("origin");
 
   if (!origin) return null;
-  if (ALLOWED_ORIGINS.includes(origin)) return origin;
+  if (allowedOrigins().includes(origin)) return origin;
   if (sameOrigin(req)) return null;
 
   return false;

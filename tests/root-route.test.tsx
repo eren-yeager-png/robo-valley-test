@@ -93,7 +93,7 @@ describe("no redirect loop", () => {
       signInAs(role);
       const target = destinationFor(role);
       await expect(RootPage()).rejects.toThrow(`REDIRECT:${target}`);
-      expect(target).toBe("/dashboard");
+      expect(target).toBe("https://techytree.in/"); // the normal website, same for every role (SITE_URL unset)
       // the destination renders for this user (it does not redirect anywhere)
       const page = await DashboardHome();
       expect(page).toBeTruthy();

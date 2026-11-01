@@ -17,9 +17,9 @@ const tables = async (pg: PGlite) =>
   (await pg.query("select table_name t from information_schema.tables where table_schema='public' order by 1")).rows.map((r: any) => r.t);
 
 describe("migration files", () => {
-  it("are 001, 002, 003 and 004, in order, and rollback is NOT in the migrations folder", () => {
+  it("are 001 to 005, in order, and rollback is NOT in the migrations folder", () => {
     const names = pickFiles().map((f) => f.split(/[\\/]/).pop());
-    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql"]);
+    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql", "005_service_datasets.sql"]);
     expect(pickFiles({ only: "003" })).toHaveLength(1);
     expect(names.join()).not.toMatch(/down/);
   });
@@ -90,7 +90,7 @@ describe("database-name guard (option B: fails closed)", () => {
     await pg.exec("ROLLBACK");
     expect(await tables(pg)).toEqual(expect.arrayContaining(["login_attempts", "otp_challenges"])); // nothing was dropped
     await applyFile(runner(pg), name, read("db/rollback/003_down.sql"));
-    expect(await tables(pg)).toEqual(["guardian_details", "users"]);
+    expect(await tables(pg)).toEqual(["guardian_details", "service_dataset_rows", "service_datasets", "upload_audit_log", "users"]); // 003 tables gone, 005 tables untouched
     expect(Number((await pg.query("select count(*)::int n from users")).rows[0]!["n" as never])).toBe(1); // data untouched
     await pg.close();
   });

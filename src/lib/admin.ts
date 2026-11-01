@@ -5,7 +5,8 @@
 
 import { getCurrentUser, type CurrentUser } from "./currentUser";
 import { pool } from "./db";
-import { json, sameOrigin } from "./http";
+import { originAllowed } from "./cors";
+import { json } from "./http";
 
 export const ADMIN_ROLE = "admin";
 export const ADMIN_HOME = "/admin/dashboard";
@@ -33,11 +34,11 @@ export async function getAdminContext(): Promise<AdminContext> {
 
 /**
  * For route handlers: returns the admin, or the response to send (401 no/invalid session, 403 not an admin,
- * 403 for a cross-origin browser request). Use it first in every admin API:
+ * 403 for a browser request from an origin that is neither this app nor in ALLOWED_ORIGINS). Use it first in every admin API:
  *   const auth = await requireAdmin(req); if (auth.response) return auth.response; // auth.admin is set from here on
  */
 export async function requireAdmin(req?: Request): Promise<{ admin: AdminUser; response?: undefined } | { admin?: undefined; response: Response }> {
-  if (req && !sameOrigin(req)) return { response: json({ success: false, error: "FORBIDDEN", message: "Request blocked." }, 403) };
+  if (req && !originAllowed(req)) return { response: json({ success: false, error: "FORBIDDEN", message: "Request blocked." }, 403) };
   const ctx = await getAdminContext();
   if (ctx.status === "anonymous") return { response: json({ success: false, error: "UNAUTHENTICATED", message: "Please sign in." }, 401) };
   if (ctx.status === "forbidden") return { response: json({ success: false, error: "FORBIDDEN", message: "You do not have access to this." }, 403) };

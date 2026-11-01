@@ -1,0 +1,240 @@
+<!-- RoboValley Find a Service: admin-only "Upload Files" button, preview and confirm.
+     This widget ships NO button markup. The script asks the RoboValley API who is signed in (GET /api/auth/me) and only
+     for an admin does it create the button and the dialog, so visitors and regular users never have it in the DOM.
+     That is a display decision only: every upload endpoint checks the signed-in admin again on the server. -->
+<div class="rv-fas rv-fas-up" id="rv-fas-up"></div>
+<style>
+/* Scoped to rv-fas-up / rv-fas-dlg. Buttons reuse the page's rv-fas-btn styles from the search-panel widget. */
+.rv-fas-up{display:flex;justify-content:flex-end}
+.rv-fas-up .rv-fas-btn{min-width:0;height:46px}
+.rv-fas-dlg-back{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(18,63,51,.55)}
+.rv-fas-dlg{position:relative;width:100%;max-width:640px;max-height:calc(100vh - 32px);overflow:auto;padding:24px;background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(18,63,51,.35);font-family:'Mulish',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:16px;line-height:1.5;color:#15302a}
+.rv-fas-dlg h2{margin:0 0 6px;font-family:'Bricolage Grotesque','Mulish',system-ui,sans-serif;font-size:26px;line-height:1.15;color:#123f33}
+.rv-fas-dlg p{margin:0 0 12px}
+.rv-fas-dlg-note{font-size:14px;color:#56675f}
+.rv-fas-dlg-file{display:block;width:100%;padding:12px;font:inherit;font-size:15px;background:#f5f4ef;border:1.5px dashed #b9cfc4;border-radius:12px}
+.rv-fas-dlg-msg{margin:14px 0 0;padding:12px 14px;font-size:15px;border-radius:12px}
+.rv-fas-dlg-msg--err{color:#5a3b06;background:#fbefd9;border:1px solid #f0cf96}
+.rv-fas-dlg-msg--ok{color:#123f33;background:#e3ede7;border:1px solid #b9cfc4}
+.rv-fas-dlg-stats{display:flex;flex-wrap:wrap;gap:8px 18px;margin:12px 0;font-weight:800;color:#123f33}
+.rv-fas-dlg-tablewrap{overflow:auto;margin:0 0 12px;border:1px solid #d6dfd9;border-radius:12px}
+.rv-fas-dlg table{width:100%;border-collapse:collapse;font-size:14px}
+.rv-fas-dlg th,.rv-fas-dlg td{padding:8px 10px;text-align:left;vertical-align:top;border-bottom:1px solid #e6ece8}
+.rv-fas-dlg th{background:#e3ede7;color:#123f33}
+.rv-fas-dlg ul{margin:6px 0 12px 18px;padding:0;font-size:14px}
+.rv-fas-dlg-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;margin-top:16px}
+.rv-fas-dlg-actions .rv-fas-btn{min-width:0}
+.rv-fas-dlg-x{position:absolute;top:10px;right:12px;width:36px;height:36px;padding:0;font-size:24px;line-height:1;color:#123f33;background:transparent;border:0;border-radius:50%;cursor:pointer}
+.rv-fas-dlg-x:hover{background:#e3ede7}
+.rv-fas-dlg button:focus-visible,.rv-fas-dlg input:focus-visible,.rv-fas-up button:focus-visible{outline:3px solid rgba(23,105,79,.45);outline-offset:2px}
+@media (max-width:1024px){.rv-fas-up{justify-content:flex-start}}
+@media (max-width:600px){.rv-fas-dlg{padding:20px 16px}.rv-fas-dlg-actions .rv-fas-btn{width:100%}}
+</style>
+<script>
+( function () {
+	var root = document.getElementById( 'rv-fas-up' );
+	var api = ( window.RoboValleyApi && window.RoboValleyApi.base ) || '';
+	if ( ! root || ! api || ! window.fetch ) {
+		return;
+	}
+	var MAX_BYTES = 10 * 1024 * 1024;
+
+	fetch( api + '/api/auth/me', { credentials: 'include', cache: 'no-store' } )
+		.then( function ( r ) { return r.ok ? r.json() : null; } )
+		.then( function ( d ) { if ( d && d.role === 'admin' ) { mount(); } } )
+		.catch( function () { /* API unreachable: the page simply has no upload button */ } );
+
+	function el( tag, cls, text ) {
+		var n = document.createElement( tag );
+		if ( cls ) { n.className = cls; }
+		if ( text != null ) { n.textContent = text; }
+		return n;
+	}
+
+	function mount() {
+		var btn = el( 'button', 'rv-fas-btn rv-fas-btn--ghost', '' );
+		btn.type = 'button';
+		btn.setAttribute( 'aria-haspopup', 'dialog' );
+		btn.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5 4 4 0 0 1 17.5 18"/><path d="M12 12v8M9 15l3-3 3 3"/></svg>';
+		btn.appendChild( document.createTextNode( 'Upload Files' ) );
+		btn.addEventListener( 'click', openDialog );
+		root.appendChild( btn );
+
+		function openDialog() {
+			var back = el( 'div', 'rv-fas rv-fas-dlg-back' );
+			var dlg = el( 'div', 'rv-fas-dlg' );
+			dlg.setAttribute( 'role', 'dialog' );
+			dlg.setAttribute( 'aria-modal', 'true' );
+			dlg.setAttribute( 'aria-labelledby', 'rv-fas-dlg-title' );
+			back.appendChild( dlg );
+			document.body.appendChild( back );
+			document.body.style.overflow = 'hidden';
+			var staged = null;
+			var busy = false;
+
+			function close() {
+				document.removeEventListener( 'keydown', onKey, true );
+				back.remove();
+				document.body.style.overflow = '';
+				btn.focus();
+			}
+			function onKey( e ) {
+				if ( e.key === 'Escape' && ! busy ) { e.preventDefault(); close(); return; }
+				if ( e.key === 'Tab' ) {
+					var f = dlg.querySelectorAll( 'button:not([disabled]),input:not([disabled])' );
+					if ( ! f.length ) { return; }
+					var first = f[ 0 ], last = f[ f.length - 1 ];
+					if ( e.shiftKey && document.activeElement === first ) { e.preventDefault(); last.focus(); }
+					else if ( ! e.shiftKey && document.activeElement === last ) { e.preventDefault(); first.focus(); }
+				}
+			}
+			document.addEventListener( 'keydown', onKey, true );
+			back.addEventListener( 'mousedown', function ( e ) { if ( e.target === back && ! busy ) { close(); } } );
+
+			function frame( title ) {
+				dlg.textContent = '';
+				var x = el( 'button', 'rv-fas-dlg-x', '×' );
+				x.type = 'button';
+				x.setAttribute( 'aria-label', 'Close' );
+				x.addEventListener( 'click', function () { if ( ! busy ) { close(); } } );
+				var h = el( 'h2', '', title );
+				h.id = 'rv-fas-dlg-title';
+				dlg.appendChild( x );
+				dlg.appendChild( h );
+			}
+			function message( kind, text ) {
+				var m = el( 'div', 'rv-fas-dlg-msg rv-fas-dlg-msg--' + kind, text );
+				m.setAttribute( 'role', kind === 'err' ? 'alert' : 'status' );
+				return m;
+			}
+			function button( label, kind, fn ) {
+				var b = el( 'button', 'rv-fas-btn rv-fas-btn--' + kind, label );
+				b.type = 'button';
+				b.addEventListener( 'click', fn );
+				return b;
+			}
+
+			function choose( errText ) {
+				frame( 'Upload school data' );
+				dlg.appendChild( el( 'p', '', 'Choose an Excel (.xlsx) or CSV (.csv) file. It needs a School Name column and a location column (District or Pincode). You can check it before it goes live.' ) );
+				dlg.appendChild( el( 'p', 'rv-fas-dlg-note', 'Maximum 10 MB and 100,000 rows. Uploading a new file replaces the current data for everyone once you confirm.' ) );
+				var input = el( 'input', 'rv-fas-dlg-file' );
+				input.type = 'file';
+				input.id = 'rv-fas-dlg-file';
+				input.accept = '.xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv';
+				input.setAttribute( 'aria-label', 'Spreadsheet file' );
+				dlg.appendChild( input );
+				var msg = el( 'div' );
+				dlg.appendChild( msg );
+				if ( errText ) { msg.appendChild( message( 'err', errText ) ); }
+				var actions = el( 'div', 'rv-fas-dlg-actions' );
+				actions.appendChild( button( 'Cancel', 'ghost', close ) );
+				var go = button( 'Upload and preview', 'primary', function () {
+					var file = input.files && input.files[ 0 ];
+					msg.textContent = '';
+					if ( ! file ) { msg.appendChild( message( 'err', 'Choose a file first.' ) ); return; }
+					if ( ! /\.(xlsx|csv)$/i.test( file.name ) ) {
+						msg.appendChild( message( 'err', /\.xls$/i.test( file.name ) ? 'Legacy .xls files are not accepted. Save the file as .xlsx or .csv and try again.' : 'Unsupported file type. Please choose an .xlsx or .csv file.' ) );
+						return;
+					}
+					if ( file.size > MAX_BYTES ) { msg.appendChild( message( 'err', 'The file is larger than the 10 MB limit.' ) ); return; }
+					send( file, go, msg );
+				} );
+				actions.appendChild( go );
+				dlg.appendChild( actions );
+				input.focus();
+			}
+
+			function send( file, go, msg ) {
+				busy = true;
+				go.disabled = true;
+				go.textContent = 'Checking the file…';
+				var fd = new FormData();
+				fd.append( 'file', file );
+				fetch( api + '/api/services/upload', { method: 'POST', body: fd, credentials: 'include' } )
+					.then( function ( r ) { return r.json().catch( function () { return {}; } ).then( function ( d ) { return { ok: r.ok, status: r.status, d: d }; } ); } )
+					.then( function ( res ) {
+						busy = false;
+						if ( res.ok && res.d.success ) { staged = res.d; preview( res.d ); return; }
+						var t = res.d && res.d.message ? res.d.message : ( res.status === 401 ? 'Your session has ended. Please sign in again.' : res.status === 403 ? 'Only an administrator can upload files.' : 'The upload failed. Nothing was changed.' );
+						choose( t );
+					} )
+					.catch( function () { busy = false; choose( 'Could not reach the server. Check your connection and try again. Nothing was changed.' ); } );
+			}
+
+			function preview( d ) {
+				frame( 'Check before publishing' );
+				dlg.appendChild( el( 'p', '', 'File: ' + d.filename ) );
+				var stats = el( 'div', 'rv-fas-dlg-stats' );
+				stats.appendChild( el( 'span', '', d.rowCount.toLocaleString( 'en-IN' ) + ' valid rows' ) );
+				stats.appendChild( el( 'span', '', d.invalidRowCount.toLocaleString( 'en-IN' ) + ' invalid rows (skipped)' ) );
+				stats.appendChild( el( 'span', '', d.columns.length + ' columns' ) );
+				dlg.appendChild( stats );
+				dlg.appendChild( el( 'p', 'rv-fas-dlg-note', 'Columns: ' + d.columns.join( ', ' ) ) );
+				if ( d.preview && d.preview.length ) {
+					var wrap = el( 'div', 'rv-fas-dlg-tablewrap' );
+					var t = el( 'table' );
+					var head = el( 'tr' );
+					[ 'School name', 'State', 'District', 'Pincode' ].forEach( function ( h ) { head.appendChild( el( 'th', '', h ) ); } );
+					t.appendChild( head );
+					d.preview.forEach( function ( r ) {
+						var tr = el( 'tr' );
+						[ r.schoolName, r.state, r.district, r.pincode ].forEach( function ( v ) { tr.appendChild( el( 'td', '', v || '' ) ); } );
+						t.appendChild( tr );
+					} );
+					wrap.appendChild( t );
+					dlg.appendChild( wrap );
+				}
+				if ( d.invalidRows && d.invalidRows.length ) {
+					dlg.appendChild( el( 'p', '', 'Rows that will be skipped:' ) );
+					var ul = el( 'ul' );
+					d.invalidRows.slice( 0, 10 ).forEach( function ( r ) { ul.appendChild( el( 'li', '', 'Row ' + r.rowNumber + ': ' + r.reason ) ); } );
+					if ( d.invalidRowCount > 10 ) { ul.appendChild( el( 'li', '', '…and ' + ( d.invalidRowCount - 10 ) + ' more' ) ); }
+					dlg.appendChild( ul );
+				}
+				var msg = el( 'div' );
+				dlg.appendChild( msg );
+				var actions = el( 'div', 'rv-fas-dlg-actions' );
+				actions.appendChild( button( 'Cancel', 'ghost', close ) );
+				var ok = button( 'Confirm and publish', 'primary', function () {
+					busy = true;
+					ok.disabled = true;
+					ok.textContent = 'Publishing…';
+					msg.textContent = '';
+					fetch( api + '/api/services/upload/confirm', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify( { datasetId: staged.datasetId } ) } )
+						.then( function ( r ) { return r.json().catch( function () { return {}; } ).then( function ( x ) { return { ok: r.ok, x: x }; } ); } )
+						.then( function ( res ) {
+							busy = false;
+							if ( res.ok && res.x.success ) { done( res.x ); return; }
+							ok.disabled = false;
+							ok.textContent = 'Confirm and publish';
+							msg.appendChild( message( 'err', ( res.x && res.x.message ) || 'Publishing failed. The previous data is still live.' ) );
+						} )
+						.catch( function () {
+							busy = false;
+							ok.disabled = false;
+							ok.textContent = 'Confirm and publish';
+							msg.appendChild( message( 'err', 'Could not reach the server. The previous data is still live.' ) );
+						} );
+				} );
+				actions.appendChild( ok );
+				dlg.appendChild( actions );
+				ok.focus();
+			}
+
+			function done( x ) {
+				frame( 'Published' );
+				dlg.appendChild( message( 'ok', x.rowCount.toLocaleString( 'en-IN' ) + ' schools are now live for everyone.' ) );
+				var actions = el( 'div', 'rv-fas-dlg-actions' );
+				var fin = button( 'Done', 'primary', close );
+				actions.appendChild( fin );
+				dlg.appendChild( actions );
+				fin.focus();
+				document.dispatchEvent( new CustomEvent( 'rv-dir-refresh' ) );
+			}
+
+			choose( '' );
+		}
+	}
+}() );
+</script>

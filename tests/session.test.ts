@@ -75,7 +75,13 @@ describe("email verification policy", () => {
 });
 
 describe("destination", () => {
-  it("every role currently lands on the shared dashboard", () => {
-    for (const r of ["ST", "PA", "TC", "SA"]) expect(destinationFor(r)).toBe("/dashboard");
+  it("every role, admin included, lands on the same normal website", () => {
+    for (const r of ["ST", "PA", "TC", "SA", "admin"]) expect(destinationFor(r)).toBe("https://techytree.in/");
+  });
+
+  it("SITE_URL overrides the destination, and a bad value falls back to the default", () => {
+    expect(destinationFor("admin", { SITE_URL: "http://localhost:8080/" } as never)).toBe("http://localhost:8080/");
+    expect(destinationFor("ST", { SITE_URL: "javascript:alert(1)" } as never)).toBe("https://techytree.in/");
+    expect(destinationFor("ST", { SITE_URL: "not a url" } as never)).toBe("https://techytree.in/");
   });
 });
