@@ -1,9 +1,13 @@
 // Cross-origin access for the WordPress site. Allowed origins come ONLY from the ALLOWED_ORIGINS environment variable
-// (comma-separated, e.g. "https://techytree.in,https://www.techytree.in,http://localhost:8080"). Nothing is hard-coded,
-// and when it is unset no cross-origin browser request is allowed. Credentials (the session cookie) are only ever
-// allowed for these exact origins, never with a wildcard.
+// (comma-separated, e.g. "https://techytree.in,https://www.techytree.in,http://localhost:8080"). Only when that variable
+// is empty or yields no valid entry does the built-in default (the production WordPress site) apply, so a missing or
+// mistyped setting cannot silently switch the site's features off. Credentials (the session cookie) are only ever
+// allowed for exact origins, never with a wildcard.
 
-/** The configured origins, normalised to scheme://host[:port]. Invalid entries are ignored. */
+/** Fallback used only when ALLOWED_ORIGINS is empty or has no valid entry. Exact origins, no wildcard. */
+export const DEFAULT_ALLOWED_ORIGINS: readonly string[] = ["https://techytree.in", "https://www.techytree.in"];
+
+/** The configured origins, normalised to scheme://host[:port]. Invalid entries are ignored; the default list applies if none are valid. */
 export function allowedOrigins(env: NodeJS.ProcessEnv = process.env): string[] {
   const out: string[] = [];
   for (const raw of (env.ALLOWED_ORIGINS ?? "").split(",")) {
@@ -14,7 +18,7 @@ export function allowedOrigins(env: NodeJS.ProcessEnv = process.env): string[] {
       if (u.protocol === "http:" || u.protocol === "https:") out.push(u.origin);
     } catch { /* ignore a malformed entry */ }
   }
-  return out;
+  return out.length ? out : [...DEFAULT_ALLOWED_ORIGINS];
 }
 
 /** True when the browser's Origin header is this app itself (same host) or one of the configured origins. No Origin = not a browser cross-site call. */
