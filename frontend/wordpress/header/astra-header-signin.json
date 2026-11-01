@@ -1,0 +1,39 @@
+{
+    "note": "Astra Customizer > Header Builder settings for the Sign In link (values copied from the local astra-settings option).",
+    "header-desktop-items": {
+        "popup": {
+            "popup_content": [
+                "mobile-menu"
+            ]
+        },
+        "above": {
+            "above_left": [],
+            "above_left_center": [],
+            "above_center": [],
+            "above_right_center": [],
+            "above_right": []
+        },
+        "primary": {
+            "primary_left": [
+                "logo"
+            ],
+            "primary_left_center": [],
+            "primary_center": [],
+            "primary_right_center": [],
+            "primary_right": [
+                "menu-1",
+                "button-1",
+                "html-1"
+            ]
+        },
+        "below": {
+            "below_left": [],
+            "below_left_center": [],
+            "below_center": [],
+            "below_right_center": [],
+            "below_right": []
+        },
+        "flag": true
+    },
+    "header-html-1": "<a href=\"#\" class=\"rv-signin\">Sign In / Login</a>"
+}
