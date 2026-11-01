@@ -85,14 +85,19 @@ describe("no redirect loop", () => {
     m.query.mockResolvedValue({ rows: [] });
     render(await RootPage());
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Welcome back");
+    expect(screen.queryByRole("status")).toBeNull(); // no signed-in note for a signed-out visitor
   });
 
   it.each(["ST", "PA", "TC", "SA", "MG", "ME", "TR", "AR", "KS", "FS", "SP", "IP"])(
-    "a signed-in %s is sent from / to the role destination, and that destination does NOT send them back to /",
+    "a signed-in %s is NOT redirected from /: the form renders with a signed-in note, a link to the site and a Sign out button",
     async (role) => {
       signInAs(role);
       const target = destinationFor(role);
-      await expect(RootPage()).rejects.toThrow(`REDIRECT:${target}`);
+      render(await RootPage());
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Welcome back"); // the form is still there
+      expect(screen.getByRole("status").textContent).toContain("You are signed in as Asha Rao");
+      expect(screen.getByRole("link", { name: "Go to the website" }).getAttribute("href")).toBe(target);
+      expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
       expect(target).toBe("https://techytree.in/"); // the normal website, same for every role (SITE_URL unset)
       // the destination renders for this user (it does not redirect anywhere)
       const page = await DashboardHome();
