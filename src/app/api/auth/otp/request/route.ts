@@ -39,6 +39,7 @@ export async function POST(req: Request) {
     }
 
     // provider === "mock": development/testing only (getOtpProvider() blocks it in production)
+    console.log(`MOCK OTP (${purpose}): ${r.code} - no email was sent`); // so the code can be read from the dev terminal; mock never runs in production
     return json({
       success: true, purpose, provider: "mock", emailSent: false,
       expiresInSeconds: r.expiresInSeconds, resendAfterSeconds: r.resendAfterSeconds,
@@ -52,6 +53,9 @@ export async function POST(req: Request) {
         err.retryAfterSeconds ? { "Retry-After": String(err.retryAfterSeconds) } : undefined
       );
     }
-    return json({ success: false, error: "SERVER_ERROR", message: "Could not send the code." }, 500);
+    // Not an OtpError, so the code could not be stored: a database failure. Log only the error class/code, never the SQL, email or code.
+    const e = err as { code?: unknown; name?: unknown };
+    console.error("otp request failed (database):", typeof e?.code === "string" ? e.code : typeof e?.name === "string" ? e.name : "unknown");
+    return json({ success: false, error: "SERVER_ERROR", message: "We couldn't send the code right now. Please try again in a moment." }, 500);
   }
 }

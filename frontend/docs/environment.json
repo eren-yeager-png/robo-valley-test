@@ -1,0 +1,31 @@
+{
+    "wordpress": "7.1.4",
+    "php": "8.2.12",
+    "theme": "Astra 4.14.0",
+    "active_plugins": {
+        "Akismet Anti-spam: Spam Protection": "5.7.2",
+        "All-in-One WP Migration and Backup": "7.112",
+        "Starter Templates": "4.7.8",
+        "Image Ticker & Logo Slider – Continuous Auto-Scroll Carousel with Lightbox": "2.0",
+        "Elementor": "4.3.5",
+        "ElementsKit Lite": "4.0.8",
+        "Essential Addons for Elementor": "6.8.5",
+        "Forminator": "1.58.0",
+        "Header Footer Builder for Elementor": "1.3.3",
+        "Ultimate Addons for Elementor (UAE)": "2.9.5",
+        "Hello Dolly": "1.7.2",
+        "Image Optimization - Optimize Images and Convert to WebP or AVIF": "1.7.7",
+        "LatePoint": "5.7.4",
+        "LiteSpeed Cache": "7.9.1",
+        "Members": "3.2.28",
+        "Novamira": "1.12.9",
+        "Premium Addons for Elementor": "4.11.111",
+        "RoboValley Landing": "1.2.0",
+        "Royal Elementor Addons": "1.7.1068",
+        "Spectra Blocks": "1.0.11",
+        "SureCookie": "1.6.1",
+        "SureForms": "2.12.8",
+        "Yoast SEO": "28.6",
+        "WPForms Lite": "2.0.2.2"
+    }
+}

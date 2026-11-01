@@ -78,5 +78,5 @@ export function canSignIn(emailVerification: unknown, env: NodeJS.ProcessEnv = p
   return false;
 }
 
-/** Roles have no separate dashboards yet, so every role lands on the shared dashboard. */
-export const destinationFor = (_role: string) => "/dashboard";
+/** Administrators land on the admin dashboard. Other roles have no separate dashboards yet, so they share /dashboard. */
+export const destinationFor = (role: string) => (role === "admin" ? "/admin/dashboard" : "/dashboard");

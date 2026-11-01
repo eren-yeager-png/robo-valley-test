@@ -17,9 +17,9 @@ const tables = async (pg: PGlite) =>
   (await pg.query("select table_name t from information_schema.tables where table_schema='public' order by 1")).rows.map((r: any) => r.t);
 
 describe("migration files", () => {
-  it("are 001, 002 and 003, in order, and rollback is NOT in the migrations folder", () => {
+  it("are 001, 002, 003 and 004, in order, and rollback is NOT in the migrations folder", () => {
     const names = pickFiles().map((f) => f.split(/[\\/]/).pop());
-    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql"]);
+    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql"]);
     expect(pickFiles({ only: "003" })).toHaveLength(1);
     expect(names.join()).not.toMatch(/down/);
   });
@@ -120,6 +120,7 @@ describe("resulting schema", () => {
       ["guardian_consent", "boolean", true, null, ""], ["terms_accepted_at", "timestamp with time zone", false, "now()", ""], ["created_at", "timestamp with time zone", false, "now()", ""],
       ["age_category", "character varying(10)", true, null, ""], ["profile", "jsonb", false, "'{}'::jsonb", ""], ["consents", "jsonb", false, "'{}'::jsonb", ""],
       ["mobile_verification", "character varying(10)", false, "'none'::character varying", ""], ["email_verification", "character varying(10)", false, "'none'::character varying", ""],
+      ["must_change_password", "boolean", false, "false", ""], // added by migration 004
     ],
     guardian_details: [
       ["id", "bigint", false, null, "a"], ["user_id", "bigint", false, null, ""], ["guardian_name", "character varying(150)", false, null, ""],

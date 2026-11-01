@@ -1,0 +1,25 @@
+name: robo-valley-test
+
+# Local development database only. The password is read from LOCAL_PG_PASSWORD (in the git-ignored .env.local):
+#   docker compose --env-file .env.local up -d
+services:
+  postgres:
+    image: postgres:16
+    container_name: robovalley-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${LOCAL_PG_PASSWORD:?set LOCAL_PG_PASSWORD in .env.local}
+      POSTGRES_DB: robovalley_dev
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - robovalley_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d robovalley_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  robovalley_pgdata:
