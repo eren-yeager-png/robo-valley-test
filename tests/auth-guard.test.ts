@@ -85,9 +85,9 @@ describe("protected pages", () => {
     expect(text).toContain("Teacher / lab in-charge"); // role label from the database
   });
 
-  it("/login sends an already signed-in user to the website, and shows the form otherwise", async () => {
-    expect(await LoginPage()).toBeTruthy();
+  it("/login always renders: a signed-in user gets the signed-in note (no redirect), an anonymous visitor does not", async () => {
+    expect((await LoginPage()).props.signedIn).toBeNull();
     m.cookie = tokenFor();
-    await expect(LoginPage()).rejects.toThrow("REDIRECT:https://techytree.in/");
+    expect((await LoginPage()).props.signedIn).toMatchObject({ siteHref: "https://techytree.in/" });
   });
 });

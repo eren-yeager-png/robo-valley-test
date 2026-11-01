@@ -10,8 +10,11 @@ import { hardNavigate } from "../../lib/navigate";
 
 type Errors = Record<string, string>;
 
-export default function LoginForm() {
+export type SignedIn = { name: string; siteHref: string };
+
+export default function LoginForm({ signedIn = null }: { signedIn?: SignedIn | null }) {
   const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -26,6 +29,14 @@ export default function LoginForm() {
   const clear = (k: string) => { setFormError(""); setErrors((p) => { if (!p[k]) return p; const n = { ...p }; delete n[k]; return n; }); };
   const ea = (k: string) => ({ "aria-invalid": errors[k] ? true : undefined, "aria-describedby": errors[k] ? `e-${k}` : undefined } as const);
   const Err = (k: string) => (errors[k] ? <span className="fe" id={`e-${k}`}>{errors[k]}</span> : null);
+
+  async function signOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    try { await fetch("/api/auth/logout", { method: "POST" }); } catch { /* the cookie expires anyway */ }
+    router.refresh(); // re-render this page on the server: with the cookie gone, the note disappears
+    setSigningOut(false);
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,6 +74,15 @@ export default function LoginForm() {
       <main className="auth">
         <div className="auth-card">
           <div className="brand">RoboValley Community<small>Sign in</small></div>
+          {signedIn && (
+            <div className="signed-in" role="status">
+              <p>You are signed in as <strong>{signedIn.name}</strong>.</p>
+              <div className="signed-in-actions">
+                <a className="btn primary" href={signedIn.siteHref}>Go to the website</a>
+                <button type="button" className="btn" onClick={signOut} disabled={signingOut}>{signingOut ? "Signing out…" : "Sign out"}</button>
+              </div>
+            </div>
+          )}
           <div>
             <h1>Welcome back</h1>
             <p className="muted" style={{ marginTop: 6 }}>Sign in to your RoboValley account to continue.</p>
