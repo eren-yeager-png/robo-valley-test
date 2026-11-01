@@ -1,0 +1,1389 @@
+/*
+ * RoboValley homepage (reference design: robocity-website_06-Oct-26-v1.html).
+ * Every rule is scoped to .robovalley-home sections on pages flagged by the plugin,
+ * so the Astra header, footer and all other pages are unaffected.
+ */
+
+/* Page background (moved unchanged from the retired robovalley-landing.css). */
+body.robovalley-landing-page {
+	background: #f6f4ec;
+}
+
+/*
+ * Sticky Astra header on this page only (not inside the Elementor editor).
+ * The header's own design is untouched: only its positioning changes.
+ * Astra sets body { overflow-x: hidden }, which turns <body> into a scroll container and
+ * silently disables position: sticky; overflow-x: clip still hides sideways overflow without that.
+ * robovalley-home.js marks the header bars with Astra's data-stick-support attribute so Astra's
+ * own menu scrolling subtracts the header height.
+ */
+@supports (overflow: clip) {
+	body.robovalley-landing-page:not(.elementor-editor-active) {
+		overflow-x: clip;
+	}
+
+	body.robovalley-landing-page:not(.elementor-editor-active) #masthead {
+		position: sticky;
+		top: 0;
+		z-index: 99;
+	}
+
+	/* Logged in: sit just below the WordPress admin bar (32px, or 46px under 783px). */
+	body.admin-bar.robovalley-landing-page:not(.elementor-editor-active) #masthead {
+		top: var(--wp-admin--admin-bar--height, 32px);
+	}
+
+	/* At 600px and below WordPress lets the admin bar scroll away, so the header returns to the top. */
+	@media (max-width: 600px) {
+		body.admin-bar.robovalley-landing-page:not(.elementor-editor-active) #masthead {
+			top: 0;
+		}
+	}
+
+	/* Mobile menu: never taller than the screen below the header; scroll inside it if needed. */
+	body.robovalley-landing-page:not(.elementor-editor-active) #masthead .ast-mobile-header-content {
+		max-height: calc(100vh - 80px);
+		max-height: calc(100dvh - 80px);
+		overflow-y: auto;
+		overscroll-behavior: contain;
+	}
+
+	@media (min-width: 601px) {
+		body.admin-bar.robovalley-landing-page:not(.elementor-editor-active) #masthead .ast-mobile-header-content {
+			max-height: calc(100vh - 80px - var(--wp-admin--admin-bar--height, 46px));
+			max-height: calc(100dvh - 80px - var(--wp-admin--admin-bar--height, 46px));
+		}
+	}
+
+	/* Native anchor jumps (keyboard, back/forward, typed URLs): header height plus breathing room. */
+	html:has(body.robovalley-landing-page:not(.elementor-editor-active)) {
+		scroll-padding-top: 96px;
+	}
+
+	html:has(body.admin-bar.robovalley-landing-page:not(.elementor-editor-active)) {
+		scroll-padding-top: calc(96px + var(--wp-admin--admin-bar--height, 32px));
+	}
+}
+
+/* Smooth in-page scrolling on this page only. */
+html:has(body.robovalley-landing-page) {
+	scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html:has(body.robovalley-landing-page) {
+		scroll-behavior: auto;
+	}
+}
+
+body.robovalley-landing-page .robovalley-home {
+	--rh-bg: #f5f4ef;
+	--rh-surface: #ffffff;
+	--rh-tint: #e3ede7;
+	--rh-fg: #15302a;
+	--rh-muted: #56675f;
+	--rh-line: #d6dfd9;
+	--rh-brand: #17694f;
+	--rh-brand-ink: #ffffff;
+	--rh-amber: #e8a33a;
+	--rh-amber-ink: #5a3b06;
+	--rh-hero: #123f33;
+	--rh-hero-fg: #eef5f1;
+	--rh-hero-muted: #b5cdc3;
+	--rh-z1: #2a6fb0;
+	--rh-z2: #b8532a;
+	--rh-z3: #7650b0;
+	--rh-z4: #5f8a1c;
+	--rh-z5: #b83a63;
+	--rh-z6: #17694f;
+	--rh-ill-bg: #dfece4;
+	--rh-ill-grid: rgba(23, 105, 79, 0.07);
+	--rh-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+	--rh-body: "Mulish", ui-sans-serif, system-ui, sans-serif;
+	--rh-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+	--rh-gutter: max(20px, calc((100% - 1080px) / 2));
+
+	background: var(--rh-bg);
+	color: var(--rh-fg);
+	font: 16px/1.65 var(--rh-body);
+	padding: 80px var(--rh-gutter) !important;
+	gap: 0 !important;
+}
+
+body.robovalley-landing-page .robovalley-home--alt {
+	background: var(--rh-surface);
+	border-block: 1px solid var(--rh-line);
+}
+
+body.robovalley-landing-page .robovalley-home--hero {
+	padding-top: 32px !important;
+	padding-bottom: 40px !important;
+}
+
+/* Elementor resets inside our sections */
+body.robovalley-landing-page .robovalley-home .e-con {
+	padding: 0;
+	gap: 0;
+	min-height: 0;
+}
+
+body.robovalley-landing-page .robovalley-home .elementor-widget {
+	margin: 0 !important;
+}
+
+/* Elementor's global text font is set directly on text widgets; use the reference body font instead. */
+body.robovalley-landing-page .robovalley-home .elementor-widget-text-editor,
+body.robovalley-landing-page .robovalley-home .elementor-widget-html {
+	font-family: var(--rh-body);
+	color: inherit;
+}
+
+body.robovalley-landing-page .robovalley-home p,
+body.robovalley-landing-page .robovalley-home ul,
+body.robovalley-landing-page .robovalley-home ol {
+	margin: 0;
+}
+
+body.robovalley-landing-page .robovalley-home a {
+	color: var(--rh-brand);
+}
+
+body.robovalley-landing-page .robovalley-home :focus-visible {
+	outline: 3px solid var(--rh-amber);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+/* Typography */
+body.robovalley-landing-page .robovalley-home .elementor-heading-title,
+body.robovalley-landing-page .robovalley-home h1,
+body.robovalley-landing-page .robovalley-home h2,
+body.robovalley-landing-page .robovalley-home h3 {
+	font-family: var(--rh-display);
+	color: var(--rh-fg);
+	line-height: 1.12;
+	text-wrap: balance;
+	margin: 0;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-h2 .elementor-heading-title {
+	font-size: clamp(1.9rem, 4vw, 2.7rem);
+	font-weight: 800;
+	letter-spacing: -0.02em;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-h3 .elementor-heading-title {
+	font-size: 1.15rem;
+	font-weight: 700;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-bh .elementor-heading-title {
+	font-size: 1.4rem;
+	font-weight: 700;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-eyebrow {
+	font: 500 0.74rem/1 var(--rh-mono);
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--rh-brand);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-lede {
+	color: var(--rh-muted);
+	font-size: 1.08rem;
+	max-width: 62ch;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-sub-text {
+	color: var(--rh-muted);
+	max-width: 70ch;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-mono-label {
+	font: 500 0.75rem var(--rh-mono);
+	color: var(--rh-brand);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-muted {
+	color: var(--rh-muted);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-small {
+	color: var(--rh-muted);
+	font-size: 0.92rem;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-note {
+	margin-top: 28px !important;
+	color: var(--rh-muted);
+	font-size: 0.92rem;
+}
+
+/* Section heading block */
+body.robovalley-landing-page .robovalley-home .robovalley-head {
+	gap: 14px !important;
+	margin-bottom: 40px;
+}
+
+/* Buttons (Elementor button widgets and slider links) */
+body.robovalley-landing-page .robovalley-home .robovalley-actions {
+	flex-direction: row !important;
+	flex-wrap: wrap !important;
+	gap: 10px !important;
+	margin-top: 6px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-actions > .elementor-widget {
+	width: auto;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-btn .elementor-button,
+body.robovalley-landing-page .robovalley-home .robovalley-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font: 700 0.95rem var(--rh-body);
+	padding: 12px 18px;
+	border-radius: 10px;
+	text-decoration: none;
+	line-height: 1.3;
+	border: 1px solid transparent;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-btn--primary .elementor-button,
+body.robovalley-landing-page .robovalley-home .robovalley-button--primary {
+	background: var(--rh-brand);
+	color: var(--rh-brand-ink);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-btn--ghost .elementor-button,
+body.robovalley-landing-page .robovalley-home .robovalley-button--ghost {
+	background: var(--rh-surface);
+	color: var(--rh-fg);
+	border-color: var(--rh-line);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-btn--primary .elementor-button:hover,
+body.robovalley-landing-page .robovalley-home .robovalley-button--primary:hover {
+	filter: brightness(1.08);
+	color: var(--rh-brand-ink);
+}
+
+/* Generic grids */
+body.robovalley-landing-page .robovalley-home .robovalley-grid {
+	display: grid !important;
+	gap: 18px !important;
+	align-items: stretch;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-grid > .e-con {
+	width: auto;
+	max-width: none;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+body.robovalley-landing-page .robovalley-home .robovalley-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+body.robovalley-landing-page .robovalley-home .robovalley-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+body.robovalley-landing-page .robovalley-home .robovalley-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+/* Cards */
+body.robovalley-landing-page .robovalley-home .robovalley-card {
+	background: var(--rh-surface);
+	border: 1px solid var(--rh-line);
+	border-radius: 14px;
+	padding: 24px !important;
+	gap: 10px !important;
+	justify-content: flex-start;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-card--bg {
+	background: var(--rh-bg);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-card--sm {
+	padding: 18px !important;
+	gap: 6px !important;
+	border-radius: 12px;
+}
+
+/* Illustration thumbnails (Elementor image widget) */
+body.robovalley-landing-page .robovalley-home .robovalley-thumb img {
+	display: block;
+	width: 100%;
+	height: auto;
+	aspect-ratio: 4 / 3;
+	object-fit: cover;
+	border-radius: 10px;
+	background-color: var(--rh-ill-bg);
+}
+
+/* Tag pills (text-editor widget containing a list) */
+body.robovalley-landing-page .robovalley-home .robovalley-tags ul {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	list-style: none;
+	padding: 0;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-tags li {
+	margin: 0;
+	font-size: 0.8rem;
+	font-weight: 600;
+	padding: 4px 10px;
+	border-radius: 6px;
+	background: var(--rh-tint);
+	color: var(--rh-fg);
+	line-height: 1.4;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-tags--round li {
+	border-radius: 99px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-tags--outline li {
+	background: var(--rh-surface);
+	border: 1px solid var(--rh-line);
+	font-size: 0.85rem;
+	padding: 6px 12px;
+	border-radius: 99px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-tags--outline li.robovalley-tags-label {
+	border: 0;
+	background: none;
+	padding: 6px 6px 6px 0;
+	font: 500 0.72rem var(--rh-mono);
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--rh-brand);
+}
+
+/* Vision */
+body.robovalley-landing-page .robovalley-home .robovalley-pillars4 {
+	margin-top: 24px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-goal {
+	margin-top: 28px !important;
+	padding: 22px 26px;
+	border-left: 4px solid var(--rh-amber);
+	background: var(--rh-tint);
+	border-radius: 0 12px 12px 0;
+	font-size: 1.05rem;
+	max-width: 80ch;
+}
+
+/* RoboCity facts and zones */
+body.robovalley-landing-page .robovalley-home .robovalley-facts {
+	gap: 12px !important;
+	margin-bottom: 28px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-fact {
+	border-top: 2px solid var(--rh-brand);
+	padding-top: 10px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-fact-num .elementor-heading-title {
+	font: 800 1.9rem/1 var(--rh-display);
+	font-variant-numeric: tabular-nums;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-fact .robovalley-small {
+	margin-top: 4px;
+	font-size: 0.9rem;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-zone {
+	background: var(--rh-bg);
+	border: 1px solid var(--rh-line);
+	border-radius: 14px;
+	padding: 24px !important;
+	gap: 10px !important;
+	scroll-margin-top: 24px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-zone:target {
+	border-color: var(--rh-brand);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--rh-brand) 25%, transparent);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-zone-top {
+	flex-direction: row !important;
+	justify-content: space-between;
+	align-items: center;
+	gap: 8px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-zone-top > .elementor-widget {
+	width: auto;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-status {
+	font-size: 0.74rem;
+	font-weight: 700;
+	padding: 3px 9px;
+	border-radius: 99px;
+	background: var(--rh-brand);
+	color: var(--rh-brand-ink);
+	white-space: nowrap;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-zone .robovalley-h3 .elementor-heading-title {
+	font-size: 1.35rem;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-zone-sub {
+	font-weight: 700;
+	color: var(--rh-brand);
+	font-size: 0.9rem;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-zone .robovalley-small {
+	font-size: 0.95rem;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-subz {
+	font-size: 0.8rem;
+	color: var(--rh-muted);
+	border-top: 1px dashed var(--rh-line);
+	padding-top: 8px;
+}
+
+/* Platform */
+body.robovalley-landing-page .robovalley-home .robovalley-pipe {
+	display: grid !important;
+	grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+	gap: 36px !important;
+	align-items: start;
+	margin-top: 36px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-pipe-copy {
+	gap: 10px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-streams ol {
+	list-style: none;
+	padding: 0;
+	display: grid;
+	gap: 8px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-streams li {
+	display: grid;
+	grid-template-columns: 150px minmax(0, 1fr) minmax(0, auto);
+	gap: 12px;
+	align-items: center;
+	background: var(--rh-surface);
+	border: 1px solid var(--rh-line);
+	border-radius: 10px;
+	padding: 10px 14px;
+	font-size: 0.9rem;
+	margin: 0;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-streams strong {
+	font-family: var(--rh-display);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-streams span {
+	color: var(--rh-muted);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-streams em {
+	font-style: normal;
+	color: var(--rh-brand);
+	font-weight: 700;
+	font-size: 0.82rem;
+	text-align: right;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-block {
+	margin-top: 52px;
+	gap: 0 !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-block > .robovalley-bh {
+	margin-bottom: 6px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-block > .robovalley-sub-text {
+	margin-bottom: 18px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-fams,
+body.robovalley-landing-page .robovalley-home .robovalley-cats {
+	gap: 14px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cat {
+	padding: 16px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cat .robovalley-h3 .elementor-heading-title {
+	font-size: 1rem;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cat .robovalley-tags {
+	margin: 10px 0 0 !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-guide {
+	display: grid !important;
+	grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+	gap: 36px !important;
+	align-items: center;
+	background: var(--rh-tint);
+	border-radius: 18px;
+	padding: 28px !important;
+	margin-top: 52px;
+	scroll-margin-top: 24px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-guide-copy {
+	gap: 12px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-guide .robovalley-tags li {
+	background: var(--rh-surface);
+	border: 1px solid var(--rh-line);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-mcard {
+	background: var(--rh-surface);
+	border: 1px solid var(--rh-line);
+	border-radius: 16px;
+	overflow: hidden;
+	box-shadow: 0 10px 30px rgba(10, 40, 30, 0.08);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-mcard-head {
+	background: var(--rh-brand);
+	color: var(--rh-brand-ink);
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	padding: 16px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-mcard-head b {
+	display: block;
+	font-family: var(--rh-display);
+	font-size: 1.05rem;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-mcard-head small {
+	display: block;
+	font-size: 0.72rem;
+	opacity: 0.85;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-mcard-av {
+	width: 44px;
+	height: 44px;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.22);
+	display: grid;
+	place-items: center;
+	font-weight: 800;
+	flex: none;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-mcard ul {
+	list-style: none;
+	margin: 0;
+	padding: 6px 16px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-mcard li {
+	display: flex;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 9px 0;
+	border-bottom: 1px solid var(--rh-line);
+	font-size: 0.88rem;
+	margin: 0;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-mcard em {
+	font-style: normal;
+	font-size: 0.72rem;
+	font-weight: 700;
+	color: var(--rh-brand);
+	background: var(--rh-tint);
+	padding: 2px 8px;
+	border-radius: 5px;
+	white-space: nowrap;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-mcard em.is-optional { color: var(--rh-z3); }
+body.robovalley-landing-page .robovalley-home .robovalley-mcard em.is-check { color: var(--rh-z2); }
+
+body.robovalley-landing-page .robovalley-home .robovalley-mcard-foot {
+	font-size: 0.75rem;
+	color: var(--rh-muted);
+	padding: 10px 16px 14px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-ladder {
+	gap: 12px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-rung {
+	padding: 20px !important;
+	gap: 8px !important;
+	border-radius: 12px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-rung .robovalley-mono-label {
+	font-size: 0.72rem;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-rung .robovalley-small {
+	font-size: 0.9rem;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-why {
+	margin-top: 52px;
+	gap: 10px !important;
+	max-width: 760px;
+}
+
+/* Board */
+body.robovalley-landing-page .robovalley-home .robovalley-gov {
+	gap: 14px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-gov .robovalley-mono-label {
+	font-size: 0.7rem;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-board-head {
+	margin-top: 44px;
+	gap: 6px !important;
+	margin-bottom: 18px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-board {
+	gap: 16px !important;
+}
+
+/* Safety net: a role title never widens the page (normally whole words fit, see the 520px rules). */
+body.robovalley-landing-page .robovalley-home .robovalley-adv .robovalley-h3 .elementor-heading-title {
+	overflow-wrap: break-word;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-adv {
+	background: var(--rh-bg);
+	padding: 24px 18px !important;
+	text-align: center;
+	align-items: center;
+	gap: 6px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-mono .elementor-heading-title {
+	width: 72px;
+	height: 72px;
+	border-radius: 50%;
+	display: grid;
+	place-items: center;
+	font: 800 1.5rem var(--rh-display);
+	color: var(--rh-brand-ink);
+	background: var(--rh-brand);
+	margin: 0 auto 8px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-mono--amber .elementor-heading-title {
+	background: var(--rh-amber);
+	color: var(--rh-amber-ink);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-vacant {
+	font: 500 0.68rem var(--rh-mono);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--rh-brand);
+	margin-top: 4px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-expertise {
+	margin-top: 36px !important;
+}
+
+/* Opportunity */
+body.robovalley-landing-page .robovalley-home .robovalley-charts {
+	grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+	gap: 20px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-chart {
+	margin: 0;
+	background: var(--rh-surface);
+	border: 1px solid var(--rh-line);
+	border-radius: 14px;
+	padding: 18px;
+	height: 100%;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-chart figcaption {
+	display: flex;
+	justify-content: space-between;
+	gap: 10px;
+	align-items: baseline;
+	margin-bottom: 8px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-chart figcaption b {
+	font-family: var(--rh-display);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-chart figcaption span {
+	font-size: 0.8rem;
+	color: var(--rh-muted);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cbox {
+	position: relative;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cbox svg {
+	width: 100%;
+	height: auto;
+	display: block;
+	overflow: visible;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cbox .ax { fill: var(--rh-muted); font: 11px var(--rh-body); }
+body.robovalley-landing-page .robovalley-home .robovalley-cbox .val { fill: var(--rh-fg); font: 700 11px var(--rh-body); }
+body.robovalley-landing-page .robovalley-home .robovalley-cbox .grid { stroke: var(--rh-line); stroke-width: 1; }
+body.robovalley-landing-page .robovalley-home .robovalley-cbox .bar { fill: var(--rh-brand); }
+body.robovalley-landing-page .robovalley-home .robovalley-cbox .hit { fill: transparent; cursor: pointer; }
+body.robovalley-landing-page .robovalley-home .robovalley-cbox g:hover .bar { fill: color-mix(in srgb, var(--rh-brand) 75%, var(--rh-fg)); }
+
+body.robovalley-landing-page .robovalley-home .robovalley-tip {
+	position: absolute;
+	pointer-events: none;
+	background: var(--rh-fg);
+	color: var(--rh-bg);
+	font-size: 0.8rem;
+	padding: 6px 9px;
+	border-radius: 7px;
+	white-space: nowrap;
+	transform: translate(-50%, -110%);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-opps {
+	margin-top: 28px;
+	gap: 16px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-opp {
+	padding: 22px !important;
+	gap: 8px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-fig {
+	font: 800 1.7rem/1 var(--rh-display);
+	color: var(--rh-brand);
+	font-variant-numeric: tabular-nums;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-opp .robovalley-small {
+	font-size: 0.92rem;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-opp--hl {
+	background: var(--rh-hero);
+	border-color: var(--rh-hero);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-opp--hl .elementor-heading-title { color: var(--rh-hero-fg); }
+body.robovalley-landing-page .robovalley-home .robovalley-opp--hl .robovalley-small { color: var(--rh-hero-muted); }
+body.robovalley-landing-page .robovalley-home .robovalley-opp--hl .robovalley-fig { color: var(--rh-amber); }
+
+/* Contact */
+body.robovalley-landing-page .robovalley-home .robovalley-contact {
+	display: grid !important;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: 40px !important;
+	align-items: start;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-contact-copy {
+	gap: 14px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-socials {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+	margin-top: 10px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-social {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 14px 16px;
+	border: 1px solid var(--rh-line);
+	border-radius: 12px;
+	background: var(--rh-surface);
+	color: var(--rh-fg);
+	font-weight: 700;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-social svg {
+	width: 22px;
+	height: 22px;
+	flex: none;
+	fill: var(--rh-brand);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-social small {
+	display: block;
+	font-weight: 400;
+	color: var(--rh-muted);
+	font-size: 0.8rem;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-social-note {
+	font: 500 0.7rem var(--rh-mono);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--rh-muted);
+	margin-top: 10px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-form {
+	background: var(--rh-surface);
+	border: 1px solid var(--rh-line);
+	border-radius: 16px;
+	padding: 26px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-form .wpforms-container {
+	margin: 0 !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-form .wpforms-field {
+	padding: 0 0 14px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-form .wpforms-field-label {
+	font: 700 0.88rem var(--rh-body) !important;
+	color: var(--rh-fg) !important;
+	margin-bottom: 6px !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-form input:not([type="submit"]):not([type="hidden"]),
+body.robovalley-landing-page .robovalley-home .robovalley-form select,
+body.robovalley-landing-page .robovalley-home .robovalley-form textarea {
+	font: inherit !important;
+	color: var(--rh-fg) !important;
+	background: var(--rh-bg) !important;
+	border: 1px solid var(--rh-line) !important;
+	border-radius: 8px !important;
+	padding: 10px 12px !important;
+	width: 100% !important;
+	max-width: 100% !important;
+	height: auto !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-form textarea {
+	min-height: 110px;
+	resize: vertical;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-form .wpforms-submit-container {
+	padding: 0 !important;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-form button.wpforms-submit {
+	width: 100% !important;
+	justify-content: center;
+	border: 0 !important;
+	border-radius: 10px !important;
+	background: var(--rh-brand) !important;
+	color: var(--rh-brand-ink) !important;
+	font: 700 0.95rem var(--rh-body) !important;
+	padding: 12px 18px !important;
+	height: auto !important;
+	min-height: 46px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-form .wpforms-confirmation-container-full {
+	background: var(--rh-tint) !important;
+	border: 0 !important;
+	border-radius: 8px;
+	color: var(--rh-fg) !important;
+}
+
+/* Home slider (HTML widget) */
+body.robovalley-landing-page .robovalley-home .robovalley-stage {
+	position: relative;
+	border-radius: 24px;
+	overflow: hidden;
+	background-color: var(--rh-ill-bg);
+	background-image: linear-gradient(var(--rh-ill-grid) 1px, transparent 1px), linear-gradient(90deg, var(--rh-ill-grid) 1px, transparent 1px);
+	background-size: 32px 32px;
+	border: 1px solid var(--rh-line);
+	touch-action: pan-y;
+	padding: 40px 32px 22px;
+	display: grid;
+	row-gap: 22px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-stage-cap {
+	position: absolute;
+	top: 16px;
+	right: 28px;
+	font: 500 0.66rem var(--rh-mono);
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	color: var(--rh-muted);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-slide {
+	display: none;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+	column-gap: 32px;
+	row-gap: 22px;
+	align-items: center;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-slide.is-active {
+	display: grid;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-slide-copy {
+	display: grid;
+	gap: 12px;
+	align-content: center;
+	min-height: 330px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-slide .robovalley-eyebrow {
+	color: var(--rh-zc, var(--rh-brand));
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-slide-title {
+	font-size: clamp(2.2rem, 4.6vw, 3.6rem);
+	font-weight: 800;
+	letter-spacing: -0.03em;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-slide-title em {
+	font-style: normal;
+	color: var(--rh-brand);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-slide-sub {
+	font-weight: 700;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-slide .robovalley-lede {
+	max-width: 46ch;
+}
+
+/* The slide's button row is a plain <div>: make it a flex row so the shared .robovalley-actions gap applies. */
+body.robovalley-landing-page .robovalley-home .robovalley-slide .robovalley-actions {
+	display: flex;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-slide-ill {
+	margin: 0;
+	width: 100%;
+	max-width: 520px;
+	justify-self: center;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-slide-ill img {
+	display: block;
+	width: 100%;
+	height: auto;
+	aspect-ratio: 4 / 3;
+	object-fit: cover;
+	border-radius: 16px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-slide.is-active .robovalley-slide-copy > *,
+body.robovalley-landing-page .robovalley-home .robovalley-slide.is-active .robovalley-slide-ill {
+	animation: robovalley-fade 0.45s ease both;
+}
+
+@keyframes robovalley-fade {
+	from { opacity: 0.15; transform: translateY(6px); }
+	to { opacity: 1; transform: none; }
+}
+
+/* City map: RoboCity, then six zone hexagons (built by robovalley-home.js) */
+body.robovalley-landing-page .robovalley-home .robovalley-citymap {
+	display: grid;
+	justify-items: center;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-city {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 8px;
+	border: 2px solid var(--rh-brand);
+	background: var(--rh-surface);
+	color: var(--rh-fg);
+	border-radius: 10px;
+	padding: 6px 16px;
+	font: 800 0.9rem var(--rh-display);
+	cursor: pointer;
+	transition: background 0.3s, color 0.3s, border-color 0.3s;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-city small {
+	font: 500 0.62rem var(--rh-mono);
+	letter-spacing: 0.1em;
+	color: var(--rh-brand);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-city.is-on {
+	background: var(--rh-amber);
+	border-color: var(--rh-amber);
+	color: var(--rh-amber-ink);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-city.is-on small {
+	color: var(--rh-amber-ink);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-stem {
+	width: 2px;
+	height: 12px;
+	background: var(--rh-brand);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-row {
+	position: relative;
+	width: min(100%, 640px);
+	display: grid;
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+	gap: 8px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-row::before {
+	content: "";
+	position: absolute;
+	top: 0;
+	left: calc(100% / 12);
+	right: calc(100% / 12);
+	height: 2px;
+	background: var(--rh-brand);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-cell {
+	display: grid;
+	justify-items: center;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-cell::before {
+	content: "";
+	width: 2px;
+	height: 12px;
+	background: var(--rh-brand);
+	transition: background 0.3s;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-cell.is-on::before {
+	background: var(--rh-zc);
+	width: 4px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-hex {
+	all: unset;
+	box-sizing: border-box;
+	cursor: pointer;
+	width: 100%;
+	max-width: 92px;
+	aspect-ratio: 2 / 1;
+	background: var(--rh-zc);
+	clip-path: polygon(18% 0, 82% 0, 100% 50%, 82% 100%, 18% 100%, 0 50%);
+	padding: 2px;
+	transition: transform 0.25s;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-hex span {
+	display: grid;
+	place-content: center;
+	width: 100%;
+	height: 100%;
+	background: var(--rh-surface);
+	clip-path: polygon(18% 0, 82% 0, 100% 50%, 82% 100%, 18% 100%, 0 50%);
+	transition: background 0.3s;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-hex b {
+	font: 700 0.9rem var(--rh-mono);
+	color: var(--rh-zc);
+	transition: color 0.3s;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-hex:hover {
+	transform: translateY(-2px);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-cell.is-lit .robovalley-cm-hex span {
+	background: color-mix(in srgb, var(--rh-zc) 16%, var(--rh-surface));
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-cell.is-on .robovalley-cm-hex {
+	transform: scale(1.12);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-cell.is-on .robovalley-cm-hex span {
+	background: var(--rh-zc);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-cell.is-on .robovalley-cm-hex b {
+	color: #ffffff;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-cm-hex:focus-visible span {
+	background: color-mix(in srgb, var(--rh-zc) 30%, var(--rh-surface));
+}
+
+/* Slider controls (placed above the stage by robovalley-home.js) */
+body.robovalley-landing-page .robovalley-home .robovalley-controls {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 18px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-arrow {
+	flex: none;
+	width: 42px;
+	height: 42px;
+	border-radius: 50%;
+	border: 1px solid var(--rh-line);
+	background: var(--rh-surface);
+	color: var(--rh-fg);
+	cursor: pointer;
+	font-size: 1.1rem;
+	padding: 0;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-tabs {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	gap: 6px;
+	overflow-x: auto;
+	scrollbar-width: thin;
+	padding-bottom: 4px;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-tab {
+	flex: 1 0 auto;
+	position: relative;
+	text-align: left;
+	background: var(--rh-surface);
+	border: 1px solid var(--rh-line);
+	border-radius: 10px;
+	padding: 9px 12px 12px;
+	cursor: pointer;
+	color: var(--rh-fg);
+	font: 600 0.84rem var(--rh-body);
+	overflow: hidden;
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-tab small {
+	display: block;
+	font: 500 0.66rem var(--rh-mono);
+	color: var(--rh-zc);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-tab[aria-selected="true"] {
+	border-color: var(--rh-zc);
+	background: color-mix(in srgb, var(--rh-zc) 12%, var(--rh-surface));
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-tab-prog {
+	position: absolute;
+	left: 0;
+	bottom: 0;
+	height: 3px;
+	width: 0;
+	background: var(--rh-zc);
+}
+
+body.robovalley-landing-page .robovalley-home .robovalley-pause {
+	flex: none;
+	border: 1px solid var(--rh-line);
+	background: var(--rh-surface);
+	color: var(--rh-fg);
+	border-radius: 10px;
+	padding: 10px 12px;
+	font: 700 0.8rem var(--rh-body);
+	cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	body.robovalley-landing-page .robovalley-home *,
+	body.robovalley-landing-page .robovalley-home *::before,
+	body.robovalley-landing-page .robovalley-home *::after {
+		animation: none !important;
+		transition: none !important;
+	}
+}
+
+/* Tablet */
+@media (max-width: 980px) {
+	body.robovalley-landing-page .robovalley-home .robovalley-cols-4,
+	body.robovalley-landing-page .robovalley-home .robovalley-cols-3 {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-cols-5 {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-cols-5 > :last-child {
+		grid-column: 1 / -1;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-vision-grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 860px) {
+	body.robovalley-landing-page .robovalley-home .robovalley-stage {
+		padding: 40px 14px 18px;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-slide {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-slide-copy {
+		min-height: 0;
+	}
+}
+
+@media (max-width: 760px) {
+	body.robovalley-landing-page .robovalley-home {
+		padding-top: 56px !important;
+		padding-bottom: 56px !important;
+	}
+
+	body.robovalley-landing-page .robovalley-home--hero {
+		padding-top: 24px !important;
+		padding-bottom: 32px !important;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-vision-grid,
+	body.robovalley-landing-page .robovalley-home .robovalley-fams,
+	body.robovalley-landing-page .robovalley-home .robovalley-pipe,
+	body.robovalley-landing-page .robovalley-home .robovalley-guide,
+	body.robovalley-landing-page .robovalley-home .robovalley-charts,
+	body.robovalley-landing-page .robovalley-home .robovalley-contact {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-facts {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-streams li {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 2px;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-streams em {
+		text-align: left;
+	}
+}
+
+@media (max-width: 640px) {
+	body.robovalley-landing-page .robovalley-home .robovalley-cm-row {
+		gap: 4px;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-cm-hex b {
+		font-size: 0.74rem;
+	}
+
+	/* The caption wraps on narrow screens: keep it in the flow above the slide instead of over the eyebrow. */
+	body.robovalley-landing-page .robovalley-home .robovalley-stage {
+		padding-top: 18px;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-stage-cap {
+		position: static;
+		justify-self: start;
+	}
+
+	/* Slide navigation: tabs on their own swipeable row, arrows and Pause underneath. */
+	body.robovalley-landing-page .robovalley-home .robovalley-controls {
+		flex-wrap: wrap;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-tabs {
+		order: -1;
+		flex-basis: 100%;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-pause {
+		margin-left: auto;
+	}
+}
+
+@media (max-width: 520px) {
+	body.robovalley-landing-page .robovalley-home .robovalley-zones,
+	body.robovalley-landing-page .robovalley-home .robovalley-ladder,
+	body.robovalley-landing-page .robovalley-home .robovalley-opps,
+	body.robovalley-landing-page .robovalley-home .robovalley-cats,
+	body.robovalley-landing-page .robovalley-home .robovalley-gov,
+	body.robovalley-landing-page .robovalley-home .robovalley-socials {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-board {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	/* Two advisor cards per row on phones: slimmer side padding and a title size that follows the screen width,
+	   so the longest word ("Manufacturing") fits whole down to 320px. */
+	body.robovalley-landing-page .robovalley-home .robovalley-adv {
+		padding: 22px 12px !important;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-adv .robovalley-h3 .elementor-heading-title {
+		font-size: clamp(0.85rem, 4.2vw, 1.15rem);
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-ladder > :last-child {
+		grid-column: auto;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-guide {
+		padding: 18px !important;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-actions > .elementor-widget,
+	body.robovalley-landing-page .robovalley-home .robovalley-btn .elementor-button {
+		width: 100%;
+		justify-content: center;
+	}
+
+	/* Hero buttons: one per line, full width, 14px apart (the shared row gap is 10px !important). */
+	body.robovalley-landing-page .robovalley-home .robovalley-slide .robovalley-actions {
+		row-gap: 14px !important;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-slide .robovalley-button {
+		flex: 1 1 100%;
+		justify-content: center;
+	}
+}

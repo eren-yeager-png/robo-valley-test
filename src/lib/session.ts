@@ -78,5 +78,19 @@ export function canSignIn(emailVerification: unknown, env: NodeJS.ProcessEnv = p
   return false;
 }
 
-/** Administrators land on the admin dashboard. Other roles have no separate dashboards yet, so they share /dashboard. */
-export const destinationFor = (role: string) => (role === "admin" ? "/admin/dashboard" : "/dashboard");
+/**
+ * Where everybody lands after signing in: the normal website (admins included, there is no separate admin dashboard).
+ * Configurable with SITE_URL (e.g. http://localhost:8080/ for local WordPress); defaults to the live site.
+ */
+export function siteUrl(env: NodeJS.ProcessEnv = process.env): string {
+  const raw = env.SITE_URL?.trim();
+  if (raw) {
+    try {
+      const u = new URL(raw);
+      if (u.protocol === "http:" || u.protocol === "https:") return u.href;
+    } catch { /* fall through to the default */ }
+  }
+  return "https://techytree.in/";
+}
+
+export const destinationFor = (_role: string, env: NodeJS.ProcessEnv = process.env) => siteUrl(env);

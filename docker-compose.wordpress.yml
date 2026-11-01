@@ -1,0 +1,63 @@
+name: robo-valley-wp
+
+# LOCAL development WordPress only (never production). Passwords come from the git-ignored .env.local:
+#   docker compose -f docker-compose.wordpress.yml --env-file .env.local up -d
+# Then run scripts/wp-local-setup.sh once to install WordPress, Astra, Elementor and page 510.
+# Site: http://localhost:8080
+services:
+  wp-db:
+    image: mariadb:11.4
+    container_name: robovalley-wp-db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: ${WP_DB_PASSWORD:?set WP_DB_PASSWORD in .env.local}
+      MARIADB_ROOT_PASSWORD: ${WP_DB_ROOT_PASSWORD:?set WP_DB_ROOT_PASSWORD in .env.local}
+    volumes:
+      - robovalley_wp_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  wordpress:
+    image: wordpress:7.1.4-php8.2-apache
+    container_name: robovalley-wp
+    restart: unless-stopped
+    depends_on:
+      wp-db:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: wp-db
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: ${WP_DB_PASSWORD:?set WP_DB_PASSWORD in .env.local}
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - robovalley_wp_html:/var/www/html
+      - ./frontend/wordpress/plugins/robovalley-landing:/var/www/html/wp-content/plugins/robovalley-landing:ro
+
+  wpcli:
+    image: wordpress:cli-php8.2
+    profiles: ["tools"]
+    user: "33:33"
+    depends_on:
+      - wordpress
+    environment:
+      WORDPRESS_DB_HOST: wp-db
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: ${WP_DB_PASSWORD:?set WP_DB_PASSWORD in .env.local}
+      WP_ADMIN_PASSWORD: ${WP_ADMIN_PASSWORD:?set WP_ADMIN_PASSWORD in .env.local}
+    volumes:
+      - robovalley_wp_html:/var/www/html
+      - ./frontend:/frontend:ro
+      - ./scripts:/scripts:ro
+      - ./frontend/wordpress/plugins/robovalley-landing:/var/www/html/wp-content/plugins/robovalley-landing:ro
+
+volumes:
+  robovalley_wp_db:
+  robovalley_wp_html:

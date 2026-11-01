@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { normalizeEmail } from "../../lib/validation";
 import "../join/join.css";
 import "./login.css";
+import { hardNavigate } from "../../lib/navigate";
 
 type Errors = Record<string, string>;
 
@@ -42,11 +43,12 @@ export default function LoginForm() {
         body: JSON.stringify({ email, password, remember }),
       });
       const data = await res.json().catch(() => ({}));
-     if (data.success) {
-  // Admins go to the admin dashboard (only this one fixed path is honoured); everyone else keeps the existing redirect.
-  window.location.replace(data.redirectTo === "/admin/dashboard" ? "/admin/dashboard" : "https://techytree.in/");
-  return;
-}
+      if (data.success) {
+        // Everyone (admins too) goes to the normal website. The server decides where; only http(s) or a local path is followed.
+        const to = typeof data.redirectTo === "string" && /^(https?:\/\/|\/(?!\/))/.test(data.redirectTo) ? data.redirectTo : "/";
+        hardNavigate(to);
+        return;
+      }
       if (data.fieldErrors) setErrors(data.fieldErrors);
       setFormError(data.message ?? "Something went wrong. Please try again.");
       setPassword(""); // keep the email, clear the password after a failed attempt

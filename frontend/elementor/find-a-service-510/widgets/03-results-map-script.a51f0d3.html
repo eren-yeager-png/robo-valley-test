@@ -1,0 +1,802 @@
+<div class="rv-fas rv-fas-results" id="rv-fas-results">
+	<div class="rv-fas-results-head">
+		<p class="rv-fas-summary" id="rv-fas-summary" role="status" aria-live="polite">Loading services…</p>
+		<span class="rv-fas-demo-tag">Demo data</span>
+	</div>
+	<div class="rv-fas-layout">
+		<div class="rv-fas-list-col">
+			<div class="rv-fas-alert" id="rv-fas-alert" role="alert" hidden></div>
+			<div class="rv-fas-state" id="rv-fas-state" hidden></div>
+			<ol class="rv-fas-list" id="rv-fas-list" aria-label="Facilities"></ol>
+		</div>
+		<div class="rv-fas-map-col">
+			<div class="rv-fas-map" id="rv-fas-map" role="region" aria-label="Map of facilities"><p class="rv-fas-map-msg" id="rv-fas-map-msg">Loading map…</p></div>
+		</div>
+	</div>
+</div>
+<script>
+/* RoboValley Find a Service: search, location, radius, results and map. Reads the facilities from #rv-fas-data. */
+( function () {
+	'use strict';
+	var LEAFLET = {
+		css: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css',
+		cssSri: 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=',
+		js: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js',
+		jsSri: 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo='
+	};
+	var TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+	var GEOCODER = 'https://nominatim.openstreetmap.org/search'; // OpenStreetMap Nominatim: only called when Search is pressed, at most once a second.
+	var COLORS = [ '#2a6fb0', '#b8532a', '#7650b0', '#5f8a1c', '#b83a63', '#17694f' ];
+	var MSG_ASK = 'Allow location access to discover services near you.';
+	var MSG_OFF = 'Location access is currently unavailable. Please enable location permission or enter your location manually.';
+
+	function start() {
+		var $ = function ( id ) { return document.getElementById( id ); };
+		var root = $( 'rv-fas-results' ), form = $( 'rv-fas-form' ), dataEl = $( 'rv-fas-data' );
+		if ( ! root || ! form || root.getAttribute( 'data-ready' ) ) {
+			return;
+		}
+		root.setAttribute( 'data-ready', '1' );
+		var el = {
+			service: $( 'rv-fas-service' ), combo: $( 'rv-fas-combo' ), chips: $( 'rv-fas-chips' ), suggest: $( 'rv-fas-service-list' ), cats: $( 'rv-fas-cats' ),
+			place: $( 'rv-fas-place' ), places: $( 'rv-fas-places' ), geo: $( 'rv-fas-geo' ), retry: $( 'rv-fas-geo-retry' ), locBox: $( 'rv-fas-loc-status' ), locText: $( 'rv-fas-loc-text' ),
+			radius: $( 'rv-fas-radius' ), radiusOut: $( 'rv-fas-radius-out' ),
+			summary: $( 'rv-fas-summary' ), alert: $( 'rv-fas-alert' ), state: $( 'rv-fas-state' ), list: $( 'rv-fas-list' ), map: $( 'rv-fas-map' ), mapMsg: $( 'rv-fas-map-msg' )
+		};
+		var DATA = null;
+		try {
+			DATA = JSON.parse( dataEl.textContent );
+		} catch ( e ) {}
+		if ( ! DATA || ! DATA.facilities || ! DATA.categories ) {
+			el.summary.textContent = '';
+			el.state.hidden = false;
+			el.state.innerHTML = '<h3>The service list could not be loaded</h3><p>Please refresh the page and try again.</p>';
+			el.mapMsg.textContent = '';
+			return;
+		}
+
+		var CATS = DATA.categories, FAC = DATA.facilities, catById = {}, facById = {};
+		var S = { cats: [], text: '', origin: null, placeQuery: '', radius: 25, selected: null, busy: false, geoDenied: false, error: '' };
+		var twoCol = window.matchMedia( '(min-width: 1025px)' ), reduce = window.matchMedia( '(prefers-reduced-motion: reduce)' );
+		var map = null, layer = null, markers = {}, circle = null, mapFailed = false, lastKey = null;
+		var sugg = [], active = -1, altPlaces = [], geoPending = null, geoCache = {}, lastAsk = 0;
+
+		function esc( s ) {
+			return String( s == null ? '' : s ).replace( /[&<>"']/g, function ( ch ) {
+				return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ ch ];
+			} );
+		}
+		function norm( s ) {
+			return String( s || '' ).toLowerCase().normalize( 'NFD' ).replace( /[̀-ͯ]/g, '' ).replace( /[^a-z0-9]+/g, ' ' ).trim();
+		}
+		function hasAll( hay, q ) {
+			return q.split( ' ' ).every( function ( w ) { return hay.indexOf( w ) > -1; } );
+		}
+		function km( a, b ) {
+			var r = Math.PI / 180, dLat = ( b.lat - a.lat ) * r, dLng = ( b.lng - a.lng ) * r;
+			var h = Math.sin( dLat / 2 ) * Math.sin( dLat / 2 ) + Math.cos( a.lat * r ) * Math.cos( b.lat * r ) * Math.sin( dLng / 2 ) * Math.sin( dLng / 2 );
+			return 2 * 6371.0088 * Math.asin( Math.min( 1, Math.sqrt( h ) ) ); // haversine, mean Earth radius
+		}
+		function fmtKm( d ) {
+			return d < 1 ? Math.round( d * 1000 ) + ' m' : ( d < 10 ? d.toFixed( 1 ) : Math.round( d ) ) + ' km';
+		}
+		function wait( ms ) {
+			return new Promise( function ( ok ) { setTimeout( ok, ms ); } );
+		}
+		function motion() {
+			return reduce.matches ? 'auto' : 'smooth';
+		}
+		function directions( f ) {
+			return 'https://www.google.com/maps/dir/?api=1&destination=' + f.lat + ',' + f.lng + ( S.origin ? '&origin=' + S.origin.lat.toFixed( 5 ) + ',' + S.origin.lng.toFixed( 5 ) : '' );
+		}
+		function originLabel() {
+			return S.origin ? S.origin.label : '';
+		}
+
+		CATS.forEach( function ( c, i ) {
+			c.color = COLORS[ i % COLORS.length ];
+			c.hay = norm( c.label + ' ' + ( c.aliases || [] ).join( ' ' ) );
+			c.soon = c.status === 'coming-soon'; // listed, but no facilities shown yet
+			catById[ c.id ] = c;
+		} );
+		var LIVE = CATS.filter( function ( c ) { return ! c.soon; } );
+		FAC.forEach( function ( f ) {
+			f.cats = f.categories.filter( function ( id ) { return catById[ id ] && ! catById[ id ].soon; } );
+			f.hay = norm( [ f.name, f.city, f.address, ( f.services || [] ).join( ' ' ), f.cats.map( function ( id ) { return catById[ id ].hay; } ).join( ' ' ) ].join( ' ' ) );
+			facById[ f.id ] = f;
+		} );
+
+		/* ---------- Service search: chips, category buttons and suggestions ---------- */
+		el.cats.innerHTML = '<span class="rv-fas-cats-label" aria-hidden="true">Popular services</span>' + CATS.map( function ( c ) {
+			var btn = '<button type="button" class="rv-fas-cat" data-cat="' + esc( c.id ) + '" aria-pressed="false"' + ( c.soon ? ' aria-describedby="rv-fas-tip-' + esc( c.id ) + '"' : '' ) + ' style="--rv-fas-c:' + c.color + '"><span class="rv-fas-dot" aria-hidden="true"></span>' + esc( c.label ) + '</button>';
+			return c.soon ? '<span class="rv-fas-cat-wrap">' + btn + '<span class="rv-fas-tip" role="tooltip" id="rv-fas-tip-' + esc( c.id ) + '">Coming Soon!</span></span>' : btn;
+		} ).join( '' );
+		// Coming Soon tooltip: CSS shows it on hover and keyboard focus; a tap shows it for a moment; Escape hides it.
+		var tipTimer;
+		function showTip( wrap, on ) {
+			Array.prototype.forEach.call( el.cats.querySelectorAll( '.rv-fas-cat-wrap.is-tip' ), function ( w ) { w.classList.remove( 'is-tip' ); } );
+			clearTimeout( tipTimer );
+			if ( wrap && on ) {
+				wrap.classList.remove( 'is-tip-off' );
+				wrap.classList.add( 'is-tip' );
+				tipTimer = setTimeout( function () { wrap.classList.remove( 'is-tip' ); }, 2500 );
+			}
+		}
+		el.cats.addEventListener( 'keydown', function ( e ) {
+			var w = e.target.closest( '.rv-fas-cat-wrap' );
+			if ( w && e.key === 'Escape' ) {
+				showTip( null );
+				w.classList.add( 'is-tip-off' );
+			}
+		} );
+		Array.prototype.forEach.call( el.cats.querySelectorAll( '.rv-fas-cat-wrap' ), function ( w ) {
+			var reset = function () { w.classList.remove( 'is-tip-off' ); };
+			w.addEventListener( 'mouseleave', reset );
+			w.addEventListener( 'focusout', reset );
+		} );
+
+		function renderChips() {
+			var html = S.cats.map( function ( id ) {
+				return '<li class="rv-fas-chip">' + esc( catById[ id ].label ) + '<button type="button" data-remove="' + esc( id ) + '" aria-label="Remove ' + esc( catById[ id ].label ) + '">×</button></li>';
+			} ).join( '' );
+			if ( S.text ) {
+				html += '<li class="rv-fas-chip">“' + esc( S.text ) + '”<button type="button" data-remove="" aria-label="Remove ' + esc( S.text ) + '">×</button></li>';
+			}
+			el.chips.innerHTML = html;
+			el.chips.hidden = ! html;
+			Array.prototype.forEach.call( el.cats.querySelectorAll( '[data-cat]' ), function ( b ) {
+				b.setAttribute( 'aria-pressed', S.cats.indexOf( b.getAttribute( 'data-cat' ) ) > -1 ? 'true' : 'false' );
+			} );
+			el.service.placeholder = html ? 'Add another service' : 'Search services, e.g. ATL Labs';
+		}
+		function setCat( id, on ) {
+			var i = S.cats.indexOf( id );
+			if ( on && i < 0 ) {
+				S.cats.push( id );
+			} else if ( ! on && i > -1 ) {
+				S.cats.splice( i, 1 );
+			} else {
+				return;
+			}
+			renderChips();
+			update( { fit: true } );
+		}
+		function soonIds() {
+			var q = norm( S.text );
+			return CATS.filter( function ( c ) { return c.soon && ( S.cats.indexOf( c.id ) > -1 || ( q && hasAll( c.hay, q ) ) ); } ).map( function ( c ) { return c.id; } );
+		}
+		function listWords( ids ) {
+			var parts = ids.map( function ( id ) { return catById[ id ].label; } );
+			return parts.length > 1 ? parts.slice( 0, -1 ).join( ', ' ) + ' and ' + parts[ parts.length - 1 ] : ( parts[ 0 ] || '' );
+		}
+		function serviceWords() {
+			var parts = S.cats.filter( function ( id ) { return ! catById[ id ].soon; } ).map( function ( id ) { return catById[ id ].label; } );
+			var what = parts.length > 1 ? parts.slice( 0, -1 ).join( ', ' ) + ' or ' + parts[ parts.length - 1 ] : ( parts[ 0 ] || '' );
+			if ( S.text ) {
+				what = ( what ? what + ' matching ' : '' ) + '“' + S.text + '”';
+			}
+			return what;
+		}
+		function countFor( test ) {
+			return FAC.filter( test ).length;
+		}
+		function openSuggest( on ) {
+			el.suggest.hidden = ! on;
+			el.service.setAttribute( 'aria-expanded', on ? 'true' : 'false' );
+			if ( ! on ) {
+				active = -1;
+				el.service.removeAttribute( 'aria-activedescendant' );
+			}
+		}
+		function buildSuggest() {
+			var q = norm( el.service.value );
+			var match = function ( c ) { return S.cats.indexOf( c.id ) < 0 && ( ! q || hasAll( c.hay, q ) ); };
+			sugg = LIVE.filter( match ).map( function ( c ) {
+				var n = countFor( function ( f ) { return f.cats.indexOf( c.id ) > -1; } );
+				return { type: 'cat', id: c.id, label: c.label, note: n + ' demo ' + ( n === 1 ? 'facility' : 'facilities' ) };
+			} );
+			if ( q ) {
+				var n = countFor( function ( f ) { return hasAll( f.hay, q ); } );
+				if ( n && ! sugg.length ) {
+					sugg.push( { type: 'text', label: 'Search for “' + el.service.value.trim() + '”', note: n + ' demo ' + ( n === 1 ? 'facility' : 'facilities' ) } );
+				}
+			}
+			// Coming Soon categories go last, so the choosable options keep indexes 0..n-1
+			var soon = CATS.filter( function ( c ) { return c.soon && match( c ); } );
+			active = -1;
+			el.service.removeAttribute( 'aria-activedescendant' );
+			if ( sugg.length || soon.length ) {
+				el.suggest.innerHTML = sugg.map( function ( s, i ) {
+					return '<li class="rv-fas-option" role="option" id="rv-fas-opt-' + i + '" data-i="' + i + '" aria-selected="false"><span>' + esc( s.label ) + '</span><span class="rv-fas-option-note">' + esc( s.note ) + '</span></li>';
+				} ).join( '' ) + soon.map( function ( c ) {
+					return '<li class="rv-fas-option rv-fas-option--soon" role="option" aria-disabled="true" aria-selected="false"><span>' + esc( c.label ) + '</span><span class="rv-fas-option-note">Coming Soon!</span></li>';
+				} ).join( '' );
+			} else if ( q ) {
+				el.suggest.innerHTML = '<li class="rv-fas-option rv-fas-option--empty" role="option" aria-disabled="true" aria-selected="false">No service matches “' + esc( el.service.value.trim() ) + '”. Try ' + esc( listWords( LIVE.map( function ( c ) { return c.id; } ) ).replace( / and ([^,]*)$/, ' or $1' ) ) + '.</li>';
+			} else {
+				el.suggest.innerHTML = '';
+			}
+			openSuggest( !! el.suggest.innerHTML );
+		}
+		function setActive( i ) {
+			var opts = el.suggest.querySelectorAll( '[data-i]' );
+			if ( ! opts.length ) {
+				return;
+			}
+			active = ( i + opts.length ) % opts.length;
+			Array.prototype.forEach.call( opts, function ( o, k ) {
+				o.classList.toggle( 'is-active', k === active );
+				o.setAttribute( 'aria-selected', k === active ? 'true' : 'false' );
+			} );
+			el.service.setAttribute( 'aria-activedescendant', opts[ active ].id );
+			opts[ active ].scrollIntoView( { block: 'nearest' } );
+		}
+		function choose( i ) {
+			var s = sugg[ i ];
+			if ( ! s ) {
+				return;
+			}
+			if ( s.type === 'cat' ) {
+				el.service.value = '';
+				openSuggest( false );
+				setCat( s.id, true );
+			} else {
+				S.text = el.service.value.trim();
+				el.service.value = '';
+				openSuggest( false );
+				renderChips();
+				update( { fit: true } );
+			}
+		}
+		function commitServiceText() {
+			var raw = el.service.value.trim(), q = norm( raw );
+			el.service.value = '';
+			openSuggest( false );
+			if ( ! q ) {
+				return;
+			}
+			var hits = CATS.filter( function ( c ) { return hasAll( c.hay, q ); } );
+			if ( hits.length === 1 ) {
+				if ( S.cats.indexOf( hits[ 0 ].id ) < 0 ) {
+					S.cats.push( hits[ 0 ].id );
+				}
+			} else {
+				S.text = raw;
+			}
+			renderChips();
+		}
+
+		el.cats.addEventListener( 'click', function ( e ) {
+			var b = e.target.closest( '[data-cat]' );
+			if ( b ) {
+				var on = b.getAttribute( 'aria-pressed' ) !== 'true';
+				showTip( b.closest( '.rv-fas-cat-wrap' ), on );
+				setCat( b.getAttribute( 'data-cat' ), on );
+			}
+		} );
+		el.chips.addEventListener( 'click', function ( e ) {
+			var b = e.target.closest( '[data-remove]' );
+			if ( ! b ) {
+				return;
+			}
+			if ( b.getAttribute( 'data-remove' ) ) {
+				setCat( b.getAttribute( 'data-remove' ), false );
+			} else {
+				S.text = '';
+				renderChips();
+				update( { fit: true } );
+			}
+			el.service.focus();
+		} );
+		el.combo.addEventListener( 'click', function ( e ) {
+			if ( e.target === el.combo ) {
+				el.service.focus();
+			}
+		} );
+		el.service.addEventListener( 'input', buildSuggest );
+		el.service.addEventListener( 'focus', buildSuggest );
+		el.service.addEventListener( 'blur', function () {
+			setTimeout( function () { openSuggest( false ); }, 150 );
+		} );
+		el.service.addEventListener( 'keydown', function ( e ) {
+			if ( e.key === 'ArrowDown' || e.key === 'ArrowUp' ) {
+				e.preventDefault();
+				if ( el.suggest.hidden ) {
+					buildSuggest();
+				}
+				setActive( active + ( e.key === 'ArrowDown' ? 1 : -1 ) );
+			} else if ( e.key === 'Enter' && ! el.suggest.hidden && active > -1 ) {
+				e.preventDefault();
+				choose( active );
+			} else if ( e.key === 'Escape' ) {
+				openSuggest( false );
+			} else if ( e.key === 'Backspace' && ! el.service.value ) {
+				if ( S.text ) {
+					S.text = '';
+					renderChips();
+					update( { fit: true } );
+				} else if ( S.cats.length ) {
+					setCat( S.cats[ S.cats.length - 1 ], false );
+				}
+			}
+		} );
+		el.suggest.addEventListener( 'mousedown', function ( e ) {
+			e.preventDefault(); // keep focus in the input
+		} );
+		el.suggest.addEventListener( 'click', function ( e ) {
+			var o = e.target.closest( '[data-i]' );
+			if ( o ) {
+				choose( +o.getAttribute( 'data-i' ) );
+			}
+		} );
+
+		/* ---------- Location: browser geolocation and manual place search ---------- */
+		function loc( text, kind, retry, auto ) {
+			if ( ! auto ) {
+				S.locActed = true; // the visitor has started a location action; background permission checks no longer change the message
+			}
+			el.locText.textContent = text;
+			el.locBox.className = 'rv-fas-loc-status' + ( kind ? ' rv-fas-loc-status--' + kind : '' );
+			el.retry.hidden = ! retry;
+		}
+		function hidePlaces() {
+			el.places.hidden = true;
+			el.places.innerHTML = '';
+			altPlaces = [];
+		}
+		function showPlaces( list ) {
+			altPlaces = list;
+			if ( ! list.length ) {
+				hidePlaces();
+				return;
+			}
+			el.places.innerHTML = '<p>Not the right place? Choose another match:</p><ul>' + list.map( function ( p, i ) {
+				return '<li><button type="button" class="rv-fas-link" data-place="' + i + '">' + esc( p.full ) + '</button></li>';
+			} ).join( '' ) + '</ul>';
+			el.places.hidden = false;
+		}
+		function setOrigin( o ) {
+			S.origin = o;
+			S.error = '';
+			setBusy( false );
+			update( { fit: true } );
+		}
+		function setError( msg ) {
+			S.error = msg;
+			setBusy( false );
+			update();
+		}
+		function locate() {
+			if ( geoPending ) {
+				return geoPending;
+			}
+			if ( ! ( 'geolocation' in navigator ) || ! window.isSecureContext ) {
+				loc( MSG_OFF + ' This browser cannot share its location on this page.', 'warn', false );
+				return Promise.resolve();
+			}
+			el.geo.disabled = true;
+			loc( 'Finding your location…', 'busy', false );
+			setBusy( true, 'Finding your location…' );
+			geoPending = new Promise( function ( done ) {
+				navigator.geolocation.getCurrentPosition( function ( pos ) {
+					var c = pos.coords;
+					S.geoDenied = false;
+					S.placeQuery = '';
+					el.place.value = '';
+					hidePlaces();
+					loc( 'Using your current location (' + c.latitude.toFixed( 4 ) + ', ' + c.longitude.toFixed( 4 ) + ( c.accuracy ? ', accurate to about ' + fmtKm( c.accuracy / 1000 ) : '' ) + ').', 'ok', false );
+					setOrigin( { lat: c.latitude, lng: c.longitude, label: 'your location', source: 'gps' } );
+					done();
+				}, function ( err ) {
+					var why = err.code === 1 ? 'Permission was denied.' : ( err.code === 3 ? 'The request timed out.' : 'Your device could not find its position.' );
+					S.geoDenied = err.code === 1;
+					loc( MSG_OFF + ' ' + why, 'warn', true );
+					setBusy( false );
+					update();
+					done();
+				}, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 } );
+			} ).then( function () {
+				geoPending = null;
+				el.geo.disabled = false;
+			} );
+			return geoPending;
+		}
+		function shortName( full ) {
+			return String( full ).split( ', ' ).slice( 0, 3 ).join( ', ' );
+		}
+		function geocode( q ) {
+			var key = norm( q );
+			S.placeQuery = q;
+			hidePlaces();
+			loc( 'Looking up “' + q + '”…', 'busy', false );
+			setBusy( true, 'Looking up “' + q + '”…' );
+			var get = geoCache[ key ] ? Promise.resolve( geoCache[ key ] ) : wait( Math.max( 0, lastAsk + 1100 - Date.now() ) ).then( function () {
+				lastAsk = Date.now();
+				var ctl = window.AbortController ? new AbortController() : null;
+				var timer = ctl ? setTimeout( function () { ctl.abort(); }, 10000 ) : 0;
+				return fetch( GEOCODER + '?format=jsonv2&limit=5&countrycodes=in&accept-language=en&q=' + encodeURIComponent( q ), { signal: ctl ? ctl.signal : undefined, credentials: 'omit' } ).then( function ( r ) {
+					clearTimeout( timer );
+					if ( ! r.ok ) {
+						throw new Error( 'HTTP ' + r.status );
+					}
+					return r.json();
+				} ).then( function ( rows ) {
+					geoCache[ key ] = rows;
+					return rows;
+				} );
+			} );
+			return get.then( function ( rows ) {
+				if ( S.placeQuery !== q ) {
+					return;
+				}
+				var places = ( Array.isArray( rows ) ? rows : [] ).filter( function ( r ) { return isFinite( parseFloat( r.lat ) ) && isFinite( parseFloat( r.lon ) ); } ).map( function ( r ) {
+					return { lat: parseFloat( r.lat ), lng: parseFloat( r.lon ), label: shortName( r.display_name ), full: r.display_name, source: 'manual' };
+				} );
+				if ( ! places.length ) {
+					S.placeQuery = '';
+					loc( 'We couldn’t find “' + q + '”. Try a city, area, town or 6-digit PIN code.', 'warn', false );
+					setBusy( false );
+					update();
+					return;
+				}
+				loc( 'Showing services near ' + places[ 0 ].label + '.', 'ok', false );
+				showPlaces( places.slice( 1 ) );
+				setOrigin( places[ 0 ] );
+			} ).catch( function () {
+				if ( S.placeQuery !== q ) {
+					return;
+				}
+				S.placeQuery = '';
+				loc( 'We couldn’t look up that location right now.', 'warn', false );
+				setError( 'We couldn’t look up “' + q + '” right now. Check your connection and press Search again, or use your location.' );
+			} );
+		}
+		function search() {
+			commitServiceText();
+			var p = el.place.value.trim();
+			S.error = '';
+			if ( p && p !== S.placeQuery ) {
+				return geocode( p );
+			}
+			if ( ! p && ! S.origin && ! S.geoDenied ) {
+				update();
+				return locate();
+			}
+			update( { fit: true } );
+		}
+
+		form.addEventListener( 'submit', function ( e ) {
+			e.preventDefault();
+			search();
+		} );
+		el.geo.addEventListener( 'click', locate );
+		el.retry.addEventListener( 'click', locate );
+		el.places.addEventListener( 'click', function ( e ) {
+			var b = e.target.closest( '[data-place]' ), p = b && altPlaces[ +b.getAttribute( 'data-place' ) ];
+			if ( p ) {
+				loc( 'Showing services near ' + p.label + '.', 'ok', false );
+				hidePlaces();
+				setOrigin( p );
+			}
+		} );
+		if ( navigator.permissions && navigator.permissions.query ) {
+			navigator.permissions.query( { name: 'geolocation' } ).then( function ( status ) {
+				function sync() {
+					S.geoDenied = status.state === 'denied';
+					if ( S.locActed ) {
+						return;
+					}
+					if ( S.geoDenied ) {
+						loc( MSG_OFF + ' Location permission is blocked for this site in your browser settings.', 'warn', true, true );
+					} else {
+						loc( MSG_ASK, '', false, true );
+					}
+				}
+				sync();
+				status.onchange = sync;
+			} ).catch( function () {} );
+		}
+
+		/* ---------- Radius ---------- */
+		function setRadius( v, fit ) {
+			v = Math.min( 100, Math.max( 1, Math.round( +v ) || 25 ) );
+			S.radius = v;
+			el.radius.value = v;
+			el.radiusOut.textContent = v + ' km';
+			el.radius.setAttribute( 'aria-valuetext', v + ' km' );
+			el.radius.style.setProperty( '--rv-fas-fill', ( ( v - 1 ) / 99 * 100 ) + '%' );
+			update( { fit: fit } );
+		}
+		el.radius.addEventListener( 'input', function () { setRadius( el.radius.value, false ); } );
+		el.radius.addEventListener( 'change', function () { setRadius( el.radius.value, true ); } );
+
+		/* ---------- Results ---------- */
+		function setBusy( on, msg ) {
+			S.busy = on;
+			el.list.setAttribute( 'aria-busy', on ? 'true' : 'false' );
+			if ( on ) {
+				el.list.hidden = true;
+				el.alert.hidden = true;
+				el.state.hidden = false;
+				el.state.className = 'rv-fas-state rv-fas-state--loading';
+				el.state.innerHTML = '<p class="rv-fas-state-msg">' + esc( msg ) + '</p><div class="rv-fas-skel"></div><div class="rv-fas-skel"></div><div class="rv-fas-skel"></div>';
+				el.summary.textContent = msg;
+			}
+		}
+		function update( opts ) {
+			if ( S.busy ) {
+				return;
+			}
+			var q = norm( S.text ), res;
+			var svc = FAC.filter( function ( f ) {
+				// Coming Soon categories never match: f.cats only holds live categories
+				return ( ! S.cats.length || f.cats.some( function ( c ) { return S.cats.indexOf( c ) > -1; } ) ) && ( ! q || hasAll( f.hay, q ) );
+			} );
+			if ( S.origin ) {
+				svc.forEach( function ( f ) { f.d = km( S.origin, f ); } );
+				svc.sort( function ( a, b ) { return a.d - b.d; } );
+				res = svc.filter( function ( f ) { return f.d <= S.radius; } );
+			} else {
+				svc.forEach( function ( f ) { f.d = null; } );
+				svc.sort( function ( a, b ) { return a.name.localeCompare( b.name ); } );
+				res = svc;
+			}
+			if ( ! res.some( function ( f ) { return f.id === S.selected; } ) ) {
+				S.selected = null;
+			}
+			renderList( res, svc );
+			drawMap( res, opts && opts.fit );
+		}
+		function card( f, i ) {
+			var phone = f.phone ? ( /x/i.test( f.phone ) || ! /\d{6,}/.test( f.phone.replace( /\D/g, '' ) ) ? esc( f.phone ) : '<a href="tel:' + esc( f.phone.replace( /[^\d+]/g, '' ) ) + '">' + esc( f.phone ) + '</a>' ) : 'Not listed';
+			var site = /^https?:\/\//i.test( f.website || '' ) ? '<a class="rv-fas-btn rv-fas-btn--small rv-fas-btn--ghost" href="' + esc( f.website ) + '" target="_blank" rel="noopener">Website<span class="rv-fas-sr"> of ' + esc( f.name ) + ' (opens in a new tab)</span></a>' : '<span class="rv-fas-nosite">No website listed</span>';
+			return '<li class="rv-fas-card' + ( f.id === S.selected ? ' is-selected' : '' ) + '" data-id="' + esc( f.id ) + '"' + ( f.id === S.selected ? ' aria-current="true"' : '' ) + '>' +
+				'<div class="rv-fas-card-head"><span class="rv-fas-rank" aria-hidden="true">' + ( i + 1 ) + '</span><h3 class="rv-fas-card-title">' + esc( f.name ) + '</h3>' +
+				( f.d != null ? '<span class="rv-fas-dist"><span class="rv-fas-sr">Distance: </span>' + fmtKm( f.d ) + '</span>' : '' ) + '</div>' +
+				'<ul class="rv-fas-tags" aria-label="Categories">' + f.cats.map( function ( id ) {
+					return '<li class="rv-fas-tag" style="--rv-fas-c:' + catById[ id ].color + '">' + esc( catById[ id ].label ) + '</li>';
+				} ).join( '' ) + '<li class="rv-fas-tag rv-fas-tag--demo">Demo data</li></ul>' +
+				'<dl class="rv-fas-meta"><div><dt>Address</dt><dd>' + esc( f.address ) + '</dd></div><div><dt>Services</dt><dd>' + esc( ( f.services || [] ).join( ', ' ) ) + '</dd></div><div><dt>Contact</dt><dd>' + phone + '</dd></div></dl>' +
+				'<div class="rv-fas-actions"><button type="button" class="rv-fas-btn rv-fas-btn--small rv-fas-btn--primary" data-act="map"' + ( mapFailed ? ' aria-disabled="true" title="The map could not load"' : '' ) + '>View on map<span class="rv-fas-sr">: ' + esc( f.name ) + '</span></button>' +
+				'<a class="rv-fas-btn rv-fas-btn--small rv-fas-btn--ghost" href="' + esc( directions( f ) ) + '" target="_blank" rel="noopener">Directions<span class="rv-fas-sr"> to ' + esc( f.name ) + ' (opens Google Maps in a new tab)</span></a>' + site + '</div></li>';
+		}
+		function renderList( res, svc ) {
+			var what = serviceWords(), n = res.length;
+			el.alert.hidden = ! S.error;
+			el.alert.innerHTML = S.error ? '<span>' + esc( S.error ) + '</span>' : '';
+			el.state.className = 'rv-fas-state';
+			var soon = soonIds(), soonWords = listWords( soon );
+			if ( ! svc.length && soon.length ) {
+				el.summary.textContent = 'Coming Soon! ' + soonWords + ( soon.length > 1 ? ' are' : ' is' ) + ' not available yet.';
+				el.state.className = 'rv-fas-state rv-fas-state--soon';
+				el.state.innerHTML = '<p class="rv-fas-soon-badge">Coming Soon!</p><h3>' + esc( soonWords ) + '</h3><p>' + ( soon.length > 1 ? 'These services are' : 'This service is' ) + ' not listed on RoboValley yet. Meanwhile, you can search:</p><div class="rv-fas-state-actions">' +
+					LIVE.map( function ( c ) { return '<button type="button" class="rv-fas-btn rv-fas-btn--small rv-fas-btn--ghost" data-only="' + esc( c.id ) + '">' + esc( c.label ) + '</button>'; } ).join( '' ) +
+					'<button type="button" class="rv-fas-btn rv-fas-btn--small rv-fas-btn--primary" data-clear>Show all services</button></div>';
+				el.state.hidden = false;
+				el.list.hidden = true;
+				el.list.innerHTML = '';
+				return;
+			}
+			if ( ! svc.length ) {
+				el.summary.textContent = 'No matching services.';
+				el.state.innerHTML = '<h3>No matching services</h3><p>No demo facilities match ' + esc( what ) + '. Try one of these services:</p><div class="rv-fas-state-actions">' +
+					LIVE.map( function ( c ) { return '<button type="button" class="rv-fas-btn rv-fas-btn--small rv-fas-btn--ghost" data-only="' + esc( c.id ) + '">' + esc( c.label ) + '</button>'; } ).join( '' ) +
+					'<button type="button" class="rv-fas-btn rv-fas-btn--small rv-fas-btn--primary" data-clear>Show all services</button></div>';
+				el.state.hidden = false;
+				el.list.hidden = true;
+				el.list.innerHTML = '';
+				return;
+			}
+			if ( ! n ) {
+				var near = svc[ 0 ], need = Math.ceil( near.d );
+				el.summary.textContent = 'No demo facilities' + ( what ? ' for ' + what : '' ) + ' within ' + S.radius + ' km.';
+				el.state.innerHTML = '<h3>Nothing within ' + S.radius + ' km</h3><p>No demo facilities' + ( what ? ' for ' + esc( what ) : '' ) + ' are within ' + S.radius + ' km of ' + esc( originLabel() ) + '. The nearest is ' + esc( near.name ) + ', ' + fmtKm( near.d ) + ' away.</p>' +
+					( need <= 100 ? '<div class="rv-fas-state-actions"><button type="button" class="rv-fas-btn rv-fas-btn--small rv-fas-btn--primary" data-radius="' + need + '">Search within ' + need + ' km</button></div>' : '<p>That is more than 100 km away. Try another location or service.</p>' );
+				el.state.hidden = false;
+				el.list.hidden = true;
+				el.list.innerHTML = '';
+				return;
+			}
+			el.state.hidden = true;
+			el.state.innerHTML = '';
+			el.list.hidden = false;
+			el.list.setAttribute( 'aria-label', S.origin ? 'Facilities, nearest first' : 'Facilities' );
+			el.list.innerHTML = res.map( card ).join( '' );
+			el.summary.textContent = n + ' demo ' + ( n === 1 ? 'facility' : 'facilities' ) + ( what ? ' for ' + what : '' ) +
+				( S.origin ? ' within ' + S.radius + ' km of ' + originLabel() + ', nearest first.' : '. Choose a location to see distances and use the radius.' ) +
+				( soon.length ? ' ' + soonWords + ': Coming Soon!' : '' );
+		}
+		el.state.addEventListener( 'click', function ( e ) {
+			var b = e.target.closest( 'button' );
+			if ( ! b ) {
+				return;
+			}
+			if ( b.hasAttribute( 'data-only' ) ) {
+				S.cats = [ b.getAttribute( 'data-only' ) ];
+				S.text = '';
+				renderChips();
+				update( { fit: true } );
+			} else if ( b.hasAttribute( 'data-clear' ) ) {
+				S.cats = [];
+				S.text = '';
+				renderChips();
+				update( { fit: true } );
+			} else if ( b.hasAttribute( 'data-radius' ) ) {
+				setRadius( b.getAttribute( 'data-radius' ), true );
+			}
+		} );
+		function select( id, o ) {
+			var f = facById[ id ];
+			if ( ! f ) {
+				return;
+			}
+			S.selected = id;
+			Array.prototype.forEach.call( el.list.children, function ( li ) {
+				var on = li.getAttribute( 'data-id' ) === id;
+				li.classList.toggle( 'is-selected', on );
+				if ( on ) {
+					li.setAttribute( 'aria-current', 'true' );
+				} else {
+					li.removeAttribute( 'aria-current' );
+				}
+			} );
+			if ( map && markers[ id ] ) {
+				refreshIcons();
+				markers[ id ].openPopup();
+				if ( o.fromCard ) {
+					// Centre the marker and its popup together; a plain setView here cancels Leaflet's popup auto-pan,
+					// which clips the popup on the shorter tablet and phone maps.
+					var z = Math.max( map.getZoom(), 12 ), pop = markers[ id ].getPopup().getElement(), icon = markers[ id ].getElement();
+					var lift = ( ( pop ? pop.offsetHeight : 0 ) + ( icon ? icon.offsetHeight : 0 ) ) / 2;
+					map.setView( map.unproject( map.project( [ f.lat, f.lng ], z ).subtract( [ 0, lift ] ), z ), z, { animate: ! reduce.matches } );
+				}
+			}
+			if ( o.scrollMap && ! twoCol.matches && ! mapFailed ) {
+				el.map.scrollIntoView( { behavior: motion(), block: 'center' } );
+			}
+			if ( o.fromMap && twoCol.matches ) {
+				var li = el.list.querySelector( '[data-id="' + id + '"]' );
+				if ( li ) {
+					li.scrollIntoView( { behavior: motion(), block: 'nearest' } );
+				}
+			}
+		}
+		el.list.addEventListener( 'click', function ( e ) {
+			if ( e.target.closest( 'a' ) ) {
+				return;
+			}
+			var li = e.target.closest( '.rv-fas-card' );
+			if ( li ) {
+				select( li.getAttribute( 'data-id' ), { fromCard: true, scrollMap: !! e.target.closest( '[data-act="map"]' ) } );
+			}
+		} );
+
+		/* ---------- Map (Leaflet + OpenStreetMap) ---------- */
+		function pin( n, on ) {
+			return window.L.divIcon( { className: 'rv-fas-pin-wrap', html: '<span class="rv-fas-pin' + ( on ? ' is-active' : '' ) + '"><span>' + n + '</span></span>', iconSize: [ 34, 36 ], iconAnchor: [ 17, 34 ], popupAnchor: [ 0, -30 ] } );
+		}
+		function popup( f ) {
+			return '<div class="rv-fas-pop"><p class="rv-fas-pop-tag">Demo facility</p><h4>' + esc( f.name ) + '</h4><p>' + f.cats.map( function ( id ) { return esc( catById[ id ].label ); } ).join( ' · ' ) + '</p><p>' + esc( f.address ) + '</p>' +
+				( f.d != null ? '<p><strong>' + fmtKm( f.d ) + '</strong> from ' + esc( originLabel() ) + '</p>' : '' ) +
+				'<p><a href="' + esc( directions( f ) ) + '" target="_blank" rel="noopener">Directions ↗<span class="rv-fas-sr"> (opens Google Maps in a new tab)</span></a></p></div>';
+		}
+		function refreshIcons() {
+			Object.keys( markers ).forEach( function ( id ) {
+				var m = markers[ id ], on = id === S.selected;
+				m.setIcon( pin( m.rvRank, on ) );
+				m.setZIndexOffset( on ? 1000 : 0 );
+			} );
+		}
+		function drawMap( res, fit ) {
+			if ( ! map ) {
+				return;
+			}
+			var L = window.L, key = res.map( function ( f ) { return f.id; } ).join( ',' ) + '|' + ( S.origin ? S.origin.lat + ',' + S.origin.lng : '' );
+			if ( key !== lastKey ) {
+				lastKey = key;
+				layer.clearLayers();
+				markers = {};
+				circle = null;
+				if ( S.origin ) {
+					circle = L.circle( [ S.origin.lat, S.origin.lng ], { radius: S.radius * 1000, color: '#17694f', weight: 1.5, opacity: 0.7, fillColor: '#17694f', fillOpacity: 0.06, interactive: false } ).addTo( layer );
+					L.marker( [ S.origin.lat, S.origin.lng ], { icon: L.divIcon( { className: 'rv-fas-origin-wrap', html: '<span class="rv-fas-origin"></span>', iconSize: [ 18, 18 ], iconAnchor: [ 9, 9 ] } ), title: 'Search starting point: ' + originLabel(), alt: 'Search starting point', keyboard: false, zIndexOffset: -500 } ).addTo( layer );
+				}
+				res.forEach( function ( f, i ) {
+					var m = L.marker( [ f.lat, f.lng ], { icon: pin( i + 1, f.id === S.selected ), title: f.name, alt: f.name + ' (demo facility)', riseOnHover: true, zIndexOffset: f.id === S.selected ? 1000 : 0 } );
+					m.rvRank = i + 1;
+					m.bindPopup( popup( f ), { maxWidth: 260, autoPanPadding: [ 24, 24 ] } );
+					m.on( 'click', function () { select( f.id, { fromMap: true } ); } );
+					m.addTo( layer );
+					markers[ f.id ] = m;
+				} );
+			} else {
+				refreshIcons();
+			}
+			if ( circle ) {
+				circle.setRadius( S.radius * 1000 );
+			}
+			if ( fit ) {
+				if ( circle ) {
+					map.fitBounds( circle.getBounds(), { padding: [ 16, 16 ], animate: ! reduce.matches } );
+				} else {
+					var pts = ( res.length ? res : FAC ).map( function ( f ) { return [ f.lat, f.lng ]; } );
+					if ( pts.length === 1 ) {
+						map.setView( pts[ 0 ], 12, { animate: ! reduce.matches } );
+					} else {
+						map.fitBounds( pts, { padding: [ 36, 36 ], maxZoom: 12, animate: ! reduce.matches } );
+					}
+				}
+			}
+		}
+		function loadLeaflet() {
+			if ( window.L && window.L.map ) {
+				return Promise.resolve( window.L );
+			}
+			return new Promise( function ( ok, fail ) {
+				if ( ! document.getElementById( 'rv-fas-leaflet-css' ) ) {
+					var l = document.createElement( 'link' );
+					l.id = 'rv-fas-leaflet-css';
+					l.rel = 'stylesheet';
+					l.href = LEAFLET.css;
+					l.integrity = LEAFLET.cssSri;
+					l.crossOrigin = 'anonymous';
+					document.head.appendChild( l );
+				}
+				var s = document.createElement( 'script' ), timer = setTimeout( function () { fail( new Error( 'timeout' ) ); }, 15000 );
+				s.src = LEAFLET.js;
+				s.integrity = LEAFLET.jsSri;
+				s.crossOrigin = 'anonymous';
+				s.async = true;
+				s.onload = function () {
+					clearTimeout( timer );
+					if ( window.L && window.L.map ) {
+						ok( window.L );
+					} else {
+						fail( new Error( 'Leaflet missing' ) );
+					}
+				};
+				s.onerror = function () {
+					clearTimeout( timer );
+					fail( new Error( 'Leaflet failed to load' ) );
+				};
+				document.head.appendChild( s );
+			} );
+		}
+		loadLeaflet().then( function ( L ) {
+			var tilesOk = 0, tilesBad = 0;
+			el.mapMsg.hidden = true;
+			map = L.map( el.map, { scrollWheelZoom: false } );
+			L.tileLayer( TILES, { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors' } ).on( 'tileload', function () {
+				tilesOk++;
+			} ).on( 'tileerror', function () {
+				if ( ++tilesBad === 4 && ! tilesOk ) {
+					el.mapMsg.className = 'rv-fas-map-msg is-banner';
+					el.mapMsg.textContent = 'Map images could not load. Markers, results and directions still work.';
+					el.mapMsg.hidden = false;
+				}
+			} ).addTo( map );
+			map.on( 'focus click', function () { map.scrollWheelZoom.enable(); } );
+			map.on( 'blur mouseout', function () { map.scrollWheelZoom.disable(); } );
+			layer = L.layerGroup().addTo( map );
+			map.setView( [ 16.5, 80.6 ], 8 );
+			lastKey = null;
+			update( { fit: true } );
+		} ).catch( function () {
+			mapFailed = true;
+			el.mapMsg.className = 'rv-fas-map-msg is-error';
+			el.mapMsg.textContent = 'The map could not load. The results list still works, and each Directions link opens Google Maps.';
+			el.mapMsg.hidden = false;
+			update();
+		} );
+
+		renderChips();
+		setRadius( el.radius.value );
+	}
+
+	if ( document.readyState === 'loading' ) {
+		document.addEventListener( 'DOMContentLoaded', start );
+	} else {
+		start();
+	}
+}() );
+</script>

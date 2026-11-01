@@ -32,7 +32,7 @@ describe("POST /api/auth/login – success", () => {
     const res = await post({ email: "Asha@Example.com", password: PASSWORD });
     const body = await res.json();
     expect(res.status).toBe(200);
-    expect(body).toEqual({ success: true, user: { id: u.id, fullName: "Asha Rao", email: "asha@example.com", role: "TC" }, redirectTo: "/dashboard" });
+    expect(body).toEqual({ success: true, user: { id: u.id, fullName: "Asha Rao", email: "asha@example.com", role: "TC" }, redirectTo: "https://techytree.in/" });
     expect(JSON.stringify(body)).not.toMatch(/hash|\$2[aby]\$|password/i);
 
     const c = cookieOf(res);

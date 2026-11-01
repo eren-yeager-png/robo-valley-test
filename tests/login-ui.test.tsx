@@ -6,6 +6,7 @@ import { seedUser, testDb } from "./helpers";
 
 const h = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
 vi.mock("../src/lib/db", async () => { const c = await import("./helpers/currentPool"); return { get pool() { return c.getPool(); } }; });
+vi.mock("../src/lib/navigate", () => ({ hardNavigate: (to: string) => h.replace(to) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: h.replace, refresh: h.refresh, push: vi.fn() }) }));
 
 import LoginForm from "../src/app/login/LoginForm";
@@ -85,12 +86,12 @@ describe("validation", () => {
 });
 
 describe("submitting", () => {
-  it("success: posts the credentials and moves to the dashboard", async () => {
+  it("success: posts the credentials and moves to the normal website", async () => {
     const user = setup();
     await user.type(email(), "Asha@Example.com");
     await user.type(pw(), PASSWORD);
     await user.click(submit());
-    await waitFor(() => expect(h.replace).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(h.replace).toHaveBeenCalledWith("https://techytree.in/"));
     expect(calls).toEqual([{ email: "Asha@Example.com", password: PASSWORD, remember: false }]);
   });
 

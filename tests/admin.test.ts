@@ -176,13 +176,13 @@ describe("POST /api/admin/change-password", () => {
 });
 
 describe("admin sign-in", () => {
-  it("login returns /admin/dashboard for an admin and /dashboard for everyone else", async () => {
+  it("login sends an admin and everyone else to the same normal website (no separate admin dashboard)", async () => {
     await seedUser({ email: "admin@robovalley.com", role: "admin" });
     await seedUser({ email: "asha@example.com", role: "TC" });
     const a = await (await login(post("/api/auth/login", { email: "admin@robovalley.com", password: PW }))).json();
-    expect(a).toMatchObject({ success: true, redirectTo: "/admin/dashboard", user: { role: "admin" } });
+    expect(a).toMatchObject({ success: true, redirectTo: "https://techytree.in/", user: { role: "admin" } });
     const t = await (await login(post("/api/auth/login", { email: "asha@example.com", password: PW }))).json();
-    expect(t).toMatchObject({ success: true, redirectTo: "/dashboard" });
+    expect(t).toMatchObject({ success: true, redirectTo: "https://techytree.in/" });
   });
 
   it("self-signup can never create an admin", async () => {

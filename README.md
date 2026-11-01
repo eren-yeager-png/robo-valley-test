@@ -47,6 +47,8 @@ RESEND_FROM_EMAIL=RoboValley <onboarding@resend.dev>   # optional; this is the d
 | `db/migrations/001_signup_additions.sql` | `users.age_category`, `profile`, `consents`, `mobile_verification`; `guardian_details.mobile_verification`, `consent_mode`; case-insensitive email index. |
 | `db/migrations/002_email_verification.sql` | `users.email_verification`; `guardian_details.guardian_email`, `email_verification`. **Needed by email-OTP signup.** |
 | `db/migrations/003_otp_and_login_throttle.sql` | Three **new** tables: `otp_challenges`, `email_verifications`, `login_attempts` (+ indexes). **Needed by email OTP, signup and login**: they hold the one-time codes (hashed), verification tokens (hashed) and login-failure counters that used to live in server memory, which does not work on serverless hosting. Touches no existing table or data. Undo: `db/rollback/003_down.sql` (drops only those three tables). |
+| `db/migrations/004_admin_support.sql` | `users.must_change_password` (admin accounts). |
+| `db/migrations/005_service_datasets.sql` | Three **new** tables for the Find a Service school directory: `service_datasets`, `service_dataset_rows`, `upload_audit_log` (+ indexes; `pg_trgm` is used if the role may create it). Touches no existing table. Undo: `db/rollback/005_down.sql`. See section 5d. |
 
 All are additive (`IF NOT EXISTS`) and safe to re-run. Apply 001, then 002, then 003. Until 003 is applied, OTP requests and logins fail with a generic 500 (the code needs the tables). `users` is owned by `app_user`, so 001/002 must be run as that role; 003 only creates new tables.
 
@@ -130,6 +132,44 @@ Pages: `/login` (sign in), `/dashboard` (protected; shared by all roles for now)
 - **Not real yet:** every role section (projects, mentors, schools, courses, …) is an explicit empty state that names the table/API it needs. "At a glance" tiles show "—". The collapsed "sample data" block uses the example figures from `Roles.html` and is labelled as not live (none exists for AR/FS).
 - **Settings API:** `PATCH /api/account/profile` changes only your own name, district, language and role profile answers. Role, email, age category, ids and consents are rejected with 400, and profile answers are validated against the role stored in the database.
 - **Missing schema (see the section list in `dashboardConfig.ts`):** schools and school membership/verification, parent–child links, org/district scope for officials, projects/progress/badges, mentoring, courses, events/competitions, kit inventory, bookings, funding, notifications and an activity log.
+
+## 5d. Find a Service: admin upload and school directory search
+
+An administrator uploads a school spreadsheet on the **Find a Service** page; everyone then searches the same stored data.
+
+| Piece | Where |
+|---|---|
+| Migration `005_service_datasets.sql` (+ `db/rollback/005_down.sql`) | tables `service_datasets` (one row per upload version), `service_dataset_rows`, `upload_audit_log`; a unique index allows only one `active` dataset; trigram indexes (`pg_trgm`, optional) make partial-name search fast |
+| `POST /api/services/upload` | **admin only** (401 not signed in, 403 not admin; role read from the database on every call). multipart `file`. Validates, parses, writes a **staged** (invisible) version, returns a preview |
+| `POST /api/services/upload/confirm` | **admin only**. `{ "datasetId": "…" }`. In ONE transaction the previous active version becomes `superseded` and this one `active`; any failure rolls back and the old data stays live |
+| `GET /api/services/search?q=&location=&page=&pageSize=` | public, `Cache-Control: no-store`, case-insensitive partial match, `pageSize` 1-50 |
+| `GET /api/auth/me` | returns only `{ "role": "admin" \| "user" \| null }` (display hint; every admin API re-checks on the server) |
+| `scripts/seed-admin.mjs` | makes `ADMIN_EMAIL` the only admin and demotes any other admin to `user` (other roles such as students are untouched) |
+
+**File rules** (enforced on the server): `.xlsx` or `.csv` only (`.xls` is refused with an explanation); extension, MIME type and real content are all checked; max 10 MB, 100,000 rows, 100 columns; CSV must be UTF-8 (or UTF-16 with a BOM). Required: a **School Name** column and a location column (**District** or **Pincode**); otherwise the whole file is rejected and the message names what is missing. Headers are trimmed, case-folded, aliased (e.g. `School`, `Name of School`, `Dist`, `PIN Code`) and de-duplicated; every column is kept. Cells are sanitised: HTML removed, control characters removed, formula-looking text (`= + - @`) is neutralised with a leading apostrophe. Invalid rows (empty school name, bad 6-digit pincode, no location) are listed in the preview and skipped. All SQL is parameterised.
+
+**Setup (local):**
+
+```powershell
+npm run db:migrate -- --expect-db robovalley_dev                  # dry run, then add --apply  (use: node --env-file=.env.local scripts/migrate.mjs ...)
+npm run seed:admin -- --expect-db robovalley_dev --apply          # the one admin, from ADMIN_EMAIL / ADMIN_PASSWORD
+docker compose -f docker-compose.wordpress.yml --env-file .env.local up -d
+bash scripts/wp-local-setup.sh                                    # installs Astra + Elementor from wordpress.org, imports the page
+npm run dev                                                       # http://localhost:3000   (WordPress: http://localhost:8080)
+```
+
+**Environment variable names** (values go only in `.env.local`, never in git): `DATABASE_URL`, `SESSION_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` (or the existing `ADMINn_EMAIL` / `ADMINn_PASSWORD` pair holding `ai@symbiosystech.com`), `ALLOWED_ORIGINS` (comma-separated browser origins allowed to call the API with cookies, e.g. `https://techytree.in,http://localhost:8080`), `SITE_URL` (where everyone lands after login), and for the Docker WordPress `WP_DB_PASSWORD`, `WP_DB_ROOT_PASSWORD`, `WP_ADMIN_PASSWORD`.
+
+**Production notes.** The WordPress site and this API must be *same-site* (for example `techytree.in` and `app.techytree.in`): the session cookie is `SameSite=Lax`, which browsers do not send on cross-site requests. Set `ALLOWED_ORIGINS` and `SITE_URL` in the host's environment, and set the WordPress option `robovalley_api_base` to the API address (Settings > or `wp option update robovalley_api_base https://app.techytree.in`). While that option is empty, the new features stay off and the site is unchanged.
+
+**Manual test checklist**
+1. Sign in at `/login` as the admin: you land on the normal website (not a blank page, no admin dashboard). The header button reads **Admin**, nothing else.
+2. Open Find a Service: **Upload Files** is at the right of the page heading.
+3. Upload `.xls`, a renamed `.txt`, a file without a School Name column: each is refused with a clear message and nothing changes.
+4. Upload a valid `.xlsx`/`.csv`: the preview shows the row count, invalid rows and sample rows. Cancel: nothing changes. Upload again and **Confirm and publish**.
+5. Sign out (or open a private window): **no** Upload Files button exists on the page; the School directory shows the same schools. Search by name (any case, part of a word), by district/PIN, both together, and a name that does not exist (friendly "No schools found").
+6. As a regular user (any non-admin account): no button; `curl -i -X POST http://localhost:3000/api/services/upload` with that user's cookie gives 403, without a cookie 401.
+7. As admin upload a **changed** file and confirm: searches immediately show only the new data (old rows are kept in the database as `superseded` for audit).
 
 ## 6. Tests
 
