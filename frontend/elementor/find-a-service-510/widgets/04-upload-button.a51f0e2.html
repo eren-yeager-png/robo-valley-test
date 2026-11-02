@@ -13,6 +13,7 @@
 .rv-fas-dlg p{margin:0 0 12px}
 .rv-fas-dlg-note{font-size:14px;color:#56675f}
 .rv-fas-dlg-file{display:block;width:100%;padding:12px;font:inherit;font-size:15px;background:#f5f4ef;border:1.5px dashed #b9cfc4;border-radius:12px}
+.rv-fas-dlg-bar{display:block;width:100%;height:12px;margin:14px 0 4px;accent-color:#17694f}
 .rv-fas-dlg-msg{margin:14px 0 0;padding:12px 14px;font-size:15px;border-radius:12px}
 .rv-fas-dlg-msg--err{color:#5a3b06;background:#fbefd9;border:1px solid #f0cf96}
 .rv-fas-dlg-msg--ok{color:#123f33;background:#e3ede7;border:1px solid #b9cfc4}
@@ -145,22 +146,48 @@
 				input.focus();
 			}
 
-			function send( file, go, msg ) {
-				busy = true;
-				go.disabled = true;
-				go.textContent = 'Checking the file…';
-				var fd = new FormData();
-				fd.append( 'file', file );
-				fetch( api + '/api/services/upload', { method: 'POST', body: fd, credentials: 'include' } )
-					.then( function ( r ) { return r.json().catch( function () { return {}; } ).then( function ( d ) { return { ok: r.ok, status: r.status, d: d }; } ); } )
-					.then( function ( res ) {
+				function send( file, go, msg ) {
+					busy = true;
+					go.disabled = true;
+					go.textContent = 'Uploading…';
+					// XMLHttpRequest (not fetch) so the browser can report upload progress.
+					var bar = el( 'progress', 'rv-fas-dlg-bar' );
+					bar.max = 100;
+					bar.value = 0;
+					bar.setAttribute( 'aria-label', 'Upload progress' );
+					var label = el( 'p', 'rv-fas-dlg-note', 'Uploading 0%' );
+					msg.textContent = '';
+					msg.appendChild( bar );
+					msg.appendChild( label );
+					var fd = new FormData();
+					fd.append( 'file', file );
+					var xhr = new XMLHttpRequest();
+					xhr.open( 'POST', api + '/api/services/upload' );
+					xhr.withCredentials = true;
+					xhr.upload.onprogress = function ( e ) {
+						if ( e.lengthComputable && e.total ) {
+							var p = Math.min( 100, Math.round( ( e.loaded / e.total ) * 100 ) );
+							bar.value = p;
+							label.textContent = 'Uploading ' + p + '%';
+						}
+					};
+					xhr.upload.onload = function () {
+						bar.removeAttribute( 'value' ); // indeterminate while the server checks the file
+						label.textContent = 'Checking the file…';
+						go.textContent = 'Checking the file…';
+					};
+					xhr.onload = function () {
 						busy = false;
-						if ( res.ok && res.d.success ) { staged = res.d; preview( res.d ); return; }
-						var t = res.d && res.d.message ? res.d.message : ( res.status === 401 ? 'Your session has ended. Please sign in again.' : res.status === 403 ? 'Only an administrator can upload files.' : 'The upload failed. Nothing was changed.' );
-						choose( t );
-					} )
-					.catch( function () { busy = false; choose( 'Could not reach the server. Check your connection and try again. Nothing was changed.' ); } );
-			}
+						var d = {};
+						try { d = JSON.parse( xhr.responseText ) || {}; } catch ( e ) { d = {}; }
+						if ( xhr.status >= 200 && xhr.status < 300 && d.success ) { staged = d; preview( d ); return; }
+						choose( d.message ? d.message : ( xhr.status === 401 ? 'Your session has ended. Please sign in again.' : xhr.status === 403 ? 'Only an administrator can upload files.' : 'The upload failed. Nothing was changed.' ) );
+					};
+					xhr.onerror = function () { busy = false; choose( 'Could not reach the server. Check your connection and try again. Nothing was changed.' ); };
+					xhr.onabort = xhr.onerror;
+					xhr.ontimeout = xhr.onerror;
+					xhr.send( fd );
+				}
 
 			function preview( d ) {
 				frame( 'Check before publishing' );

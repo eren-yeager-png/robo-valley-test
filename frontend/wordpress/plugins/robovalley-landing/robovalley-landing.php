@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       RoboValley Landing
  * Description:       Scoped styles, self-hosted fonts and the slider and chart scripts for the RoboValley landing page. Loads only on pages flagged with the robovalley_landing meta.
- * Version:           1.3.1
+ * Version:           1.3.2
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            RoboValley
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ROBOVALLEY_LANDING_VERSION', '1.3.1' );
+define( 'ROBOVALLEY_LANDING_VERSION', '1.3.2' );
 
 /**
  * Per-page opt-in flag. Editable through the REST API by users who can edit the page.
@@ -126,7 +126,12 @@ add_action(
 		if ( '' === $base ) {
 			return;
 		}
-		echo '<script>window.RoboValleyApi=' . wp_json_encode( array( 'base' => $base ) ) . ';</script>' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_json_encode output.
+		echo '<script>window.RoboValleyApi=' . wp_json_encode(
+				array(
+					'base' => $base,
+					'home' => home_url( '/' ), // landing page address for the header dropdown's "Homepage" item.
+				)
+			) . ';</script>' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_json_encode output.
 	},
 	1
 );
