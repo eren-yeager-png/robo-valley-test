@@ -1,0 +1,41 @@
+#image-hub-root *,
+#image-hub-settings-root *:not(:before),
+#image-hub-media-modal-root * {
+    font-family: Open Sans, sans-serif !important;
+    /* color: #2F2F2F; */
+}
+
+#wpcontent:has(#wpbody > #wpbody-content > .wrap > #image-hub-root),
+#wpcontent:has(#wpbody > #wpbody-content > .wrap > #image-hub-settings-root) {
+    padding-left: 0 !important;
+    background: var(--gri-100, rgba(240, 240, 240, 1));
+    /* height: 100% !important;
+    overflow: hidden; */
+
+
+}
+
+.wrap:has(#image-hub-root),
+.wrap:has(#image-hub-settings-root) {
+    margin: 0 !important;
+    background: var(--gri-100, rgba(240, 240, 240, 1));
+    /* height: 100% !important;
+    overflow: hidden; */
+}
+
+.image-hub-error-card {
+    min-height: calc( 100vh - 41px - 32px - 158px - 48px - 32.5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: white;
+}
+.image-hub-error-card>div {
+    gap:10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width:37em; /* https://mantis.iconvert.pro/view.php?id=57793#c47047 nvm */
+
+}

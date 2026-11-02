@@ -1,0 +1,127 @@
+.kubio-starter-edit-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0;
+  transition: var(--transition, opacity 0.3s ease);
+  background-color: var(--background-color);
+  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  max-width: 100% !important;
+
+  z-index: 1000;
+}
+
+.kubio-starter-edit-overlay:hover {
+  opacity: 1;
+}
+
+.kubio-starter-edit-overlay__content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-width: 100%;
+  padding: 10px 20px;
+}
+
+.kubio-starter-edit-overlay__content *:not(#undefined) {
+  margin: 0;
+  color: #ccc;
+  max-width: 100%;
+  text-align: center;
+}
+
+.kubio-starter-edit-overlay__content
+  .kubio-starter-edit-overlay__messages:not(#undefined) {
+  max-width: 800px;
+}
+
+.kubio-starter-edit-overlay__message:not(#undefined) {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+}
+
+.kubio-starter-edit-overlay button:not(#undefined) {
+  border: 2px solid #fff;
+  cursor: pointer;
+  margin: 10px;
+  border-radius: 5px;
+  padding: 16px 32px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  font-size: 16px;
+  font-style: normal;
+  transition: all 0.3s;
+}
+
+.kubio-starter-edit-overlay button.button-1:not(#undefined) {
+  background-color: var(--button-1-background-color);
+  color: var(--button-1-color);
+  border-color: var(--button-1-border-color);
+}
+
+.kubio-starter-edit-overlay button.button-1:not(#undefined):hover {
+  background-color: var(--button-1-hover-background-color);
+  color: var(--button-1-hover-color);
+  border-color: var(--button-1-hover-border-color);
+}
+
+.kubio-starter-edit-overlay button.button-2:not(#undefined) {
+  background-color: var(--button-2-background-color);
+  color: var(--button-2-color);
+  border-color: var(--button-2-border-color);
+}
+
+.kubio-starter-edit-overlay button.button-2:not(#undefined):hover {
+  background-color: var(--button-2-hover-background-color);
+  color: var(--button-2-hover-color);
+  border-color: var(--button-2-hover-border-color);
+}
+
+.kubio-starter-edit-overlay__loader {
+  display: none;
+}
+
+.kubio-starter-edit-overlay__loader.active {
+  display: block;
+}
+
+.kubio-starter-edit-overlay__loader.active
+  + .kubio-starter-edit-overlay__messages {
+  display: none;
+}
+
+.kubio-starter-edit-overlay__spinner {
+  --dimension: 50px;
+  --border-width: 4px;
+
+  display: inline-block;
+  border: var(--border-width) solid #fff;
+  border-top: var(--border-width) solid #135e96;
+  border-radius: 50%;
+  width: var(--dimension);
+  height: var(--dimension);
+  outline: calc(var(--border-width) / 2) solid #fff;
+  outline-offset: -1px;
+  box-shadow: inset 0px 0px 0px calc(var(--border-width) / 2) #fff;
+  animation: kubio-starter-edit-overlay-spin 2s linear infinite;
+}
+
+@keyframes kubio-starter-edit-overlay-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
