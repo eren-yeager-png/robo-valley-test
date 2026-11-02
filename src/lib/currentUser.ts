@@ -4,6 +4,13 @@ import { canSignIn, SESSION_COOKIE, verifySessionToken } from "./session";
 
 export type CurrentUser = { id: string; fullName: string; email: string; role: string };
 
+/** The first word of a full name (at most 40 characters), or null when there is none. Used for the website header label. */
+export function firstNameOf(fullName: unknown): string | null {
+  if (typeof fullName !== "string") return null;
+  const first = fullName.trim().split(/\s+/)[0] ?? "";
+  return first ? first.slice(0, 40) : null;
+}
+
 /**
  * The authoritative "who is logged in" check for Server Components. It verifies the signed
  * cookie AND re-reads the user from PostgreSQL, so a deleted user, a changed role, or an

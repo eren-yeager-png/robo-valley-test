@@ -130,13 +130,24 @@ describe("who may upload (checked on the server)", () => {
     expect(bad.headers.get("access-control-allow-origin")).toBeNull();
   });
 
-  it("/api/auth/me returns only the role: admin, user, or null", async () => {
+  it("/api/auth/me returns only the role and the FIRST name: admin, user, or signed out", async () => {
     signIn(admin.id, "admin");
-    expect(await (await me(new Request("http://localhost/api/auth/me"))).json()).toEqual({ role: "admin" });
+    expect(await (await me(new Request("http://localhost/api/auth/me"))).json()).toEqual({ role: "admin", firstName: "Asha" });
     signIn(user.id, "ST");
-    expect(await (await me(new Request("http://localhost/api/auth/me"))).json()).toEqual({ role: "user" });
+    expect(await (await me(new Request("http://localhost/api/auth/me"))).json()).toEqual({ role: "user", firstName: "Asha" });
     m.cookie = undefined;
-    expect(await (await me(new Request("http://localhost/api/auth/me"))).json()).toEqual({ role: null });
+    expect(await (await me(new Request("http://localhost/api/auth/me"))).json()).toEqual({ role: null, firstName: null });
+  });
+
+  it("/api/auth/me never includes the full name, email or id, and keeps the CORS allow-list", async () => {
+    signIn(admin.id, "admin");
+    const res = await me(new Request("http://localhost/api/auth/me", { headers: { origin: "https://techytree.in" } }));
+    const text = await res.text();
+    expect(Object.keys(JSON.parse(text)).sort()).toEqual(["firstName", "role"]);
+    expect(text).not.toMatch(/Rao|@|"id"/);
+    expect(res.headers.get("access-control-allow-origin")).toBe("https://techytree.in");
+    const other = await me(new Request("http://localhost/api/auth/me", { headers: { origin: "https://example.com" } }));
+    expect(other.headers.get("access-control-allow-origin")).toBeNull();
   });
 });
 
