@@ -4,6 +4,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fakeLeaflet, newCalls, type Calls } from "./helpers/fakeLeaflet";
 
 const DIR = join(__dirname, "../frontend/elementor/find-a-service-510/widgets");
 const PANEL = readFileSync(join(DIR, "01-search-panel.a51f0c7.html"), "utf8");
@@ -18,24 +19,12 @@ const hit = (over: Record<string, unknown> = {}) => ({ id: "1", schoolName: "A S
 const ok = (body: unknown, status = 200) => ({ ok: status < 400, status, json: async () => body }) as Response;
 const found = (results: unknown[], over: Record<string, unknown> = {}) => ({ success: true, dataset: { id: "1" }, total: (results as any[]).length, results, near: { center: { lat: 28.6139, lng: 77.209 }, pincodeKnown: true, radiusKm: 25, limit: 50 }, ...over });
 
-type Calls = { circle: any[]; markers: any[]; fit: any[]; views: any[] };
-function fakeLeaflet(calls: Calls) {
-  const chain: any = () => new Proxy({}, { get: (_t, p) => (p === "addTo" ? () => chain() : p === "on" ? () => chain() : () => chain()) });
-  (window as any).L = {
-    map: () => ({ on() {}, fitBounds: (...a: any[]) => calls.fit.push(a), setView: (...a: any[]) => calls.views.push(a), panTo() {}, scrollWheelZoom: { enable() {}, disable() {} } }),
-    tileLayer: () => ({ on() { return this; }, addTo() { return this; } }),
-    layerGroup: () => ({ addTo() { return this; }, clearLayers() { calls.markers.length = 0; calls.circle.length = 0; } }),
-    circle: (c: any, o: any) => { calls.circle.push({ c, o }); return { addTo() { return this; }, getBounds: () => "bounds" }; },
-    marker: (c: any, o: any) => { const m = { c, o, addTo() { return this; }, bindPopup(p: any) { (this as any).popup = p; return this; }, on() { return this; }, getElement: () => null, getLatLng: () => c, openPopup() {} }; if (o && o.interactive !== false) calls.markers.push(m); return m; },
-    divIcon: (o: any) => o,
-  };
-}
-
 async function mount(fetchImpl: (url: string) => Promise<Response>, opts: { api?: string | null } = {}) {
   document.head.querySelectorAll("#rv-fas-leaflet-css").forEach((n) => n.remove());
   document.body.innerHTML = markup(PANEL) + markup(RESULTS);
-  const calls: Calls = { circle: [], markers: [], fit: [], views: [] };
+  const calls: Calls = newCalls();
   fakeLeaflet(calls);
+  (Element.prototype as any).scrollIntoView = vi.fn(); // jsdom has none
   if (opts.api !== null) (window as any).RoboValleyApi = { base: opts.api ?? API }; else delete (window as any).RoboValleyApi;
   const fetchMock = vi.fn(async (url: string) => fetchImpl(url));
   (window as any).fetch = fetchMock;
@@ -61,16 +50,23 @@ async function mount(fetchImpl: (url: string) => Promise<Response>, opts: { api?
 afterEach(() => { document.body.innerHTML = ""; delete (window as any).L; vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("the page contains no demo or sample data", () => {
-  it.each([["search panel", PANEL], ["results widget", RESULTS]])("%s: no demo markup, no embedded facility list, no category chips", (_n, html) => {
-    expect(html).not.toMatch(/rv-fas-data|Demo|demo-tag|rv-fas-cats|rv-fas-service|Coming Soon|application\/json/i);
+  const OTHERS = ["04-upload-button.a51f0e2.html", "05-school-directory.a51f0e4.html"].map((f) => readFileSync(join(DIR, f), "utf8"));
+  const JSONTXT = readFileSync(join(DIR, "../find-a-service-510.elementor.json"), "utf8");
+  const BAD = /demo|Demonstration data|DEMO DATA|example\.org|rv-fas-data|Demo ATL Lab/i;
+  it.each([["search panel", PANEL], ["results widget", RESULTS], ["upload widget", OTHERS[0]], ["directory widget", OTHERS[1]], ["Elementor JSON", JSONTXT]])("%s: no demo markup, no embedded facility list", (_n, html) => {
+    expect(html).not.toMatch(BAD);
   });
   it("the school list only ever comes from the API (no JSON blob in the page)", () => {
+    for (const h of [PANEL, RESULTS, ...OTHERS]) expect(h).not.toMatch(/<script[^>]*application\/json/i);
     expect(RESULTS).toContain("/api/services/search");
+  });
+  it("the directory heading is not hard-coded to schools", () => {
+    expect(OTHERS[1]).not.toMatch(/School directory/);
   });
 });
 
 describe("search panel", () => {
-  it("has a 6-digit PIN code box and a 1-50 km slider (default 25), and no Location, Service or category controls", () => {
+  it("has a 6-digit PIN code box and a 1-50 km slider (default 25), and no Location or Service text field (the chips start hidden)", () => {
     document.body.innerHTML = markup(PANEL);
     const pin = document.getElementById("rv-fas-pin") as HTMLInputElement;
     expect(pin.maxLength).toBe(6);
@@ -79,7 +75,7 @@ describe("search panel", () => {
     expect([r.min, r.max, r.step, r.value]).toEqual(["1", "50", "1", "25"]);
     expect(document.getElementById("rv-fas-place")).toBeNull();
     expect(document.getElementById("rv-fas-geo")).toBeNull();
-    expect(document.getElementById("rv-fas-cats")).toBeNull();
+    expect((document.getElementById("rv-fas-cats") as HTMLElement).hidden).toBe(true);
   });
 });
 
@@ -94,7 +90,7 @@ describe("searching", () => {
     expect(w.summary()).toBe("2 schools within 10 km of 110001");
     expect(w.calls.circle[0].o.radius).toBe(10000);
     expect(w.calls.circle[0].c).toEqual([28.6139, 77.209]);
-    expect(w.calls.fit.at(-1)[0]).toBe("bounds"); // fitted to the circle
+    expect(w.calls.flyToBounds.at(-1)[0]).toBe("bounds"); // a new PIN code: flies to the circle
     expect(w.calls.markers).toHaveLength(2);
   });
 
@@ -102,7 +98,7 @@ describe("searching", () => {
     const w = await mount(async () => ok(found([hit(), hit({ id: "2", schoolName: "Second" }), hit({ id: "3", schoolName: "Third" })])));
     await w.search("110001");
     expect(w.calls.markers).toHaveLength(1);
-    expect((w.calls.markers[0].o.icon.html as HTMLElement).textContent).toBe("3");
+    expect((w.calls.markers[0].o.icon.html as HTMLElement).textContent).toBe("1"); // the number of its first school in the list
     expect(w.cards()).toHaveLength(3);
   });
 
@@ -191,7 +187,7 @@ describe("empty and failure states", () => {
     const w = await mount(async () => ok(found([], { total: 0 })));
     await w.search("110001", "5");
     expect(w.cards()).toHaveLength(0);
-    expect(w.stateText()).toContain("No schools within 5 km of 110001");
+    expect(w.stateText()).toContain("No schools within 5 km. Try a larger range.");
     const btn = w.$("rv-fas-state").querySelector("button")!;
     expect(btn.textContent).toBe("Search 50 km");
     btn.click();
@@ -205,7 +201,7 @@ describe("empty and failure states", () => {
     await w.search("110001");
     await new Promise((r) => setTimeout(r, 1200));
     await flush();
-    expect(w.stateText()).toContain("No school list has been uploaded yet");
+    expect(w.stateText()).toContain("No data uploaded yet");
   });
 
   it("API failure (network): an error with Try again, the map is not broken, and the form still works afterwards", async () => {
@@ -266,7 +262,8 @@ describe("uploaded text is never HTML", () => {
     expect(document.querySelector("#rv-fas-list img, #rv-fas-list script, #rv-fas-list b, #rv-fas-list i")).toBeNull();
     expect(w.cards()[0].querySelector("h3")!.textContent).toBe(evil);
     expect(w.cards()[0].textContent).toContain("<b>D</b>");
-    const popup = w.calls.markers[0].popup as HTMLElement;
+    w.calls.markers[0].el.click(); // click opens the popup
+    const popup = w.calls.popups[0].content as HTMLElement;
     expect(popup instanceof HTMLElement).toBe(true);
     expect(popup.querySelector("img, script")).toBeNull();
     expect(popup.textContent).toContain(evil);

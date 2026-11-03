@@ -24,8 +24,8 @@ export async function POST(req: Request) {
 
   try {
     const done = await confirmDataset(pool, id);
-    await writeAudit(pool, { userId: admin.id, action: "confirm", result: "success", datasetId: done.id, filename: done.filename, detail: `${done.rowCount} rows now live` });
-    return reply({ success: true, datasetId: done.id, rowCount: done.rowCount, message: "The new data is now live for everyone." }, 200);
+    await writeAudit(pool, { userId: admin.id, action: "confirm", result: "success", datasetId: done.id, filename: done.filename, detail: `${done.category}: ${done.rowCount} rows now live` });
+    return reply({ success: true, datasetId: done.id, rowCount: done.rowCount, category: done.category, message: "The new data is now live for everyone." }, 200);
   } catch (e) {
     if (e instanceof DatasetError) {
       await writeAudit(pool, { userId: admin.id, action: "confirm", result: "rejected", datasetId: id, detail: e.code });

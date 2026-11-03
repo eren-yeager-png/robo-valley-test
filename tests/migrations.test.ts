@@ -17,9 +17,9 @@ const tables = async (pg: PGlite) =>
   (await pg.query("select table_name t from information_schema.tables where table_schema='public' order by 1")).rows.map((r: any) => r.t);
 
 describe("migration files", () => {
-  it("are 001 to 006, 008 and 009, in order (007 is reserved by the categories branch), and rollback is NOT in the migrations folder", () => {
+  it("are 001 to 009, in order, and rollback is NOT in the migrations folder", () => {
     const names = pickFiles().map((f) => f.split(/[\\/]/).pop());
-    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql", "005_service_datasets.sql", "006_pincode_locations.sql", "008_login_events.sql", "009_upload_attachments.sql"]);
+    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql", "005_service_datasets.sql", "006_pincode_locations.sql", "007_service_categories.sql", "008_login_events.sql", "009_upload_attachments.sql"]);
     const nums = names.map((n) => Number(n!.slice(0, 3)));
     expect(nums).toEqual([...nums].sort((a, b) => a - b)); // ordered ...
     expect(new Set(nums).size).toBe(nums.length); // ... and no number used twice
@@ -32,7 +32,10 @@ describe("migration files", () => {
       const sql = read(f);
       expect(sql, f).not.toMatch(/robovalley_auth'|<> 'robovalley/); // the old hard-coded guard is gone
       expect(sql, f).toMatch(/rv\.expected_db/);
-      expect(sql, f).not.toMatch(/\b(DROP|TRUNCATE|DELETE FROM|UPDATE\s+\w+\s+SET)\b/i);
+      // 007 has to retire the old "one active dataset in total" index so that each category can have its own live dataset.
+      // That single statement is allowed; anything else destructive still fails this test.
+      const checked = f.includes("007_") ? sql.replace("DROP INDEX IF EXISTS service_datasets_one_active;", "") : sql;
+      expect(checked, f).not.toMatch(/\b(DROP|TRUNCATE|DELETE FROM|UPDATE\s+\w+\s+SET)\b/i);
     }
     for (const n of ["003", "008", "009"]) expect(read(`db/rollback/${n}_down.sql`), n).toMatch(/DROP TABLE IF EXISTS/);
   });
