@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-// WordPress header (plugin asset robovalley-account.js): "Sign In / Login" when signed out, plain "Admin" for the
-// administrator, and the first name as a dropdown button for every other signed-in user.
+// WordPress header (plugin asset robovalley-account.js): "Sign In / Login" when signed out, "Admin" link to the admin
+// dashboard for the administrator, and the first name as a dropdown button for every other signed-in user.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -47,11 +47,11 @@ describe("header label", () => {
     expect(fetchMock).toHaveBeenCalledWith("https://app.techytree.in/api/auth/me", { credentials: "include", cache: "no-store" });
   });
 
-  it("admin: plain text \"Admin\" (not a link, not a button), the Sign In link is hidden", async () => {
+  it("admin: an \"Admin\" link to the admin dashboard on the app (not a button), the Sign In link is hidden", async () => {
     const { link, adminText, btn } = await run({ role: "admin", firstName: "Ravi" });
     expect(adminText?.textContent).toBe("Admin");
-    expect(adminText?.tagName).toBe("SPAN");
-    expect(adminText?.closest("a")).toBeNull();
+    expect(adminText?.tagName).toBe("A");
+    expect(adminText?.getAttribute("href")).toBe("https://app.techytree.in/admin/dashboard");
     expect(btn).toBeNull();
     expect(linkShown(link)).toBe(false);
     expect(document.body.textContent).not.toContain("Ravi");

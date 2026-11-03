@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       RoboValley Landing
  * Description:       Scoped styles, self-hosted fonts and the slider and chart scripts for the RoboValley landing page. Loads only on pages flagged with the robovalley_landing meta.
- * Version:           1.3.3
+ * Version:           1.3.4
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            RoboValley
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ROBOVALLEY_LANDING_VERSION', '1.3.3' );
+define( 'ROBOVALLEY_LANDING_VERSION', '1.3.4' );
 
 /**
  * Per-page opt-in flag. Editable through the REST API by users who can edit the page.

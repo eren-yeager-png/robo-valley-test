@@ -45,7 +45,7 @@
 		'.rv-acct-menu[hidden]{display:none}' +
 		'.rv-acct-menu a{display:flex;align-items:center;min-height:44px;padding:8px 14px;color:#15302a;text-decoration:none;font-weight:600;border-radius:10px}' +
 		'.rv-acct-menu a:hover{background:#e3ede7;color:#123f33}' +
-		'.rv-acct-admin{display:inline-flex;align-items:center;min-height:44px;font:inherit;font-weight:700;color:inherit}' +
+		'.rv-acct-admin{display:inline-flex;align-items:center;min-height:44px;font:inherit;font-weight:700;color:inherit;text-decoration:underline;text-underline-offset:3px}' +
 		'.rv-acct-adminwrap{display:inline-flex;align-items:center;gap:14px}' +
 		'.rv-acct-out{display:flex;align-items:center;width:100%;min-height:44px;padding:8px 14px;font:inherit;font-weight:600;text-align:left;color:#15302a;background:transparent;border:0;border-radius:10px;cursor:pointer}' +
 		'.rv-acct-out:hover{background:#e3ede7;color:#123f33}' +
@@ -94,10 +94,13 @@
 		var wrap = document.createElement( 'div' );
 		wrap.className = 'rv-acct-adminwrap';
 		wrap.setAttribute( 'data-rv-acct', 'admin' );
-		var span = document.createElement( 'span' );
-		span.className = 'rv-acct-admin';
-		span.textContent = 'Admin';
-		wrap.appendChild( span );
+		// Only reached when /api/auth/me said role === 'admin'. This is a convenience link: /admin/dashboard checks the
+		// signed-in user's role on the server again, so anyone else who opens it is turned away.
+		var link = document.createElement( 'a' );
+		link.className = 'rv-acct-admin';
+		link.href = safeUrl( api + '/admin/dashboard', api );
+		link.textContent = 'Admin';
+		wrap.appendChild( link );
 		wrap.appendChild( signOutButton() );
 		a.hidden = true;
 		a.after( wrap );
