@@ -1,0 +1,102 @@
+@import url('./open-sans.css');
+@import url('./logo.css');
+@import url('./globalStyle.css');
+
+
+
+.image-hub-api-key-field input {
+    font-family: monospace;
+    padding: 8px 12px;
+    width: 100%;
+}
+
+.image-hub-image-hub-api-key-field-container {
+    display: flex;
+
+    align-items: flex-end;
+    margin-top: 16px;
+    max-width: 50%
+}
+
+.image-hub-image-hub-api-key-field-container .image-hub-api-key-field {
+    flex-grow: 1;
+}
+
+.image-hub-image-hub-api-key-field-container .components-button {
+    margin-left: 8px;
+    color: white
+}
+
+
+:root {
+    --font-size-m: 13px;
+    --lineheight-s: 20xp;
+}
+
+
+
+.image-hub-settings-swipable-menu-button {
+    background-color: transparent !important;
+    color: #3858E9 !important;
+    fill: #3858E9 !important;
+    font-weight: 600 !important;
+    font-size: var(--font-size-m) !important;
+    line-height: var(--lineheight-s) !important;
+    letter-spacing: 0% !important;
+    vertical-align: middle !important;
+    width: 220px;
+    display: flex !important;
+    justify-content: space-between !important;
+    border-radius: 0 !important;
+}
+
+.image-hub-settings-swipable-menu-button>svg {
+    color: #3858E9 !important;
+    fill: #3858E9 !important;
+
+}
+
+.image-hub-settings-swipable-menu-button.active {
+    color: #3858E9 !important;
+    fill: #3858E9 !important;
+    background-color: #3858E90A !important;
+
+}
+
+.image-hub-settings-swipable-menu-button:hover {
+    background-color: #3858E90A !important;
+}
+
+.image-hub-settings-swipable-menu-button:focus {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+
+.image-hub-settings-general-checkbox .components-checkbox-control__label {
+    font-weight: 600;
+}
+
+.image-hub-settings-general-checkbox-disabled {
+    opacity: 0.5;
+}
+
+.image-hub-settings-general-container>h4,
+.image-hub-settings-apikeys-container>h4,
+.image-hub-settings-sizes-container>h4,
+.image-hub-settings-updates-container>h4 {
+
+    display: block;
+    margin: 0 0 20px 0;
+    padding: 0;
+    font-weight: 400;
+}
+
+
+.image-hub-settings-general-container,
+.image-hub-settings-apikeys-container,
+.image-hub-settings-sizes-container,
+.image-hub-settings-updates-container {
+    scroll-margin-top: 118px; 
+}

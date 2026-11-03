@@ -1,0 +1,42 @@
+.image-hub-text-under-logo {
+    font-weight: 400;
+    font-size: 13px;
+    line-height: 16px;
+    letter-spacing: 0px;
+}
+
+.image-hub-logo-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: calc(100% - 20px);
+}
+
+.image-hub-logo {
+    border-radius: 5%;
+    overflow: hidden;
+    width: 40px;
+    height: 40px;
+}
+
+.image-hub-logo>img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
+.image-hub-logo-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+
+.image-hub-logo-text>h1 {
+    padding: 0 !important;
+    font-weight: 700;
+    font-size: 24px;
+    line-height: 16px;
+    letter-spacing: 0px;
+    text-align: center;
+}

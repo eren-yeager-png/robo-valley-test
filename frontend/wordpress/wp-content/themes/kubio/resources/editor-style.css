@@ -1,0 +1,73 @@
+.editor-styles-wrapper h1:not(.wp-block-post-title) {
+  font-size: 5.5em;
+  line-height: 1.26;
+}
+
+.editor-styles-wrapper h1:not(.wp-block-post-title) {
+  color: rgba(var(--kubio-color-6),1);
+  font-family: Mulish,Helvetica,Arial,Sans-Serif,serif;
+  font-weight: 700;
+  text-transform: none;
+}
+
+.editor-styles-wrapper h2 {
+  font-size: 3em;
+  line-height: 1.143;
+}
+
+.editor-styles-wrapper h3 {
+  color: rgba(var(--kubio-color-6),1);
+  font-family: Mulish,Helvetica,Arial,Sans-Serif,serif;
+  font-size: 1.8em;
+  font-weight: 700;
+  line-height: 1.25;
+  text-transform: none;
+}
+
+.editor-styles-wrapper h4 {
+  font-size: 1.4em;
+  font-weight: 500;
+}
+
+.editor-styles-wrapper h4 {
+  color: rgba(var(--kubio-color-6),1);
+  font-family: Mulish,Helvetica,Arial,Sans-Serif,serif;
+  line-height: 1.4;
+  text-transform: none;
+}
+
+.editor-styles-wrapper h5 {
+  font-size: 1.125em;
+  font-weight: 400;
+}
+
+.editor-styles-wrapper h6 {
+  color: rgba(var(--kubio-color-1),1);
+  font-family: Mulish,Helvetica,Arial,Sans-Serif,serif;
+  font-size: .9em;
+  font-weight: 400;
+  letter-spacing: 1px;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.editor-styles-wrapper  {
+  color: rgba(var(--kubio-color-6-variant-4),1);
+  font-family: Mulish,Helvetica,Arial,Sans-Serif,serif;
+  font-size: 16px;
+  font-weight: 300;
+  line-height: 1.4;
+  text-transform: none;
+}
+
+@media (min-width:768px) and (max-width:1023px) {
+  .editor-styles-wrapper h1:not(.wp-block-post-title) {
+    font-size: 5em;
+  }
+}
+
+@media (max-width:767px) {
+  .editor-styles-wrapper h1:not(.wp-block-post-title) {
+    font-size: 2.5em;
+  }
+}

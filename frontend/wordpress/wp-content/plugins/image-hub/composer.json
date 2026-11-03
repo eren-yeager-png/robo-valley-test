@@ -1,0 +1,16 @@
+{
+    "name": "extendthemes/image-hub",
+    "autoload": {
+        "psr-4": {
+            "ImageHub\\": "inc/src/"
+        }
+    },
+    "config": {
+		"platform": {
+			"php": "7.2"
+		},
+    "allow-plugins": {
+        "dealerdirect/phpcodesniffer-composer-installer": true
+    }
+	}
+}
