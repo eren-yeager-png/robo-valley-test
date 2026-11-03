@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../lib/currentUser";
-// import { destinationFor } from "../../lib/session";
+import { POST_LOGIN_URL } from "../../lib/links";
 import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
@@ -11,6 +11,6 @@ export const metadata: Metadata = {
 
 export default async function LoginPage() {
   const user = await getCurrentUser();
-  if (user) redirect("https://techytree.in/");
+  if (user) redirect(POST_LOGIN_URL); // already signed in: same destination as a fresh sign-in
   return <LoginForm />;
 }

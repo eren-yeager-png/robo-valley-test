@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { POST_LOGIN_URL } from "../../lib/links";
 import { normalizeEmail } from "../../lib/validation";
 import "../join/join.css";
 import "./login.css";
@@ -10,7 +10,6 @@ import "./login.css";
 type Errors = Record<string, string>;
 
 export default function LoginForm() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -42,10 +41,10 @@ export default function LoginForm() {
         body: JSON.stringify({ email, password, remember }),
       });
       const data = await res.json().catch(() => ({}));
-     if (data.success) {
-  window.location.replace("https://techytree.in/");
-  return;
-}
+      if (data.success) {
+        window.location.replace(POST_LOGIN_URL); // full-page navigation: the target is a different site, not a Next.js route
+        return; // keep the button disabled while navigating
+      }
       if (data.fieldErrors) setErrors(data.fieldErrors);
       setFormError(data.message ?? "Something went wrong. Please try again.");
       setPassword(""); // keep the email, clear the password after a failed attempt
