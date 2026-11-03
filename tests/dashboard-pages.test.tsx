@@ -142,17 +142,28 @@ describe("authentication and unknown roles", () => {
     await expect(DashboardHome()).rejects.toThrow("REDIRECT:/login");
   });
 
-  it.each([["XX"], [""], [null], ["admin"], ["st"]])("unknown/missing stored role %j: no dashboard, children never rendered", async (role) => {
+  it.each([["XX"], [""], [null], ["user"], ["Admin"], ["ADMIN"], [" admin"], ["admin "], ["st"]])("unknown/missing stored role %j (only the exact value \"admin\" is an admin): no dashboard, children never rendered", async (role) => {
     signInAs(role);
     const out = await html(DashboardLayout({ children: <p id="secret-child">PRIVATE CHILD CONTENT</p> }));
     expect(out).toContain("Your account has no dashboard yet");
     expect(out).not.toContain("PRIVATE CHILD CONTENT");
-    expect(out).not.toContain("Sign out" + "x");
+    expect(out).toContain("Sign out"); // the only way out ...
+    expect(out).not.toContain("Back to my dashboard"); // ... and no link back to /dashboard, which would show this same message again
+    expect(out).not.toContain('href="/dashboard"');
     for (const p of [DashboardHome(), ProfilePage(), NotificationsPage(), SectionPage({ params: Promise.resolve({ section: "projects" }) })]) {
       const o = await html(p);
       expect(o).toContain("Your account has no dashboard yet");
       expect(o).not.toContain("Nothing to show here yet");
     }
+  });
+
+  it("a role mismatch (a real role opening a section of another role) still offers the link back to their own dashboard", async () => {
+    const other = ROLE_CODES.find((c) => c !== "ST")!;
+    const foreign = ROLE_DASHBOARDS[other].sections.map((s) => s.slug).find((slug) => !ROLE_DASHBOARDS.ST.sections.some((s) => s.slug === slug));
+    if (!foreign) return; // every section is shared: nothing to test
+    signInAs("ST");
+    const o = await html(SectionPage({ params: Promise.resolve({ section: foreign }) }));
+    expect(o).toContain("Back to my dashboard");
   });
 
   it("an unknown section URL is a 404 (not an access-denied that reveals structure)", async () => {
@@ -255,5 +266,51 @@ describe("real data on the dashboard", () => {
     expect(out).not.toMatch(/boom|secret-host|stack/i);
     expect(await html(ProfilePage())).toContain("couldn&#x27;t load");
     expect(await html(NotificationsPage())).toContain("couldn&#x27;t load");
+  });
+});
+
+describe("administrator on the role dashboards", () => {
+  const callers: Array<[string, () => Promise<unknown>]> = [
+    ["layout", () => html(DashboardLayout({ children: <p id="secret-child">PRIVATE CHILD CONTENT</p> }))],
+    ["home", () => html(DashboardHome())],
+    ["profile", () => html(ProfilePage())],
+    ["notifications", () => html(NotificationsPage())],
+    ["section", () => html(SectionPage({ params: Promise.resolve({ section: "projects" }) }))],
+  ];
+
+  it.each(callers)("%s: a database role of 'admin' is sent to /admin/dashboard, not shown 'no dashboard yet'", async (_name, call) => {
+    signInAs("admin");
+    await expect(call()).rejects.toThrow("REDIRECT:/admin/dashboard");
+  });
+
+  it.each(callers)("%s: the role is read from the database, so a cookie that merely claims admin does not redirect", async (_name, call) => {
+    st.user = dbUser("ST");
+    st.cookie = token("7", "admin"); // validly signed cookie that CLAIMS admin; the database says student
+    const out = await call(); // renders the student's own page (a redirect would have thrown)
+    expect(typeof out).toBe("string");
+    expect(out as string).not.toContain("no dashboard yet");
+  });
+
+  it.each(callers)("%s: a signed-out visitor still goes to /login", async (_name, call) => {
+    await expect(call()).rejects.toThrow("REDIRECT:/login");
+  });
+
+  it("refreshing keeps working: the same answer every time", async () => {
+    signInAs("admin");
+    for (let i = 0; i < 3; i++) await expect(html(DashboardHome())).rejects.toThrow("REDIRECT:/admin/dashboard");
+  });
+
+  it("a demoted admin is no longer redirected: they get their ordinary role handling immediately", async () => {
+    signInAs("admin");
+    await expect(html(DashboardHome())).rejects.toThrow("REDIRECT:/admin/dashboard");
+    st.user = dbUser("TC");
+    expect(await html(DashboardHome())).toContain("Welcome, Asha!");
+  });
+
+  it("regular roles are unaffected: every one of the 12 still gets its own dashboard", async () => {
+    for (const code of ROLE_CODES) {
+      signInAs(code);
+      expect(await page(code), code).toContain(esc(ROLE_DASHBOARDS[code].label));
+    }
   });
 });

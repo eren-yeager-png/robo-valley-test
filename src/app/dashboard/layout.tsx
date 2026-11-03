@@ -17,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     return (
       <div className="rv">
         <main className="auth"><div className="auth-card">
-          <UnauthorizedState title="Your account has no dashboard yet" body="Your account's role isn't recognised, so we can't show a dashboard. Please sign out and contact support." />
+          <UnauthorizedState title="Your account has no dashboard yet" body="Your account's role isn't recognised, so we can't show a dashboard. Please sign out and contact support." action="signout" />
         </div></main>
       </div>
     );

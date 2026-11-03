@@ -13,7 +13,7 @@ export default async function SectionPage({ params }: { params: Promise<{ sectio
   const { section: slug } = await params;
   const ctx = await getDashboardContext();
   if (ctx.status === "anonymous") redirect("/login");
-  if (ctx.status === "unknown-role") return <UnauthorizedState title="Your account has no dashboard yet" body="Your account's role isn't recognised." />;
+  if (ctx.status === "unknown-role") return <UnauthorizedState title="Your account has no dashboard yet" body="Your account's role isn't recognised." action="signout" />;
 
   const section = sectionOf(ctx.user.role, slug);
   if (!section) {
