@@ -20,7 +20,6 @@ import RootPage, { metadata as rootMetadata } from "../src/app/page";
 import LoginPage, { metadata as loginMetadata } from "../src/app/login/page";
 import DashboardHome from "../src/app/dashboard/page";
 import JoinFlow from "../src/app/join/JoinFlow";
-import { destinationFor } from "../src/lib/session";
 
 const row = (role: string) => ({
   id: "7", full_name: "Asha Rao", email: "asha@example.com", role, mobile: null, district: "Guntur", preferred_language: "English",
@@ -88,13 +87,11 @@ describe("no redirect loop", () => {
   });
 
   it.each(["ST", "PA", "TC", "SA", "MG", "ME", "TR", "AR", "KS", "FS", "SP", "IP"])(
-    "a signed-in %s is sent from / to the role destination, and that destination does NOT send them back to /",
+    "a signed-in %s is sent from / to the WordPress homepage (another site), so it can never loop back to /",
     async (role) => {
       signInAs(role);
-      const target = destinationFor(role);
-      await expect(RootPage()).rejects.toThrow(`REDIRECT:${target}`);
-      expect(target).toBe("/dashboard");
-      // the destination renders for this user (it does not redirect anywhere)
+      await expect(RootPage()).rejects.toThrow("REDIRECT:https://techytree.in/");
+      // the dashboard itself still renders for this user (it does not redirect anywhere)
       const page = await DashboardHome();
       expect(page).toBeTruthy();
     }

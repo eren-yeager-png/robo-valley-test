@@ -20,6 +20,7 @@ beforeEach(async () => {
   calls = []; gate = null;
   h.replace.mockReset(); h.refresh.mockReset();
   vi.stubEnv("SESSION_SECRET", "unit-test-secret-unit-test-secret-1234");
+  vi.stubGlobal("location", { replace: h.replace }); // the form leaves via a full-page navigation (window.location.replace)
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
     calls.push(JSON.parse(init.body as string));
@@ -85,12 +86,12 @@ describe("validation", () => {
 });
 
 describe("submitting", () => {
-  it("success: posts the credentials and moves to the dashboard", async () => {
+  it("success: posts the credentials and does a full-page navigation to the WordPress homepage", async () => {
     const user = setup();
     await user.type(email(), "Asha@Example.com");
     await user.type(pw(), PASSWORD);
     await user.click(submit());
-    await waitFor(() => expect(h.replace).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(h.replace).toHaveBeenCalledWith("https://techytree.in/"));
     expect(calls).toEqual([{ email: "Asha@Example.com", password: PASSWORD, remember: false }]);
   });
 

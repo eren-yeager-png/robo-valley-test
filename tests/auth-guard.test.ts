@@ -85,9 +85,9 @@ describe("protected pages", () => {
     expect(text).toContain("Teacher / lab in-charge"); // role label from the database
   });
 
-  it("/login sends an already signed-in user to the dashboard, and shows the form otherwise", async () => {
+  it("/login sends an already signed-in user to the WordPress homepage, and shows the form otherwise", async () => {
     expect(await LoginPage()).toBeTruthy();
     m.cookie = tokenFor();
-    await expect(LoginPage()).rejects.toThrow("REDIRECT:/dashboard");
+    await expect(LoginPage()).rejects.toThrow("REDIRECT:https://techytree.in/");
   });
 });
