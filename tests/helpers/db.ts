@@ -83,7 +83,7 @@ export async function createHarness() {
     failOn: (f: Failer | undefined) => { failer = f; },
     /** Empties every table and forgets recorded calls. Uses only the in-process database. */
     reset: async () => {
-      await pg.exec("TRUNCATE users, guardian_details, otp_challenges, email_verifications, login_attempts, service_datasets, service_dataset_rows, upload_audit_log, pincode_locations RESTART IDENTITY CASCADE");
+      await pg.exec("TRUNCATE users, guardian_details, otp_challenges, email_verifications, login_attempts, service_datasets, service_dataset_rows, upload_audit_log, upload_attachment_blobs, upload_attachments, login_events, pincode_locations RESTART IDENTITY CASCADE");
       calls.length = 0; failer = undefined; released = 0;
     },
     close: () => pg.close(),

@@ -45,7 +45,7 @@ describe("scripts/migrate.mjs (fails closed)", () => {
   it("dry run lists all migrations in order when no filter is given, and never the rollback file", () => {
     const r = run(["--expect-db", "never_connects"]);
     const order = [...r.out.matchAll(/(\d{3})_\w+\.sql/g)].map((m) => m[1]);
-    expect(order).toEqual(["001", "002", "003", "004", "005", "006"]);
+    expect(order).toEqual(["001", "002", "003", "004", "005", "006", "008", "009"]); // 007 is reserved by the find-a-service-categories branch
     expect(r.out).not.toMatch(/down/);
   });
 
