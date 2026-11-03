@@ -1,4 +1,5 @@
 import { EmailConfigError, EmailSendError, sendOtpEmail } from "../../../../../lib/email";
+import { logUnexpected, newRequestId } from "../../../../../lib/diagnostics";
 import { json, readJson } from "../../../../../lib/http";
 import { OTP_PURPOSES, OtpError, requestOtp, type OtpPurpose } from "../../../../../lib/otp";
 import { normalizeEmail } from "../../../../../lib/validation";
@@ -27,12 +28,14 @@ export async function POST(req: Request) {
         await sendOtpEmail(email, r.code);
       } catch (err) {
         await r.rollback().catch(() => undefined); // a failed send must not consume the cooldown, and no code stays valid
+        const requestId = newRequestId();
         if (err instanceof EmailConfigError) {
-          console.error("otp email: RESEND_API_KEY is not configured");
-          return json({ success: false, error: "EMAIL_NOT_CONFIGURED", message: "Email service is not configured." }, 503);
+          console.error("otp.email.failed", JSON.stringify({ requestId, stage: "send-email", reason: "RESEND_API_KEY is not configured" }));
+          return json({ success: false, error: "EMAIL_NOT_CONFIGURED", message: "Email service is not configured.", requestId }, 503);
         }
-        console.error("otp email: send failed:", err instanceof EmailSendError ? err.reason : "unknown"); // reason only: no code, key or address
-        return json({ success: false, error: "EMAIL_SEND_FAILED", message: "We could not send the email. Please try again later." }, 502);
+        // reason + Resend's masked explanation only: never the code, the API key or the address
+        console.error("otp.email.failed", JSON.stringify({ requestId, stage: "send-email", reason: err instanceof EmailSendError ? err.reason : "unknown", detail: err instanceof EmailSendError ? err.detail : undefined }));
+        return json({ success: false, error: "EMAIL_SEND_FAILED", message: "We could not send the email. Please try again later.", requestId }, 502);
       }
       // The code is never part of the response when the provider is Resend.
       return json({ success: true, purpose, provider: "resend", emailSent: true, expiresInSeconds: r.expiresInSeconds, resendAfterSeconds: r.resendAfterSeconds });
@@ -52,6 +55,10 @@ export async function POST(req: Request) {
         err.retryAfterSeconds ? { "Retry-After": String(err.retryAfterSeconds) } : undefined
       );
     }
-    return json({ success: false, error: "SERVER_ERROR", message: "Could not send the code." }, 500);
+    // Unexpected failure while storing the code (database connection, missing table, ...). The client gets a generic
+    // message plus a request id; the real cause goes to the server log (safe description only, no secrets).
+    const requestId = newRequestId();
+    logUnexpected("otp.request.failed", requestId, req, err, { stage: "store-code", purpose });
+    return json({ success: false, error: "SERVER_ERROR", message: "Could not send the code.", requestId }, 500);
   }
 }
