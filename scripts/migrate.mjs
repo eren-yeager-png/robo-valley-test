@@ -102,6 +102,11 @@ async function main() {
   console.log("Target database name :", urlDb);
   console.log("Server location      :", isLocal ? "this computer (loopback)" : "remote server");
   console.log("You confirmed        :", args.expectDb);
+  if (/-pooler\./i.test(new URL(url).hostname)) {
+    console.log('\n⚠ This looks like a POOLED connection (the host name contains "-pooler"). Pooled connections can forget the');
+    console.log("  confirmed-database setting between statements, so the safety check may refuse (it fails closed: nothing is changed).");
+    console.log('  For migrations use the DIRECT connection string instead (the same one, but without "-pooler" in the host name).\n');
+  }
   console.log("Files to run, in order:");
   for (const f of files) console.log("  -", f.replace(resolve(here, "..") + "\\", "").replace(resolve(here, "..") + "/", ""));
 

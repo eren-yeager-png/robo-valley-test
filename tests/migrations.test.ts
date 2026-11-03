@@ -6,8 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { applyFile, dbNameFromUrl, pickFiles } from "../scripts/migrate.mjs";
 
 const read = (p: string) => readFileSync(resolve(p), "utf8");
-const BASE = read("tests/helpers/baseSchema.sql");
-const fresh = async () => { const pg = new PGlite(); await pg.exec(BASE); return pg; };
+const fresh = async () => new PGlite(); // completely empty, like a brand-new hosted database
 const runner = (pg: PGlite) => ({
   setExpected: (n: string) => pg.query("select set_config('rv.expected_db', $1, false)", [n]),
   exec: (sql: string) => pg.exec(sql),
@@ -17,9 +16,9 @@ const tables = async (pg: PGlite) =>
   (await pg.query("select table_name t from information_schema.tables where table_schema='public' order by 1")).rows.map((r: any) => r.t);
 
 describe("migration files", () => {
-  it("are 001, 002 and 003, in order, and rollback is NOT in the migrations folder", () => {
+  it("are 000, 001, 002 and 003, in order, and rollback is NOT in the migrations folder", () => {
     const names = pickFiles().map((f) => f.split(/[\\/]/).pop());
-    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql"]);
+    expect(names).toEqual(["000_base_schema.sql", "001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql"]);
     expect(pickFiles({ only: "003" })).toHaveLength(1);
     expect(names.join()).not.toMatch(/down/);
   });
@@ -66,6 +65,7 @@ describe("database-name guard (option B: fails closed)", () => {
 
   it("an aborted run leaves no half-applied state (all-or-nothing per file)", async () => {
     const pg = await fresh();
+    await applyFile(runner(pg), await dbOf(pg), read("db/migrations/000_base_schema.sql"));
     await expect(applyFile(runner(pg), "nope", read("db/migrations/001_signup_additions.sql"))).rejects.toThrow();
     const cols = (await pg.query("select column_name c from information_schema.columns where table_name='users'")).rows.map((r: any) => r.c);
     expect(cols).not.toContain("age_category");
@@ -92,6 +92,39 @@ describe("database-name guard (option B: fails closed)", () => {
     await applyFile(runner(pg), name, read("db/rollback/003_down.sql"));
     expect(await tables(pg)).toEqual(["guardian_details", "users"]);
     expect(Number((await pg.query("select count(*)::int n from users")).rows[0]!["n" as never])).toBe(1); // data untouched
+    await pg.close();
+  });
+});
+
+describe("000 base schema (needed for a brand-new database such as Neon)", () => {
+  it("001 cannot run on an empty database: it needs the users table that only 000 creates", async () => {
+    const pg = await fresh();
+    await expect(applyFile(runner(pg), await dbOf(pg), read("db/migrations/001_signup_additions.sql"))).rejects.toThrow(/relation "users" does not exist/);
+    await pg.close();
+  });
+
+  it("on an empty database it creates exactly users and guardian_details, with the original columns", async () => {
+    const pg = await fresh();
+    await applyFile(runner(pg), await dbOf(pg), read("db/migrations/000_base_schema.sql"));
+    expect(await tables(pg)).toEqual(["guardian_details", "users"]);
+    const cols = (await pg.query("select column_name c from information_schema.columns where table_name='users' order by ordinal_position")).rows.map((r: any) => r.c);
+    expect(cols).toEqual(["id", "full_name", "email", "mobile", "role", "district", "preferred_language", "age", "password_hash", "guardian_consent", "terms_accepted_at", "created_at"]);
+    await pg.close();
+  });
+
+  it("on a database that already has everything it changes NOTHING: data, columns and constraints are untouched", async () => {
+    const pg = await fresh();
+    const name = await dbOf(pg);
+    for (const f of pickFiles()) await applyFile(runner(pg), name, read(f));
+    await pg.exec("insert into users (full_name,email,role,password_hash,age_category,profile) values ('A','a@e.co','ST','hash','minor','{\"k\":1}')");
+    const snapshot = async () => JSON.stringify([
+      (await pg.query("select * from users order by id")).rows,
+      (await pg.query("select table_name tn, column_name c, data_type t from information_schema.columns where table_schema='public' order by table_name, ordinal_position")).rows,
+      (await pg.query("select conname c from pg_constraint where connamespace='public'::regnamespace order by 1")).rows,
+    ]);
+    const before = await snapshot();
+    await applyFile(runner(pg), name, read("db/migrations/000_base_schema.sql"));
+    expect(await snapshot()).toBe(before);
     await pg.close();
   });
 });

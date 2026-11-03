@@ -44,11 +44,12 @@ RESEND_FROM_EMAIL=RoboValley <onboarding@resend.dev>   # optional; this is the d
 
 | File | Adds |
 |---|---|
+| `db/migrations/000_base_schema.sql` | The two original tables, `users` and `guardian_details` (they were first created by hand). **Required for a brand-new database such as Neon**, because 001 starts with `ALTER TABLE users`. `IF NOT EXISTS` only: it changes nothing on a database that already has them. No rollback script on purpose (dropping `users` would destroy accounts). |
 | `db/migrations/001_signup_additions.sql` | `users.age_category`, `profile`, `consents`, `mobile_verification`; `guardian_details.mobile_verification`, `consent_mode`; case-insensitive email index. |
 | `db/migrations/002_email_verification.sql` | `users.email_verification`; `guardian_details.guardian_email`, `email_verification`. **Needed by email-OTP signup.** |
 | `db/migrations/003_otp_and_login_throttle.sql` | Three **new** tables: `otp_challenges`, `email_verifications`, `login_attempts` (+ indexes). **Needed by email OTP, signup and login**: they hold the one-time codes (hashed), verification tokens (hashed) and login-failure counters that used to live in server memory, which does not work on serverless hosting. Touches no existing table or data. Undo: `db/rollback/003_down.sql` (drops only those three tables). |
 
-All are additive (`IF NOT EXISTS`) and safe to re-run. Apply 001, then 002, then 003. Until 003 is applied, OTP requests and logins fail with a generic 500 (the code needs the tables). `users` is owned by `app_user`, so 001/002 must be run as that role; 003 only creates new tables.
+All are additive (`IF NOT EXISTS`) and safe to re-run. Apply them in order: 000, 001, 002, 003 (running the runner with no `--only` applies all four). Until they are applied, OTP requests and logins fail with a generic 500 (the code needs the tables). On the local Docker database `users` is owned by `app_user`, so 001/002 must be run as that role there; 003 only creates new tables.
 
 **Database-name check (fails closed).** No migration hard-codes a database name. Each one refuses to run unless the operator has named the database they mean to change *and* it matches the database they are connected to. Use the runner, which never reads `.env.local` by itself and does a **dry run** unless you add `--apply`:
 
@@ -59,6 +60,23 @@ node --env-file=.env.local scripts/migrate.mjs --expect-db <database name> --onl
 node --env-file=.env.local scripts/migrate.mjs --expect-db <database name> --only 003 --apply
 # for another database, set DATABASE_URL in that PowerShell window and use:  npm run db:migrate -- --expect-db <name> --apply
 ```
+
+### Setting up a new hosted database (Neon)
+
+1. In Neon, copy the **direct** connection string (host *without* `-pooler`). The runner warns if it looks pooled.
+2. In PowerShell, from the project folder (the connection string is read hidden and exists only in that window):
+   ```powershell
+   $s = Read-Host "Paste the Neon DIRECT connection string" -AsSecureString
+   $env:DATABASE_URL = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($s))
+   npm run db:migrate -- --expect-db <database name shown by Neon, e.g. neondb>            # dry run, connects to nothing
+   npm run db:migrate -- --expect-db <database name> --apply                                # applies 000, 001, 002, 003
+   Remove-Item Env:DATABASE_URL
+   ```
+3. Use `sslmode=verify-full` in the `DATABASE_URL` you store in Vercel (it silences the `pg` warning about `require`; behaviour is the same).
+
+### When an OTP or login request answers 500
+
+The response contains a `requestId`. The same id appears in the server log line `otp.request.failed` (or `otp.verify.failed`, `otp.email.failed`) together with a **safe** description: error name, database/network code (for example `42P01` = a table is missing, `28P01` = wrong database password, `ECONNREFUSED`/`ENOTFOUND` = cannot reach the database), table/constraint name, and a shortened message in which URLs, email addresses, API keys, 6-digit codes and long tokens are masked. Request bodies, environment variables, OTP codes and tokens are never logged. In Vercel: Project → Logs → search for the `requestId`.
 
 ## 4. Run the app
 
@@ -155,5 +173,5 @@ Tests run against **PGlite** (a real PostgreSQL engine running inside the test p
 - A real guardian-consent workflow (parent acting on their own device).
 - Per-IP rate limiting for the OTP and signup endpoints, CAPTCHA, Privacy Notice / Terms pages.
 - SMS / mobile verification (mobile is collected but unverified); mobile numbers are not unique.
-- A `000_base_schema.sql` migration for brand-new databases (the two original tables were created by hand; `tests/helpers/baseSchema.sql` is only a test fixture), and a hosted-database (Neon) trial of the whole flow.
+- A hosted-database (Neon) trial of the whole flow, and a Resend sending domain that you own and have verified.
 - Per-session revocation (sessions are stateless signed cookies); Resend webhooks (bounces); a verified sending domain for Resend.

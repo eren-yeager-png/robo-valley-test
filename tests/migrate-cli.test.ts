@@ -45,8 +45,23 @@ describe("scripts/migrate.mjs (fails closed)", () => {
   it("dry run lists all migrations in order when no filter is given, and never the rollback file", () => {
     const r = run(["--expect-db", "never_connects"]);
     const order = [...r.out.matchAll(/(\d{3})_\w+\.sql/g)].map((m) => m[1]);
-    expect(order).toEqual(["001", "002", "003"]);
+    expect(order).toEqual(["000", "001", "002", "003"]);
     expect(r.out).not.toMatch(/down/);
+  });
+
+  it("warns when the connection looks like a pooled (PgBouncer) endpoint, which can lose the confirmed-database setting", () => {
+    const r = run(["--expect-db", "neondb", "--only", "003"], { DATABASE_URL: "postgresql://u:p@ep-cool-name-123456-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require" });
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/POOLED connection/);
+    expect(r.out).toMatch(/without "-pooler"/);
+    expect(r.out).not.toContain("ep-cool-name"); // the host is never printed
+  });
+
+  it("a direct (non-pooled) endpoint gets no warning", () => {
+    const r = run(["--expect-db", "neondb", "--only", "003"], { DATABASE_URL: "postgresql://u:p@ep-cool-name-123456.us-east-2.aws.neon.tech/neondb?sslmode=require" });
+    expect(r.code).toBe(0);
+    expect(r.out).not.toMatch(/POOLED connection/);
+    expect(r.out).toMatch(/remote server/);
   });
 
   it("never prints the password, the user name, the host or the full URL", () => {
