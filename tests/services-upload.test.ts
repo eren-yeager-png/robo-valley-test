@@ -23,9 +23,10 @@ const signIn = (id: string, role: string) => { m.cookie = tokenFor(id, role); };
 const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 type F = { name: string; type: string; data: Buffer | string };
 const csv = (text: string, name = "schools.csv"): F => ({ name, type: "text/csv", data: text });
-const uploadReq = (f: F, headers: Record<string, string> = {}) => {
+const uploadReq = (f: F, headers: Record<string, string> = {}, category = "atl-labs") => {
   const fd = new FormData();
   fd.set("file", new File([f.data as BlobPart], f.name, { type: f.type }));
+  fd.set("category", category); // the category is now required on every upload
   return new Request("http://localhost/api/services/upload", { method: "POST", body: fd, headers });
 };
 const confirmReq = (datasetId: unknown, headers: Record<string, string> = {}) =>

@@ -17,9 +17,9 @@ const tables = async (pg: PGlite) =>
   (await pg.query("select table_name t from information_schema.tables where table_schema='public' order by 1")).rows.map((r: any) => r.t);
 
 describe("migration files", () => {
-  it("are 001 to 006, in order, and rollback is NOT in the migrations folder", () => {
+  it("are 001 to 007, in order, and rollback is NOT in the migrations folder", () => {
     const names = pickFiles().map((f) => f.split(/[\\/]/).pop());
-    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql", "005_service_datasets.sql", "006_pincode_locations.sql"]);
+    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql", "005_service_datasets.sql", "006_pincode_locations.sql", "007_service_categories.sql"]);
     expect(pickFiles({ only: "003" })).toHaveLength(1);
     expect(names.join()).not.toMatch(/down/);
   });
@@ -29,7 +29,10 @@ describe("migration files", () => {
       const sql = read(f);
       expect(sql, f).not.toMatch(/robovalley_auth'|<> 'robovalley/); // the old hard-coded guard is gone
       expect(sql, f).toMatch(/rv\.expected_db/);
-      expect(sql, f).not.toMatch(/\b(DROP|TRUNCATE|DELETE FROM|UPDATE\s+\w+\s+SET)\b/i);
+      // 007 has to retire the old "one active dataset in total" index so that each category can have its own live dataset.
+      // That single statement is allowed; anything else destructive still fails this test.
+      const checked = f.includes("007_") ? sql.replace("DROP INDEX IF EXISTS service_datasets_one_active;", "") : sql;
+      expect(checked, f).not.toMatch(/\b(DROP|TRUNCATE|DELETE FROM|UPDATE\s+\w+\s+SET)\b/i);
     }
     expect(read("db/rollback/003_down.sql")).toMatch(/DROP TABLE IF EXISTS/);
   });

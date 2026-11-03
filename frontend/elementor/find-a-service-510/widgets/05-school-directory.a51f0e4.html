@@ -1,14 +1,15 @@
-<!-- RoboValley Find a Service: SCHOOL DIRECTORY search (centrally stored data uploaded by an administrator).
-     Everyone (visitors, members, admins) searches the same active dataset through GET /api/services/search.
+<!-- RoboValley Find a Service: DIRECTORY search for the chosen category (centrally stored data uploaded by an administrator).
+     Everyone (visitors, members, admins) searches the same active dataset of that category through GET /api/services/search?category=.
+     The heading, sub-title, placeholder and count follow the category chosen with the chips (window.RvFasState, event rv-fas-category).
      The section stays hidden when no API address is configured (window.RoboValleyApi.base), so the page is unchanged until then.
      Text from the API is only ever inserted with textContent, never as HTML. -->
 <section class="rv-fas rv-fas-dir" id="rv-fas-dir" aria-labelledby="rv-fas-dir-h" hidden>
-	<h2 class="rv-fas-dir-h" id="rv-fas-dir-h">School directory</h2>
-	<p class="rv-fas-dir-sub">Search schools by name and location.</p>
-	<form class="rv-fas-dir-form" id="rv-fas-dir-form" role="search" aria-label="Search the school directory" novalidate>
+	<h2 class="rv-fas-dir-h" id="rv-fas-dir-h">Directory</h2>
+	<p class="rv-fas-dir-sub" id="rv-fas-dir-sub"></p>
+	<form class="rv-fas-dir-form" id="rv-fas-dir-form" role="search" aria-label="Search the directory" novalidate>
 		<div class="rv-fas-field">
-			<label class="rv-fas-label" for="rv-fas-dir-q">School name</label>
-			<input class="rv-fas-input" id="rv-fas-dir-q" type="search" maxlength="100" autocomplete="off" spellcheck="false" placeholder="e.g. Kendriya Vidyalaya">
+			<label class="rv-fas-label" for="rv-fas-dir-q">Name</label>
+			<input class="rv-fas-input" id="rv-fas-dir-q" type="search" maxlength="100" autocomplete="off" spellcheck="false" placeholder="Search by name">
 		</div>
 		<div class="rv-fas-field">
 			<label class="rv-fas-label" for="rv-fas-dir-loc">Location</label>
@@ -19,7 +20,7 @@
 	<div class="rv-fas-results-head"><p class="rv-fas-summary" id="rv-fas-dir-summary" role="status" aria-live="polite"></p></div>
 	<div class="rv-fas-alert" id="rv-fas-dir-alert" role="alert" hidden></div>
 	<div class="rv-fas-state" id="rv-fas-dir-state" hidden></div>
-	<ol class="rv-fas-list" id="rv-fas-dir-list" aria-label="Schools"></ol>
+	<ol class="rv-fas-list" id="rv-fas-dir-list" aria-label="Directory results"></ol>
 	<nav class="rv-fas-dir-pager" id="rv-fas-dir-pager" aria-label="Result pages" hidden>
 		<button type="button" class="rv-fas-btn rv-fas-btn--ghost rv-fas-btn--small" id="rv-fas-dir-prev">Previous</button>
 		<span id="rv-fas-dir-page" aria-live="polite"></span>
@@ -62,7 +63,7 @@
 	var form = $( 'rv-fas-dir-form' ), inQ = $( 'rv-fas-dir-q' ), inLoc = $( 'rv-fas-dir-loc' );
 	var summary = $( 'rv-fas-dir-summary' ), alertBox = $( 'rv-fas-dir-alert' ), stateBox = $( 'rv-fas-dir-state' );
 	var list = $( 'rv-fas-dir-list' ), pager = $( 'rv-fas-dir-pager' ), pageLbl = $( 'rv-fas-dir-page' );
-	var prev = $( 'rv-fas-dir-prev' ), next = $( 'rv-fas-dir-next' );
+	var prev = $( 'rv-fas-dir-prev' ), next = $( 'rv-fas-dir-next' ), heading = $( 'rv-fas-dir-h' ), sub = $( 'rv-fas-dir-sub' );
 	var SIZE = 12;
 	var S = { q: '', loc: '', page: 1 };
 	var seq = 0, ctl = null, timer = 0;
@@ -117,13 +118,37 @@
 		return li;
 	}
 
+	/* The chosen category (set by the chips). Names are plain text from the API; they are only ever shown with textContent. */
+	function cat() {
+		var st = window.RvFasState;
+		return st && st.ready ? st.effective : null;
+	}
+	function paintCategory() {
+		var c = cat();
+		heading.textContent = c ? c.name + ' directory' : 'Directory';
+		sub.textContent = c ? 'Search ' + c.name + ' by name and location' : '';
+		inQ.placeholder = c ? 'Search ' + c.name + ' by name' : 'Search by name';
+	}
+	function empty() {
+		++seq;
+		if ( ctl ) { ctl.abort(); }
+		list.textContent = '';
+		pager.hidden = true;
+		summary.textContent = '';
+		showState( 'No data uploaded yet', cat() ? cat().name + ' is coming soon. Please check back.' : 'Please check back soon.', false );
+	}
+
 	function load() {
+		var st = window.RvFasState;
+		if ( ! st || ! st.ready ) { return; } // the chips have not said which category yet; the rv-fas-category event starts the first load
+		paintCategory();
+		clearState();
+		if ( ( ! st.effective && ! st.error ) || ( st.effective && ! st.effective.active ) ) { empty(); return; }
 		var mine = ++seq;
 		if ( ctl ) { ctl.abort(); }
 		ctl = window.AbortController ? new AbortController() : null;
-		clearState();
 		summary.textContent = 'Searching…';
-		var qs = 'q=' + encodeURIComponent( S.q ) + '&location=' + encodeURIComponent( S.loc ) + '&page=' + S.page + '&pageSize=' + SIZE;
+		var qs = ( st.effective ? 'category=' + encodeURIComponent( st.effective.slug ) + '&' : '' ) + 'q=' + encodeURIComponent( S.q ) + '&location=' + encodeURIComponent( S.loc ) + '&page=' + S.page + '&pageSize=' + SIZE;
 		fetch( api + '/api/services/search?' + qs, { cache: 'no-store', signal: ctl ? ctl.signal : undefined } )
 			.then( function ( r ) { return r.json().catch( function () { return {}; } ).then( function ( d ) { return { ok: r.ok, d: d }; } ); } )
 			.then( function ( res ) {
@@ -139,16 +164,18 @@
 				}
 				if ( ! d.dataset ) {
 					summary.textContent = '';
-					showState( 'The school directory is not available yet', 'No school data has been published. Please check back soon.', false );
+					showState( 'No data uploaded yet', 'Please check back soon.', false );
 					return;
 				}
+				var noun = d.category && d.category.name ? d.category.name : 'schools';
+				paintCategory();
 				if ( d.total === 0 ) {
-					summary.textContent = '0 schools found';
-					showState( 'No schools found', 'Try a shorter name, check the spelling, or search by district or PIN code.', !! ( S.q || S.loc ) );
+					summary.textContent = '0 ' + noun + ' found';
+					showState( 'No ' + noun + ' found', 'Try a shorter name, check the spelling, or search by district or PIN code.', !! ( S.q || S.loc ) );
 					return;
 				}
 				var from = ( d.page - 1 ) * d.pageSize + 1, to = from + d.results.length - 1;
-				summary.textContent = 'Showing ' + fmt( from ) + '–' + fmt( to ) + ' of ' + fmt( d.total ) + ( d.total === 1 ? ' school' : ' schools' );
+				summary.textContent = 'Showing ' + fmt( from ) + '–' + fmt( to ) + ' of ' + fmt( d.total ) + ' ' + ( d.category && d.category.name ? d.category.name : 'schools' );
 				d.results.forEach( function ( r, i ) { list.appendChild( card( r, from + i ) ); } );
 				var pages = Math.ceil( d.total / d.pageSize );
 				if ( pages > 1 ) {
@@ -179,8 +206,10 @@
 	[ inQ, inLoc ].forEach( function ( i ) { i.addEventListener( 'input', function () { clearTimeout( timer ); timer = setTimeout( submit, 400 ); } ); } );
 	prev.addEventListener( 'click', function () { if ( S.page > 1 ) { S.page--; load(); root.scrollIntoView( { block: 'start' } ); } } );
 	next.addEventListener( 'click', function () { S.page++; load(); root.scrollIntoView( { block: 'start' } ); } );
-	document.addEventListener( 'rv-dir-refresh', function () { S.page = 1; load(); } ); // after an admin publishes new data
+	// The chips publish the chosen category (and re-publish after an admin uploads a file): switch without reloading the page.
+	document.addEventListener( 'rv-fas-category', function () { S.page = 1; load(); } );
 
+	paintCategory();
 	load();
 }() );
 </script>

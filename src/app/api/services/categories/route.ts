@@ -1,0 +1,22 @@
+import { preflight, withCors } from "../../../../lib/cors";
+import { json } from "../../../../lib/http";
+import { pool } from "../../../../lib/db";
+import { listCategories } from "../../../../lib/serviceDatasets";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const METHODS = "GET, OPTIONS";
+export const OPTIONS = (req: Request) => preflight(req, METHODS);
+
+/** Public. The six categories in their fixed order, each with whether it has live data and how many rows. `defaultSlug` is the first live one. */
+export async function GET(req: Request) {
+  const reply = (body: unknown, status: number) => withCors(req, json(body, status), METHODS);
+  try {
+    const categories = await listCategories(pool);
+    return reply({ success: true, categories, defaultSlug: categories.find((c) => c.active)?.slug ?? null }, 200);
+  } catch {
+    console.error("categories failed: server error");
+    return reply({ success: false, error: "SERVER_ERROR", message: "Categories are not available right now. Please try again." }, 500);
+  }
+}
