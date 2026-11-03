@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Profile & settings | RoboValley" };
 export default async function ProfilePage() {
   const ctx = await getDashboardContext();
   if (ctx.status === "anonymous") redirect("/login");
-  if (ctx.status === "unknown-role") return <UnauthorizedState title="Your account has no dashboard yet" body="Your account's role isn't recognised." />;
+  if (ctx.status === "unknown-role") return <UnauthorizedState title="Your account has no dashboard yet" body="Your account's role isn't recognised." action="signout" />;
 
   const res = await loadAccount(ctx.user.id);
   if (!res.ok) return <ErrorState body="We couldn't load your profile. Please try again in a moment." />;

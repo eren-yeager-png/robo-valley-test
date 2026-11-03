@@ -1,6 +1,7 @@
 // Small presentational pieces shared by dashboard pages. Synchronous and free of hooks, so they
 // work in Server Components.
 import type { Section } from "../../lib/dashboardConfig";
+import LogoutButton from "./LogoutButton";
 import type { RoleSample } from "../../lib/dashboardSamples";
 
 /** A section with no backend yet. Says plainly that nothing is live and what is missing. */
@@ -15,14 +16,18 @@ export function EmptyState({ section }: { section: Section }) {
   );
 }
 
-/** The signed-in user is not allowed to see this page. Contains no data from the page. */
-export function UnauthorizedState({ title = "You don't have access to this page", body = "This page belongs to a different role. Your dashboard only shows what your role can use." }: { title?: string; body?: string }) {
+/**
+ * The signed-in user is not allowed to see this page. Contains no data from the page.
+ * action "dashboard" (default): a link back to their own dashboard. action "signout": for an account whose role has NO
+ * dashboard, where a link back to /dashboard would just show this message again, so the only way out is signing out.
+ */
+export function UnauthorizedState({ title = "You don't have access to this page", body = "This page belongs to a different role. Your dashboard only shows what your role can use.", action = "dashboard" }: { title?: string; body?: string; action?: "dashboard" | "signout" }) {
   return (
     <section className="state block" role="alert">
       <span className="badge warn">Access denied</span>
       <h2>{title}</h2>
       <p>{body}</p>
-      <a className="btn primary" href="/dashboard">Back to my dashboard</a>
+      {action === "signout" ? <LogoutButton /> : <a className="btn primary" href="/dashboard">Back to my dashboard</a>}
     </section>
   );
 }

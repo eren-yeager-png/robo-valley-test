@@ -18,6 +18,7 @@ vi.mock("next/navigation", () => ({
 
 import { requireAdmin } from "../src/lib/admin";
 import AdminDashboard from "../src/app/admin/dashboard/page";
+import DashboardHome from "../src/app/dashboard/page";
 import { POST as changePassword } from "../src/app/api/admin/change-password/route";
 import { POST as login } from "../src/app/api/auth/login/route";
 
@@ -193,5 +194,51 @@ describe("admin sign-in", () => {
     }));
     expect(res.status).toBe(400);
     expect(((await testDb().raw.query("select count(*)::int c from users")).rows[0] as any).c).toBe(0);
+  });
+});
+
+describe("admin dashboard access end to end", () => {
+  const expiredFor = (id: string) => createSessionToken({ id, role: "admin" }, false, Date.now() - 13 * 3600 * 1000, { SESSION_SECRET: SECRET } as never).token;
+
+  it("an admin who opens /dashboard lands on /admin/dashboard, which opens (and keeps opening on every refresh)", async () => {
+    const a = await seedUser({ email: "admin@robovalley.com", role: "admin" });
+    signIn(a.id);
+    for (let i = 0; i < 3; i++) {
+      await expect(DashboardHome()).rejects.toThrow("REDIRECT:/admin/dashboard");
+      expect(renderToStaticMarkup(await AdminDashboard())).toContain("Admin dashboard");
+    }
+  });
+
+  it("a regular user cannot reach the admin dashboard: /dashboard shows their own page and /admin/dashboard sends them back", async () => {
+    const u = await seedUser({ email: "asha@example.com", role: "TC" });
+    signIn(u.id, "TC");
+    expect(renderToStaticMarkup(await DashboardHome())).toContain("Welcome, Asha!");
+    await expect(AdminDashboard()).rejects.toThrow("REDIRECT:/dashboard");
+  });
+
+  it("an expired session is denied everywhere: 401 from the API guard, sign-in redirect for both dashboards", async () => {
+    const a = await seedUser({ email: "admin@robovalley.com", role: "admin" });
+    m.cookie = expiredFor(a.id);
+    expect((await requireAdmin()).response?.status).toBe(401);
+    await expect(AdminDashboard()).rejects.toThrow("REDIRECT:/login");
+    await expect(DashboardHome()).rejects.toThrow("REDIRECT:/login");
+  });
+
+  it("garbage and tampered cookies are denied safely (no crash, nothing admin rendered)", async () => {
+    const a = await seedUser({ email: "admin@robovalley.com", role: "admin" });
+    for (const bad of ["garbage", "a.b", "", tokenFor(a.id, "admin").slice(0, -3) + "AAA"]) {
+      m.cookie = bad;
+      expect((await requireAdmin()).response?.status, bad).toBe(401);
+      await expect(AdminDashboard(), bad).rejects.toThrow("REDIRECT:/login");
+    }
+  });
+
+  it("a deleted admin account is denied immediately, with a still-valid cookie", async () => {
+    const a = await seedUser({ email: "admin@robovalley.com", role: "admin" });
+    signIn(a.id);
+    expect((await requireAdmin()).admin?.id).toBe(a.id);
+    await testDb().raw.query("delete from users where id = $1", [a.id]);
+    expect((await requireAdmin()).response?.status).toBe(401);
+    await expect(AdminDashboard()).rejects.toThrow("REDIRECT:/login");
   });
 });

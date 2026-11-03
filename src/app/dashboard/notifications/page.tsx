@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Notifications | RoboValley" };
 export default async function NotificationsPage() {
   const ctx = await getDashboardContext();
   if (ctx.status === "anonymous") redirect("/login");
-  if (ctx.status === "unknown-role") return <UnauthorizedState title="Your account has no dashboard yet" body="Your account's role isn't recognised." />;
+  if (ctx.status === "unknown-role") return <UnauthorizedState title="Your account has no dashboard yet" body="Your account's role isn't recognised." action="signout" />;
 
   const res = await loadAccount(ctx.user.id);
   if (!res.ok) return <ErrorState body="We couldn't load your notifications. Please try again in a moment." />;

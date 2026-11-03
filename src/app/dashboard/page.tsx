@@ -15,7 +15,7 @@ const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day
 export default async function DashboardHome() {
   const ctx = await getDashboardContext();
   if (ctx.status === "anonymous") redirect("/login");
-  if (ctx.status === "unknown-role") return <UnauthorizedState title="Your account has no dashboard yet" body="Your account's role isn't recognised." />;
+  if (ctx.status === "unknown-role") return <UnauthorizedState title="Your account has no dashboard yet" body="Your account's role isn't recognised." action="signout" />;
   const { user, dash } = ctx;
 
   const res = await loadAccount(user.id);
