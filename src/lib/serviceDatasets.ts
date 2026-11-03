@@ -7,6 +7,7 @@
 //  * searchServices reads only rows that belong to the single active version.
 
 import type { ParsedFile } from "./spreadsheet/parse";
+import { CATEGORIES, categoryName, DEFAULT_CATEGORY, parseCategory, type CategorySlug } from "./serviceCategories";
 
 // pg row objects are untyped; they are only read by column name below.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,7 +44,7 @@ export async function writeAudit(
 export type StagedDataset = { id: string; rowCount: number; invalidRowCount: number };
 
 /** Writes the parsed file as a new 'staged' version. Nothing becomes searchable here. */
-export async function stageDataset(pool: Pool, adminId: string, file: ParsedFile): Promise<StagedDataset> {
+export async function stageDataset(pool: Pool, adminId: string, file: ParsedFile, category: CategorySlug = DEFAULT_CATEGORY): Promise<StagedDataset> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -52,9 +53,9 @@ export async function stageDataset(pool: Pool, adminId: string, file: ParsedFile
     if (old.rows.length) await client.query("DELETE FROM service_dataset_rows WHERE dataset_id = ANY($1::bigint[])", [old.rows.map((r) => r.id)]);
 
     const ds = await client.query(
-      `INSERT INTO service_datasets (uploaded_by, original_filename, file_sha256, row_count, invalid_row_count, columns, status)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb, 'staged') RETURNING id`,
-      [adminId, file.filename, file.sha256, file.rows.length, file.invalidRowCount, JSON.stringify(file.headers)]
+      `INSERT INTO service_datasets (uploaded_by, original_filename, file_sha256, row_count, invalid_row_count, columns, status, category)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, 'staged', $7) RETURNING id`,
+      [adminId, file.filename, file.sha256, file.rows.length, file.invalidRowCount, JSON.stringify(file.headers), category]
     );
     const datasetId = String(ds.rows[0].id);
 
@@ -83,7 +84,7 @@ export async function stageDataset(pool: Pool, adminId: string, file: ParsedFile
   }
 }
 
-export type ActivatedDataset = { id: string; rowCount: number; filename: string };
+export type ActivatedDataset = { id: string; rowCount: number; filename: string; category: CategorySlug };
 
 /** Atomic switch of the live dataset. Throws DatasetError (404/409) for anything that is not a fresh, complete staged version. */
 export async function confirmDataset(pool: Pool, datasetId: string): Promise<ActivatedDataset> {
@@ -91,7 +92,7 @@ export async function confirmDataset(pool: Pool, datasetId: string): Promise<Act
   try {
     await client.query("BEGIN");
     const { rows } = await client.query(
-      `SELECT id, status, row_count, original_filename, (uploaded_at < now() - ($2 || ' hours')::interval) AS expired
+      `SELECT id, status, row_count, original_filename, category, (uploaded_at < now() - ($2 || ' hours')::interval) AS expired
          FROM service_datasets WHERE id = $1 FOR UPDATE`,
       [datasetId, String(STAGING_TTL_HOURS)]
     );
@@ -102,10 +103,11 @@ export async function confirmDataset(pool: Pool, datasetId: string): Promise<Act
     const n = await client.query("SELECT count(*)::int AS n FROM service_dataset_rows WHERE dataset_id = $1", [datasetId]);
     if (n.rows[0].n !== d.row_count) throw new DatasetError("STAGING_INCOMPLETE", "The staged data is incomplete, so nothing was changed. Upload the file again.", 409);
 
-    await client.query("UPDATE service_datasets SET status = 'superseded' WHERE status = 'active'");
+    // Only the SAME category is replaced; every other category stays live.
+    await client.query("UPDATE service_datasets SET status = 'superseded' WHERE status = 'active' AND category = $1", [d.category]);
     await client.query("UPDATE service_datasets SET status = 'active', activated_at = now() WHERE id = $1", [datasetId]);
     await client.query("COMMIT");
-    return { id: String(d.id), rowCount: d.row_count, filename: d.original_filename };
+    return { id: String(d.id), rowCount: d.row_count, filename: d.original_filename, category: d.category };
   } catch (e) {
     try { await client.query("ROLLBACK"); } catch { /* connection already gone */ }
     if ((e as { code?: string }).code === "23505") throw new DatasetError("CONFLICT", "Another upload was confirmed at the same time. Please try again.", 409);
@@ -130,7 +132,7 @@ const INDIA = { latMin: 6, latMax: 38, lngMin: 67, lngMax: 98 };
 
 /** "Schools near a pin code": `pincode` and/or an explicit centre (`lat`/`lng`, used when the pin code has no stored position). */
 export type NearParams = { pincode: string | null; lat: number | null; lng: number | null; radiusKm: number };
-export type SearchParams = { terms: string[]; locationTerms: string[]; page: number; pageSize: number; near?: NearParams };
+export type SearchParams = { terms: string[]; locationTerms: string[]; page: number; pageSize: number; category: CategorySlug | null; near?: NearParams };
 
 function termsOf(raw: string | null): { terms: string[] } | { error: string } {
   const s = (raw ?? "").normalize("NFC").replace(/[\u0000-\u001F\u007F-\u009F]/g, " ").trim();
@@ -155,10 +157,13 @@ export function parseSearchParams(sp: URLSearchParams): { value: SearchParams } 
   const pageSize = intOf("pageSize", DEFAULT_PAGE_SIZE);
   if (!Number.isInteger(page) || page < 1 || page > 100000) return { error: "page must be a whole number of 1 or more." };
   if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE) return { error: `pageSize must be between 1 and ${MAX_PAGE_SIZE}.` };
+  const catRaw = sp.get("category");
+  const category = catRaw === null || catRaw === "" ? null : parseCategory(catRaw);
+  if (catRaw !== null && catRaw !== "" && !category) return { error: "category is not one of the available categories." };
   const near = parseNear(sp);
   if (near && "error" in near) return { error: near.error };
   const nearValue = near && "value" in near ? near.value : undefined;
-  return { value: { terms: q.terms, locationTerms: l.terms, page, pageSize, ...(nearValue ? { near: nearValue } : {}) } };
+  return { value: { terms: q.terms, locationTerms: l.terms, page, pageSize, category, ...(nearValue ? { near: nearValue } : {}) } };
 }
 
 function parseNear(sp: URLSearchParams): { value: NearParams } | { error: string } | null {
@@ -194,17 +199,31 @@ export type ServiceHit = {
 };
 export type SearchResult = {
   dataset: { id: string; uploadedAt: string; rowCount: number } | null;
+  /** The category this answer is about: the one asked for, else the first active one. null only when nothing is live at all. */
+  category: { slug: string; name: string; active: boolean } | null;
   total: number; page: number; pageSize: number; results: ServiceHit[];
   /** Only in a "near" search. center is null when the pin code has no stored position (the caller may look it up and ask again with lat/lng). */
   near?: { center: { lat: number; lng: number } | null; pincodeKnown: boolean; radiusKm: number; limit: number };
 };
 
-export async function searchServices(db: Queryable, p: SearchParams): Promise<SearchResult> {
-  const active = await db.query("SELECT id, uploaded_at, row_count FROM service_datasets WHERE status = 'active'");
-  const a = active.rows[0];
-  if (!a) return { dataset: null, total: 0, page: p.page, pageSize: p.pageSize, results: [] };
+export type CategoryInfo = { slug: string; name: string; active: boolean; count: number; uploadedAt: string | null };
 
-  if (p.near) return searchNear(db, a, p.near);
+/** All six categories in their fixed order, each with whether it has live data and how many rows. */
+export async function listCategories(db: Queryable): Promise<CategoryInfo[]> {
+  const r = await db.query("SELECT category, row_count, uploaded_at FROM service_datasets WHERE status = 'active'");
+  const live = new Map<string, { n: number; at: string }>(r.rows.map((x) => [x.category, { n: x.row_count, at: new Date(x.uploaded_at).toISOString() }]));
+  return CATEGORIES.map((c) => ({ slug: c.slug, name: c.name, active: live.has(c.slug), count: live.get(c.slug)?.n ?? 0, uploadedAt: live.get(c.slug)?.at ?? null }));
+}
+
+export async function searchServices(db: Queryable, p: SearchParams): Promise<SearchResult> {
+  const active = await db.query("SELECT id, uploaded_at, row_count, category FROM service_datasets WHERE status = 'active'");
+  const rank = (slug: string) => CATEGORIES.findIndex((c) => c.slug === slug);
+  const a = p.category ? active.rows.find((x) => x.category === p.category) : [...active.rows].sort((x, y) => rank(x.category) - rank(y.category))[0];
+  const slug = p.category ?? a?.category ?? null;
+  const category = slug ? { slug: slug as string, name: categoryName(slug) ?? slug, active: !!a } : null;
+  if (!a) return { dataset: null, category, total: 0, page: p.page, pageSize: p.pageSize, results: [] };
+
+  if (p.near) return { ...(await searchNear(db, a, p.near)), category };
 
   const params: unknown[] = [a.id];
   const where = ["dataset_id = $1"];
@@ -220,7 +239,7 @@ export async function searchServices(db: Queryable, p: SearchParams): Promise<Se
     [...params, p.pageSize, (p.page - 1) * p.pageSize]
   );
   return {
-    dataset: { id: String(a.id), uploadedAt: new Date(a.uploaded_at).toISOString(), rowCount: a.row_count },
+    dataset: { id: String(a.id), uploadedAt: new Date(a.uploaded_at).toISOString(), rowCount: a.row_count }, category,
     total, page: p.page, pageSize: p.pageSize,
     results: rows.rows.map((r) => ({
       id: String(r.id), schoolName: r.school_name, state: r.state, district: r.district, pincode: r.pincode, udiseCode: r.udise_code,
@@ -232,7 +251,7 @@ export async function searchServices(db: Queryable, p: SearchParams): Promise<Se
 const KM_PER_DEG = 111.195;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function searchNear(db: Queryable, a: any, n: NearParams): Promise<SearchResult> {
+async function searchNear(db: Queryable, a: any, n: NearParams): Promise<Omit<SearchResult, "category">> {
   let centre: { lat: number; lng: number } | null = null;
   let pincodeKnown = false;
   if (n.pincode) {

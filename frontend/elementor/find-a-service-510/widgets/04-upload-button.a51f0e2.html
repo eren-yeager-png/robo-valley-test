@@ -13,6 +13,8 @@
 .rv-fas-dlg p{margin:0 0 12px}
 .rv-fas-dlg-note{font-size:14px;color:#56675f}
 .rv-fas-dlg-file{display:block;width:100%;padding:12px;font:inherit;font-size:15px;background:#f5f4ef;border:1.5px dashed #b9cfc4;border-radius:12px}
+.rv-fas-dlg label{display:block;margin:0 0 6px;font-size:14px;font-weight:800;color:#123f33}
+.rv-fas-dlg-sel{display:block;width:100%;margin:0 0 14px;padding:11px 12px;font:inherit;font-size:15px;color:#15302a;background:#fff;border:1.5px solid #b9cfc4;border-radius:12px}
 .rv-fas-dlg-bar{display:block;width:100%;height:12px;margin:14px 0 4px;accent-color:#17694f}
 .rv-fas-dlg-msg{margin:14px 0 0;padding:12px 14px;font-size:15px;border-radius:12px}
 .rv-fas-dlg-msg--err{color:#5a3b06;background:#fbefd9;border:1px solid #f0cf96}
@@ -27,7 +29,7 @@
 .rv-fas-dlg-actions .rv-fas-btn{min-width:0}
 .rv-fas-dlg-x{position:absolute;top:10px;right:12px;width:36px;height:36px;padding:0;font-size:24px;line-height:1;color:#123f33;background:transparent;border:0;border-radius:50%;cursor:pointer}
 .rv-fas-dlg-x:hover{background:#e3ede7}
-.rv-fas-dlg button:focus-visible,.rv-fas-dlg input:focus-visible,.rv-fas-up button:focus-visible{outline:3px solid rgba(23,105,79,.45);outline-offset:2px}
+.rv-fas-dlg button:focus-visible,.rv-fas-dlg input:focus-visible,.rv-fas-dlg select:focus-visible,.rv-fas-up button:focus-visible{outline:3px solid rgba(23,105,79,.45);outline-offset:2px}
 @media (max-width:1024px){.rv-fas-up{justify-content:flex-start}}
 @media (max-width:600px){.rv-fas-dlg{padding:20px 16px}.rv-fas-dlg-actions .rv-fas-btn{width:100%}}
 </style>
@@ -44,6 +46,26 @@
 		.then( function ( r ) { return r.ok ? r.json() : null; } )
 		.then( function ( d ) { if ( d && d.role === 'admin' ) { mount(); } } )
 		.catch( function () { /* API unreachable: the page simply has no upload button */ } );
+
+	var known = []; // the categories the dialog was given
+	/** The categories for the dialog: what the chips already loaded, else asked from the API. Never typed by hand. */
+	function categories( cb ) {
+		var st = window.RvFasState;
+		if ( st && st.categories && st.categories.length ) { known = st.categories; cb( known ); return; }
+		fetch( api + '/api/services/categories', { cache: 'no-store' } )
+			.then( function ( r ) { return r.ok ? r.json() : null; } )
+			.then( function ( d ) { known = d && d.categories ? d.categories : []; cb( known ); } )
+			.catch( function () { cb( [] ); } );
+	}
+	/** Which category a file name points at ("stem-labs.xlsx" or "STEM Labs 2026.csv"), or '' when it does not match one. */
+	function guess( name ) {
+		var flat = function ( t ) { return String( t ).toLowerCase().replace( /\.[a-z0-9]+$/, '' ).replace( /[^a-z0-9]+/g, '' ); };
+		var f = flat( name ), hit = '';
+		known.forEach( function ( c ) {
+			if ( ! hit && ( f.indexOf( flat( c.name ) ) !== -1 || f.indexOf( flat( c.slug ) ) !== -1 ) ) { hit = c.slug; }
+		} );
+		return hit;
+	}
 
 	function el( tag, cls, text ) {
 		var n = document.createElement( tag );
@@ -82,7 +104,7 @@
 			function onKey( e ) {
 				if ( e.key === 'Escape' && ! busy ) { e.preventDefault(); close(); return; }
 				if ( e.key === 'Tab' ) {
-					var f = dlg.querySelectorAll( 'button:not([disabled]),input:not([disabled])' );
+					var f = dlg.querySelectorAll( 'button:not([disabled]),input:not([disabled]),select:not([disabled])' );
 					if ( ! f.length ) { return; }
 					var first = f[ 0 ], last = f[ f.length - 1 ];
 					if ( e.shiftKey && document.activeElement === first ) { e.preventDefault(); last.focus(); }
@@ -115,16 +137,43 @@
 				return b;
 			}
 
-			function choose( errText ) {
+			var keep = { slug: '' };
+				function choose( errText ) {
 				frame( 'Upload school data' );
 				dlg.appendChild( el( 'p', '', 'Choose an Excel (.xlsx) or CSV (.csv) file. It needs a School Name column and a location column (District or Pincode). You can check it before it goes live.' ) );
-				dlg.appendChild( el( 'p', 'rv-fas-dlg-note', 'Maximum 10 MB and 100,000 rows. Uploading a new file replaces the current data for everyone once you confirm.' ) );
+				dlg.appendChild( el( 'p', 'rv-fas-dlg-note', 'Maximum 10 MB and 100,000 rows. Uploading a new file replaces only the data of the category you choose, for everyone, once you confirm. Other categories are not touched.' ) );
+				var selLabel = el( 'label', '', 'Category' );
+				selLabel.setAttribute( 'for', 'rv-fas-dlg-cat' );
+				dlg.appendChild( selLabel );
+				var sel = el( 'select', 'rv-fas-dlg-sel' );
+				sel.id = 'rv-fas-dlg-cat';
+				sel.required = true;
+				var none = el( 'option', '', 'Choose a category…' );
+				none.value = '';
+				sel.appendChild( none );
+				categories( function ( list ) {
+					list.forEach( function ( c ) {
+						var o = el( 'option', '', c.name );
+						o.value = c.slug;
+						sel.appendChild( o );
+					} );
+					if ( keep.slug ) { sel.value = keep.slug; }
+				} );
+				dlg.appendChild( sel );
+				var fileLabel = el( 'label', '', 'File' );
+				fileLabel.setAttribute( 'for', 'rv-fas-dlg-file' );
+				dlg.appendChild( fileLabel );
 				var input = el( 'input', 'rv-fas-dlg-file' );
 				input.type = 'file';
 				input.id = 'rv-fas-dlg-file';
 				input.accept = '.xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv';
 				input.setAttribute( 'aria-label', 'Spreadsheet file' );
 				dlg.appendChild( input );
+				// Pre-select the category when the file name says which it is (for example "ATL_Labs_list.xlsx"); the admin can always change it.
+				input.addEventListener( 'change', function () {
+					var f = input.files && input.files[ 0 ], slug = f ? guess( f.name ) : '';
+					if ( slug && ! sel.value ) { sel.value = slug; }
+				} );
 				var msg = el( 'div' );
 				dlg.appendChild( msg );
 				if ( errText ) { msg.appendChild( message( 'err', errText ) ); }
@@ -133,20 +182,22 @@
 				var go = button( 'Upload and preview', 'primary', function () {
 					var file = input.files && input.files[ 0 ];
 					msg.textContent = '';
-					if ( ! file ) { msg.appendChild( message( 'err', 'Choose a file first.' ) ); return; }
+					if ( ! sel.value ) { msg.appendChild( message( 'err', 'Choose which category this file belongs to.' ) ); sel.focus(); return; }
+						if ( ! file ) { msg.appendChild( message( 'err', 'Choose a file first.' ) ); return; }
 					if ( ! /\.(xlsx|csv)$/i.test( file.name ) ) {
 						msg.appendChild( message( 'err', /\.xls$/i.test( file.name ) ? 'Legacy .xls files are not accepted. Save the file as .xlsx or .csv and try again.' : 'Unsupported file type. Please choose an .xlsx or .csv file.' ) );
 						return;
 					}
 					if ( file.size > MAX_BYTES ) { msg.appendChild( message( 'err', 'The file is larger than the 10 MB limit.' ) ); return; }
-					send( file, go, msg );
+					keep.slug = sel.value;
+						send( file, go, msg, sel.value );
 				} );
 				actions.appendChild( go );
 				dlg.appendChild( actions );
 				input.focus();
 			}
 
-				function send( file, go, msg ) {
+				function send( file, go, msg, slug ) {
 					busy = true;
 					go.disabled = true;
 					go.textContent = 'Uploading…';
@@ -161,6 +212,7 @@
 					msg.appendChild( label );
 					var fd = new FormData();
 					fd.append( 'file', file );
+						fd.append( 'category', slug );
 					var xhr = new XMLHttpRequest();
 					xhr.open( 'POST', api + '/api/services/upload' );
 					xhr.withCredentials = true;
@@ -191,7 +243,8 @@
 
 			function preview( d ) {
 				frame( 'Check before publishing' );
-				dlg.appendChild( el( 'p', '', 'File: ' + d.filename ) );
+				dlg.appendChild( el( 'p', '', 'Category: ' + ( d.category && d.category.name ? d.category.name : '' ) ) );
+					dlg.appendChild( el( 'p', '', 'File: ' + d.filename ) );
 				var stats = el( 'div', 'rv-fas-dlg-stats' );
 				stats.appendChild( el( 'span', '', d.rowCount.toLocaleString( 'en-IN' ) + ' valid rows' ) );
 				stats.appendChild( el( 'span', '', d.invalidRowCount.toLocaleString( 'en-IN' ) + ' invalid rows (skipped)' ) );
@@ -251,7 +304,7 @@
 
 			function done( x ) {
 				frame( 'Published' );
-				dlg.appendChild( message( 'ok', x.rowCount.toLocaleString( 'en-IN' ) + ' schools are now live for everyone.' ) );
+				dlg.appendChild( message( 'ok', x.rowCount.toLocaleString( 'en-IN' ) + ' rows are now live for everyone' + ( staged && staged.category && staged.category.name ? ' in ' + staged.category.name : '' ) + '.' ) );
 				var actions = el( 'div', 'rv-fas-dlg-actions' );
 				var fin = button( 'Done', 'primary', close );
 				actions.appendChild( fin );

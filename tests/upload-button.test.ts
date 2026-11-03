@@ -23,8 +23,10 @@ class FakeXhr {
 async function mountPage(me: unknown, opts: { fail?: boolean } = {}) {
   document.body.innerHTML = '<div class="rv-fas rv-fas-up" id="rv-fas-up"></div>';
   (window as any).RoboValleyApi = { base: "https://app.techytree.in" };
-  const fetchMock = vi.fn(async () => {
+  const fetchMock = vi.fn(async (url: string) => {
     if (opts.fail) throw new Error("offline");
+    // the dialog's category list comes from the categories API (never typed by hand)
+    if (String(url).includes("/api/services/categories")) return { ok: true, json: async () => ({ success: true, categories: [{ slug: "atl-labs", name: "ATL Labs", active: true, count: 9716 }, { slug: "stem-labs", name: "STEM Labs", active: false, count: 0 }] }) } as Response;
     return { ok: true, json: async () => me } as Response;
   });
   (window as any).fetch = fetchMock;
@@ -65,13 +67,64 @@ describe("Upload Files button visibility", () => {
   });
 });
 
-describe("upload flow", () => {
-  const file = () => new File(["School Name,District\nA School,Guntur\n"], "schools.csv", { type: "text/csv" });
-  async function openAndSend() {
+describe("category in the upload dialog", () => {
+  const csvNamed = (n: string) => new File(["School Name,District\nA,B\n"], n, { type: "text/csv" });
+  async function open() {
     const { btn } = await mountPage({ role: "admin", firstName: "Ravi" });
     btn!.click();
+    await flush();
+    return document.querySelector(".rv-fas-dlg") as HTMLElement;
+  }
+  it("is a required dropdown listing the categories from the API, with a label", async () => {
+    const dlg = await open();
+    const sel = dlg.querySelector("select") as HTMLSelectElement;
+    expect(sel.required).toBe(true);
+    expect([...sel.options].map((o) => o.textContent)).toEqual(["Choose a category…", "ATL Labs", "STEM Labs"]);
+    expect(dlg.querySelector(`label[for="${sel.id}"]`)!.textContent).toBe("Category");
+    expect(dlg.textContent).toContain("replaces only the data of the category you choose");
+  });
+  it("no category chosen: a clear message and nothing is sent", async () => {
+    const dlg = await open();
+    const input = dlg.querySelector("input[type=file]") as HTMLInputElement;
+    Object.defineProperty(input, "files", { value: [csvNamed("data.csv")], configurable: true });
+    (FakeXhr as any).last = undefined;
+    ([...dlg.querySelectorAll("button")].find((b) => b.textContent === "Upload and preview") as HTMLButtonElement).click();
+    expect(dlg.textContent).toContain("Choose which category this file belongs to.");
+    expect(FakeXhr.last).toBeUndefined();
+  });
+  it("is pre-selected from the file name when it names a category, and can still be changed", async () => {
+    const dlg = await open();
+    const sel = dlg.querySelector("select") as HTMLSelectElement;
+    const input = dlg.querySelector("input[type=file]") as HTMLInputElement;
+    Object.defineProperty(input, "files", { value: [csvNamed("STEM_Labs 2026.csv")], configurable: true });
+    input.dispatchEvent(new Event("change"));
+    expect(sel.value).toBe("stem-labs");
+    sel.value = "atl-labs";
+    expect(sel.value).toBe("atl-labs");
+  });
+  it("a file name that matches nothing leaves the choice to the admin", async () => {
+    const dlg = await open();
+    const input = dlg.querySelector("input[type=file]") as HTMLInputElement;
+    Object.defineProperty(input, "files", { value: [csvNamed("schools.csv")], configurable: true });
+    input.dispatchEvent(new Event("change"));
+    expect((dlg.querySelector("select") as HTMLSelectElement).value).toBe("");
+  });
+  it("the category names are shown as text, never as HTML", async () => {
+    const dlg = await open();
+    expect(dlg.querySelector("select")!.innerHTML).not.toMatch(/<(img|script)/);
+    expect(HTML).not.toMatch(/innerHTML\s*=\s*[^'"<\s]/); // only the static button icon is assigned as HTML
+  });
+});
+
+describe("upload flow", () => {
+  const file = () => new File(["School Name,District\nA School,Guntur\n"], "schools.csv", { type: "text/csv" });
+  async function openAndSend(opts: { category?: string | null } = {}) {
+    const { btn } = await mountPage({ role: "admin", firstName: "Ravi" });
+    btn!.click();
+    await flush();
     const dlg = document.querySelector(".rv-fas-dlg") as HTMLElement;
     const input = dlg.querySelector("input[type=file]") as HTMLInputElement;
+    if (opts.category !== null) (dlg.querySelector("select") as HTMLSelectElement).value = opts.category ?? "atl-labs";
     Object.defineProperty(input, "files", { value: [file()], configurable: true });
     const go = [...dlg.querySelectorAll("button")].find((b) => b.textContent === "Upload and preview")!;
     go.click();
@@ -85,6 +138,7 @@ describe("upload flow", () => {
     expect(x.url).toBe("https://app.techytree.in/api/services/upload");
     expect(x.withCredentials).toBe(true);
     expect(x.body).toBeInstanceOf(FormData);
+    expect((x.body as FormData).get("category")).toBe("atl-labs"); // the chosen category travels with the file
     expect(go.disabled).toBe(true);
     const bar = document.querySelector("progress.rv-fas-dlg-bar") as HTMLProgressElement;
     expect(bar).not.toBeNull();

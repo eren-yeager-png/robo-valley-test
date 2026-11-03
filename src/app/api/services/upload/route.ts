@@ -3,6 +3,7 @@ import { preflight, withCors } from "../../../../lib/cors";
 import { json } from "../../../../lib/http";
 import { pool } from "../../../../lib/db";
 import { stageDataset, writeAudit } from "../../../../lib/serviceDatasets";
+import { categoryName, parseCategory } from "../../../../lib/serviceCategories";
 import { MAX_FILE_BYTES, parseUpload, UploadError } from "../../../../lib/spreadsheet/parse";
 import { readBodyLimited } from "../../../../lib/uploadBody";
 
@@ -42,13 +43,17 @@ export async function POST(req: Request) {
     const file = form.get("file");
     if (!(file instanceof File)) return reply({ success: false, error: "BAD_REQUEST", message: "Choose a file to upload." }, 400);
     filename = file.name;
+    // The category comes from the fixed list only; a missing or unknown one is refused before the file is even parsed.
+    const category = parseCategory(form.get("category"));
+    if (!category) return reply({ success: false, error: "VALIDATION_FAILED", message: "Choose which category this file belongs to." }, 400);
 
     const parsed = await parseUpload({ filename: file.name, mime: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
-    const staged = await stageDataset(pool, admin.id, parsed);
-    await writeAudit(pool, { userId: admin.id, action: "upload", result: "success", datasetId: staged.id, filename: parsed.filename, detail: `${staged.rowCount} rows, ${staged.invalidRowCount} invalid (staged)` });
+    const staged = await stageDataset(pool, admin.id, parsed, category);
+    await writeAudit(pool, { userId: admin.id, action: "upload", result: "success", datasetId: staged.id, filename: parsed.filename, detail: `${category}: ${staged.rowCount} rows, ${staged.invalidRowCount} invalid (staged)` });
     return reply({
       success: true,
       datasetId: staged.id,
+      category: { slug: category, name: categoryName(category) },
       filename: parsed.filename,
       rowCount: staged.rowCount,
       invalidRowCount: staged.invalidRowCount,
