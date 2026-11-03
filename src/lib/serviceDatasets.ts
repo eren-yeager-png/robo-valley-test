@@ -121,7 +121,16 @@ export const MAX_TERMS = 6;
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 50;
 
-export type SearchParams = { terms: string[]; locationTerms: string[]; page: number; pageSize: number };
+export const MAX_RADIUS_KM = 50;
+export const DEFAULT_RADIUS_KM = 25;
+export const NEAR_LIMIT = 50;
+const PIN_RE = /^[1-9][0-9]{5}$/;
+const COORD_RE = /^-?\d{1,3}(\.\d{1,8})?$/;
+const INDIA = { latMin: 6, latMax: 38, lngMin: 67, lngMax: 98 };
+
+/** "Schools near a pin code": `pincode` and/or an explicit centre (`lat`/`lng`, used when the pin code has no stored position). */
+export type NearParams = { pincode: string | null; lat: number | null; lng: number | null; radiusKm: number };
+export type SearchParams = { terms: string[]; locationTerms: string[]; page: number; pageSize: number; near?: NearParams };
 
 function termsOf(raw: string | null): { terms: string[] } | { error: string } {
   const s = (raw ?? "").normalize("NFC").replace(/[\u0000-\u001F\u007F-\u009F]/g, " ").trim();
@@ -146,7 +155,33 @@ export function parseSearchParams(sp: URLSearchParams): { value: SearchParams } 
   const pageSize = intOf("pageSize", DEFAULT_PAGE_SIZE);
   if (!Number.isInteger(page) || page < 1 || page > 100000) return { error: "page must be a whole number of 1 or more." };
   if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE) return { error: `pageSize must be between 1 and ${MAX_PAGE_SIZE}.` };
-  return { value: { terms: q.terms, locationTerms: l.terms, page, pageSize } };
+  const near = parseNear(sp);
+  if (near && "error" in near) return { error: near.error };
+  const nearValue = near && "value" in near ? near.value : undefined;
+  return { value: { terms: q.terms, locationTerms: l.terms, page, pageSize, ...(nearValue ? { near: nearValue } : {}) } };
+}
+
+function parseNear(sp: URLSearchParams): { value: NearParams } | { error: string } | null {
+  const pin = sp.get("pincode"), latRaw = sp.get("lat"), lngRaw = sp.get("lng"), radiusRaw = sp.get("radius");
+  const given = (v: string | null) => v !== null && v !== "";
+  if (!given(pin) && !given(latRaw) && !given(lngRaw)) {
+    return given(radiusRaw) ? { error: "radius needs a pincode (or lat and lng)." } : null;
+  }
+  if (given(pin) && !PIN_RE.test(pin!)) return { error: "pincode must be exactly 6 digits." };
+  if (given(latRaw) !== given(lngRaw)) return { error: "lat and lng must be given together." };
+  let lat: number | null = null, lng: number | null = null;
+  if (given(latRaw)) {
+    if (!COORD_RE.test(latRaw!) || !COORD_RE.test(lngRaw!)) return { error: "lat and lng must be numbers." };
+    lat = Number(latRaw); lng = Number(lngRaw);
+    if (!(lat > INDIA.latMin && lat < INDIA.latMax && lng > INDIA.lngMin && lng < INDIA.lngMax)) return { error: "lat and lng must be inside India." };
+  }
+  let radiusKm = DEFAULT_RADIUS_KM;
+  if (given(radiusRaw)) {
+    if (!/^\d{1,3}$/.test(radiusRaw!)) return { error: `radius must be a whole number of km between 1 and ${MAX_RADIUS_KM}.` };
+    radiusKm = Number(radiusRaw);
+    if (radiusKm < 1 || radiusKm > MAX_RADIUS_KM) return { error: `radius must be a whole number of km between 1 and ${MAX_RADIUS_KM}.` };
+  }
+  return { value: { pincode: given(pin) ? pin : null, lat, lng, radiusKm } };
 }
 
 const likeOf = (term: string) => "%" + term.replace(/[\\%_]/g, (c) => "\\" + c) + "%";
@@ -154,16 +189,22 @@ const likeOf = (term: string) => "%" + term.replace(/[\\%_]/g, (c) => "\\" + c) 
 export type ServiceHit = {
   id: string; schoolName: string; state: string | null; district: string | null; pincode: string | null; udiseCode: string | null;
   details: Record<string, string>;
+  /** Only in a "near a pin code" search: km from the searched position (0 for the same pin code); lat/lng = centre of the school's pin code. */
+  distanceKm?: number; lat?: number | null; lng?: number | null;
 };
 export type SearchResult = {
   dataset: { id: string; uploadedAt: string; rowCount: number } | null;
   total: number; page: number; pageSize: number; results: ServiceHit[];
+  /** Only in a "near" search. center is null when the pin code has no stored position (the caller may look it up and ask again with lat/lng). */
+  near?: { center: { lat: number; lng: number } | null; pincodeKnown: boolean; radiusKm: number; limit: number };
 };
 
 export async function searchServices(db: Queryable, p: SearchParams): Promise<SearchResult> {
   const active = await db.query("SELECT id, uploaded_at, row_count FROM service_datasets WHERE status = 'active'");
   const a = active.rows[0];
   if (!a) return { dataset: null, total: 0, page: p.page, pageSize: p.pageSize, results: [] };
+
+  if (p.near) return searchNear(db, a, p.near);
 
   const params: unknown[] = [a.id];
   const where = ["dataset_id = $1"];
@@ -184,6 +225,51 @@ export async function searchServices(db: Queryable, p: SearchParams): Promise<Se
     results: rows.rows.map((r) => ({
       id: String(r.id), schoolName: r.school_name, state: r.state, district: r.district, pincode: r.pincode, udiseCode: r.udise_code,
       details: r.data as Record<string, string>,
+    })),
+  };
+}
+
+const KM_PER_DEG = 111.195;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function searchNear(db: Queryable, a: any, n: NearParams): Promise<SearchResult> {
+  let centre: { lat: number; lng: number } | null = null;
+  let pincodeKnown = false;
+  if (n.pincode) {
+    const loc = await db.query("SELECT lat, lng FROM pincode_locations WHERE pincode = $1", [n.pincode]);
+    pincodeKnown = loc.rows.length > 0;
+    if (loc.rows[0]?.lat != null) centre = { lat: Number(loc.rows[0].lat), lng: Number(loc.rows[0].lng) };
+  }
+  if (!centre && n.lat !== null && n.lng !== null) centre = { lat: n.lat, lng: n.lng };
+
+  // $1 dataset, $2 pin code (or NULL), $3 radius; with a centre: $4 lat, $5 lng, $6/$7 latitude/longitude half-spans of the bounding box.
+  const params: unknown[] = [a.id, n.pincode, n.radiusKm];
+  let dist = "0::float8", within = "FALSE";
+  if (centre) {
+    const dLat = n.radiusKm / KM_PER_DEG;
+    const dLng = n.radiusKm / (KM_PER_DEG * Math.max(0.01, Math.cos((centre.lat * Math.PI) / 180)));
+    params.push(centre.lat, centre.lng, dLat, dLng);
+    dist = `2 * 6371.0088 * asin(least(1, sqrt(power(sin(radians(pl.lat - $4::float8) / 2), 2)
+              + cos(radians($4::float8)) * cos(radians(pl.lat)) * power(sin(radians(pl.lng - $5::float8) / 2), 2))))`;
+    within = "(pl.lat BETWEEN $4::float8 - $6::float8 AND $4::float8 + $6::float8 AND pl.lng BETWEEN $5::float8 - $7::float8 AND $5::float8 + $7::float8)";
+  }
+  const base = `
+    SELECT r.id, r.school_name, r.state, r.district, r.pincode, r.udise_code, r.data, pl.lat, pl.lng,
+           CASE WHEN r.pincode = $2::text THEN 0::float8 WHEN ${within} AND pl.lat IS NOT NULL THEN ${dist} ELSE NULL END AS d
+      FROM service_dataset_rows r LEFT JOIN pincode_locations pl ON pl.pincode = r.pincode
+     WHERE r.dataset_id = $1`;
+  const sel = `WITH c AS (${base}) SELECT * FROM c WHERE d IS NOT NULL AND d <= $3::float8`;
+
+  const count = await db.query(`WITH c AS (${base}) SELECT count(*)::int AS n FROM c WHERE d IS NOT NULL AND d <= $3::float8`, params);
+  const rows = await db.query(`${sel} ORDER BY d, school_name, id LIMIT ${NEAR_LIMIT}`, params);
+  return {
+    dataset: { id: String(a.id), uploadedAt: new Date(a.uploaded_at).toISOString(), rowCount: a.row_count },
+    total: count.rows[0].n, page: 1, pageSize: NEAR_LIMIT,
+    near: { center: centre, pincodeKnown, radiusKm: n.radiusKm, limit: NEAR_LIMIT },
+    results: rows.rows.map((r) => ({
+      id: String(r.id), schoolName: r.school_name, state: r.state, district: r.district, pincode: r.pincode, udiseCode: r.udise_code,
+      details: r.data as Record<string, string>,
+      distanceKm: Math.round(Number(r.d) * 10) / 10, lat: r.lat == null ? null : Number(r.lat), lng: r.lng == null ? null : Number(r.lng),
     })),
   };
 }
