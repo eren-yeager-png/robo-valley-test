@@ -162,36 +162,14 @@ describe("submitting", () => {
   });
 });
 
-describe("signed-in note on the login page", () => {
-  it("is not shown when nobody is signed in", () => {
+describe("no \"already signed in\" banner", () => {
+  it("the form never shows a signed-in note, a Go to the website link or a Sign out button", () => {
     setup();
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
-  });
-
-  it("shows who is signed in, a link to the site and a Sign out button, with the form still below", () => {
-    render(<LoginForm signedIn={{ name: "Asha Rao", siteHref: "https://techytree.in/" }} />);
-    expect(screen.getByRole("status").textContent).toContain("You are signed in as Asha Rao");
-    expect(screen.getByRole("link", { name: "Go to the website" }).getAttribute("href")).toBe("https://techytree.in/");
-    expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Go to the website" })).toBeNull();
+    expect(screen.queryByText(/You are signed in as/)).toBeNull();
     expect(email()).toBeTruthy();
-  });
-
-  it("Sign out posts to /api/auth/logout and then refreshes the page", async () => {
-    const logout = vi.fn(async () => new Response(JSON.stringify({ success: true }), { status: 200 }));
-    vi.stubGlobal("fetch", logout);
-    const user = userEvent.setup();
-    render(<LoginForm signedIn={{ name: "Asha Rao", siteHref: "https://techytree.in/" }} />);
-    await user.click(screen.getByRole("button", { name: "Sign out" }));
-    await waitFor(() => expect(h.refresh).toHaveBeenCalledTimes(1));
-    expect(logout).toHaveBeenCalledWith("/api/auth/logout", { method: "POST" });
-  });
-
-  it("still refreshes if the network call fails (the cookie expires anyway)", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
-    const user = userEvent.setup();
-    render(<LoginForm signedIn={{ name: "Asha Rao", siteHref: "https://techytree.in/" }} />);
-    await user.click(screen.getByRole("button", { name: "Sign out" }));
-    await waitFor(() => expect(h.refresh).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
   });
 });

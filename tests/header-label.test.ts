@@ -146,6 +146,53 @@ describe("header label", () => {
     expect(linkShown(link)).toBe(false);
   });
 
+  it("Sign out (user): the last dropdown item is a button; it POSTs to /api/auth/logout with credentials, then the header returns to Sign In / Login", async () => {
+    const { link, btn, menu } = await run({ role: "user", firstName: "Asha" });
+    const out = menu!.querySelector("button.rv-acct-out") as HTMLButtonElement;
+    expect(out.textContent).toBe("Sign out");
+    expect(menu!.lastElementChild!.contains(out)).toBe(true);
+    const calls: Array<[string, RequestInit | undefined]> = [];
+    (window as any).fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push([url, init]);
+      return { ok: true, json: async () => ({ role: url.endsWith("/api/auth/me") && calls.length === 1 ? "user" : null, firstName: null }) } as Response;
+    });
+    btn!.click();
+    out.click();
+    await flush();
+    expect(calls[0][0]).toBe("https://app.techytree.in/api/auth/logout");
+    expect(calls[0][1]).toMatchObject({ method: "POST", credentials: "include" });
+    expect(calls[1][0]).toBe("https://app.techytree.in/api/auth/me");
+    expect(document.querySelector(".rv-acct-btn")).toBeNull();
+    expect(linkShown(link)).toBe(true);
+    expect(link.textContent).toBe(ORIGINAL);
+  });
+
+  it("Sign out (admin): the plain Admin text has a Sign out button beside it, and it signs out the same way", async () => {
+    const { link, adminText } = await run({ role: "admin", firstName: "Ravi" });
+    expect(adminText?.textContent).toBe("Admin");
+    const out = document.querySelector(".rv-acct-adminwrap button.rv-acct-out") as HTMLButtonElement;
+    expect(out.textContent).toBe("Sign out");
+    const urls: string[] = [];
+    (window as any).fetch = vi.fn(async (url: string) => { urls.push(url); return { ok: true, json: async () => ({ role: null, firstName: null }) } as Response; });
+    out.click();
+    await flush();
+    expect(urls).toEqual(["https://app.techytree.in/api/auth/logout", "https://app.techytree.in/api/auth/me"]);
+    expect(document.querySelector("[data-rv-acct]")).toBeNull();
+    expect(linkShown(link)).toBe(true);
+  });
+
+  it("Sign out still resets the header if the network call fails (the cookie expires anyway)", async () => {
+    const { btn, menu } = await run({ role: "user", firstName: "Asha" });
+    (window as any).fetch = vi.fn(async (url: string) => {
+      if (url.endsWith("/logout")) throw new Error("offline");
+      return { ok: true, json: async () => ({ role: null, firstName: null }) } as Response;
+    });
+    btn!.click();
+    (menu!.querySelector("button.rv-acct-out") as HTMLButtonElement).click();
+    await flush();
+    expect(document.querySelector(".rv-acct-btn")).toBeNull();
+  });
+
   it("does nothing without the API base or without a sign-in link", async () => {
     document.body.innerHTML = `<a class="rv-signin" href="#">${ORIGINAL}</a>`;
     const f = vi.fn(); (window as any).fetch = f;

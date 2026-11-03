@@ -1,8 +1,8 @@
 /* RoboValley: header account area. Driven by the RoboValley API (GET /api/auth/me, which returns only {role, firstName});
    this is a display choice only, the API enforces every permission.
      - signed out, or no usable name ........ the original "Sign In / Login" link, unchanged
-     - signed-in administrator .............. the plain text "Admin" (not a link)
-     - any other signed-in user ............. a button with the first name and a dropdown of links (MENU_ITEMS)
+     - signed-in administrator .............. the plain text "Admin" (not a link) and a "Sign out" button
+     - any other signed-in user ............. a button with the first name and a dropdown: the links in MENU_ITEMS, then "Sign out"
    Everything is built with createElement + textContent / setAttribute, never innerHTML, so a name can never become markup. */
 ( function () {
 	'use strict';
@@ -46,6 +46,12 @@
 		'.rv-acct-menu a{display:flex;align-items:center;min-height:44px;padding:8px 14px;color:#15302a;text-decoration:none;font-weight:600;border-radius:10px}' +
 		'.rv-acct-menu a:hover{background:#e3ede7;color:#123f33}' +
 		'.rv-acct-admin{display:inline-flex;align-items:center;min-height:44px;font:inherit;font-weight:700;color:inherit}' +
+		'.rv-acct-adminwrap{display:inline-flex;align-items:center;gap:14px}' +
+		'.rv-acct-out{display:flex;align-items:center;width:100%;min-height:44px;padding:8px 14px;font:inherit;font-weight:600;text-align:left;color:#15302a;background:transparent;border:0;border-radius:10px;cursor:pointer}' +
+		'.rv-acct-out:hover{background:#e3ede7;color:#123f33}' +
+		'.rv-acct-out:focus-visible{outline:3px solid rgba(23,105,79,.55);outline-offset:2px}' +
+		'.rv-acct-adminwrap .rv-acct-out{width:auto;padding:8px 16px;border:2px solid currentColor;border-radius:999px;color:inherit}' +
+		'.rv-acct-adminwrap .rv-acct-out:hover{background:rgba(23,105,79,.1);color:inherit}' +
 		'@media (max-width:600px){.rv-acct-menu{min-width:180px}}';
 	document.head.appendChild( css );
 
@@ -69,13 +75,32 @@
 		a.removeAttribute( 'hidden' );
 	}
 
+	/** A "Sign out" button: ends the session on the RoboValley API, then asks again who is signed in (the header returns to "Sign In / Login"). */
+	function signOutButton() {
+		var b = document.createElement( 'button' );
+		b.type = 'button';
+		b.className = 'rv-acct-out';
+		b.textContent = 'Sign out';
+		b.addEventListener( 'click', function () {
+			b.disabled = true;
+			fetch( api + '/api/auth/logout', { method: 'POST', credentials: 'include' } )
+				.catch( function () { /* the session cookie expires on its own */ } )
+				.then( refresh );
+		} );
+		return b;
+	}
+
 	function renderAdmin( a ) {
+		var wrap = document.createElement( 'div' );
+		wrap.className = 'rv-acct-adminwrap';
+		wrap.setAttribute( 'data-rv-acct', 'admin' );
 		var span = document.createElement( 'span' );
 		span.className = 'rv-acct-admin';
-		span.setAttribute( 'data-rv-acct', 'admin' );
 		span.textContent = 'Admin';
+		wrap.appendChild( span );
+		wrap.appendChild( signOutButton() );
 		a.hidden = true;
-		a.after( span );
+		a.after( wrap );
 	}
 
 	function renderUser( a, name ) {
@@ -107,6 +132,9 @@
 			li.appendChild( link );
 			menu.appendChild( li );
 		} );
+		var outLi = document.createElement( 'li' );
+		outLi.appendChild( signOutButton() );
+		menu.appendChild( outLi );
 
 		function setOpen( open ) {
 			menu.hidden = ! open;

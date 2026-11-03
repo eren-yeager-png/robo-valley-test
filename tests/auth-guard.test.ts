@@ -6,6 +6,7 @@ const m = vi.hoisted(() => ({ query: vi.fn(), cookie: undefined as string | unde
 vi.mock("../src/lib/db", () => ({ pool: { query: m.query } }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: (n: string) => (n === "rv_session" && m.cookie ? { name: n, value: m.cookie } : undefined) }),
+  headers: async () => ({ get: (n: string) => (n.toLowerCase() === "host" ? "app.techytree.in" : null) }),
 }));
 vi.mock("next/navigation", () => ({
   redirect: (to: string) => { throw new Error("REDIRECT:" + to); },
@@ -85,9 +86,9 @@ describe("protected pages", () => {
     expect(text).toContain("Teacher / lab in-charge"); // role label from the database
   });
 
-  it("/login always renders: a signed-in user gets the signed-in note (no redirect), an anonymous visitor does not", async () => {
-    expect((await LoginPage()).props.signedIn).toBeNull();
+  it("/login: an anonymous visitor gets the form; a signed-in user is redirected to the website", async () => {
+    expect((await LoginPage()).props).toEqual({}); // plain form, no banner props
     m.cookie = tokenFor();
-    expect((await LoginPage()).props.signedIn).toMatchObject({ siteHref: "https://techytree.in/" });
+    await expect(LoginPage()).rejects.toThrow("REDIRECT:https://techytree.in/");
   });
 });

@@ -6,10 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSessionToken } from "../src/lib/session";
 
 const SECRET = "unit-test-secret-unit-test-secret-1234";
-const m = vi.hoisted(() => ({ query: vi.fn(), cookie: undefined as string | undefined }));
+const m = vi.hoisted(() => ({ query: vi.fn(), cookie: undefined as string | undefined, host: "app.techytree.in" }));
 vi.mock("../src/lib/db", () => ({ pool: { query: m.query } }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: (n: string) => (n === "rv_session" && m.cookie ? { name: n, value: m.cookie } : undefined) }),
+  headers: async () => ({ get: (n: string) => (n.toLowerCase() === "host" ? m.host : null) }),
 }));
 vi.mock("next/navigation", () => ({
   redirect: (to: string) => { throw new Error("REDIRECT:" + to); },
@@ -34,6 +35,7 @@ const signInAs = (role: string) => {
 beforeEach(() => {
   vi.stubEnv("SESSION_SECRET", SECRET);
   m.cookie = undefined;
+  m.host = "app.techytree.in";
   m.query.mockReset().mockResolvedValue({ rows: [] });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -85,25 +87,32 @@ describe("no redirect loop", () => {
     m.query.mockResolvedValue({ rows: [] });
     render(await RootPage());
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Welcome back");
-    expect(screen.queryByRole("status")).toBeNull(); // no signed-in note for a signed-out visitor
+    expect(screen.queryByRole("status")).toBeNull(); // no banner for anyone
   });
 
-  it.each(["ST", "PA", "TC", "SA", "MG", "ME", "TR", "AR", "KS", "FS", "SP", "IP"])(
-    "a signed-in %s is NOT redirected from /: the form renders with a signed-in note, a link to the site and a Sign out button",
+  it.each(["ST", "PA", "TC", "SA", "MG", "ME", "TR", "AR", "KS", "FS", "SP", "IP", "admin"])(
+    "a signed-in %s is redirected (server-side) from / and /login to the website: no form, no banner",
     async (role) => {
       signInAs(role);
       const target = destinationFor(role);
-      render(await RootPage());
-      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Welcome back"); // the form is still there
-      expect(screen.getByRole("status").textContent).toContain("You are signed in as Asha Rao");
-      expect(screen.getByRole("link", { name: "Go to the website" }).getAttribute("href")).toBe(target);
-      expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
       expect(target).toBe("https://techytree.in/"); // the normal website, same for every role (SITE_URL unset)
-      // the destination renders for this user (it does not redirect anywhere)
-      const page = await DashboardHome();
-      expect(page).toBeTruthy();
+      await expect(RootPage()).rejects.toThrow("REDIRECT:" + target);
+      await expect(LoginPage()).rejects.toThrow("REDIRECT:" + target);
     }
   );
+
+  it("never shows the old \"already signed in\" banner to anybody", async () => {
+    render(await RootPage());
+    for (const t of [/You are signed in as/, /Go to the website/, /Sign out/]) expect(screen.queryByText(t)).toBeNull();
+    expect(document.querySelector(".signed-in")).toBeNull();
+  });
+
+  it("if SITE_URL points at this very host the form is shown instead of redirecting (no loop)", async () => {
+    vi.stubEnv("SITE_URL", "https://app.techytree.in/");
+    signInAs("ST");
+    render(await RootPage());
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Welcome back");
+  });
 
   it("the only redirect from a protected page goes to /login (which renders), never back to /", async () => {
     await expect(DashboardHome()).rejects.toThrow("REDIRECT:/login");
