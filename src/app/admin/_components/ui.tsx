@@ -30,13 +30,18 @@ export function Notice({ kind, title, children }: { kind: "setup" | "empty" | "e
   );
 }
 
-/** Shown while a table (login events, attachments) has not been created in this database yet. */
+/**
+ * Slim notice shown while a feature's database table has not been created yet. It names the feature and the migration;
+ * the developer steps are on the Settings page (Database setup). It disappears by itself once the migration is applied.
+ */
 export function SetupNotice({ what, migration }: { what: string; migration: "008" | "009" }) {
   return (
-    <Notice kind="setup" title={`${what} is not set up yet`}>
-      The database does not have the table for this yet (migration {migration}). A developer needs to run it once with the migration
-      runner (<code>npm run db:migrate</code>, dry run first). Nothing is broken; this section starts working as soon as it is applied.
-    </Notice>
+    <div className="adm-note setup" role="status">
+      <span className="ico" aria-hidden="true">!</span>
+      <strong>{what} is not set up yet</strong>
+      <span>Needs migration {migration} on this database.</span>
+      <Link href="/admin/settings#database-setup">Setup steps</Link>
+    </div>
   );
 }
 

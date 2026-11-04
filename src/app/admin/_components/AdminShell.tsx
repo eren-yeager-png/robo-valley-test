@@ -3,20 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import LogoutButton from "../../dashboard/LogoutButton";
 import { ADMIN_NAV, titleFor } from "./nav";
+import ProfileMenu from "./ProfileMenu";
 
 /** Sidebar (a slide-in drawer on small screens) + top bar. `locked` hides the navigation until the password is changed. */
-export default function AdminShell({ email, locked, children }: { email: string; locked: boolean; children: React.ReactNode }) {
+export default function AdminShell({ email, landingUrl, locked, children }: { email: string; landingUrl: string; locked: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
     <div className={"adm" + (open ? " open" : "")}>
       {!locked && (
         <aside className="adm-side" id="adm-side" aria-label="Admin navigation">
-          <div className="adm-brand"><span className="adm-mark" aria-hidden="true">RV</span> RoboValley</div>
+          <div className="adm-brand"><span className="adm-mark" aria-hidden="true">RV</span><span>RoboValley<small>Admin</small></span></div>
           <nav>
             {ADMIN_NAV.map((n) => {
               const active = pathname === n.href || pathname?.startsWith(n.href + "/");
@@ -35,12 +41,9 @@ export default function AdminShell({ email, locked, children }: { email: string;
           {!locked && (
             <button type="button" className="adm-burger" aria-label="Menu" aria-expanded={open} aria-controls="adm-side" onClick={() => setOpen((o) => !o)}>☰</button>
           )}
-          <span className="adm-logo">RoboValley</span>
+          <span className="adm-logo">RoboValley Admin</span>
           <h2 className="adm-title">{locked ? "Change your password" : titleFor(pathname)}</h2>
-          <div className="adm-who">
-            <span className="adm-email" title={email}>{email}</span>
-            <LogoutButton />
-          </div>
+          <ProfileMenu email={email} landingUrl={landingUrl} />
         </header>
         <main className="adm-main">{children}</main>
       </div>

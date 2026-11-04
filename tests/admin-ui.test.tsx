@@ -15,6 +15,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/admin/dashboard",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
 }));
+vi.mock("next/font/google", () => ({ Bricolage_Grotesque: () => ({ variable: "font-display" }), Mulish: () => ({ variable: "font-body" }) }));
 vi.mock("../src/app/admin/_components/ChartsLoader", () => ({
   default: (p: { label: string; data: unknown; kind: string }) => <figure data-kind={p.kind} aria-label={p.label} data-json={JSON.stringify(p.data)} />,
 }));
@@ -42,15 +43,19 @@ beforeEach(async () => {
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe("admin layout and navigation", () => {
-  it("lists all nine sections as working links, with the admin email and a sign-out button", async () => {
+  it("lists all nine sections as working links, with one profile button instead of an email and a sign-out button", async () => {
     signIn(admin.id);
     const h = await html(AdminLayout({ children: <p>PAGE BODY</p> }));
     expect(ADMIN_NAV).toHaveLength(9);
     for (const n of ADMIN_NAV) { expect(h).toContain(`href="${n.href}"`); expect(h).toContain(n.label.replace("&", "&amp;")); }
     for (const label of ["Overview", "Manage Categories", "Manage Datasets", "Upload Files", "Upload History", "Login Activity", "Reports &amp; Analytics", "User Management", "Settings"]) expect(h).toContain(label);
     expect(h).toContain("RoboValley");
-    expect(h).toContain("boss@robovalley.com");
-    expect(h).toContain("Sign out");
+    expect(h).toContain("RoboValley Admin");
+    expect(h).toContain('aria-haspopup="menu"');
+    expect(h).toContain('aria-expanded="false"');
+    expect(h).toContain("Admin</span>"); // the profile button label
+    expect(h).not.toContain("boss@robovalley.com"); // the address is only inside the opened menu
+    expect(h).not.toMatch(/Sign out|Sign Out/); // no standalone sign-out button; it lives in the menu
     expect(h).toContain("PAGE BODY");
     expect(h).toContain('aria-current="page"');
   });
