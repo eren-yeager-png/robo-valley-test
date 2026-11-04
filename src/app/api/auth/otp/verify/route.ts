@@ -1,4 +1,6 @@
 import { json, readJson } from "../../../../../lib/http";
+import { pool } from "../../../../../lib/db";
+import { otpReason, recordLoginEvent } from "../../../../../lib/loginEvents";
 import { OTP_PURPOSES, OtpError, verifyOtp, type OtpPurpose } from "../../../../../lib/otp";
 import { normalizeEmail } from "../../../../../lib/validation";
 
@@ -16,6 +18,7 @@ export async function POST(req: Request) {
 
   try {
     const { verificationToken, via } = await verifyOtp(b.purpose as OtpPurpose, email, b.code);
+    await recordLoginEvent(pool, { type: "otp_verified", purpose: b.purpose as string, req });
     return json({
       success: true,
       purpose: b.purpose,
@@ -24,11 +27,13 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     if (err instanceof OtpError) {
+      await recordLoginEvent(pool, { type: "otp_failed", reason: otpReason(err.code), purpose: b.purpose as string, req });
       return json(
         { success: false, error: err.code, message: err.code === "OTP_DISABLED" ? "OTP service is not available in this environment." : err.message, retryAfterSeconds: err.retryAfterSeconds, attemptsLeft: err.attemptsLeft },
         err.status
       );
     }
+    await recordLoginEvent(pool, { type: "otp_failed", reason: "server_error", purpose: b.purpose as string, req });
     return json({ success: false, error: "SERVER_ERROR", message: "Could not verify the code." }, 500);
   }
 }

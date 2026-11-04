@@ -11,8 +11,10 @@ let ctx: ReturnType<typeof makeFakePool>;
 const setPool = (fail?: Parameters<typeof makeFakePool>[0]) => { ctx = makeFakePool(fail); };
 const post = (body: unknown, raw?: string) =>
   POST(new Request("http://t/api/auth/signup", { method: "POST", body: raw ?? JSON.stringify(body) }));
-const insertCalls = () => ctx.calls.filter((c) => /INSERT/.test(c.sql));
-const verbs = () => ctx.calls.map((c) => c.sql.trim().split(/\s/)[0]);
+// The best-effort activity log (login_events) is written after the account transaction; these checks are about the account itself.
+const accountCalls = () => ctx.calls.filter((c) => !/login_events/.test(c.sql));
+const insertCalls = () => accountCalls().filter((c) => /INSERT/.test(c.sql));
+const verbs = () => accountCalls().map((c) => c.sql.trim().split(/\s/)[0]);
 const count = async (t: string) => Number((await testDb().raw.query(`select count(*)::int n from ${t}`)).rows[0]!["n" as never]);
 
 beforeEach(() => { setPool(); });
