@@ -151,10 +151,14 @@ t( 'id with 11 digits has no route', 404 === go( req( '/rvp-bridge/v1/project/12
 foreach ( array( 'POST', 'PUT', 'DELETE', 'PATCH' ) as $m ) { t( "$m on the bridge is refused", in_array( go( req( $P . $hid, array(), array( 'method' => $m ) ) )->get_status(), array( 404, 405 ), true ) ); }
 $bridge_routes = array_filter( rest_get_server()->get_routes(), function ( $k ) { return 0 === strpos( $k, '/rvp-bridge/' ); }, ARRAY_FILTER_USE_KEY );
 $names = array_keys( $bridge_routes ); sort( $names );
-t( 'the bridge registers exactly the namespace index plus 2 routes', array( '/rvp-bridge/v1', '/rvp-bridge/v1/project/(?P<id>[0-9]{1,10})', '/rvp-bridge/v1/subject-ids' ) === $names, json_encode( $names ) );
+t( 'the bridge registers exactly the namespace index plus 3 routes', array( '/rvp-bridge/v1', '/rvp-bridge/v1/project/(?P<id>[0-9]{1,10})', '/rvp-bridge/v1/subject-ids', '/rvp-bridge/v1/subjects' ) === $names, json_encode( $names ) );
 $only_get = true;
-foreach ( array( '/rvp-bridge/v1/project/(?P<id>[0-9]{1,10})', '/rvp-bridge/v1/subject-ids' ) as $route ) { foreach ( $bridge_routes[ $route ] as $endpoint ) { $only_get = $only_get && array( 'GET' => true ) === $endpoint['methods']; } }
-t( 'both bridge routes accept GET only', $only_get );
+foreach ( array( '/rvp-bridge/v1/project/(?P<id>[0-9]{1,10})', '/rvp-bridge/v1/subject-ids', '/rvp-bridge/v1/subjects' ) as $route ) { foreach ( $bridge_routes[ $route ] as $endpoint ) { $only_get = $only_get && array( 'GET' => true ) === $endpoint['methods']; } }
+t( 'all bridge routes accept GET only', $only_get );
+$sl = go( req( '/rvp-bridge/v1/subjects' ) );
+t( 'subjects list: signed request -> 200 with slug+name entries incl. the marker subject', 200 === $sl->get_status() && count( $sl->get_data()['subjects'] ) >= 8 && array( 'slug', 'name' ) === array_keys( $sl->get_data()['subjects'][0] ) && in_array( $M['subject'], array_column( $sl->get_data()['subjects'], 'name' ), true ) );
+t( 'subjects list: unsigned -> 401, with Origin -> 403', 401 === go( req( '/rvp-bridge/v1/subjects', array(), array( 'sig' => false ) ) )->get_status() && 403 === go( req( '/rvp-bridge/v1/subjects', array(), array( 'origin' => 'https://evil.example' ) ) )->get_status() );
+t( 'subjects list: no-store', 'no-store, private' === ( $sl->get_headers()['Cache-Control'] ?? '' ) );
 
 // ===== subject ids
 $S = '/rvp-bridge/v1/subject-ids';

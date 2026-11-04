@@ -32,6 +32,7 @@ export type ProjectDetails = {
   components: string[];
   outcome: string;
 };
+export type SubjectOption = { slug: string; name: string };
 export type SubjectIds = { ids: number[]; total: number; limit: number; truncated: boolean };
 
 export const BRIDGE_TIMEOUT_MS = 4000;
@@ -173,6 +174,18 @@ export function parseSubjectIds(raw: unknown): SubjectIds | null {
   const total = int(r.total), limit = int(r.limit);
   if (total === null || limit === null || typeof r.truncated !== "boolean") return null;
   return { ids, total, limit, truncated: r.truncated };
+}
+
+/** The subject list (slug + name) for the members' filter. */
+export async function getSubjects(o: Options = {}): Promise<BridgeResult<SubjectOption[]>> {
+  const res = await bridgeGet("/rvp-bridge/v1/subjects", {}, o);
+  if ("reason" in res) return { ok: false, reason: "unavailable" };
+  const out = terms((res.data as { subjects?: unknown } | null)?.subjects);
+  if (!out) {
+    console.error("projects bridge: unexpected response shape");
+    return { ok: false, reason: "unavailable" };
+  }
+  return { ok: true, data: out };
 }
 
 /** The restricted + public fields of one published project. "not_found" covers unknown, unpublished and protected projects. */

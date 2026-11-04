@@ -13,6 +13,7 @@ vi.mock("next/headers", () => ({
 
 import * as projectRoute from "../src/app/api/projects/[id]/route";
 import * as subjectRoute from "../src/app/api/projects/subject-filter/route";
+import * as optionsRoute from "../src/app/api/projects/subject-options/route";
 import { IP_LIMIT, USER_LIMIT } from "../src/lib/projectsGate";
 import { __resetRateLimit } from "../src/lib/rateLimit";
 
@@ -435,5 +436,50 @@ describe("every status the routes can produce is no-store", () => {
     check(await getSubjects(subjectReq("?subjects=physics")));
     check(await getSubjects(subjectReq("")));
     expect([...seen].sort()).toEqual([200, 400, 401, 403, 404, 429, 503]);
+  });
+});
+
+describe("GET /api/projects/subject-options", () => {
+  const { GET: getOptions, OPTIONS: optionsOptions } = optionsRoute;
+  const optReq = (o: { origin?: string } = {}) => new Request(`https://${HOST}/api/projects/subject-options`, { headers: { host: HOST, "x-forwarded-for": `10.0.2.${++ip}`, ...(o.origin ? { origin: o.origin } : {}) } });
+
+  it("no cookie -> 401 and WordPress is not asked; tampered cookie -> 401", async () => {
+    expect((await getOptions(optReq())).status).toBe(401);
+    m.cookie = tokenFor().replace(/.$/, "x");
+    const res = await getOptions(optReq());
+    expect(res.status).toBe(401);
+    noStore(res);
+    expect(m.fetch).not.toHaveBeenCalled();
+  });
+
+  it("member -> 200 with the list, no-store; the bridge is asked for the subject list only", async () => {
+    signedIn();
+    m.fetch.mockImplementation(async () => wpJson({ subjects: [{ slug: "physics", name: "Physics" }, { slug: "chemistry", name: "Chemistry" }] }));
+    const res = await getOptions(optReq());
+    expect(res.status).toBe(200);
+    noStore(res);
+    expect(await res.json()).toEqual({ success: true, subjects: [{ slug: "physics", name: "Physics" }, { slug: "chemistry", name: "Chemistry" }] });
+    expect(String(m.fetch.mock.calls[0][0])).toBe(`${BRIDGE_URL}/wp-json/rvp-bridge/v1/subjects`);
+  });
+
+  it.each([["unreachable", () => { throw new TypeError("x"); }], ["503", () => wpJson({}, 503)], ["404", () => wpJson({}, 404)], ["wrong shape", () => wpJson({ subjects: [1] })], ["not a list", () => wpJson({ subjects: "x" })]])(
+    "bridge %s -> 503, nothing leaked",
+    async (_n, answer) => {
+      signedIn();
+      m.fetch.mockImplementation(async () => answer());
+      const res = await getOptions(optReq());
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({ success: false, error: "UNAVAILABLE" });
+      noStore(res);
+    },
+  );
+
+  it("CORS: allowed origin echoed, unlisted origin 403 with no CORS headers; preflight likewise", async () => {
+    signedIn();
+    expect((await getOptions(optReq({ origin: "https://techytree.in" }))).headers.get("access-control-allow-origin")).toBe("https://techytree.in");
+    const bad = await getOptions(optReq({ origin: "https://evil.example" }));
+    expect(bad.status).toBe(403);
+    expect([...bad.headers.keys()].filter((k) => k.startsWith("access-control-"))).toEqual([]);
+    expect(optionsOptions(new Request(`https://${HOST}/x`, { method: "OPTIONS", headers: { host: HOST, origin: "https://techytree.in" } })).status).toBe(204);
   });
 });

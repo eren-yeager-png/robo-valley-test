@@ -241,7 +241,7 @@ t( 'Vary: Accept-Encoding (not Cookie / Authorization)', 'Accept-Encoding' === (
 t( 'X-WP-Total / X-WP-TotalPages present and correct', (string) $pub_total === ( $h['X-WP-Total'] ?? '' ) && (string) (int) ceil( $pub_total / 5 ) === ( $h['X-WP-TotalPages'] ?? '' ) );
 t( 'X-Robots-Tag: noindex', 'noindex' === ( $h['X-Robots-Tag'] ?? '' ) );
 $routes = array_keys( rest_get_server()->get_routes() );
-t( 'the plugin registers exactly one REST route (rvp/v1/projects)', array( '/rvp/v1', '/rvp/v1/projects' ) === array_values( preg_grep( '#^/rvp/#', $routes ) ) );
+t( 'the plugin registers exactly the public catalogue (GET) and its POST query under rvp/v1', array( '/rvp/v1', '/rvp/v1/projects', '/rvp/v1/projects/query' ) === array_values( preg_grep( '#^/rvp/#', $routes ) ) );
 t( 'no REST route mentions rv_project / rv_subject / rv_technology', 0 === count( preg_grep( '#rv_(project|subject|technology|education)#', $routes ) ) );
 $post = new WP_REST_Request( 'POST', '/rvp/v1/projects' ); $post->set_param( 'title', 'x' );
 t( 'POST is not allowed', 404 === rest_do_request( $post )->get_status() || 405 === rest_do_request( $post )->get_status() );

@@ -5,6 +5,7 @@
  *
  *   GET /wp-json/rvp-bridge/v1/project/<id>               restricted + public fields of one published project
  *   GET /wp-json/rvp-bridge/v1/subject-ids?subjects=a,b   ids of published projects having ANY of those subjects
+ *   GET /wp-json/rvp-bridge/v1/subjects                   the subject list (slug, name) for the members' filter
  *
  * Authentication (every request, no exceptions):
  *   - The secret is the constant RVP_BRIDGE_SECRET in wp-config.php (never stored in the database). If it is missing or
@@ -66,6 +67,15 @@ add_action(
 			array(
 				'methods'             => 'GET',
 				'callback'            => 'rvp_bridge_project',
+				'permission_callback' => 'rvp_bridge_authorize',
+			)
+		);
+		register_rest_route(
+			RVP_BRIDGE_NS,
+			'/subjects',
+			array(
+				'methods'             => 'GET',
+				'callback'            => 'rvp_bridge_subjects',
 				'permission_callback' => 'rvp_bridge_authorize',
 			)
 		);
@@ -201,6 +211,19 @@ function rvp_bridge_project( WP_REST_Request $request ) {
 			)
 		)
 	);
+}
+
+/** The subject list for the members' filter, in display order. Subjects are members-only data, so this is bridge-only. */
+function rvp_bridge_subjects() {
+	$terms = get_terms( array( 'taxonomy' => RVP_TAX_SUBJECT, 'hide_empty' => false ) );
+	$out   = array();
+	if ( $terms && ! is_wp_error( $terms ) ) {
+		usort( $terms, 'rvp_compare_terms' );
+		foreach ( $terms as $term ) {
+			$out[] = array( 'slug' => $term->slug, 'name' => rvp_plain( $term->name ) );
+		}
+	}
+	return new WP_REST_Response( array( 'subjects' => $out ) );
 }
 
 function rvp_bridge_subject_ids( WP_REST_Request $request ) {
