@@ -121,22 +121,14 @@ function rvp_sanitize_id_list( $value ) {
 	return array_slice( array_values( array_unique( $out ) ), 0, RVP_MAX_INCLUDE );
 }
 
-function rvp_rest_catalogue( WP_REST_Request $request ) {
-	$per_page = min( max( 1, (int) $request->get_param( 'per_page' ) ), RVP_MAX_PER_PAGE );
-	$params   = array(
-		'search'     => (string) $request->get_param( 'search' ),
-		'technology' => (array) $request->get_param( 'technology' ),
-		'education'  => (array) $request->get_param( 'education' ),
-		'difficulty' => (array) $request->get_param( 'difficulty' ),
-		'view'       => (string) $request->get_param( 'view' ),
-		'page'       => max( 1, (int) $request->get_param( 'page' ) ),
-		'per_page'   => $per_page,
-		// Present but empty means "nothing matched": that must return nothing, not everything.
-		'include'    => $request->has_param( 'include' ) ? (array) $request->get_param( 'include' ) : null,
-	);
-
-	$query = rvp_catalogue_query( $params );
-	$items = array();
+/**
+ * Runs the catalogue for already-validated parameters and returns the response WITHOUT cache headers (the caller adds them:
+ * the public GET is cacheable, the POST query is not). Shared by both routes so they can never drift apart.
+ */
+function rvp_catalogue_response( array $params ) {
+	$per_page = $params['per_page'];
+	$query    = rvp_catalogue_query( $params );
+	$items    = array();
 	foreach ( $query->posts as $post ) {
 		$items[] = rvp_public_project( $post );
 	}
@@ -157,6 +149,23 @@ function rvp_rest_catalogue( WP_REST_Request $request ) {
 	);
 	$response->header( 'X-WP-Total', (string) $total );
 	$response->header( 'X-WP-TotalPages', (string) $total_pages );
+	return $response;
+}
+
+function rvp_rest_catalogue( WP_REST_Request $request ) {
+	$response = rvp_catalogue_response(
+		array(
+			'search'     => (string) $request->get_param( 'search' ),
+			'technology' => (array) $request->get_param( 'technology' ),
+			'education'  => (array) $request->get_param( 'education' ),
+			'difficulty' => (array) $request->get_param( 'difficulty' ),
+			'view'       => (string) $request->get_param( 'view' ),
+			'page'       => max( 1, (int) $request->get_param( 'page' ) ),
+			'per_page'   => min( max( 1, (int) $request->get_param( 'per_page' ) ), RVP_MAX_PER_PAGE ),
+			// Present but empty means "nothing matched": that must return nothing, not everything.
+			'include'    => $request->has_param( 'include' ) ? (array) $request->get_param( 'include' ) : null,
+		)
+	);
 
 	// Same for every visitor: safe to cache briefly (browser 1 min, shared caches 2 min). Edits purge sooner, see below.
 	$response->header( 'Cache-Control', 'public, max-age=60, s-maxage=120' );
