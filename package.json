@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "db:migrate": "node scripts/migrate.mjs",
     "seed:admin": "node --env-file-if-exists=.env.local scripts/seed-admin.mjs",
-    "seed:admins": "node --env-file-if-exists=.env.local scripts/seed-admins.mjs"
+    "seed:admins": "node --env-file-if-exists=.env.local scripts/seed-admins.mjs",
+    "seed:sample": "node --env-file-if-exists=.env.local scripts/seed-sample-data.mjs"
   },
   "keywords": [],
   "author": "",
