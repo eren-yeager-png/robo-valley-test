@@ -1,0 +1,39 @@
+/* RoboValley Projects: admin screens only. */
+
+/* The taxonomies are used flat, so the Parent field is hidden. */
+.taxonomy-rv_technology .term-parent-wrap,
+.taxonomy-rv_education .term-parent-wrap,
+.taxonomy-rv_subject .term-parent-wrap,
+.taxonomy-rv_technology .term-slug-wrap + .term-parent-wrap {
+	display: none;
+}
+
+.rvp-fields th {
+	width: 160px;
+}
+
+.rvp-image-picker {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+.rvp-image-preview:empty {
+	display: none;
+}
+
+.rvp-image-preview img {
+	display: block;
+	width: 96px;
+	height: 96px;
+	object-fit: cover;
+	border: 1px solid #c3c4c7;
+	border-radius: 6px;
+}
+
+.column-rvp_order,
+.column-rvp_featured,
+.column-rvp_difficulty {
+	width: 90px;
+}
