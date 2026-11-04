@@ -33,6 +33,8 @@ require_once RVP_DIR . 'includes/meta.php';
 require_once RVP_DIR . 'includes/meta-boxes.php';
 require_once RVP_DIR . 'includes/admin-columns.php';
 require_once RVP_DIR . 'includes/seed.php';
+require_once RVP_DIR . 'includes/catalogue.php';
+require_once RVP_DIR . 'includes/rest-catalogue.php';
 
 /**
  * Activation: grant the capabilities and add the starter taxonomy terms (once). Creates no projects.
