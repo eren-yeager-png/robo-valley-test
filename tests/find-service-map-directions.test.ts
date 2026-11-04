@@ -44,8 +44,9 @@ let added: Array<[string, any, any]> = [];
 let calls: Calls;
 let opened: Array<{ href: string; target: string; rel: string }> = [];
 let fetchMock: ReturnType<typeof vi.fn>;
+let geo: { getCurrentPosition: ReturnType<typeof vi.fn>; watchPosition: ReturnType<typeof vi.fn>; clearWatch: ReturnType<typeof vi.fn> };
 
-async function mount(opts: { gl?: boolean; webgl?: boolean; styleStatus?: number; search?: unknown; locate?: (ok: any, err: any) => void; secure?: boolean; noGeo?: boolean } = {}) {
+async function mount(opts: { gl?: boolean; webgl?: boolean; styleStatus?: number; search?: unknown } = {}) {
   document.head.querySelectorAll("#rv-fas-leaflet-css,#rv-fas-maplibre-css").forEach((n) => n.remove());
   document.body.innerHTML = markup(PANEL) + markup(RESULTS) + markup(DIRECTORY);
   calls = newCalls();
@@ -60,8 +61,9 @@ async function mount(opts: { gl?: boolean; webgl?: boolean; styleStatus?: number
   } else {
     delete (window as any).WebGLRenderingContext;
   }
-  Object.defineProperty(window, "isSecureContext", { value: opts.secure ?? true, configurable: true });
-  Object.defineProperty(navigator, "geolocation", { value: opts.noGeo ? undefined : { getCurrentPosition: vi.fn((s: any, e: any) => (opts.locate ?? (() => {}))(s, e)) }, configurable: true });
+  // The page must never ask for the visitor's location: any call to the browser's geolocation is recorded and the tests assert there is none.
+  geo = { getCurrentPosition: vi.fn(), watchPosition: vi.fn(), clearWatch: vi.fn() };
+  Object.defineProperty(navigator, "geolocation", { value: geo, configurable: true });
   fetchMock = vi.fn(async (url: string) => {
     const u = String(url);
     if (u.includes("tiles.openfreemap.org/styles/")) return ok(JSON.parse(JSON.stringify(STYLE)), opts.styleStatus ?? 200);
@@ -78,7 +80,7 @@ async function mount(opts: { gl?: boolean; webgl?: boolean; styleStatus?: number
   return {
     $,
     cards: () => [...document.querySelectorAll<HTMLElement>("#rv-fas-list > li")],
-    locBtn: () => $("rv-fas-loc-btn") as HTMLButtonElement, locMsg: () => $("rv-fas-loc-msg"), note: () => $("rv-fas-map-note"),
+    note: () => $("rv-fas-map-note"),
     links: () => [...document.querySelectorAll<HTMLAnchorElement>("a.rv-fas-dir-link")],
     search: async (pin = "110001") => {
       ($("rv-fas-pin") as HTMLInputElement).value = pin;
@@ -226,13 +228,13 @@ describe("directions link", () => {
     expect(url.origin + url.pathname).toBe("https://www.google.com/maps/dir/");
     expect(url.searchParams.get("api")).toBe("1");
     expect(url.searchParams.get("destination")).toBe(`${NASTY}, New Delhi, 110001, India`); // the state "Delhi" is already in "New Delhi"
-    expect(url.searchParams.get("travelmode")).toBe("driving");
-    expect(url.searchParams.has("origin")).toBe(false);
+    expect(url.searchParams.has("travelmode")).toBe(false); // Google's default (driving)
+    expect(url.searchParams.has("origin")).toBe(false); // Google asks for the visitor's own location
     expect(a.href).not.toMatch(/[<>#"]/);
     expect(a.href.split("?")[1]).toContain("%26");
     expect(a.href).toContain("%23");
     expect(a.href).toContain("%3Cscript%3E");
-    expect([...url.searchParams.keys()].sort()).toEqual(["api", "destination", "travelmode"]); // the & in the name did not add a parameter
+    expect([...url.searchParams.keys()].sort()).toEqual(["api", "destination"]); // the & in the name did not add a parameter
   });
   it("inserts the school name as text, never as markup", async () => {
     const w = await mount();
@@ -252,17 +254,22 @@ describe("directions link", () => {
     expect(links.every((a) => a.rel === "noopener noreferrer" && a.target === "_blank")).toBe(true);
     expect(links.map((a) => a.getAttribute("aria-label"))).toEqual(["Get directions to First", "Get directions to Second", "Get directions to Third"]);
   });
-  it("follows the travel-mode choice", async () => {
-    const w = await mount();
+  it("has no travel-mode choice: every link is a valid Google Maps directions URL with a destination only (no origin, no travelmode)", async () => {
+    const w = await mount({ search: near(MULTI) });
     await w.search();
-    const sel = w.$("rv-fas-mode") as HTMLSelectElement;
-    expect([...sel.options].map((o) => o.value)).toEqual(["driving", "walking", "transit"]);
-    sel.value = "transit";
-    sel.dispatchEvent(new Event("change"));
-    expect(w.links().every((a) => dest(a).get("travelmode") === "transit")).toBe(true);
-    sel.value = "bogus";
-    sel.dispatchEvent(new Event("change"));
-    expect(w.links().every((a) => dest(a).get("travelmode") === "driving")).toBe(true);
+    expect(document.getElementById("rv-fas-mode")).toBeNull();
+    expect(w.links().length).toBeGreaterThan(0);
+    for (const a of w.links()) {
+      const u = new URL(a.href);
+      expect(u.origin + u.pathname).toBe("https://www.google.com/maps/dir/");
+      expect([...u.searchParams.keys()].sort()).toEqual(["api", "destination"]);
+      expect(u.searchParams.get("api")).toBe("1");
+      expect(u.searchParams.get("destination")!.length).toBeGreaterThan(5);
+    }
+    calls.markers[0].el.click(); // the several-school popup's Directions links are built the same way
+    const popLinks = [...(calls.popups[0].content as HTMLElement).querySelectorAll<HTMLAnchorElement>("a.rv-fas-dir-link")];
+    expect(popLinks.length).toBe(3);
+    for (const a of popLinks) expect([...new URL(a.href).searchParams.keys()].sort()).toEqual(["api", "destination"]);
   });
   it("works with the keyboard and touch: a real focusable link, and a tap or Enter does not also open the school's place page", async () => {
     const w = await mount();
@@ -301,7 +308,7 @@ describe("popup size", () => {
     const pop = calls.popups[0].content as HTMLElement;
     expect(pop.style.maxHeight).toBe("190px");
     expect(pop.style.overflowY).toBe("auto");
-    expect([...pop.children].map((n) => n.tagName)).toEqual(["H4", "DIV", "P"]); // heading, the list, the note
+    expect([...pop.children].map((n) => n.tagName)).toEqual(["H4", "DIV"]); // heading and the list (the Google Maps note was removed)
     const row = pop.querySelector(".rv-fas-pop-row")!;
     expect([...row.children].map((n) => n.tagName)).toEqual(["BUTTON", "A"]); // the school, then its own Directions link
   });
@@ -352,15 +359,13 @@ describe("Google Maps on click", () => {
     w.cards()[0].click();
     for (const href of [opened[0].href, w.links()[0].href]) expect(decodeURIComponent(href.replace(/\+/g, " "))).not.toMatch(/Same PIN code|Distance|District MAU|State UTTAR/);
   });
-  it("the place page has no origin, the directions page has one only when the visitor shared a position", async () => {
-    const w = await mount({ locate: (s) => s({ coords: { latitude: 12.345678, longitude: 77.654321, accuracy: 40 } }) });
+  it("neither the place page nor the directions page has an origin or a travel mode", async () => {
+    const w = await mount();
     await w.search();
-    w.locBtn().click();
-    await flush();
     w.cards()[0].click();
     expect(new URL(opened[0].href).searchParams.has("origin")).toBe(false);
-    expect(opened[0].href).not.toContain("12.3456");
-    expect(dest(w.links()[0]).get("origin")).toBe("12.345678,77.654321");
+    expect(new URL(opened[0].href).searchParams.has("travelmode")).toBe(false);
+    expect(dest(w.links()[0]).has("origin")).toBe(false);
     expect(new URL(w.links()[0].href).pathname).toBe("/maps/dir/");
   });
   it("opens the tab inside the click handler itself (no timer, no promise), so pop-up blockers allow it", async () => {
@@ -401,114 +406,74 @@ describe("Google Maps on click", () => {
     expect(queryOf(opened[0].href)).toBe("Second, New Delhi, 110001, India");
     expect(items[1].getAttribute("aria-label")).toBe("Open Second in Google Maps (new tab)");
   });
-  it("says what a click does and that Google may show a similarly named school (page and popup)", async () => {
+  it("shows no note about what a click does or about similarly named schools (neither on the page nor in the popup)", async () => {
     const w = await mount({ search: near(MULTI) });
-    expect(w.$("rv-fas-dir-note").textContent).toContain("Google Maps may show a similarly named school. Please check the address.");
-    expect(w.$("rv-fas-dir-note").textContent).toContain("Click or tap a school to open it in Google Maps");
+    expect(document.getElementById("rv-fas-dir-note")).toBeNull();
     await w.search();
     calls.markers[0].el.click();
-    expect((calls.popups[0].content as HTMLElement).querySelector(".rv-fas-pop-note")!.textContent).toBe("Google Maps may show a similarly named school. Please check the address.");
+    const pop = calls.popups[0].content as HTMLElement;
+    expect(pop.querySelector(".rv-fas-pop-note")).toBeNull();
+    expect(pop.textContent).not.toContain("similarly named");
+    expect(document.body.textContent).not.toContain("similarly named");
+    expect(document.body.textContent).not.toContain("Click or tap a school");
   });
-  it("a click only opens a tab: no request to our API (or anywhere) carries a location or a school's text", async () => {
-    const w = await mount({ locate: (s) => s({ coords: { latitude: 12.345678, longitude: 77.654321, accuracy: 40 } }) });
+  it("a click only opens a tab: no request to our API (or anywhere) is made, and none carries a school's text", async () => {
+    const w = await mount();
     await w.search();
-    w.locBtn().click();
-    await flush();
     const before = fetchMock.mock.calls.length;
     w.cards()[0].click();
     expect(fetchMock.mock.calls.length).toBe(before);
-    expect(JSON.stringify(fetchMock.mock.calls)).not.toMatch(/12\.3456|77\.6543/);
+    expect(opened).toHaveLength(1);
   });
 });
 
-describe("Use my location", () => {
-  const position = { coords: { latitude: 12.345678, longitude: 77.654321, accuracy: 40 } };
-  it("explains privacy under the control", async () => {
-    const w = await mount();
-    expect(w.$("rv-fas-loc-help").textContent).toContain("stays in your browser");
-    expect(w.$("rv-fas-loc-help").textContent).toContain("never sent to RoboValley");
-    expect(w.locBtn().textContent).toBe("Use my location");
+describe("removed UI: location, travel mode, privacy line and the Google Maps note", () => {
+  const GONE_IDS = ["rv-fas-loc", "rv-fas-loc-btn", "rv-fas-loc-clear", "rv-fas-loc-msg", "rv-fas-loc-help", "rv-fas-dir-note", "rv-fas-mode"];
+  const GONE_TEXT = ["Use my location", "Update my location", "Forget my location", "Travel by", "Travelling", "Driving", "Walking", "Transit",
+    "Your location stays in your browser", "never sent to RoboValley", "Click or tap a school to open it", "similarly named school", "Your location is shown on the map"];
+
+  it("none of the removed elements or texts is on the page, before or after a search", async () => {
+    const w = await mount({ search: near(MULTI) });
+    for (const when of ["before a search", "after a search"]) {
+      for (const id of GONE_IDS) expect(document.getElementById(id), id + " " + when).toBeNull();
+      for (const t of GONE_TEXT) expect(document.body.textContent, t + " " + when).not.toContain(t);
+      expect(document.querySelector("select")).toBeNull();
+      expect(document.querySelector(".rv-fas-loc, .rv-fas-loc-mode, .rv-fas-me")).toBeNull();
+      await w.search();
+    }
   });
-  it("asking: shows that it is asking and disables the button while waiting", async () => {
-    const w = await mount({ locate: () => {} }); // never answers
-    w.locBtn().click();
-    expect(w.locMsg().hidden).toBe(false);
-    expect(w.locMsg().textContent).toBe("Asking for your location…");
-    expect(w.locBtn().disabled).toBe(true);
-    expect(w.locBtn().getAttribute("aria-busy")).toBe("true");
-    expect((navigator.geolocation.getCurrentPosition as any).mock.calls).toHaveLength(1);
+
+  it("the source no longer contains the removed texts, the geolocation code, the travel-mode code or the visitor-position code", () => {
+    for (const html of [PANEL, RESULTS, DIRECTORY]) {
+      for (const t of GONE_TEXT) expect(html).not.toContain(t);
+      for (const code of ["geolocation", "getCurrentPosition", "isSecureContext", "travelmode", "travelMode", "rv-fas-mode", "locState", "meLayer", "S.me", "refreshLinks", "dirLinks", "DIR_NOTE", "rv-fas-pop-note", "rv-fas-loc"]) {
+        expect(html, code).not.toContain(code);
+      }
+    }
   });
-  it("granted: shows a 'your location' marker with an accuracy circle and starts directions from there", async () => {
-    const w = await mount({ locate: (s) => s(position) });
+
+  it("the page never asks the browser for the visitor's location (not on load, search, click, tap or key press)", async () => {
+    const w = await mount({ search: near(MULTI) });
     await w.search();
-    w.locBtn().click();
-    await flush();
-    expect(w.locMsg().textContent).toContain("Your location is shown on the map");
-    expect(calls.me).toHaveLength(1);
-    expect(calls.me[0].c).toEqual([12.345678, 77.654321]);
-    expect(calls.acc).toHaveLength(1);
-    expect(calls.acc[0].o.radius).toBe(40);
-    expect(calls.markers).toHaveLength(2); // the two search markers (two PIN codes) are untouched
-    expect(w.links().every((a) => dest(a).get("origin") === "12.345678,77.654321")).toBe(true);
-    expect(w.locBtn().disabled).toBe(false);
-    expect(w.locBtn().textContent).toBe("Update my location");
-    expect((w.$("rv-fas-loc-clear") as HTMLElement).hidden).toBe(false);
-  });
-  it("granted before any search: moves the map to the visitor", async () => {
-    const w = await mount({ locate: (s) => s(position) });
-    w.locBtn().click();
-    await flush();
-    expect(calls.flyTo[0].slice(0, 2)).toEqual([[12.345678, 77.654321], 13]);
-  });
-  it("forget: removes the marker and the origin from the links", async () => {
-    const w = await mount({ locate: (s) => s(position) });
-    await w.search();
-    w.locBtn().click();
-    await flush();
-    (w.$("rv-fas-loc-clear") as HTMLButtonElement).click();
-    expect(calls.me).toHaveLength(0);
-    expect(w.links().every((a) => !dest(a).has("origin"))).toBe(true);
-    expect(w.locMsg().hidden).toBe(true);
-  });
-  it.each([
-    ["denied", { code: 1 }, "Location access was blocked. Allow it in your browser settings, or enter a PIN code."],
-    ["unavailable", { code: 2 }, "Your location is not available right now. You can still open directions; Google Maps will ask where to start."],
-    ["timeout", { code: 3 }, "Finding your location took too long. Try again, or open directions and let Google Maps ask where to start."],
-  ])("%s: shows its message, and directions still open with no origin", async (_n, err, text) => {
-    const w = await mount({ locate: (_s, e) => e(err) });
-    await w.search();
-    w.locBtn().click();
-    await flush();
-    expect(w.locMsg().textContent).toBe(text);
-    expect(w.locBtn().disabled).toBe(false);
-    expect(calls.me).toHaveLength(0);
-    const a = w.links()[0];
-    expect(dest(a).has("origin")).toBe(false);
-    expect(dest(a).get("destination")).toContain("110001");
-  });
-  it("insecure page: says so and never asks the browser", async () => {
-    const w = await mount({ secure: false, locate: (s) => s(position) });
-    w.locBtn().click();
-    expect(w.locMsg().textContent).toContain("secure (HTTPS) page");
-    expect((navigator.geolocation.getCurrentPosition as any).mock.calls).toHaveLength(0);
-  });
-  it("a browser without geolocation: unavailable", async () => {
-    const w = await mount({ noGeo: true });
-    w.locBtn().click();
-    expect(w.locMsg().textContent).toContain("not available right now");
-  });
-  it("sends no coordinates to our API or to any other service", async () => {
-    const w = await mount({ locate: (s) => s(position) });
-    await w.search();
-    w.locBtn().click();
-    await flush();
+    w.cards()[0].click();
     calls.markers[0].el.click();
-    (w.$("rv-fas-mode") as HTMLSelectElement).value = "walking";
-    w.$("rv-fas-mode").dispatchEvent(new Event("change"));
-    await w.search("110002");
-    const wire = JSON.stringify(fetchMock.mock.calls);
-    for (const needle of ["12.3456", "77.6543", "12.345678", "77.654321", "12.35", "77.65"]) expect(wire).not.toContain(needle);
-    expect(RESULTS).not.toMatch(/localStorage|sessionStorage|sendBeacon|XMLHttpRequest/);
+    w.links()[0].click();
+    expect(geo.getCurrentPosition).not.toHaveBeenCalled();
+    expect(geo.watchPosition).not.toHaveBeenCalled();
+  });
+
+  it("the heading stays and sits right above the list and the map; nothing reads a missing element", async () => {
+    const errors: string[] = [];
+    vi.spyOn(console, "error").mockImplementation((...a) => void errors.push(a.map(String).join(" ")));
+    const w = await mount({ search: near(TWO) });
+    const head = document.querySelector(".rv-fas-results-head") as HTMLElement;
+    expect(head).not.toBeNull();
+    expect([...head.children].map((n) => n.id)).toEqual(["rv-fas-summary"]); // only the heading
+    expect(head.nextElementSibling!.className).toBe("rv-fas-layout"); // directly above the list and the map: no block between them
+    expect(w.$("rv-fas-summary").textContent).toBe("Enter a PIN code to find schools near you.");
+    await w.search();
+    expect(w.$("rv-fas-summary").textContent).toBe("2 schools within 25 km of 110001");
+    expect(errors).toEqual([]);
   });
 });
 

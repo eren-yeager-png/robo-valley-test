@@ -1,17 +1,7 @@
 <div class="rv-fas rv-fas-results" id="rv-fas-results">
-	<!-- <div class="rv-fas-results-head">
+	<div class="rv-fas-results-head">
 		<p class="rv-fas-summary" id="rv-fas-summary" role="status" aria-live="polite">Enter a PIN code to find schools near you.</p>
-		<div class="rv-fas-loc" id="rv-fas-loc">
-			<button type="button" class="rv-fas-btn rv-fas-btn--ghost rv-fas-btn--small" id="rv-fas-loc-btn">Use my location</button>
-			<button type="button" class="rv-fas-btn rv-fas-btn--ghost rv-fas-btn--small" id="rv-fas-loc-clear" hidden>Forget my location</button>
-			<label class="rv-fas-loc-mode" for="rv-fas-mode">Travel by
-				<select id="rv-fas-mode"><option value="driving">Driving</option><option value="walking">Walking</option><option value="transit">Transit</option></select>
-			</label>
-			<p class="rv-fas-loc-msg" id="rv-fas-loc-msg" role="status" aria-live="polite" hidden></p>
-			<p class="rv-fas-loc-help" id="rv-fas-loc-help">Your location stays in your browser. It is only added to the Google Maps link you open for directions, and is never sent to RoboValley.</p>
-			<p class="rv-fas-loc-note" id="rv-fas-dir-note">Click or tap a school to open it in Google Maps in a new tab. Google Maps may show a similarly named school. Please check the address.</p>
-		</div>
-	</div> -->
+	</div>
 	<div class="rv-fas-layout">
 		<div class="rv-fas-list-col">
 			<div class="rv-fas-alert" id="rv-fas-alert" role="alert" hidden></div>
@@ -57,25 +47,16 @@
 @media (max-width:640px){.rv-fas-pop-list{max-height:130px}}
 /* A phone map is only ~320px tall: inside a popup the list is shorter still, so the heading, the list and the Directions button fit together */
 @media (max-width:640px){.rv-fas-popup .rv-fas-pop-list{max-height:96px}}
-/* Directions links, "Use my location", the map note and the visitor's own position */
+/* Directions links and the map note */
 .rv-fas a.rv-fas-dir-link{display:inline-flex;align-items:center;justify-content:center;min-height:40px;margin:8px 0 0;padding:0 16px;font-size:14px;font-weight:800;line-height:1.2;color:var(--rv-fas-brand);text-decoration:none;background:#fff;border:1.5px solid var(--rv-fas-line-2);border-radius:999px}
 .rv-fas a.rv-fas-dir-link:hover{color:var(--rv-fas-brand-dark);background:var(--rv-fas-tint);border-color:var(--rv-fas-brand)}
 .rv-fas a.rv-fas-dir-link:focus-visible{outline:3px solid rgba(23,105,79,.45);outline-offset:2px}
-.rv-fas-loc{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:10px 0 0}
-.rv-fas-loc .rv-fas-btn{height:40px;padding:0 16px;font-size:14px}
-.rv-fas-loc .rv-fas-btn[hidden],.rv-fas-loc-msg[hidden],.rv-fas-map-note[hidden]{display:none!important}
-.rv-fas-loc-mode{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--rv-fas-muted)}
-.rv-fas-loc-mode select{height:40px;padding:0 10px;font:inherit;font-size:14px;color:var(--rv-fas-brand-dark);background:#fff;border:1.5px solid var(--rv-fas-line-2);border-radius:10px}
-.rv-fas-loc-msg,.rv-fas-loc-help,.rv-fas-loc-note{flex:1 1 100%;margin:0;font-size:13px;line-height:1.4;color:var(--rv-fas-muted)}
-.rv-fas-loc-msg{font-weight:700;color:var(--rv-fas-brand-dark)}
-.rv-fas-loc-msg.is-problem{color:var(--rv-fas-amber-ink)}
 .rv-fas-pop-row{padding:6px 0;border-bottom:1px solid var(--rv-fas-line)}
 .rv-fas-pop-row:last-child{border-bottom:0}
 .rv-fas-pop-row .rv-fas-pop-item{border-bottom:0;padding:4px 10px}
 .rv-fas a.rv-fas-dir-link.rv-fas-dir-link--small,.rv-fas-pop-row a.rv-fas-dir-link{min-height:32px;margin:2px 0 0 10px;padding:0 12px;font-size:13px}
-.rv-fas-pop-note{margin:8px 0 0;font-size:12px;line-height:1.35;color:var(--rv-fas-muted)}
+.rv-fas-map-note[hidden]{display:none!important}
 .rv-fas-map-note{margin:8px 2px 0;font-size:13px;color:var(--rv-fas-amber-ink)}
-.rv-fas-me{display:block;width:16px;height:16px;background:#2563eb;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 2px #2563eb,0 2px 6px rgba(0,0,0,.3)}
 </style>
 <script>
 /* RoboValley Find a Service: PIN code + distance search for the chosen category, with the map, tooltips and popups.
@@ -110,7 +91,6 @@
 	var GEOCODER = 'https://nominatim.openstreetmap.org/search'; // only called when a PIN code has no stored position, once per Search press
 	var DIRECTIONS = 'https://www.google.com/maps/dir/';
 	var PLACE = 'https://www.google.com/maps/search/';
-	var DIR_NOTE = 'Google Maps may show a similarly named school. Please check the address.';
 	var GEONAMES = ' · Postal code data: <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">GeoNames</a> (CC BY 4.0)';
 	var ATTRIBUTION_OFM = '<a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap</a> <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener noreferrer">&copy; OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>' + GEONAMES;
 	var ATTRIBUTION_OSM = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors' + GEONAMES;
@@ -126,15 +106,14 @@
 		root.setAttribute( 'data-ready', '1' );
 		var el = {
 			pin: $( 'rv-fas-pin' ), pinErr: $( 'rv-fas-pin-err' ), go: $( 'rv-fas-go' ), radius: $( 'rv-fas-radius' ), radiusOut: $( 'rv-fas-radius-out' ),
-			summary: $( 'rv-fas-summary' ), alert: $( 'rv-fas-alert' ), state: $( 'rv-fas-state' ), list: $( 'rv-fas-list' ), map: $( 'rv-fas-map' ), mapMsg: $( 'rv-fas-map-msg' ), mapNote: $( 'rv-fas-map-note' ),
-			locBtn: $( 'rv-fas-loc-btn' ), locClear: $( 'rv-fas-loc-clear' ), locMsg: $( 'rv-fas-loc-msg' ), mode: $( 'rv-fas-mode' )
+			summary: $( 'rv-fas-summary' ), alert: $( 'rv-fas-alert' ), state: $( 'rv-fas-state' ), list: $( 'rv-fas-list' ), map: $( 'rv-fas-map' ), mapMsg: $( 'rv-fas-map-msg' ), mapNote: $( 'rv-fas-map-note' )
 		};
 		var api = ( window.RoboValleyApi && window.RoboValleyApi.base ) || '';
 		var reduce = window.matchMedia( '(prefers-reduced-motion: reduce)' );
-		var L = null, map = null, layer = null, circle = null, meLayer = null, glLayer = null, rasterOn = false;
+		var L = null, map = null, layer = null, circle = null, glLayer = null, rasterOn = false;
 		var S = {
 			pin: '', seq: 0, ctl: null, results: [], groups: [], byPin: {}, markers: {}, originMarker: null, lastAsk: 0, searched: false,
-			flownPin: '', catName: '', pointer: '', tipKey: '', hoverPin: '', me: null, dirLinks: []
+			flownPin: '', catName: '', pointer: '', tipKey: '', hoverPin: ''
 		};
 		var radiusTimer, tipTimer;
 
@@ -475,13 +454,9 @@
 			}
 		}
 
-		/* ---------- Directions (a Google Maps link) and "Use my location" ----------
+		/* ---------- Directions (a Google Maps link) ----------
 		   The destination is the school's name and address, not the PIN code centre (the file has no building coordinates).
-		   The visitor's position stays in this page: it is never sent to RoboValley or stored, it is only added to the link they open. */
-		function travelMode() {
-			var v = el.mode ? el.mode.value : '';
-			return v === 'walking' || v === 'transit' ? v : 'driving';
-		}
+		   The link has no starting point and no travel mode: Google Maps asks where to start and uses its default (driving). */
 		/** One clean piece of text from a data field: no control characters, no interface labels, single spaces. */
 		var UI_LABELS = /\b(same pin code|distance|km away)\b/gi;
 		function tidy( v ) {
@@ -525,10 +500,6 @@
 			var q = new URLSearchParams();
 			q.set( 'api', '1' );
 			q.set( 'destination', placeQuery( r ) );
-			if ( S.me ) {
-				q.set( 'origin', S.me.lat.toFixed( 6 ) + ',' + S.me.lng.toFixed( 6 ) );
-			}
-			q.set( 'travelmode', travelMode() );
 			var u = new URL( DIRECTIONS );
 			u.search = q.toString();
 			return u.toString();
@@ -543,99 +514,9 @@
 				if ( e.stopPropagation ) {
 					e.stopPropagation(); // a link inside a result row must not also select the row
 				}
-				a.href = directionsUrl( r );
 			} );
-			a._school = r;
-			S.dirLinks.push( a );
 			return a;
 		}
-		function refreshLinks() {
-			S.dirLinks = S.dirLinks.filter( function ( a ) { return a.isConnected; } );
-			S.dirLinks.forEach( function ( a ) { a.href = directionsUrl( a._school ); } );
-		}
-		var LOC = {
-			asking: 'Asking for your location…',
-			granted: 'Your location is shown on the map. Directions will start from there.',
-			denied: 'Location access was blocked. Allow it in your browser settings, or enter a PIN code.',
-			unavailable: 'Your location is not available right now. You can still open directions; Google Maps will ask where to start.',
-			timeout: 'Finding your location took too long. Try again, or open directions and let Google Maps ask where to start.',
-			insecure: 'Your location can only be used on a secure (HTTPS) page. You can still open directions; Google Maps will ask where to start.'
-		};
-		function locState( key ) {
-			S.locState = key;
-			el.locMsg.textContent = LOC[ key ];
-			el.locMsg.className = 'rv-fas-loc-msg' + ( key === 'asking' || key === 'granted' ? '' : ' is-problem' );
-			el.locMsg.hidden = false;
-			el.locBtn.disabled = key === 'asking';
-			if ( key === 'asking' ) {
-				el.locBtn.setAttribute( 'aria-busy', 'true' );
-			} else {
-				el.locBtn.removeAttribute( 'aria-busy' );
-			}
-		}
-		function drawMe() {
-			mapReady.then( function ( ready ) {
-				if ( ! ready || ! map || ! meLayer || ! S.me ) {
-					return;
-				}
-				meLayer.clearLayers();
-				if ( S.me.acc > 0 && S.me.acc <= 5000 ) {
-					L.circle( [ S.me.lat, S.me.lng ], { radius: S.me.acc, color: '#2563eb', weight: 1, fillColor: '#2563eb', fillOpacity: 0.1, interactive: false, className: 'rv-fas-acc' } ).addTo( meLayer );
-				}
-				var dot = make( 'span', 'rv-fas-me' );
-				L.marker( [ S.me.lat, S.me.lng ], {
-					icon: L.divIcon( { className: 'rv-fas-me-wrap', html: dot, iconSize: [ 22, 22 ], iconAnchor: [ 11, 11 ] } ),
-					keyboard: false, interactive: false, title: '', zIndexOffset: 500
-				} ).addTo( meLayer );
-				if ( ! S.searched ) {
-					map.flyTo( [ S.me.lat, S.me.lng ], 13, { animate: ! reduce.matches, duration: 0.8 } );
-				}
-			} );
-		}
-		function locate() {
-			if ( window.isSecureContext === false ) {
-				locState( 'insecure' );
-				return;
-			}
-			if ( ! navigator.geolocation ) {
-				locState( 'unavailable' );
-				return;
-			}
-			locState( 'asking' );
-			var fail = function ( err ) {
-				locState( err && err.code === 1 ? 'denied' : err && err.code === 3 ? 'timeout' : 'unavailable' );
-			};
-			try {
-				navigator.geolocation.getCurrentPosition( function ( pos ) {
-					var c = pos && pos.coords;
-					if ( ! c || ! isFinite( c.latitude ) || ! isFinite( c.longitude ) ) {
-						fail( null );
-						return;
-					}
-					S.me = { lat: c.latitude, lng: c.longitude, acc: c.accuracy };
-					refreshLinks();
-					drawMe();
-					locState( 'granted' );
-					el.locClear.hidden = false;
-					el.locBtn.textContent = 'Update my location';
-				}, fail, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 } );
-			} catch ( e ) {
-				fail( null );
-			}
-		}
-		function forgetMe() {
-			S.me = null;
-			if ( meLayer ) {
-				meLayer.clearLayers();
-			}
-			refreshLinks();
-			el.locMsg.hidden = true;
-			el.locClear.hidden = true;
-			el.locBtn.textContent = 'Use my location';
-		}
-		el.locBtn.addEventListener( 'click', locate );
-		el.locClear.addEventListener( 'click', forgetMe );
-		el.mode.addEventListener( 'change', refreshLinks );
 
 		/* ---------- Results list ---------- */
 		function setResults( items ) {
@@ -644,7 +525,6 @@
 			S.byPin = {};
 			clear( el.list );
 			items.forEach( function ( r ) { el.list.appendChild( card( r ) ); } );
-			S.dirLinks = S.dirLinks.filter( function ( a ) { return a.isConnected; } ); // forget the links of the list that was just replaced
 		}
 		function groupOf( r ) {
 			return S.byPin[ r.pincode ] || { pin: r.pincode, district: r.district, d: r.distanceKm, lat: null, lng: null, items: [ r ] };
@@ -720,7 +600,6 @@
 				list.appendChild( row );
 			} );
 			box.appendChild( list );
-			box.appendChild( make( 'p', 'rv-fas-pop-note', DIR_NOTE ) );
 			return box;
 		}
 
@@ -962,7 +841,6 @@
 			map.on( 'blur mouseout', function () { map.scrollWheelZoom.disable(); } );
 			map.on( 'movestart zoomstart', hideTip );
 			layer = L.layerGroup().addTo( map );
-			meLayer = L.layerGroup().addTo( map );
 			map.setView( INDIA_VIEW, INDIA_ZOOM );
 			addBasemap();
 			return true;
