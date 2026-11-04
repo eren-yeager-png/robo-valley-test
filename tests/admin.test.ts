@@ -106,13 +106,12 @@ describe("/admin/dashboard", () => {
     await expect(AdminDashboard()).rejects.toThrow("REDIRECT:/dashboard");
   });
 
-  it("shows an admin the dashboard with their email and a sign-out button", async () => {
+  it("shows an admin the overview", async () => {
     const a = await seedUser({ email: "yasaswinipilla41@gmail.com", role: "admin" });
     signIn(a.id);
     const html = renderToStaticMarkup(await AdminDashboard());
     expect(html).toContain("Admin dashboard");
-    expect(html).toContain("yasaswinipilla41@gmail.com");
-    expect(html).toContain("Sign out");
+    expect(html).toContain("Registered users"); // the email and the sign-out button are in the layout (tests/admin-ui.test.tsx)
     expect(html).not.toContain("Choose a new password");
   });
 
@@ -124,7 +123,6 @@ describe("/admin/dashboard", () => {
     expect(html).toContain("Choose a new password");
     expect(html.toLowerCase()).toContain('autocomplete="current-password"');
     expect(html.toLowerCase()).toContain('autocomplete="new-password"');
-    expect(html).not.toContain("Admin tools will appear here");
   });
 });
 

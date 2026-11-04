@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function ChangePasswordForm() {
+export default function ChangePasswordForm({ voluntary = false }: { voluntary?: boolean } = {}) {
   const router = useRouter();
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
@@ -11,6 +11,7 @@ export default function ChangePasswordForm() {
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,7 +26,10 @@ export default function ChangePasswordForm() {
         body: JSON.stringify({ currentPassword: current, newPassword: next }),
       });
       const data = await res.json().catch(() => ({}));
-      if (data.success) { router.refresh(); return; } // the server now renders the dashboard
+      if (data.success) {
+        if (voluntary) { setCurrent(""); setNext(""); setConfirm(""); setSaved(true); busyRef.current = false; setBusy(false); return; }
+        router.refresh(); return; // the server now renders the dashboard
+      }
       setError(data.message ?? "Something went wrong. Please try again.");
       setCurrent(""); setNext(""); setConfirm("");
     } catch {
@@ -37,12 +41,12 @@ export default function ChangePasswordForm() {
   return (
     <div className="auth-card" style={{ margin: "0 auto" }}>
       <div>
-        <h1>Choose a new password</h1>
-        <p className="muted" style={{ marginTop: 6 }}>Your account was created with a temporary password. Set your own to continue.</p>
+        {voluntary ? <h2>Change your password</h2> : <h1>Choose a new password</h1>}
+        {!voluntary && <p className="muted" style={{ marginTop: 6 }}>Your account was created with a temporary password. Set your own to continue.</p>}
       </div>
       <form onSubmit={onSubmit} noValidate aria-busy={busy}>
         <label className="f"><span className="req">Current password</span>
-          <input type="password" name="current-password" autoComplete="current-password" value={current} maxLength={128} onChange={(e) => { setCurrent(e.target.value); setError(""); }} />
+          <input type="password" name="current-password" autoComplete="current-password" value={current} maxLength={128} onChange={(e) => { setCurrent(e.target.value); setError(""); setSaved(false); }} />
         </label>
         <label className="f"><span className="req">New password</span>
           <input type="password" name="new-password" autoComplete="new-password" value={next} maxLength={128} onChange={(e) => { setNext(e.target.value); setError(""); }} />
@@ -52,6 +56,7 @@ export default function ChangePasswordForm() {
           <input type="password" name="confirm-new-password" autoComplete="new-password" value={confirm} maxLength={128} onChange={(e) => { setConfirm(e.target.value); setError(""); }} />
         </label>
         {error && <p role="alert" className="fe">{error}</p>}
+        {saved && <p role="status">Your password was changed.</p>}
         <button type="submit" className="btn primary block" disabled={busy}>{busy ? "Saving…" : "Save new password"}</button>
       </form>
     </div>

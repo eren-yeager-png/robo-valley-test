@@ -1,5 +1,6 @@
 import { pool } from "../../../../lib/db";
 import { json, readJson } from "../../../../lib/http";
+import { recordLoginEvent } from "../../../../lib/loginEvents";
 import { createAccount, DuplicateEmailError, VerificationRequiredError } from "../../../../lib/signup";
 import { LIMITS, validateSignup } from "../../../../lib/validation";
 
@@ -16,6 +17,7 @@ export async function POST(req: Request) {
 
   try {
     const user = await createAccount(pool, (v as { data: Parameters<typeof createAccount>[1] }).data);
+    await recordLoginEvent(pool, { type: "signup", userId: user.id, req });
     return json({ success: true, message: "Account created.", user }, 201);
   } catch (err) {
     if (err instanceof VerificationRequiredError) {

@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/cron/purge-login-events", "schedule": "30 3 * * *" }
+  ]
+}

@@ -1,6 +1,8 @@
 
 import { NextResponse } from "next/server";
 import { sameOrigin } from "../../../../lib/http";
+import { pool } from "../../../../lib/db";
+import { recordLoginEvent, sessionUserId } from "../../../../lib/loginEvents";
 import { SESSION_COOKIE, sessionCookieOptions } from "../../../../lib/session";
 
 export const runtime = "nodejs";
@@ -70,6 +72,9 @@ export async function POST(req: Request) {
       { status: 403 }
     );
   }
+
+  const who = sessionUserId(req); // from the signed cookie; null when nobody was signed in
+  if (who) await recordLoginEvent(pool, { type: "logout", userId: who, req });
 
   const res = NextResponse.json(
     { success: true },

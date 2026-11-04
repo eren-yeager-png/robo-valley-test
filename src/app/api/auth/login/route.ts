@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
 import { json, readJson, sameOrigin } from "../../../../lib/http";
+import { recordLoginEvent } from "../../../../lib/loginEvents";
 import { maybeCleanupLoginAttempts, recordSuccess, reserveAttempt } from "../../../../lib/loginThrottle";
 import {
   assertSessionConfigured, canSignIn, createSessionToken, destinationFor, SESSION_COOKIE,
@@ -50,6 +51,7 @@ export async function POST(req: Request) {
     // parallel requests cannot all be checked before the first failure is recorded.
     const gate = await reserveAttempt(email!);
     if (!gate.allowed) {
+      await recordLoginEvent(pool, { type: "login_failed", reason: "throttled", req });
       return json(
         { success: false, error: "TOO_MANY_ATTEMPTS", message: "Too many failed attempts. Please try again later.", retryAfterSeconds: gate.retryAfterSeconds },
         429, { "Retry-After": String(gate.retryAfterSeconds) }
@@ -67,10 +69,12 @@ export async function POST(req: Request) {
     const matches = await bcrypt.compare(tooLong ? "x" : password, user?.password_hash ?? (await getDummyHash()));
 
     if (!user || !matches || tooLong) {
+      await recordLoginEvent(pool, { type: "login_failed", reason: "bad_credentials", userId: user?.id, req });
       return json(INVALID, 401); // same body whether the account exists or not (the attempt was already counted)
     }
     await recordSuccess(email!); // the password was right: clear the counter
     if (!canSignIn(user.email_verification)) {
+      await recordLoginEvent(pool, { type: "login_failed", reason: "not_verified", userId: user.id, req });
       return json({ success: false, error: "EMAIL_NOT_VERIFIED", message: "Please verify your email address before signing in." }, 403);
     }
 
@@ -86,9 +90,11 @@ export async function POST(req: Request) {
       { status: 200, headers: { "Cache-Control": "no-store" } }
     );
     res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(remember ? maxAgeSeconds : undefined));
+    await recordLoginEvent(pool, { type: "login_success", userId: id, req }); // best effort: never throws, never changes the result
     return res;
   } catch {
     console.error("login failed: server error"); // no SQL, email or password in logs
+    await recordLoginEvent(pool, { type: "login_failed", reason: "server_error", req });
     return json({ success: false, error: "SERVER_ERROR", message: "We could not sign you in. Please try again." }, 500);
   }
 }

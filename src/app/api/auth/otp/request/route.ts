@@ -1,5 +1,7 @@
 import { EmailConfigError, EmailSendError, sendOtpEmail } from "../../../../../lib/email";
 import { json, readJson } from "../../../../../lib/http";
+import { pool } from "../../../../../lib/db";
+import { otpReason, recordLoginEvent } from "../../../../../lib/loginEvents";
 import { OTP_PURPOSES, OtpError, requestOtp, type OtpPurpose } from "../../../../../lib/otp";
 import { normalizeEmail } from "../../../../../lib/validation";
 
@@ -27,6 +29,7 @@ export async function POST(req: Request) {
         await sendOtpEmail(email, r.code);
       } catch (err) {
         await r.rollback().catch(() => undefined); // a failed send must not consume the cooldown, and no code stays valid
+        await recordLoginEvent(pool, { type: "otp_failed", reason: "send_failed", purpose, req });
         if (err instanceof EmailConfigError) {
           console.error("otp email: RESEND_API_KEY is not configured");
           return json({ success: false, error: "EMAIL_NOT_CONFIGURED", message: "Email service is not configured." }, 503);
@@ -34,12 +37,14 @@ export async function POST(req: Request) {
         console.error("otp email: send failed:", err instanceof EmailSendError ? err.reason : "unknown"); // reason only: no code, key or address
         return json({ success: false, error: "EMAIL_SEND_FAILED", message: "We could not send the email. Please try again later." }, 502);
       }
+      await recordLoginEvent(pool, { type: "otp_sent", purpose, req });
       // The code is never part of the response when the provider is Resend.
       return json({ success: true, purpose, provider: "resend", emailSent: true, expiresInSeconds: r.expiresInSeconds, resendAfterSeconds: r.resendAfterSeconds });
     }
 
     // provider === "mock": development/testing only (getOtpProvider() blocks it in production)
     console.log(`MOCK OTP (${purpose}): ${r.code} - no email was sent`); // so the code can be read from the dev terminal; mock never runs in production
+    await recordLoginEvent(pool, { type: "otp_sent", purpose, req });
     return json({
       success: true, purpose, provider: "mock", emailSent: false,
       expiresInSeconds: r.expiresInSeconds, resendAfterSeconds: r.resendAfterSeconds,
@@ -47,6 +52,7 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     if (err instanceof OtpError) {
+      await recordLoginEvent(pool, { type: "otp_failed", reason: otpReason(err.code), purpose, req });
       return json(
         { success: false, error: err.code, message: err.code === "OTP_DISABLED" ? "OTP service is not available in this environment." : err.message, retryAfterSeconds: err.retryAfterSeconds },
         err.status,
@@ -56,6 +62,7 @@ export async function POST(req: Request) {
     // Not an OtpError, so the code could not be stored: a database failure. Log only the error class/code, never the SQL, email or code.
     const e = err as { code?: unknown; name?: unknown };
     console.error("otp request failed (database):", typeof e?.code === "string" ? e.code : typeof e?.name === "string" ? e.name : "unknown");
+    await recordLoginEvent(pool, { type: "otp_failed", reason: "server_error", purpose, req });
     return json({ success: false, error: "SERVER_ERROR", message: "We couldn't send the code right now. Please try again in a moment." }, 500);
   }
 }
