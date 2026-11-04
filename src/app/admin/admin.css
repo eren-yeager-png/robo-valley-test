@@ -19,6 +19,8 @@
 .rv .adm a{color:var(--brand)}
 .rv .adm :focus-visible{outline:3px solid var(--amber);outline-offset:2px}
 
+.rv .adm .auth-card{max-width:none;width:100%;margin:0!important;border-radius:18px;box-shadow:var(--shadow)}
+
 /* sidebar */
 .rv .adm-side{position:sticky;top:0;align-self:flex-start;height:100vh;width:256px;flex:none;background:var(--hero);color:var(--hero-fg);display:flex;flex-direction:column;padding:18px 12px;overflow-y:auto}
 .rv .adm-brand{display:flex;align-items:center;gap:11px;font:800 1.2rem var(--display);padding:4px 10px 20px;color:#fff}
@@ -45,7 +47,7 @@
 .rv .adm-avatar{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff}
 .rv .adm-caret{transition:transform .15s;color:var(--muted)}
 .rv .adm-profile-btn[aria-expanded="true"] .adm-caret{transform:rotate(180deg)}
-.rv .adm-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:30;min-width:230px;max-width:calc(100vw - 24px);padding:6px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:0 12px 32px rgba(21,48,42,.18)}
+.rv .adm-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:30;min-width:260px;max-width:calc(100vw - 24px);padding:6px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:0 12px 32px rgba(21,48,42,.18)}
 .rv .adm-menu-who{padding:8px 12px 10px;margin-bottom:4px;border-bottom:1px solid var(--line);font-size:.78rem;color:var(--muted)}
 .rv .adm-menu-who strong{display:block;color:var(--fg);font-size:.88rem;overflow-wrap:anywhere}
 .rv .adm-menu a,.rv .adm-menu button{display:flex;align-items:center;width:100%;min-height:44px;padding:9px 12px;border:0;border-radius:10px;background:none;color:var(--fg);font:600 .94rem var(--font);text-align:left;text-decoration:none;cursor:pointer}
@@ -84,7 +86,7 @@
 .rv .adm-table thead th{font:700 .72rem var(--font);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);white-space:nowrap;background:var(--bg)}
 .rv .adm-table tbody tr:hover{background:#fafaf6}
 .rv .adm-table tr:last-child td{border-bottom:0}
-.rv .adm-table td.wrap{overflow-wrap:anywhere;min-width:160px}
+.rv .adm-table td.cell-wrap{overflow-wrap:anywhere;min-width:160px}
 .rv .adm-pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:.76rem;font-weight:700;background:var(--tint);color:var(--brand);white-space:nowrap}
 .rv .adm-pill.warn{background:var(--amber-soft);color:var(--amber-ink)}
 .rv .adm-pill.bad{background:var(--red-soft);color:var(--red)}
@@ -112,8 +114,8 @@
 
 /* Tablet and phone: the sidebar becomes a drawer opened from the menu button. */
 @media (max-width:900px){
-  .rv .adm-side{position:fixed;z-index:20;left:0;top:0;transform:translateX(-100%);transition:transform .2s;box-shadow:0 0 30px rgba(0,0,0,.35)}
-  .rv .adm.open .adm-side{transform:none}
+  .rv .adm-side{position:fixed;z-index:20;left:0;top:0;transform:translateX(-100%);transition:transform .2s;box-shadow:none}
+  .rv .adm.open .adm-side{transform:none;box-shadow:0 0 30px rgba(0,0,0,.35)}
   .rv .adm-burger{display:grid;place-items:center}
   .rv .adm-logo{display:inline}
   .rv .adm-scrim{display:block;position:fixed;inset:0;z-index:15;background:rgba(18,63,51,.5);border:0;cursor:pointer}
@@ -121,9 +123,11 @@
 }
 @media (max-width:600px){
   .rv .adm-logo{display:none}
-  .rv .adm-profile-label{display:none}
+  .rv .adm-profile-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap} /* still the button's accessible name */
   .rv .adm-profile-btn{padding-right:10px}
   .rv .adm-head h1{font-size:1.4rem}
+  .rv .adm-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .rv .adm-grid.two{grid-template-columns:minmax(0,1fr)}
   .rv .adm-card.stat .val{font-size:1.7rem}
   .rv .adm-note.setup a{margin-left:0}
 }

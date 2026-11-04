@@ -68,7 +68,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
         </section>
         <section><h3>Recent uploads</h3>
           <DataTable caption="Recent uploads" head={["When", "File", "Result"]} empty="Nothing has been uploaded yet."
-            rows={o.recentUploads.map((u, i) => <tr key={i}><td>{when(u.at)}</td><td className="wrap">{u.filename ?? "—"}</td><td><span className={"adm-pill" + (u.result === "success" ? "" : " warn")}>{u.result === "success" ? "Accepted" : "Rejected"}</span></td></tr>)} />
+            rows={o.recentUploads.map((u, i) => <tr key={i}><td>{when(u.at)}</td><td className="cell-wrap">{u.filename ?? "—"}</td><td><span className={"adm-pill" + (u.result === "success" ? "" : " warn")}>{u.result === "success" ? "Accepted" : "Rejected"}</span></td></tr>)} />
         </section>
       </div>
     </>

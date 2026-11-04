@@ -37,7 +37,7 @@ export default async function SettingsPage() {
               <dt className="muted">Sign-in lasts</dt><dd style={{ margin: 0 }}>{SESSION_TTL_SECONDS / 3600} hours, or {REMEMBER_TTL_SECONDS / 86400} days with &ldquo;Remember me&rdquo;</dd>
             </dl>
           </div>
-          <div className="adm-card"><ChangePasswordForm voluntary /></div>
+          <ChangePasswordForm voluntary />
         </div>
       </section>
 

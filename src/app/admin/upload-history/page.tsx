@@ -51,11 +51,11 @@ export default async function UploadHistoryPage({ searchParams }: { searchParams
           <tr key={h.id}>
             <td>{when(h.at)}</td>
             <td>{h.action === "confirm" ? "Made live" : KIND[h.kind] ?? h.kind}</td>
-            <td className="wrap">{h.filename ?? "—"}</td>
+            <td className="cell-wrap">{h.filename ?? "—"}</td>
             <td>{formatSize(h.size)}</td>
             <td><span className={"adm-pill" + (h.result === "success" ? "" : h.result === "rejected" ? " warn" : " bad")}>{RESULT[h.result] ?? h.result}</span></td>
-            <td className="wrap">{h.by ?? "—"}</td>
-            <td className="wrap">{h.detail ?? ""}</td>
+            <td className="cell-wrap">{h.by ?? "—"}</td>
+            <td className="cell-wrap">{h.detail ?? ""}</td>
             <td>{h.downloadKey ? <a href={`/api/admin/attachments/${h.downloadKey}`}>Download</a> : null}</td>
           </tr>
         ))} />

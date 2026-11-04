@@ -49,7 +49,7 @@ export default async function UsersPage({ searchParams }: { searchParams?: Promi
       </form>
       <DataTable caption="Registered users" head={["Name", "Email", "Role", "Joined"]} empty="No accounts match."
         rows={result.rows.map((u) => (
-          <tr key={u.id}><td className="wrap">{u.name}</td><td className="wrap">{u.email}</td><td><span className={"adm-pill" + (u.role === "admin" ? " warn" : "")}>{u.roleLabel}</span></td><td>{when(u.joined)}</td></tr>
+          <tr key={u.id}><td className="cell-wrap">{u.name}</td><td className="cell-wrap">{u.email}</td><td><span className={"adm-pill" + (u.role === "admin" ? " warn" : "")}>{u.roleLabel}</span></td><td>{when(u.joined)}</td></tr>
         ))} />
       <Pager base="/admin/users" page={result.page} pages={result.pages} params={params} />
     </>

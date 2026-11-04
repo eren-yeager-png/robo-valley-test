@@ -25,7 +25,7 @@ export default async function CategoriesPage() {
         rows={rows.map((c) => (
           <tr key={c.slug}>
             <td><strong>{c.name}</strong></td>
-            <td className="wrap">{c.active ? <><span className="adm-pill">Live</span> {c.active.filename}</> : <span className="adm-pill mute">No live data</span>}</td>
+            <td className="cell-wrap">{c.active ? <><span className="adm-pill">Live</span> {c.active.filename}</> : <span className="adm-pill mute">No live data</span>}</td>
             <td>{c.active ? c.active.rows.toLocaleString("en-IN") : "—"}</td>
             <td>{when(c.active?.activatedAt ?? null)}</td>
             <td>{c.datasets}{c.staged > 0 && <span className="adm-pill warn"> {c.staged} awaiting confirmation</span>}</td>
