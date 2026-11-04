@@ -171,6 +171,18 @@ npm run dev                                                       # http://local
 6. As a regular user (any non-admin account): no button; `curl -i -X POST http://localhost:3000/api/services/upload` with that user's cookie gives 403, without a cookie 401.
 7. As admin upload a **changed** file and confirm: searches immediately show only the new data (old rows are kept in the database as `superseded` for audit).
 
+## 5e. No duplicate schools from an upload (migration 010)
+
+A school is stored **once**. Duplicates are removed in memory before anything is written (`src/lib/spreadsheet/dedupe.ts`), and the database refuses a second row with the same key in one dataset (`service_dataset_rows.dedupe_key`, unique with `dataset_id`).
+
+- **Who is the same school:** the 11-digit UDISE code (a 10-digit code gets its lost leading zero; `0` and other placeholders are *not* a code). With no usable UDISE code: the same normalised name + district + state + PIN. Normalising = Unicode NFKC, case, spaces, punctuation, `&` = `and`, `SR` = `SENIOR`. A blank district or state does not make a different school.
+- **Never merged, listed for a person to review:** the same name and PIN with *different* UDISE codes (two campuses), and near-identical names in one PIN code (similarity 0.8 or more).
+- **Which row wins:** the first. A later duplicate may fill a value that is empty in the kept row, never overwrite one; every difference between two non-empty values (including different ATL UIDs) is reported with both row numbers.
+- **Upload report** (admin screen, and `GET /api/admin/datasets/<id>/report` as CSV): rows read = new unique schools + duplicates skipped + rows rejected, plus possible duplicates, rows hidden in the spreadsheet (they are **read**; an Excel filter left on hides rows without deleting them), repeated header rows (skipped) and the sheets read. Every sheet that is visible and has data is read.
+- **Same file again:** a file identical to the live data of that category (same SHA-256, already de-duplicated) changes nothing and says so. Data loaded before migration 010 is not "the same"; uploading its file again replaces it with a clean dataset.
+- **Counts:** `service_datasets.row_count` (and so every "N facilities" and admin table) is the number of unique schools. `service_datasets.is_demo` (default false) is exposed as `isDemo` by `GET /api/services/categories`.
+- **Before deploying this code, apply migration 010** (`node --env-file=<env file> scripts/migrate.mjs --expect-db <name> --only 010`, dry run first). The code reads the new columns. Rollback: `db/rollback/010_down.sql`.
+
 ## 6. Tests
 
 ```bash

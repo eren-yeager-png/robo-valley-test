@@ -113,4 +113,43 @@ describe("upload form", () => {
     act(() => FakeXhr.last.onerror?.());
     expect(screen.getByRole("alert").textContent).toContain("Network problem");
   });
+
+  it("shows the upload report: rows read, added, duplicates, rejected, possible duplicates, examples with row numbers and the CSV link", async () => {
+    render(<UploadForm categories={CATS} initialCategory="atl-labs" filesReady />);
+    choose(file("schools.xlsx"));
+    fireEvent.click(screen.getByRole("button", { name: "Upload and preview" }));
+    FakeXhr.last.reply(200, {
+      success: true, datasetId: "9", filename: "schools.xlsx", category: { name: "ATL Labs" }, rowCount: 9699, invalidRowCount: 284, invalidRows: [{ row: 12, rowNumber: 12, reason: "Pincode must be 6 digits", sheet: "North" }],
+      preview: [{ schoolName: "ZP School", state: "AP", district: "Guntur", pincode: "522001" }],
+      report: {
+        rowsRead: 10000, added: 9699, duplicatesSkipped: 17, rowsFilled: 2, conflictRows: 3, rejected: 284, possibleDuplicates: 25, hiddenRowsRead: 4, repeatedHeaders: 1, sheets: ["North", "South"],
+        examples: { merged: [{ sheet: "South", row: 4909, keptRow: 88, reason: "same UDISE code (names differ)", filled: [], conflicts: [{ column: "district", kept: "A", skipped: "B" }] }], possible: [{ row: 210, otherRow: 4, reason: "same name and PIN code but a different UDISE code; kept as a separate school" }] },
+        url: "/api/admin/datasets/9/report",
+      },
+    });
+    expect(await screen.findByText("Upload report")).toBeTruthy();
+    expect(screen.getByText(/Rows read: 10,000/)).toBeTruthy();
+    expect(screen.getByText(/New unique schools added: 9,699/)).toBeTruthy();
+    expect(screen.getByText(/Duplicates skipped.*: 17/)).toBeTruthy();
+    expect(screen.getByText(/Rows rejected.*: 284/)).toBeTruthy();
+    expect(screen.getByText(/Possible duplicates to review.*: 25/)).toBeTruthy();
+    expect(screen.getByText(/4 rows are hidden in the spreadsheet.*read like every other row/)).toBeTruthy();
+    expect(screen.getByText(/1 repeated header rows were skipped/)).toBeTruthy();
+    expect(screen.getByText(/Row 4909 skipped, kept row 88/)).toBeTruthy();
+    expect(screen.getByText(/Row 210 and row 4:/)).toBeTruthy();
+    expect(screen.getByText(/North, Row 12: Pincode must be 6 digits/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Download the full report (CSV)" }).getAttribute("href")).toBe("/api/admin/datasets/9/report");
+    expect(screen.getByText(/9,699 unique schools/)).toBeTruthy();
+  });
+
+  it("says 'No changes' (and offers no Make live) when the file is identical to the live data", () => {
+    render(<UploadForm categories={CATS} initialCategory="atl-labs" filesReady />);
+    choose(file("schools.xlsx"));
+    fireEvent.click(screen.getByRole("button", { name: "Upload and preview" }));
+    FakeXhr.last.reply(200, { success: true, unchanged: true, datasetId: "7", message: "This file is identical to the data that is already live for this category. No changes were made." });
+    expect(screen.getByText("No changes")).toBeTruthy();
+    expect(screen.getByText(/identical to the data that is already live/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Make live" })).toBeNull();
+    expect(screen.queryByText(/Preview:/)).toBeNull();
+  });
 });

@@ -6,6 +6,7 @@
 //                   version stays live.
 //  * searchServices reads only rows that belong to the single active version.
 
+import { MAX_REPORT_ENTRIES } from "./spreadsheet/dedupe";
 import type { ParsedFile } from "./spreadsheet/parse";
 import { CATEGORIES, categoryName, DEFAULT_CATEGORY, parseCategory, type CategorySlug } from "./serviceCategories";
 
@@ -41,7 +42,25 @@ export async function writeAudit(
   }
 }
 
-export type StagedDataset = { id: string; rowCount: number; invalidRowCount: number };
+export type StagedDataset = { id: string; rowCount: number; invalidRowCount: number; duplicatesSkipped: number; rowsFilled: number; possibleDuplicates: number };
+
+export const DEDUPE_VERSION = 1;
+
+/** The stored upload report: every skipped, merged and refused row with its row number. Lists are capped (the counts are exact). */
+export function buildReport(file: ParsedFile, databaseSkipped: number) {
+  return {
+    version: DEDUPE_VERSION,
+    rowsRead: file.rowsRead,
+    sheets: file.sheetsRead,
+    hiddenRowsRead: file.hiddenRowsRead,
+    repeatedHeaderRows: file.repeatedHeaderRows.slice(0, MAX_REPORT_ENTRIES),
+    rejected: file.rejectedRows,
+    merged: file.dedupe.merged,
+    possible: file.dedupe.possible,
+    truncated: file.dedupe.truncated || file.invalidRowCount > file.rejectedRows.length,
+    databaseSkipped,
+  };
+}
 
 /** Writes the parsed file as a new 'staged' version. Nothing becomes searchable here. */
 export async function stageDataset(pool: Pool, adminId: string, file: ParsedFile, category: CategorySlug = DEFAULT_CATEGORY): Promise<StagedDataset> {
@@ -53,29 +72,39 @@ export async function stageDataset(pool: Pool, adminId: string, file: ParsedFile
     if (old.rows.length) await client.query("DELETE FROM service_dataset_rows WHERE dataset_id = ANY($1::bigint[])", [old.rows.map((r) => r.id)]);
 
     const ds = await client.query(
-      `INSERT INTO service_datasets (uploaded_by, original_filename, file_sha256, row_count, invalid_row_count, columns, status, category)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb, 'staged', $7) RETURNING id`,
-      [adminId, file.filename, file.sha256, file.rows.length, file.invalidRowCount, JSON.stringify(file.headers), category]
+      `INSERT INTO service_datasets (uploaded_by, original_filename, file_sha256, row_count, invalid_row_count, columns, status, category,
+                                     dedupe_version, rows_read, duplicate_row_count, filled_row_count, possible_duplicate_count)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, 'staged', $7, $8, $9, $10, $11, $12) RETURNING id`,
+      [adminId, file.filename, file.sha256, file.rows.length, file.invalidRowCount, JSON.stringify(file.headers), category,
+       DEDUPE_VERSION, file.rowsRead, file.dedupe.duplicatesSkipped, file.dedupe.rowsFilled, file.dedupe.possibleDuplicates]
     );
     const datasetId = String(ds.rows[0].id);
+    let inserted = 0;
 
     for (let i = 0; i < file.rows.length; i += INSERT_BATCH) {
       const chunk = file.rows.slice(i, i + INSERT_BATCH);
       const params: unknown[] = [];
       const tuples = chunk.map((r, k) => {
-        const b = k * 10;
+        const b = k * 11;
         params.push(datasetId, r.rowNumber, r.schoolName, r.state || null, r.district || null, r.pincode || null, r.udiseCode || null,
-          JSON.stringify(r.data), r.schoolName.toLowerCase(), r.locationText);
-        return `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${b + 7}, $${b + 8}::jsonb, $${b + 9}, $${b + 10})`;
+          JSON.stringify(r.data), r.schoolName.toLowerCase(), r.locationText, r.dedupeKey);
+        return `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${b + 7}, $${b + 8}::jsonb, $${b + 9}, $${b + 10}, $${b + 11})`;
       });
-      await client.query(
-        `INSERT INTO service_dataset_rows (dataset_id, row_number, school_name, state, district, pincode, udise_code, data, search_name, search_loc)
-         VALUES ${tuples.join(", ")}`,
+      // The rows are already unique; ON CONFLICT is the database's own guarantee that a school can never be stored twice in a dataset.
+      const done = await client.query(
+        `INSERT INTO service_dataset_rows (dataset_id, row_number, school_name, state, district, pincode, udise_code, data, search_name, search_loc, dedupe_key)
+         VALUES ${tuples.join(", ")} ON CONFLICT (dataset_id, dedupe_key) DO NOTHING`,
         params
       );
+      inserted += done.rowCount ?? chunk.length;
     }
+    // row_count is the number of UNIQUE schools actually stored; it is what every count in the application shows.
+    await client.query("UPDATE service_datasets SET row_count = $2, report = $3::jsonb WHERE id = $1", [datasetId, inserted, JSON.stringify(buildReport(file, file.rows.length - inserted))]);
     await client.query("COMMIT");
-    return { id: datasetId, rowCount: file.rows.length, invalidRowCount: file.invalidRowCount };
+    return {
+      id: datasetId, rowCount: inserted, invalidRowCount: file.invalidRowCount,
+      duplicatesSkipped: file.dedupe.duplicatesSkipped + (file.rows.length - inserted), rowsFilled: file.dedupe.rowsFilled, possibleDuplicates: file.dedupe.possibleDuplicates,
+    };
   } catch (e) {
     try { await client.query("ROLLBACK"); } catch { /* connection already gone */ }
     throw e;
@@ -206,13 +235,13 @@ export type SearchResult = {
   near?: { center: { lat: number; lng: number } | null; pincodeKnown: boolean; radiusKm: number; limit: number };
 };
 
-export type CategoryInfo = { slug: string; name: string; active: boolean; count: number; uploadedAt: string | null };
+export type CategoryInfo = { slug: string; name: string; active: boolean; count: number; uploadedAt: string | null; isDemo: boolean };
 
-/** All six categories in their fixed order, each with whether it has live data and how many rows. */
+/** All six categories in their fixed order, each with whether it has live data, how many UNIQUE schools it has and whether it is demo data. */
 export async function listCategories(db: Queryable): Promise<CategoryInfo[]> {
-  const r = await db.query("SELECT category, row_count, uploaded_at FROM service_datasets WHERE status = 'active'");
-  const live = new Map<string, { n: number; at: string }>(r.rows.map((x) => [x.category, { n: x.row_count, at: new Date(x.uploaded_at).toISOString() }]));
-  return CATEGORIES.map((c) => ({ slug: c.slug, name: c.name, active: live.has(c.slug), count: live.get(c.slug)?.n ?? 0, uploadedAt: live.get(c.slug)?.at ?? null }));
+  const r = await db.query("SELECT category, row_count, uploaded_at, is_demo FROM service_datasets WHERE status = 'active'");
+  const live = new Map<string, { n: number; at: string; isDemo: boolean }>(r.rows.map((x) => [x.category, { n: x.row_count, at: new Date(x.uploaded_at).toISOString(), isDemo: x.is_demo === true }]));
+  return CATEGORIES.map((c) => ({ slug: c.slug, name: c.name, active: live.has(c.slug), count: live.get(c.slug)?.n ?? 0, uploadedAt: live.get(c.slug)?.at ?? null, isDemo: live.get(c.slug)?.isDemo ?? false }));
 }
 
 export async function searchServices(db: Queryable, p: SearchParams): Promise<SearchResult> {

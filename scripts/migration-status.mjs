@@ -58,6 +58,11 @@ export const MIGRATIONS = [
     { kind: "constraint", name: "upload_audit_log_attachment_kind_ck" },
     ...["upload_attachments_sha_idx", "upload_attachments_uploaded_idx", "upload_audit_log_user_created_idx", "upload_audit_log_attachment_idx"].map((name) => ({ kind: "index", name })),
   ] },
+  { id: "010", title: "no duplicate schools", feature: "Duplicate handling for uploaded files and the upload report", requires: ["005"], checks: [
+    { kind: "column", table: "service_dataset_rows", column: "dedupe_key" },
+    ...["dedupe_version", "rows_read", "duplicate_row_count", "filled_row_count", "possible_duplicate_count", "report", "is_demo"].map((column) => ({ kind: "column", table: "service_datasets", column })),
+    { kind: "index", name: "service_dataset_rows_dedupe_key_uq" },
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */

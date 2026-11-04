@@ -246,9 +246,9 @@ describe("parsing: headers, cells, encodings, merged cells", () => {
     expect(b.rowCount).toBe(2);
     expect(b.invalidRowCount).toBe(3);
     expect(b.invalidRows).toEqual([
-      { rowNumber: 5, reason: "School name is empty" },
-      { rowNumber: 6, reason: "Pincode must be 6 digits" },
-      { rowNumber: 7, reason: "No location (district, pincode) given" },
+      { row: 5, rowNumber: 5, reason: "School name is empty" },
+      { row: 6, rowNumber: 6, reason: "Pincode must be 6 digits" },
+      { row: 7, rowNumber: 7, reason: "No location (district, pincode) given" },
     ]);
     const rows = await rowsOf(b.datasetId);
     expect(rows.map((r) => r.school_name)).toEqual(["Good School", "Last School"]);
