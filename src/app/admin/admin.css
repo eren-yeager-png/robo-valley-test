@@ -1,75 +1,133 @@
-/* Admin area. Reuses the .rv tokens (colours, fonts) and the .btn / form classes from ../join/join.css and ../login/login.css. */
-.rv .adm{min-height:100vh;display:flex;background:var(--bg);color:var(--fg);font-family:var(--font)}
-.rv .adm-side{position:sticky;top:0;align-self:flex-start;height:100vh;width:248px;flex:none;background:var(--navy);color:#fff;display:flex;flex-direction:column;padding:16px 12px;overflow-y:auto}
-.rv .adm-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.15rem;padding:6px 10px 18px}
-.rv .adm-mark{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:var(--teal);color:#fff;font-size:.8rem;font-weight:800}
-.rv .adm-side nav{display:flex;flex-direction:column;gap:2px}
-.rv .adm-side a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;color:#dbe5f7;text-decoration:none;font-size:.95rem;min-height:44px}
-.rv .adm-side a .ic{width:20px;text-align:center;opacity:.85}
-.rv .adm-side a:hover{background:rgba(255,255,255,.1)}
-.rv .adm-side a.active{background:var(--teal);color:#fff;font-weight:600}
-.rv .adm-side a:focus-visible,.rv .adm-burger:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+/* Admin area, styled with the RoboValley landing page's own design tokens (robovalley-home.css: --rh-*).
+   It still reuses the .btn / form classes from ../join/join.css and ../login/login.css, so those variables are
+   re-pointed at the landing-page palette here. The admin area is light only, like the landing page. */
+.rv .adm{
+  --bg:#f5f4ef;--surface:#ffffff;--tint:#e3ede7;--fg:#15302a;--muted:#56675f;--line:#d6dfd9;
+  --brand:#17694f;--brand-ink:#ffffff;--hero:#123f33;--hero-fg:#eef5f1;--hero-muted:#b5cdc3;
+  --amber:#e8a33a;--amber-ink:#5a3b06;--amber-soft:#fbf0dc;--red:#b42318;--red-soft:#fdeceb;--blue:#2a6fb0;
+  /* shared classes from the sign-up / login styles */
+  --navy:var(--hero);--teal:var(--brand);--teal-soft:var(--tint);
+  --display:var(--rv-display),"Bricolage Grotesque",ui-sans-serif,system-ui,"Segoe UI",Arial,sans-serif;
+  --font:var(--rv-body),"Mulish",ui-sans-serif,system-ui,"Segoe UI",Arial,sans-serif;
+  --shadow:0 1px 2px rgba(21,48,42,.06),0 4px 14px rgba(21,48,42,.05);
+  color-scheme:light;min-height:100vh;display:flex;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;line-height:1.5}
+.rv .adm h1,.rv .adm h2,.rv .adm h3{font-family:var(--display);color:var(--fg);letter-spacing:-.01em}
+.rv .adm .btn{border-radius:999px;border-color:var(--line);background:var(--surface);color:var(--fg);font-family:var(--font)}
+.rv .adm .btn:hover:not(:disabled){border-color:var(--brand);color:var(--brand)}
+.rv .adm .btn.primary{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.rv .adm .btn.primary:hover:not(:disabled){background:var(--hero);border-color:var(--hero);color:#fff}
+.rv .adm a{color:var(--brand)}
+.rv .adm :focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+
+.rv .adm .auth-card{max-width:none;width:100%;margin:0!important;border-radius:18px;box-shadow:var(--shadow)}
+
+/* sidebar */
+.rv .adm-side{position:sticky;top:0;align-self:flex-start;height:100vh;width:256px;flex:none;background:var(--hero);color:var(--hero-fg);display:flex;flex-direction:column;padding:18px 12px;overflow-y:auto}
+.rv .adm-brand{display:flex;align-items:center;gap:11px;font:800 1.2rem var(--display);padding:4px 10px 20px;color:#fff}
+.rv .adm-brand small{display:block;font:600 .68rem var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--hero-muted)}
+.rv .adm-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:var(--brand);color:#fff;font:800 .85rem var(--display);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+.rv .adm-side nav{display:flex;flex-direction:column;gap:3px}
+.rv .adm-side a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:12px;color:var(--hero-fg);text-decoration:none;font-weight:600;font-size:.94rem;min-height:44px}
+.rv .adm-side a .ic{width:20px;text-align:center;opacity:.8}
+.rv .adm-side a:hover{background:rgba(255,255,255,.09)}
+.rv .adm-side a.active{background:var(--brand);color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+
+/* top bar */
 .rv .adm-body{flex:1;min-width:0;display:flex;flex-direction:column}
-.rv .adm-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;padding:10px clamp(12px,3vw,28px);background:var(--surface);border-bottom:1px solid var(--line)}
-.rv .adm-logo{font-weight:800;color:var(--navy);display:none}
-.rv .adm-title{margin:0;font-size:1.1rem;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rv .adm-who{display:flex;align-items:center;gap:10px;font-size:.9rem;color:var(--muted);min-width:0}
-.rv .adm-email{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rv .adm-burger{display:none;width:44px;height:44px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);font-size:1.2rem;cursor:pointer}
+.rv .adm-top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:10px clamp(12px,3vw,28px);background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.rv .adm-logo{font:800 1.05rem var(--display);color:var(--hero);display:none;white-space:nowrap}
+.rv .adm-title{margin:0;font-size:1.15rem;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv .adm-burger{display:none;width:44px;height:44px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font-size:1.2rem;cursor:pointer}
 .rv .adm-scrim{display:none}
-.rv .adm-main{flex:1;padding:clamp(16px,3vw,28px);max-width:1200px;width:100%;margin:0 auto}
-.rv .adm-head h1{margin:0 0 4px;font-size:1.5rem}
-.rv .adm-head p{margin:0 0 18px;color:var(--muted)}
-.rv .adm-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:18px}
-.rv .adm-grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
-.rv .adm-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
-.rv .adm-card h3{margin:0 0 10px;font-size:1rem}
-.rv .adm-card.stat .lbl{color:var(--muted);font-size:.85rem}
-.rv .adm-card.stat .val{font-size:1.9rem;font-weight:800;color:var(--navy);margin-top:4px}
-.rv .adm-card.stat .hint{color:var(--muted);font-size:.8rem;margin-top:2px}
-.rv .adm-note{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:0 0 16px;background:var(--surface);color:var(--muted)}
+
+/* profile button + menu */
+.rv .adm-profile{position:relative;flex:none}
+.rv .adm-profile-btn{display:flex;align-items:center;gap:8px;min-height:44px;padding:5px 12px 5px 6px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--fg);font:700 .92rem var(--font);cursor:pointer}
+.rv .adm-profile-btn:hover,.rv .adm-profile-btn[aria-expanded="true"]{border-color:var(--brand);background:var(--tint)}
+.rv .adm-avatar{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff}
+.rv .adm-caret{transition:transform .15s;color:var(--muted)}
+.rv .adm-profile-btn[aria-expanded="true"] .adm-caret{transform:rotate(180deg)}
+.rv .adm-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:30;min-width:260px;max-width:calc(100vw - 24px);padding:6px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:0 12px 32px rgba(21,48,42,.18)}
+.rv .adm-menu-who{padding:8px 12px 10px;margin-bottom:4px;border-bottom:1px solid var(--line);font-size:.78rem;color:var(--muted)}
+.rv .adm-menu-who strong{display:block;color:var(--fg);font-size:.88rem;overflow-wrap:anywhere}
+.rv .adm-menu a,.rv .adm-menu button{display:flex;align-items:center;width:100%;min-height:44px;padding:9px 12px;border:0;border-radius:10px;background:none;color:var(--fg);font:600 .94rem var(--font);text-align:left;text-decoration:none;cursor:pointer}
+.rv .adm-menu a:hover,.rv .adm-menu button:hover,.rv .adm-menu a:focus-visible,.rv .adm-menu button:focus-visible{background:var(--tint);color:var(--hero)}
+.rv .adm-menu button:last-child{color:var(--red)}
+.rv .adm-menu button:disabled{opacity:.6;cursor:wait}
+
+/* content */
+.rv .adm-main{flex:1;padding:clamp(16px,3vw,32px);max-width:1200px;width:100%;margin:0 auto}
+.rv .adm-head h1{margin:0 0 4px;font-size:1.65rem;font-weight:800}
+.rv .adm-head p{margin:0 0 20px;color:var(--muted)}
+.rv .adm-main h3{margin:0 0 10px;font-size:1.02rem}
+.rv .adm-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin-bottom:20px}
+.rv .adm-grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr))}
+.rv .adm-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;min-width:0;box-shadow:var(--shadow)}
+.rv .adm-card h3{margin:0 0 12px}
+.rv .adm-card.stat{background:linear-gradient(180deg,#fff,var(--tint));position:relative;overflow:hidden}
+.rv .adm-card.stat::after{content:"";position:absolute;right:-18px;top:-18px;width:70px;height:70px;border-radius:50%;background:rgba(23,105,79,.08)}
+.rv .adm-card.stat .lbl{color:var(--muted);font-size:.84rem;font-weight:700}
+.rv .adm-card.stat .val{font:800 2rem var(--display);color:var(--brand);margin-top:4px;line-height:1.1}
+.rv .adm-card.stat .hint{color:var(--muted);font-size:.8rem;margin-top:4px}
+.rv .adm-note{border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:0 0 16px;background:var(--surface);color:var(--muted)}
 .rv .adm-note strong{display:block;color:var(--fg);margin-bottom:2px}
-.rv .adm-note.setup{background:var(--amber-soft);border-color:var(--amber)}
-.rv .adm-note.error{border-color:var(--red)}
+.rv .adm-note.error{border-color:var(--red);background:var(--red-soft)}
 .rv .adm-note.error strong{color:var(--red)}
-.rv .adm-note.empty{border-style:dashed;text-align:center;padding:28px 16px}
-.rv .adm-tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.rv .adm-note.empty{border-style:dashed;text-align:center;padding:28px 16px;background:transparent}
+/* compact "database setup" notice: one slim line, details live on the Settings page */
+.rv .adm-note.setup{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:8px 12px;border-radius:12px;background:var(--amber-soft);border-color:#ecc98a;color:var(--amber-ink);font-size:.86rem}
+.rv .adm-note.setup strong{display:inline;margin:0;color:var(--amber-ink)}
+.rv .adm-note.setup .ico{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--amber);color:var(--amber-ink);font:800 .75rem var(--font)}
+.rv .adm-note.setup a{color:var(--amber-ink);font-weight:700;margin-left:auto}
+.rv .adm-note.setup code{background:rgba(90,59,6,.1);padding:0 4px;border-radius:4px}
+.rv .adm-tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}
 .rv .adm-table{width:100%;border-collapse:collapse;font-size:.9rem}
-.rv .adm-table th,.rv .adm-table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
-.rv .adm-table th{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);white-space:nowrap}
+.rv .adm-table th,.rv .adm-table td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+.rv .adm-table thead th{font:700 .72rem var(--font);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);white-space:nowrap;background:var(--bg)}
+.rv .adm-table tbody tr:hover{background:#fafaf6}
 .rv .adm-table tr:last-child td{border-bottom:0}
-.rv .adm-table td.wrap{overflow-wrap:anywhere;min-width:160px}
-.rv .adm-pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.78rem;font-weight:600;background:var(--teal-soft);color:var(--teal)}
-.rv .adm-pill.warn{background:var(--amber-soft);color:var(--amber)}
-.rv .adm-pill.bad{background:#fde7e4;color:var(--red)}
-.rv .adm-pill.mute{background:var(--bg);color:var(--muted)}
-.rv .adm-pager{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;font-size:.9rem;color:var(--muted)}
-.rv .adm-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:14px}
-.rv .adm-filters label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;color:var(--muted)}
-.rv .adm-filters select,.rv .adm-filters input{min-height:40px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg);font:inherit}
-.rv .adm-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-.rv .adm-tabs a{padding:7px 14px;border:1px solid var(--line);border-radius:99px;text-decoration:none;color:var(--fg);font-size:.9rem;background:var(--surface)}
-.rv .adm-tabs a[aria-current="page"]{background:var(--navy);color:#fff;border-color:var(--navy)}
-.rv .adm-chart{width:100%;height:280px}
-.rv .adm-bar{height:10px;border-radius:99px;background:var(--bg);overflow:hidden}
-.rv .adm-bar>i{display:block;height:100%;background:var(--teal)}
-.rv .adm-drop{border:2px dashed var(--line);border-radius:14px;padding:22px;text-align:center;background:var(--surface)}
-.rv .adm-progress{height:10px;border-radius:99px;background:var(--bg);overflow:hidden;margin:10px 0}
-.rv .adm-progress>i{display:block;height:100%;background:var(--teal);transition:width .15s}
-.rv .adm-skel .bar,.rv .adm-skel .box{background:linear-gradient(90deg,var(--line),var(--bg),var(--line));background-size:200% 100%;animation:adm-sh 1.2s infinite;border-radius:10px}
+.rv .adm-table td.cell-wrap{overflow-wrap:anywhere;min-width:160px}
+.rv .adm-pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:.76rem;font-weight:700;background:var(--tint);color:var(--brand);white-space:nowrap}
+.rv .adm-pill.warn{background:var(--amber-soft);color:var(--amber-ink)}
+.rv .adm-pill.bad{background:var(--red-soft);color:var(--red)}
+.rv .adm-pill.mute{background:#eceae2;color:var(--muted)}
+.rv .adm-pager{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px;font-size:.9rem;color:var(--muted)}
+.rv .adm-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:16px}
+.rv .adm-filters label{display:flex;flex-direction:column;gap:4px;font-size:.8rem;font-weight:700;color:var(--muted)}
+.rv .adm-filters select,.rv .adm-filters input{min-height:42px;padding:6px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font:inherit}
+.rv .adm-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.rv .adm-tabs a,.rv .adm-tabs button{padding:7px 15px;border:1px solid var(--line);border-radius:99px;text-decoration:none;color:var(--fg);font:600 .88rem var(--font);background:var(--surface);cursor:pointer}
+.rv .adm-tabs a:hover,.rv .adm-tabs button:hover:not(:disabled){border-color:var(--brand);color:var(--brand)}
+.rv .adm-tabs a[aria-current="page"],.rv .adm-tabs button[aria-selected="true"]{background:var(--hero);color:#fff;border-color:var(--hero)}
+.rv .adm-chart{width:100%;height:280px;color:var(--muted)}
+.rv .adm-drop{border:2px dashed #b9cbc1;border-radius:18px;padding:24px;text-align:center;background:var(--tint)}
+.rv .adm-progress{height:10px;border-radius:99px;background:var(--tint);overflow:hidden;margin:10px 0}
+.rv .adm-progress>i{display:block;height:100%;background:var(--brand);transition:width .15s}
+.rv .adm-code{font:500 .82rem var(--mono);background:var(--hero);color:var(--hero-fg);border-radius:12px;padding:12px 14px;overflow-x:auto;white-space:pre;margin:8px 0}
+.rv .adm-steps{margin:8px 0 0;padding-left:20px;color:var(--muted)}
+.rv .adm-skel .bar,.rv .adm-skel .box{background:linear-gradient(90deg,var(--line),var(--bg),var(--line));background-size:200% 100%;animation:adm-sh 1.2s infinite;border-radius:12px}
 .rv .adm-skel .bar{height:18px;margin:12px 0}.rv .adm-skel .w40{width:40%}.rv .adm-skel .w70{width:70%}
-.rv .adm-skel .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}.rv .adm-skel .box{height:90px}
+.rv .adm-skel .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}.rv .adm-skel .box{height:96px}
 @keyframes adm-sh{to{background-position:-200% 0}}
 .rv .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-@media (prefers-reduced-motion:reduce){.rv .adm-skel .bar,.rv .adm-skel .box{animation:none}.rv .adm-progress>i{transition:none}.rv .adm-side{transition:none}}
+@media (prefers-reduced-motion:reduce){.rv .adm-skel .bar,.rv .adm-skel .box{animation:none}.rv .adm-progress>i,.rv .adm-side,.rv .adm-caret{transition:none}}
+
 /* Tablet and phone: the sidebar becomes a drawer opened from the menu button. */
 @media (max-width:900px){
-  .rv .adm-side{position:fixed;z-index:20;left:0;top:0;transform:translateX(-100%);transition:transform .2s;box-shadow:0 0 30px rgba(0,0,0,.35)}
-  .rv .adm.open .adm-side{transform:none}
+  .rv .adm-side{position:fixed;z-index:20;left:0;top:0;transform:translateX(-100%);transition:transform .2s;box-shadow:none}
+  .rv .adm.open .adm-side{transform:none;box-shadow:0 0 30px rgba(0,0,0,.35)}
   .rv .adm-burger{display:grid;place-items:center}
   .rv .adm-logo{display:inline}
-  .rv .adm-scrim{display:block;position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.45);border:0;cursor:pointer}
-  .rv .adm-email{display:none}
+  .rv .adm-scrim{display:block;position:fixed;inset:0;z-index:15;background:rgba(18,63,51,.5);border:0;cursor:pointer}
   .rv .adm-title{font-size:1rem}
 }
-@media (max-width:480px){.rv .adm-logo{display:none}}
+@media (max-width:600px){
+  .rv .adm-logo{display:none}
+  .rv .adm-profile-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap} /* still the button's accessible name */
+  .rv .adm-profile-btn{padding-right:10px}
+  .rv .adm-head h1{font-size:1.4rem}
+  .rv .adm-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .rv .adm-grid.two{grid-template-columns:minmax(0,1fr)}
+  .rv .adm-card.stat .val{font-size:1.7rem}
+  .rv .adm-note.setup a{margin-left:0}
+}

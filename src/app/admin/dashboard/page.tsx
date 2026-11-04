@@ -9,7 +9,7 @@ import { DataTable, Notice, PageHeader, SetupNotice, StatCard, when } from "../_
 
 export const metadata: Metadata = { title: "Admin overview | RoboValley", robots: { index: false, follow: false } };
 
-const TEAL = "#0d7f81", AMBER = "#c9780a", NAVY = "#14284b", RED = "#b42318";
+const TEAL = "#17694f", AMBER = "#e8a33a", NAVY = "#2a6fb0", RED = "#b8532a"; // the landing page's brand green, blue, amber and rust
 const LOGIN_LABEL: Record<string, string> = { login_success: "Signed in", login_failed: "Failed sign-in" };
 
 // Server-side guard: anonymous -> sign in, signed-in non-admin -> their normal page. Nothing admin is rendered for them.
@@ -68,7 +68,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
         </section>
         <section><h3>Recent uploads</h3>
           <DataTable caption="Recent uploads" head={["When", "File", "Result"]} empty="Nothing has been uploaded yet."
-            rows={o.recentUploads.map((u, i) => <tr key={i}><td>{when(u.at)}</td><td className="wrap">{u.filename ?? "—"}</td><td><span className={"adm-pill" + (u.result === "success" ? "" : " warn")}>{u.result === "success" ? "Accepted" : "Rejected"}</span></td></tr>)} />
+            rows={o.recentUploads.map((u, i) => <tr key={i}><td>{when(u.at)}</td><td className="cell-wrap">{u.filename ?? "—"}</td><td><span className={"adm-pill" + (u.result === "success" ? "" : " warn")}>{u.result === "success" ? "Accepted" : "Rejected"}</span></td></tr>)} />
         </section>
       </div>
     </>

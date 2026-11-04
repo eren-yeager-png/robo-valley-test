@@ -55,7 +55,7 @@ export default async function LoginActivityPage({ searchParams }: { searchParams
             <td>{when(e.at)}</td>
             <td><span className={"adm-pill" + (BAD.has(e.type) ? " bad" : "")}>{EVENT_LABEL[e.type] ?? e.type}</span></td>
             <td>{[e.reason ? REASON_LABEL[e.reason] ?? e.reason : "", e.purpose ? (e.purpose === "guardian" ? "parent/guardian" : "signup") : ""].filter(Boolean).join(" · ") || "—"}</td>
-            <td className="wrap">{e.account ?? "Unknown account"}</td>
+            <td className="cell-wrap">{e.account ?? "Unknown account"}</td>
             <td>{e.browser ?? "—"}</td>
           </tr>
         ))} />

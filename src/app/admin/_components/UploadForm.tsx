@@ -134,7 +134,7 @@ export default function UploadForm({ categories, initialCategory, filesReady }: 
             <ul>{dataset.invalidRows.slice(0, 5).map((r, i) => <li key={i}>Row {r.row}: {r.reason}</li>)}</ul>
           )}
           <div className="adm-tablewrap"><table className="adm-table"><thead><tr><th>School</th><th>State</th><th>District</th><th>PIN code</th></tr></thead>
-            <tbody>{dataset.preview.map((r, i) => <tr key={i}><td className="wrap">{r.schoolName}</td><td>{r.state}</td><td>{r.district}</td><td>{r.pincode}</td></tr>)}</tbody></table></div>
+            <tbody>{dataset.preview.map((r, i) => <tr key={i}><td className="cell-wrap">{r.schoolName}</td><td>{r.state}</td><td>{r.district}</td><td>{r.pincode}</td></tr>)}</tbody></table></div>
           {live ? (
             <div className="adm-note" role="status" style={{ marginTop: 12 }}><strong>Now live</strong>This file is the live data for {dataset.category.name}.</div>
           ) : (

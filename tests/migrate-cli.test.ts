@@ -65,8 +65,8 @@ describe("scripts/migrate.mjs (fails closed)", () => {
   });
 
   it("rejects unknown options instead of ignoring them", () => {
-    const r = run(["--expect-db", "never_connects", "--force"]);
+    const r = run(["--expect-db", "never_connects", "--bogus"]);
     expect(r.code).toBe(1);
-    expect(r.out).toMatch(/Unknown option: --force/);
+    expect(r.out).toMatch(/Unknown option: --bogus/);
   });
 });

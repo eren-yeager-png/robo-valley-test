@@ -49,11 +49,11 @@ export default async function DatasetsPage({ searchParams }: { searchParams?: Pr
         rows={result.rows.map((d) => (
           <tr key={d.id}>
             <td>{d.categoryName}</td>
-            <td className="wrap">{d.filename}</td>
+            <td className="cell-wrap">{d.filename}</td>
             <td>{d.rows.toLocaleString("en-IN")}{d.invalidRows > 0 && <div className="adm-pill warn">{d.invalidRows} skipped</div>}</td>
             <td><span className={"adm-pill" + (d.status === "active" ? "" : d.status === "staged" ? " warn" : " mute")}>{STATUS_LABEL[d.status] ?? d.status}</span></td>
             <td>{when(d.uploadedAt)}</td>
-            <td className="wrap">{d.uploader ?? "—"}</td>
+            <td className="cell-wrap">{d.uploader ?? "—"}</td>
             <td>{d.canActivate ? <ActivateButton datasetId={d.id} label={d.filename} /> : d.status === "staged" ? <span className="adm-pill bad">Expired</span> : null}</td>
           </tr>
         ))} />

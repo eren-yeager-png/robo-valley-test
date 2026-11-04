@@ -8,7 +8,7 @@ import { DataTable, Notice, PageHeader, SetupNotice, StatCard } from "../_compon
 
 export const metadata: Metadata = { title: "Reports | RoboValley admin", robots: { index: false, follow: false } };
 
-const TEAL = "#0d7f81", AMBER = "#c9780a", NAVY = "#14284b", RED = "#b42318";
+const TEAL = "#17694f", AMBER = "#e8a33a", NAVY = "#2a6fb0", RED = "#b8532a"; // the landing page's brand green, blue, amber and rust
 
 // Every figure is counted from the database for the chosen period. Nothing is estimated or filled in.
 export default async function ReportsPage({ searchParams }: { searchParams?: Promise<{ range?: string }> } = {}) {

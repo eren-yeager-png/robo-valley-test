@@ -119,15 +119,33 @@ describe("settings page", () => {
     expect(h).toContain("Administrator");
     expect(h).toContain("Change your password");
     expect(h.toLowerCase()).toContain('autocomplete="current-password"');
-    expect((h.match(/>Ready</g) ?? []).length).toBe(2);
+    expect(h).toContain('id="profile"');
+    expect(h).toContain('id="database-setup"');
+    expect((h.match(/>Applied</g) ?? []).length).toBe(9);
+    expect(h).toContain("Everything is applied");
+    expect(h).not.toContain("For the developer");
     expect(h).not.toMatch(/password_hash|SESSION_SECRET|DATABASE_URL/);
   });
 
-  it("says which features are not set up yet", async () => {
-    await q("alter table upload_attachments rename to upload_attachments_hidden");
+  it("lists the migrations that are not applied, what they affect, and the developer steps, without any SQL or database error", async () => {
+    await q("alter table upload_attachments rename to upload_attachments_hidden"); // shared harness: put it back below
     let h: string;
     try { h = await html(SettingsPage()); } finally { await q("alter table upload_attachments_hidden rename to upload_attachments"); }
-    expect((h.match(/Not set up yet/g) ?? []).length).toBe(1);
+    expect(h).toContain("Partly applied");
+    expect(h).toContain("Stored files, downloads and richer upload history");
+    expect(h).toContain("For the developer: applying 009");
+    expect(h).toContain("--only 009 --apply");
+    expect(h).toContain("--status");
+    expect(h).not.toMatch(/relation|syntax error|SELECT |pg_/i);
+    expect(h).not.toContain("--only 008"); // only what is actually pending
+  });
+
+  it("says plainly when the database structure cannot be checked", async () => {
+    const { makeFakePool, pgError } = await import("./helpers");
+    makeFakePool((sql) => (sql.includes("information_schema") ? pgError("57P01") : undefined));
+    const h = await html(SettingsPage());
+    expect(h).toContain("could not be checked");
+    expect(h).not.toContain("57P01");
   });
 
   it("is closed to visitors and regular users", async () => {

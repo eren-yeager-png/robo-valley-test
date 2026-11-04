@@ -197,3 +197,24 @@ Tests run against **PGlite** (a real PostgreSQL engine running inside the test p
 - SMS / mobile verification (mobile is collected but unverified); mobile numbers are not unique.
 - A `000_base_schema.sql` migration for brand-new databases (the two original tables were created by hand; `tests/helpers/baseSchema.sql` is only a test fixture), and a hosted-database (Neon) trial of the whole flow.
 - Per-session revocation (sessions are stateless signed cookies); Resend webhooks (bounces); a verified sending domain for Resend.
+
+## 3b. Which migrations does a database have? (read-only)
+
+```powershell
+npm run db:migrate -- --expect-db <database name> --status
+```
+
+Reads the database's real schema (no tracking table) and reports every migration as **applied**, **MISSING** or **PARTIAL**, with the feature each one enables and anything it is waiting for. The database itself is put in read-only mode for this command, so it can never change anything, and it cannot be combined with `--apply`. A normal `--apply` now skips migrations that are already applied (`--force` runs one again) and refuses to start one whose prerequisite (for example 005 for 007/009) is missing. The admin **Settings > Database setup** panel shows the same status.
+
+## 3c. Sample data for local development
+
+For a **local** database only (the script refuses any host that is not this computer, and `NODE_ENV=production`). All migrations must be applied first (check with `--status`).
+
+```powershell
+npm run seed:sample -- --expect-db <local database name>                      # dry run: shows what it would add
+npm run seed:sample -- --expect-db <local database name> --apply              # add it; safe to repeat, nothing is duplicated
+npm run seed:sample -- --expect-db <local database name> --apply --with-admin # also give admin@sample.robovalley.test the password SamplePass#2025
+npm run seed:sample -- --expect-db <local database name> --reset --apply      # remove ONLY the sample records
+```
+
+It adds 24 sample users (students, parents, teachers) and a sample admin, datasets for all six categories (history, one live each, some staged), about 670 login events over 90 days using only the fixed event types and reasons, upload history, and seven real downloadable files (csv, xlsx, pdf, docx, png, jpg, txt). Sample rows are recognisable (e-mail ending `@sample.robovalley.test`; row ids in the reserved range 9,000,000,000,000 and above), which is how `--reset` removes only them. A real live dataset is never replaced. The sample schools also appear in the local Find a Service search until you reset.
