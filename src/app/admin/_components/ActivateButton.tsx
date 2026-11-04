@@ -7,7 +7,7 @@ import { useState } from "react";
  * "Make live" for a staged (previewed) dataset. It calls the existing admin-only confirm route, which switches only
  * that dataset's own category inside a transaction; the server decides everything, this button only asks.
  */
-export default function ActivateButton({ datasetId, label }: { datasetId: string; label: string }) {
+export default function ActivateButton({ datasetId, label, onDone }: { datasetId: string; label: string; onDone?: () => void }) {
   const router = useRouter();
   const [state, setState] = useState<{ busy: boolean; error: string }>({ busy: false, error: "" });
   async function go() {
@@ -19,6 +19,7 @@ export default function ActivateButton({ datasetId, label }: { datasetId: string
       const body = (await res.json().catch(() => ({}))) as { success?: boolean; message?: string };
       if (!res.ok || !body.success) { setState({ busy: false, error: body.message ?? "Could not make this dataset live." }); return; }
       router.refresh();
+      onDone?.();
     } catch {
       setState({ busy: false, error: "Network problem. Nothing was changed." });
     }
