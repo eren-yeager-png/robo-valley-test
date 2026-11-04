@@ -184,7 +184,8 @@ describe("search by category", () => {
   it("responses never contain demo or sample content", async () => {
     await goLive(ATL, "atl-labs");
     for (const body of [(await cats()).body, (await get()).body, (await get("?category=stem-labs")).body]) {
-      expect(JSON.stringify(body)).not.toMatch(/demo|Demonstration data|DEMO DATA|example\.org/i);
+      // The only mention of "demo" allowed is the explicit flag, and for real uploaded data it must be false.
+      expect(JSON.stringify(body).replace(/"isDemo":false/g, "")).not.toMatch(/demo|Demonstration data|DEMO DATA|example\.org/i);
     }
   });
 });

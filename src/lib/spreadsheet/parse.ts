@@ -6,6 +6,7 @@
 import { parse as parseCsv } from "csv-parse/sync";
 import ExcelJS from "exceljs";
 import { createHash } from "node:crypto";
+import { dedupeRows, type DedupeSummary, MAX_REPORT_ENTRIES, normPin } from "./dedupe";
 import { type Header, MAX_CELL_CHARS, normalizeHeaders, sanitizeCell, sanitizeText } from "./sanitize";
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -41,6 +42,7 @@ function findColumn(headers: Header[], field: Field): number {
 }
 
 export type ParsedRow = {
+  sheet?: string; // the worksheet (xlsx only), so a row number can be found again in a workbook with several sheets
   rowNumber: number; // 1-based row in the file, for error messages
   schoolName: string;
   state: string;
@@ -50,14 +52,24 @@ export type ParsedRow = {
   locationText: string; // lower-case search text: state, district, pincode and any other location columns
   data: Record<string, string>; // every column, keyed by normalised header
 };
-export type InvalidRow = { rowNumber: number; reason: string };
+export type InvalidRow = { rowNumber: number; reason: string; sheet?: string };
 export type ParsedFile = {
   filename: string;
   sha256: string;
   headers: Header[];
-  rows: ParsedRow[];
+  /** The UNIQUE records: duplicates are already merged (see dedupe.ts). Each carries the key the database keeps unique. */
+  rows: (ParsedRow & { dedupeKey: string })[];
+  /** The first rows that were refused (kept short for the response); every refused row is in rejectedRows. */
   invalidRows: InvalidRow[];
   invalidRowCount: number;
+  rejectedRows: InvalidRow[];
+  /** Data rows seen in the file, before anything was merged or refused (empty rows, repeated headers and hidden rows are not counted). */
+  rowsRead: number;
+  /** Rows the spreadsheet hides (a filter, or hidden by hand). They are READ like any other row: a leftover filter must never drop most of a list. */
+  hiddenRowsRead: number;
+  repeatedHeaderRows: { rowNumber: number; sheet?: string }[];
+  sheetsRead: string[];
+  dedupe: DedupeSummary;
 };
 
 // ---- file-level checks ------------------------------------------------------------------------------------------
@@ -106,7 +118,9 @@ function decodeCsv(buf: Buffer): string {
 }
 
 // ---- reading rows ----------------------------------------------------------------------------------------------
-type Grid = { cells: unknown[][]; lines?: number[] }; // lines[i] = the line number in the file (CSV only; blank lines are skipped by the parser)
+// One Grid per worksheet (a CSV is one grid). lines[i] = the line number in the file (CSV only; blank lines are skipped by the parser).
+// hidden[i] = the spreadsheet program hides that row (xlsx only).
+type Grid = { name?: string; cells: unknown[][]; lines?: number[]; hidden?: boolean[] };
 
 function csvGrid(buf: Buffer): Grid {
   if (buf[0] === 0x50 && buf[1] === 0x4b) throw new UploadError("INVALID_FILE_CONTENT", "This looks like an Excel workbook saved with a .csv name. Save it as .xlsx, or export a real CSV.", 400);
@@ -122,7 +136,7 @@ function csvGrid(buf: Buffer): Grid {
   }
 }
 
-async function xlsxGrid(buf: Buffer): Promise<Grid> {
+async function xlsxGrids(buf: Buffer): Promise<Grid[]> {
   if (!(buf.length > 4 && buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04)) {
     throw new UploadError("INVALID_FILE_CONTENT", "The file is not a real .xlsx workbook (its content does not match its extension).", 400);
   }
@@ -133,20 +147,27 @@ async function xlsxGrid(buf: Buffer): Promise<Grid> {
   } catch {
     throw new UploadError("MALFORMED_FILE", "The workbook could not be opened. It may be damaged or password-protected.", 400);
   }
-  const ws = wb.worksheets.find((w) => w.state === "visible" && w.rowCount > 0);
-  if (!ws) throw new UploadError("EMPTY_FILE", "The workbook has no sheet with data.", 400);
-  if (ws.actualRowCount > MAX_ROWS + HEADER_SCAN_ROWS + 2) {
+  // Every visible sheet that has data is read; hidden and empty sheets are ignored.
+  const sheets = wb.worksheets.filter((w) => w.state === "visible" && w.rowCount > 0);
+  if (sheets.length === 0) throw new UploadError("EMPTY_FILE", "The workbook has no sheet with data.", 400);
+  let total = 0;
+  for (const ws of sheets) total += ws.actualRowCount;
+  if (total > MAX_ROWS + (HEADER_SCAN_ROWS + 2) * sheets.length) {
     throw new UploadError("TOO_MANY_ROWS", `The file has more than ${MAX_ROWS.toLocaleString("en-IN")} rows. Split it into smaller files.`, 413);
   }
-  const cols = Math.min(ws.columnCount, MAX_COLUMNS + 1);
-  const grid: unknown[][] = [];
-  for (let r = 1; r <= ws.rowCount; r++) {
-    const row = ws.getRow(r);
-    const cells: unknown[] = [];
-    for (let c = 1; c <= cols; c++) cells.push(row.getCell(c).value); // a merged cell yields the value of its top-left cell
-    grid.push(cells);
-  }
-  return { cells: grid };
+  return sheets.map((ws) => {
+    const cols = Math.min(ws.columnCount, MAX_COLUMNS + 1);
+    const cells: unknown[][] = [];
+    const hidden: boolean[] = [];
+    for (let r = 1; r <= ws.rowCount; r++) {
+      const row = ws.getRow(r);
+      const line: unknown[] = [];
+      for (let c = 1; c <= cols; c++) line.push(row.getCell(c).value); // a merged cell yields the value of its top-left cell
+      cells.push(line);
+      hidden.push(row.hidden === true);
+    }
+    return { name: ws.name, cells, hidden };
+  });
 }
 
 // ---- main entry --------------------------------------------------------------------------------------------------
@@ -161,73 +182,112 @@ export async function parseUpload(input: { filename: string; mime: string; buffe
     throw new UploadError("UNSUPPORTED_FILE_TYPE", `Unsupported file type (${mime || "unknown"}). Please upload an .xlsx or .csv file.`, 415);
   }
 
-  const { cells: grid, lines } = ext === "xlsx" ? await xlsxGrid(buffer) : csvGrid(buffer);
-  const isBlank = (r: unknown[]) => r.every((c) => sanitizeCell(c) === "");
-
-  // The header row is the first row (within the first few) that has a school-name column; failing that, the first non-empty row.
-  let headerAt = -1;
-  let fallback = -1;
-  for (let i = 0; i < Math.min(grid.length, HEADER_SCAN_ROWS); i++) {
-    if (isBlank(grid[i]!)) continue;
-    if (fallback < 0) fallback = i;
-    if (findColumn(normalizeHeaders(grid[i]!), "schoolName") >= 0) { headerAt = i; break; }
-  }
-  if (fallback < 0) throw new UploadError("EMPTY_FILE", "The file has no data.", 400);
-  if (headerAt < 0) headerAt = fallback;
-
-  let rawHeaders = grid[headerAt]!;
-  while (rawHeaders.length && sanitizeCell(rawHeaders[rawHeaders.length - 1]) === "") rawHeaders = rawHeaders.slice(0, -1); // trailing empty columns
-  if (rawHeaders.length > MAX_COLUMNS) throw new UploadError("TOO_MANY_COLUMNS", `The file has more than ${MAX_COLUMNS} columns.`, 400);
-  const headers = normalizeHeaders(rawHeaders);
-
-  const col = {
-    school: findColumn(headers, "schoolName"), state: findColumn(headers, "state"), district: findColumn(headers, "district"),
-    pincode: findColumn(headers, "pincode"), udise: findColumn(headers, "udise"), place: findColumn(headers, "place"),
-  };
-  const missing: string[] = [];
-  if (col.school < 0) missing.push("School Name");
-  if (col.district < 0 && col.pincode < 0 && col.place < 0) missing.push("a location column (District or Pincode)");
-  if (missing.length) {
-    throw new UploadError(
-      "MISSING_COLUMNS",
-      `The file was rejected because it is missing: ${missing.join(" and ")}. Columns found: ${headers.map((h) => h.label).join(", ") || "none"}.`,
-      422,
-      { missing, found: headers.map((h) => h.label) }
-    );
-  }
+  const grids: Grid[] = ext === "xlsx" ? await xlsxGrids(buffer) : [csvGrid(buffer)];
+  const multi = grids.length > 1;
 
   const rows: ParsedRow[] = [];
+  const rejectedRows: InvalidRow[] = [];
   const invalidRows: InvalidRow[] = [];
-  let invalidRowCount = 0;
-  let dataRows = 0;
-  const bad = (rowNumber: number, reason: string) => { invalidRowCount++; if (invalidRows.length < MAX_REPORTED_INVALID) invalidRows.push({ rowNumber, reason }); };
+  const repeatedHeaderRows: { rowNumber: number; sheet?: string }[] = [];
+  const headers: Header[] = [];
+  const sheetsRead: string[] = [];
+  let invalidRowCount = 0, dataRows = 0, hiddenRowsRead = 0;
+  let sheetError: UploadError | null = null;
+  let anyData = false;
 
-  for (let i = headerAt + 1; i < grid.length; i++) {
-    const raw = grid[i]!;
-    if (isBlank(raw)) continue; // empty rows are skipped silently
-    if (++dataRows > MAX_ROWS) throw new UploadError("TOO_MANY_ROWS", `The file has more than ${MAX_ROWS.toLocaleString("en-IN")} data rows. Split it into smaller files.`, 413);
-    const rowNumber = lines?.[i] ?? i + 1;
-    const data: Record<string, string> = {};
-    let tooLong = false;
-    headers.forEach((h, c) => {
-      const v = sanitizeCell(raw[c]);
-      if (v.length > MAX_CELL_CHARS) tooLong = true;
-      data[h.key] = v.slice(0, MAX_CELL_CHARS);
-    });
-    const at = (c: number) => (c >= 0 ? data[headers[c]!.key]! : "");
-    const schoolName = at(col.school), state = at(col.state), district = at(col.district), pincode = at(col.pincode), place = at(col.place);
-    if (tooLong) { bad(rowNumber, `A cell is longer than ${MAX_CELL_CHARS} characters`); continue; }
-    if (!schoolName || schoolName === "'") { bad(rowNumber, "School name is empty"); continue; }
-    if (!district && !pincode && !place) { bad(rowNumber, "No location (district, pincode) given"); continue; }
-    if (pincode && !/^\d{6}$/.test(pincode)) { bad(rowNumber, "Pincode must be 6 digits"); continue; }
-    rows.push({
-      rowNumber, schoolName, state, district, pincode, udiseCode: at(col.udise).slice(0, 32),
-      locationText: [state, district, pincode, place].filter(Boolean).join(" ").toLowerCase(),
-      data,
-    });
+  for (const grid of grids) {
+    const { cells, lines, hidden } = grid;
+    const sheet = multi ? grid.name : undefined;
+    const isBlank = (r: unknown[]) => r.every((c) => sanitizeCell(c) === "");
+
+    // The header row is the first row (within the first few) that has a school-name column; failing that, the first non-empty row.
+    let headerAt = -1;
+    let fallback = -1;
+    for (let i = 0; i < Math.min(cells.length, HEADER_SCAN_ROWS); i++) {
+      if (isBlank(cells[i]!)) continue;
+      if (fallback < 0) fallback = i;
+      if (findColumn(normalizeHeaders(cells[i]!), "schoolName") >= 0) { headerAt = i; break; }
+    }
+    if (fallback < 0) continue; // an empty sheet
+    anyData = true;
+    if (headerAt < 0) headerAt = fallback;
+
+    let rawHeaders = cells[headerAt]!;
+    while (rawHeaders.length && sanitizeCell(rawHeaders[rawHeaders.length - 1]) === "") rawHeaders = rawHeaders.slice(0, -1); // trailing empty columns
+    if (rawHeaders.length > MAX_COLUMNS) throw new UploadError("TOO_MANY_COLUMNS", `The file has more than ${MAX_COLUMNS} columns.`, 400);
+    const sheetHeaders = normalizeHeaders(rawHeaders);
+
+    const col = {
+      school: findColumn(sheetHeaders, "schoolName"), state: findColumn(sheetHeaders, "state"), district: findColumn(sheetHeaders, "district"),
+      pincode: findColumn(sheetHeaders, "pincode"), udise: findColumn(sheetHeaders, "udise"), place: findColumn(sheetHeaders, "place"),
+    };
+    const missing: string[] = [];
+    if (col.school < 0) missing.push("School Name");
+    if (col.district < 0 && col.pincode < 0 && col.place < 0) missing.push("a location column (District or Pincode)");
+    if (missing.length) {
+      // With several sheets, one without school data (a notes sheet, say) is skipped; the file is only refused when no sheet is usable.
+      sheetError ??= new UploadError(
+        "MISSING_COLUMNS",
+        `The file was rejected because it is missing: ${missing.join(" and ")}. Columns found: ${sheetHeaders.map((h) => h.label).join(", ") || "none"}.`,
+        422,
+        { missing, found: sheetHeaders.map((h) => h.label) }
+      );
+      if (multi) continue;
+      throw sheetError;
+    }
+    sheetsRead.push(grid.name ?? "csv");
+    for (const h of sheetHeaders) if (!headers.some((x) => x.key === h.key)) headers.push(h);
+
+    const schoolLabel = (sheetHeaders[col.school]!.label ?? "").toLowerCase();
+    const bad = (rowNumber: number, reason: string) => {
+      invalidRowCount++;
+      const item: InvalidRow = { rowNumber, reason, ...(sheet ? { sheet } : {}) };
+      if (invalidRows.length < MAX_REPORTED_INVALID) invalidRows.push(item);
+      if (rejectedRows.length < MAX_REPORT_ENTRIES) rejectedRows.push(item);
+    };
+
+    for (let i = headerAt + 1; i < cells.length; i++) {
+      const raw = cells[i]!;
+      if (isBlank(raw)) continue; // empty rows are skipped silently
+      const rowNumber = lines?.[i] ?? i + 1;
+      if (hidden?.[i]) hiddenRowsRead++; // counted and reported, but still read: an Excel filter left switched on hides rows without deleting them
+      // A header row repeated further down (a file pasted together from several parts) is not a school.
+      if (schoolLabel !== "" && sanitizeCell(raw[col.school]).replace(/^'/, "").toLowerCase() === schoolLabel) {
+        repeatedHeaderRows.push({ rowNumber, ...(sheet ? { sheet } : {}) });
+        continue;
+      }
+      if (++dataRows > MAX_ROWS) throw new UploadError("TOO_MANY_ROWS", `The file has more than ${MAX_ROWS.toLocaleString("en-IN")} data rows. Split it into smaller files.`, 413);
+      const data: Record<string, string> = {};
+      let tooLong = false;
+      sheetHeaders.forEach((h, c) => {
+        const v = sanitizeCell(raw[c]);
+        if (v.length > MAX_CELL_CHARS) tooLong = true;
+        data[h.key] = v.slice(0, MAX_CELL_CHARS);
+      });
+      const at = (c: number) => (c >= 0 ? data[sheetHeaders[c]!.key]! : "");
+      const schoolName = at(col.school), state = at(col.state), district = at(col.district), place = at(col.place);
+      // "110001.0" and "110 001" are the same PIN code as "110001"; the cleaned value is what is stored.
+      const pincode = normPin(at(col.pincode));
+      if (col.pincode >= 0 && pincode !== at(col.pincode)) data[sheetHeaders[col.pincode]!.key] = pincode;
+      if (tooLong) { bad(rowNumber, `A cell is longer than ${MAX_CELL_CHARS} characters`); continue; }
+      if (!schoolName || schoolName === "'") { bad(rowNumber, "School name is empty"); continue; }
+      if (!district && !pincode && !place) { bad(rowNumber, "No location (district, pincode) given"); continue; }
+      if (pincode && !/^\d{6}$/.test(pincode)) { bad(rowNumber, "Pincode must be 6 digits"); continue; }
+      rows.push({
+        ...(sheet ? { sheet } : {}), rowNumber, schoolName, state, district, pincode, udiseCode: at(col.udise).slice(0, 32),
+        locationText: [state, district, pincode, place].filter(Boolean).join(" ").toLowerCase(),
+        data,
+      });
+    }
   }
+  if (!anyData) throw new UploadError("EMPTY_FILE", "The file has no data.", 400);
+  if (sheetsRead.length === 0 && sheetError) throw sheetError;
   if (rows.length === 0) {
     throw new UploadError("NO_VALID_ROWS", invalidRowCount ? `The file was rejected: none of its ${invalidRowCount} rows are valid (for example the school name or location is empty).` : "The file has a header row but no data rows.", 422, { invalidRows });
   }
-  return { filename, sha256: createHash("sha256").update(buffer).digest("hex"), headers, rows, invalidRows, invalidRowCount };
+  const { rows: unique, summary } = dedupeRows(rows);
+  return {
+    filename, sha256: createHash("sha256").update(buffer).digest("hex"), headers, rows: unique, invalidRows, invalidRowCount, rejectedRows,
+    rowsRead: dataRows, hiddenRowsRead, repeatedHeaderRows, sheetsRead, dedupe: summary,
+  };
 }
