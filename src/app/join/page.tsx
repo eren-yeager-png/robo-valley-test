@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { resolveReturnTo } from "../../lib/session";
 import JoinFlow from "./JoinFlow";
 
 export const metadata: Metadata = {
@@ -6,6 +7,10 @@ export const metadata: Metadata = {
   description: "Create your RoboValley account",
 };
 
-export default function JoinPage() {
-  return <JoinFlow />;
+// ?returnTo=<Projects page address> is validated on the server (lib/returnTo.ts) and carried through the whole sign-up flow to
+// the sign-in step. Without a valid value nothing changes.
+export default async function JoinPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> } = {}) {
+  const rawReturnTo = (await searchParams)?.returnTo;
+  const returnTo = resolveReturnTo(typeof rawReturnTo === "string" ? rawReturnTo : undefined);
+  return <JoinFlow returnTo={returnTo ?? undefined} />;
 }

@@ -11,10 +11,13 @@ foreach ( $ids as $id ) {
 foreach ( get_terms( array( 'taxonomy' => RVP_TAX_SUBJECT, 'hide_empty' => false, 'name__like' => 'RVPMARK_' ) ) as $term ) {
 	wp_delete_term( $term->term_id, RVP_TAX_SUBJECT );
 }
+foreach ( get_posts( array( 'post_type' => 'attachment', 'meta_key' => '_rvp_test_image', 'meta_value' => '1', 'numberposts' => -1, 'post_status' => 'inherit', 'fields' => 'ids' ) ) as $att ) {
+	wp_delete_attachment( (int) $att, true );
+}
 $other = get_term_by( 'slug', 'other-technologies', RVP_TAX_TECH );
 if ( $other ) {
 	delete_term_meta( $other->term_id, 'rvp_show_empty' );
 }
 $dir = wp_upload_dir();
 @unlink( $dir['basedir'] . '/rvp-markers.json' );
-WP_CLI::success( 'Removed ' . count( $ids ) . ' test projects, the marker subject term and the marker file.' );
+WP_CLI::success( 'Removed ' . count( $ids ) . ' test projects, the test image, the marker subject term and the marker file.' );

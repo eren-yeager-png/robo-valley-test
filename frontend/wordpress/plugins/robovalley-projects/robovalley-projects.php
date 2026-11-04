@@ -35,6 +35,7 @@ require_once RVP_DIR . 'includes/admin-columns.php';
 require_once RVP_DIR . 'includes/seed.php';
 require_once RVP_DIR . 'includes/catalogue.php';
 require_once RVP_DIR . 'includes/rest-catalogue.php';
+require_once RVP_DIR . 'includes/bridge.php';
 
 /**
  * Activation: grant the capabilities and add the starter taxonomy terms (once). Creates no projects.

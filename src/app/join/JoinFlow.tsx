@@ -50,8 +50,10 @@ async function postJson(url: string, body: unknown) {
   }
 }
 
-export default function JoinFlow() {
+// returnTo: an address the server has already validated (see join/page.tsx); it is passed on to the sign-in page.
+export default function JoinFlow({ returnTo }: { returnTo?: string } = {}) {
   const router = useRouter();
+  const loginHref = returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login";
   const [f, setF] = useState<Form>(EMPTY);
   const [stepId, setStepId] = useState("role");
   const [errors, setErrors] = useState<Errors>({});
@@ -263,7 +265,7 @@ export default function JoinFlow() {
               ))}
             </div>
             {Err("role")}
-            <p className="muted" style={{ fontSize: ".85rem" }}>Already a member? <Link href="/login">Sign in</Link></p>
+            <p className="muted" style={{ fontSize: ".85rem" }}>Already a member? <Link href={loginHref}>Sign in</Link></p>
             {Nav({ label: "Continue", onClick: onNext })}
           </>
         );
@@ -395,7 +397,7 @@ export default function JoinFlow() {
               <div><b>3 · Take part</b><span className="muted">Join a challenge, a club or book a mentor.</span></div>
             </div>
             <div className="box info">Follow RoboValley on LinkedIn, Facebook, Instagram, YouTube, X and WhatsApp for challenge and event news.</div>
-            <div className="actions"><button type="button" className="btn" onClick={reset}>Start again</button><button type="button" className="btn primary" onClick={() => router.push("/login")}>Sign in to my dashboard →</button></div>
+            <div className="actions"><button type="button" className="btn" onClick={reset}>Start again</button><button type="button" className="btn primary" onClick={() => router.push(loginHref)}>Sign in to my dashboard →</button></div>
           </>
         );
     }

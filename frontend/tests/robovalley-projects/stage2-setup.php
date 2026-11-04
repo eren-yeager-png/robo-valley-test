@@ -25,8 +25,18 @@ $m   = array(
 $subject = wp_insert_term( $m['subject'], RVP_TAX_SUBJECT );
 $subject_id = is_wp_error( $subject ) ? 0 : $subject['term_id'];
 
-$image = get_posts( array( 'post_type' => 'attachment', 'title' => 'RVP TEST IMAGE', 'numberposts' => 1, 'post_status' => 'inherit', 'fields' => 'ids' ) );
+// A tiny test image (flagged so stage2-teardown.php removes it), created here so the tests do not depend on the Media Library.
+$image = get_posts( array( 'post_type' => 'attachment', 'meta_key' => '_rvp_test_image', 'meta_value' => '1', 'numberposts' => 1, 'post_status' => 'inherit', 'fields' => 'ids' ) );
 $image_id = $image ? (int) $image[0] : 0;
+if ( ! $image_id ) {
+	require_once ABSPATH . 'wp-admin/includes/image.php';
+	$upload = wp_upload_dir();
+	$file   = $upload['path'] . '/rvp-test-image-' . substr( md5( uniqid( '', true ) ), 0, 6 ) . '.png';
+	file_put_contents( $file, base64_decode( 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' ) );
+	$image_id = wp_insert_attachment( array( 'post_mime_type' => 'image/png', 'post_title' => 'RVP TEST IMAGE', 'post_status' => 'inherit' ), $file );
+	wp_update_attachment_metadata( $image_id, wp_generate_attachment_metadata( $image_id, $file ) );
+	update_post_meta( $image_id, '_rvp_test_image', '1' );
+}
 
 $base = time() - 86400 * 40; // post dates: a fixed, distinct minute apart per project, so "latest" order is deterministic.
 $n    = 0;
