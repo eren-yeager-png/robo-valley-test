@@ -167,3 +167,16 @@ export async function usersByRole(db: Db): Promise<{ role: string; label: string
   const label = new Map(ROLES.map((x) => [x[0], x[1]]));
   return rows.map((r) => ({ role: r.role, label: r.role === "admin" ? "Administrator" : label.get(r.role) ?? r.role, count: Number(r.n) }));
 }
+
+/** One-time-code activity per day (needs login_events). */
+export async function otpByDay(db: Db, days: number): Promise<DayPoint[]> {
+  const { rows } = await db.query(
+    `SELECT (created_at AT TIME ZONE 'UTC')::date::text AS day,
+            count(*) FILTER (WHERE event_type = 'otp_sent')::int AS sent,
+            count(*) FILTER (WHERE event_type = 'otp_verified')::int AS verified,
+            count(*) FILTER (WHERE event_type = 'otp_failed')::int AS failed
+       FROM login_events WHERE created_at >= ${SINCE} GROUP BY 1`, [days]);
+  return fillDays(rows, days, ["sent", "verified", "failed"]);
+}
+
+export const sumOf = (points: DayPoint[], key: string): number => points.reduce((n, p) => n + Number(p[key] ?? 0), 0);
