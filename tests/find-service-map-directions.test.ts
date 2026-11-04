@@ -42,6 +42,7 @@ const STYLE = {
 
 let added: Array<[string, any, any]> = [];
 let calls: Calls;
+let opened: Array<{ href: string; target: string; rel: string }> = [];
 let fetchMock: ReturnType<typeof vi.fn>;
 
 async function mount(opts: { gl?: boolean; webgl?: boolean; styleStatus?: number; search?: unknown; locate?: (ok: any, err: any) => void; secure?: boolean; noGeo?: boolean } = {}) {
@@ -90,6 +91,8 @@ const dest = (a: HTMLAnchorElement) => new URL(a.href).searchParams;
 
 beforeEach(() => {
   added = [];
+  opened = [];
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) { opened.push({ href: this.href, target: this.target, rel: this.rel }); });
   const orig = document.addEventListener.bind(document);
   vi.spyOn(document, "addEventListener").mockImplementation(((t: string, l: any, o: any) => { added.push([t, l, o]); orig(t, l, o); }) as any);
 });
@@ -211,7 +214,7 @@ describe("base map: English labels", () => {
 });
 
 describe("directions link", () => {
-  it("opens Google Maps in a new tab; the destination is name, district, state and PIN code, fully encoded", async () => {
+  it("opens Google Maps in a new tab; the destination is name, district, state, PIN code and India, fully encoded", async () => {
     const w = await mount();
     await w.search();
     const a = w.links()[0];
@@ -222,10 +225,9 @@ describe("directions link", () => {
     const url = new URL(a.href);
     expect(url.origin + url.pathname).toBe("https://www.google.com/maps/dir/");
     expect(url.searchParams.get("api")).toBe("1");
-    expect(url.searchParams.get("destination")).toBe(`${NASTY}, New Delhi, Delhi, 110001`);
+    expect(url.searchParams.get("destination")).toBe(`${NASTY}, New Delhi, 110001, India`); // the state "Delhi" is already in "New Delhi"
     expect(url.searchParams.get("travelmode")).toBe("driving");
     expect(url.searchParams.has("origin")).toBe(false);
-    // The raw string never carries the dangerous characters of the name unescaped.
     expect(a.href).not.toMatch(/[<>#"]/);
     expect(a.href.split("?")[1]).toContain("%26");
     expect(a.href).toContain("%23");
@@ -239,26 +241,16 @@ describe("directions link", () => {
     expect(document.querySelectorAll("#rv-fas-list script")).toHaveLength(0);
     expect(RESULTS).not.toMatch(/innerHTML/);
   });
-  it("has a Directions link on every result row and inside the popup (single school and multi-school)", async () => {
-    const w = await mount();
+  it("has a Directions link on every result row, and one per school in a several-school popup", async () => {
+    const w = await mount({ search: near(MULTI) });
     await w.search();
     expect(w.cards().every((c) => c.querySelectorAll("a.rv-fas-dir-link").length === 1)).toBe(true);
     calls.markers[0].el.click();
     const pop = calls.popups[0].content as HTMLElement;
-    const pa = pop.querySelector("a.rv-fas-dir-link") as HTMLAnchorElement;
-    expect(pa.getAttribute("aria-label")).toBe(`Get directions to ${NASTY}`);
-    expect(dest(pa).get("destination")).toContain("110001");
-    expect(pa.rel).toBe("noopener noreferrer");
-
-    await w.search("110001"); // the same PIN code again: new rows
-    const m = await mount({ search: near(MULTI) });
-    await m.search();
-    calls.markers[0].el.click();
-    const mp = calls.popups[calls.popups.length - 1].content as HTMLElement;
-    expect(mp.querySelector("a.rv-fas-dir-link")).toBeNull(); // nothing chosen yet in the list
-    (mp.querySelectorAll(".rv-fas-pop-item")[1] as HTMLElement).click();
-    const chosen = mp.querySelector(".rv-fas-pop-detail a.rv-fas-dir-link") as HTMLAnchorElement;
-    expect(dest(chosen).get("destination")).toBe("Second, New Delhi, Delhi, 110001");
+    const links = [...pop.querySelectorAll<HTMLAnchorElement>(".rv-fas-pop-row a.rv-fas-dir-link")];
+    expect(links.map((a) => dest(a).get("destination"))).toEqual(["First, New Delhi, 110001, India", "Second, New Delhi, 110001, India", "Third, New Delhi, 110001, India"]);
+    expect(links.every((a) => a.rel === "noopener noreferrer" && a.target === "_blank")).toBe(true);
+    expect(links.map((a) => a.getAttribute("aria-label"))).toEqual(["Get directions to First", "Get directions to Second", "Get directions to Third"]);
   });
   it("follows the travel-mode choice", async () => {
     const w = await mount();
@@ -272,7 +264,7 @@ describe("directions link", () => {
     sel.dispatchEvent(new Event("change"));
     expect(w.links().every((a) => dest(a).get("travelmode") === "driving")).toBe(true);
   });
-  it("works with the keyboard and touch: a real focusable link, and a tap or Enter does not also select the row", async () => {
+  it("works with the keyboard and touch: a real focusable link, and a tap or Enter does not also open the school's place page", async () => {
     const w = await mount();
     await w.search();
     const a = w.links()[0];
@@ -291,17 +283,17 @@ describe("directions link", () => {
     a.dispatchEvent(click);
     expect(click.defaultPrevented).toBe(false); // the browser follows the link
     expect(rowClick).not.toHaveBeenCalled();
+    expect(opened).toHaveLength(0); // no second tab from the row
     expect(calls.flyTo).toHaveLength(0);
     expect(calls.popups).toHaveLength(0);
     expect(document.getElementById("rv-fas-tip")!.hidden).toBe(true);
-    // Enter on the link: the row's own Enter handler only reacts when the row itself has focus.
     a.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    expect(calls.flyTo).toHaveLength(0);
+    expect(opened).toHaveLength(0);
   });
 });
 
 describe("popup size", () => {
-  it("is capped to the map height (scrolls inside), and is re-measured when a school is chosen in the list", async () => {
+  it("is capped to the map height and scrolls inside, so the heading and the first school stay in view", async () => {
     const w = await mount({ search: near(MULTI) });
     Object.defineProperty(w.$("rv-fas-map"), "clientHeight", { value: 320, configurable: true }); // a phone map
     await w.search();
@@ -309,19 +301,123 @@ describe("popup size", () => {
     const pop = calls.popups[0].content as HTMLElement;
     expect(pop.style.maxHeight).toBe("190px");
     expect(pop.style.overflowY).toBe("auto");
-    expect((calls as any).popupUpdates ?? 0).toBe(0);
-    (pop.querySelectorAll(".rv-fas-pop-item")[1] as HTMLElement).click();
-    expect((calls as any).popupUpdates).toBe(1);
-    // The Directions link comes before the details, so it stays in view in a small popup.
-    const pane = pop.querySelector(".rv-fas-pop-detail")!;
-    expect([...pane.children].map((n) => n.tagName)).toEqual(["H4", "A", "DL"]);
+    expect([...pop.children].map((n) => n.tagName)).toEqual(["H4", "DIV", "P"]); // heading, the list, the note
+    const row = pop.querySelector(".rv-fas-pop-row")!;
+    expect([...row.children].map((n) => n.tagName)).toEqual(["BUTTON", "A"]); // the school, then its own Directions link
   });
-  it("a single-school popup puts Directions before the details too", async () => {
+  it("a single-school marker has no popup: it opens Google Maps", async () => {
     const w = await mount();
     await w.search();
     calls.markers[0].el.click();
-    const pop = calls.popups[0].content as HTMLElement;
-    expect([...pop.children].map((n) => n.tagName)).toEqual(["H4", "A", "DL"]);
+    expect(calls.popups).toHaveLength(0);
+    expect(opened).toHaveLength(1);
+  });
+});
+
+describe("Google Maps on click", () => {
+  const queryOf = (href: string) => new URL(href).searchParams.get("query")!;
+  it("the MAU school: place search with name, district, state, PIN code and India, nothing else", async () => {
+    const mau = school({ id: "9", schoolName: "DR ABDUL SALAM ANSARI HIGHER SEC SCHOOL KOPAGANJ", district: "MAU", state: "UTTAR PRADESH", pincode: "261401" });
+    const w = await mount({ search: near([mau]) });
+    await w.search("261401");
+    w.cards()[0].click();
+    expect(opened).toHaveLength(1);
+    const u = new URL(opened[0].href);
+    expect(u.origin + u.pathname).toBe("https://www.google.com/maps/search/");
+    expect([...u.searchParams.keys()]).toEqual(["api", "query"]);
+    expect(u.searchParams.get("api")).toBe("1");
+    expect(u.searchParams.get("query")).toBe("DR ABDUL SALAM ANSARI HIGHER SEC SCHOOL KOPAGANJ, MAU, UTTAR PRADESH, 261401, India");
+    expect(opened[0]).toMatchObject({ target: "_blank", rel: "noopener noreferrer" });
+  });
+  it.each([
+    ["interface labels in the data are removed", { schoolName: "KOPAGANJ SCHOOL Same PIN code Distance", district: "MAU", state: "UP" }, "KOPAGANJ SCHOOL, MAU, UP, 110001, India"],
+    ["double and odd spaces and stray commas collapse", { schoolName: "  A   B  \t School ,", district: " MAU  ", state: "UP" }, "A B School, MAU, UP, 110001, India"],
+    ["a district already in the name is not repeated", { schoolName: "GANGADAS INTERMEDIATE COLLEGE MAU", district: "MAU", state: "UTTAR PRADESH" }, "GANGADAS INTERMEDIATE COLLEGE MAU, UTTAR PRADESH, 110001, India"],
+    ["accents are kept (and encoded)", { schoolName: "École Saint-Joseph", district: "Pondichéry", state: "PUDUCHERRY" }, "École Saint-Joseph, Pondichéry, PUDUCHERRY, 110001, India"],
+    ["a name with &, # and <script> stays text and is encoded", { schoolName: "A & B #1 <script>alert(1)</script>", district: "D", state: "S" }, "A & B #1 <script>alert(1)</script>, D, S, 110001, India"],
+    ["control characters are dropped", { schoolName: "Bad\u0000Name\u0007", district: "D", state: "S" }, "Bad Name, D, S, 110001, India"],
+  ])("%s", async (_n, over, expected) => {
+    const w = await mount({ search: near([school(over)]) });
+    await w.search();
+    w.cards()[0].click();
+    expect(queryOf(opened[0].href)).toBe(expected);
+    expect(dest(w.links()[0]).get("destination")).toBe(expected); // the Directions destination is the very same text
+    expect(opened[0].href).not.toMatch(/[<>"]|%00/);
+    expect(opened[0].href).not.toMatch(/same\+pin|distance|km\+away/i);
+  });
+  it("the text of the page is never part of the query: the distance badge does not leak in", async () => {
+    const w = await mount({ search: near([school({ schoolName: "KOPAGANJ SCHOOL", district: "MAU", state: "UTTAR PRADESH", pincode: "261401", distanceKm: 0 })]) });
+    await w.search("261401");
+    expect(w.cards()[0].textContent).toContain("Same PIN code"); // the badge is on screen
+    w.cards()[0].click();
+    for (const href of [opened[0].href, w.links()[0].href]) expect(decodeURIComponent(href.replace(/\+/g, " "))).not.toMatch(/Same PIN code|Distance|District MAU|State UTTAR/);
+  });
+  it("the place page has no origin, the directions page has one only when the visitor shared a position", async () => {
+    const w = await mount({ locate: (s) => s({ coords: { latitude: 12.345678, longitude: 77.654321, accuracy: 40 } }) });
+    await w.search();
+    w.locBtn().click();
+    await flush();
+    w.cards()[0].click();
+    expect(new URL(opened[0].href).searchParams.has("origin")).toBe(false);
+    expect(opened[0].href).not.toContain("12.3456");
+    expect(dest(w.links()[0]).get("origin")).toBe("12.345678,77.654321");
+    expect(new URL(w.links()[0].href).pathname).toBe("/maps/dir/");
+  });
+  it("opens the tab inside the click handler itself (no timer, no promise), so pop-up blockers allow it", async () => {
+    const w = await mount();
+    await w.search();
+    w.cards()[0].click();
+    expect(opened).toHaveLength(1); // already there, with no await
+    expect(RESULTS).not.toMatch(/window\.open/);
+    expect(RESULTS).toMatch(/a\.target = '_blank';\s*a\.rel = 'noopener noreferrer';/);
+  });
+  it("touch: the first tap shows the tooltip, the second tap opens Google Maps", async () => {
+    const w = await mount();
+    await w.search();
+    const m = calls.markers[0].el as HTMLElement;
+    const tap = () => { const e = new Event("pointerdown", { bubbles: true }); Object.defineProperty(e, "pointerType", { value: "touch" }); m.dispatchEvent(e); m.click(); };
+    tap();
+    expect(document.getElementById("rv-fas-tip")!.hidden).toBe(false);
+    expect(opened).toHaveLength(0);
+    tap();
+    expect(opened).toHaveLength(1);
+    expect(document.getElementById("rv-fas-tip")!.hidden).toBe(true);
+  });
+  it("keyboard: Enter and Space on a row open Google Maps", async () => {
+    const w = await mount();
+    await w.search();
+    w.cards()[0].dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    w.cards()[1].dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    expect(opened).toHaveLength(2);
+    expect(queryOf(opened[1].href)).toBe("Second School, Central Delhi, 110002, India");
+  });
+  it("a several-school marker: Enter opens the list popup; each school in it opens its own Google Maps tab", async () => {
+    const w = await mount({ search: near(MULTI) });
+    await w.search();
+    calls.markers[0].el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(opened).toHaveLength(0);
+    const items = [...(calls.popups[0].content as HTMLElement).querySelectorAll<HTMLButtonElement>(".rv-fas-pop-item")];
+    items[1].click();
+    expect(queryOf(opened[0].href)).toBe("Second, New Delhi, 110001, India");
+    expect(items[1].getAttribute("aria-label")).toBe("Open Second in Google Maps (new tab)");
+  });
+  it("says what a click does and that Google may show a similarly named school (page and popup)", async () => {
+    const w = await mount({ search: near(MULTI) });
+    expect(w.$("rv-fas-dir-note").textContent).toContain("Google Maps may show a similarly named school. Please check the address.");
+    expect(w.$("rv-fas-dir-note").textContent).toContain("Click or tap a school to open it in Google Maps");
+    await w.search();
+    calls.markers[0].el.click();
+    expect((calls.popups[0].content as HTMLElement).querySelector(".rv-fas-pop-note")!.textContent).toBe("Google Maps may show a similarly named school. Please check the address.");
+  });
+  it("a click only opens a tab: no request to our API (or anywhere) carries a location or a school's text", async () => {
+    const w = await mount({ locate: (s) => s({ coords: { latitude: 12.345678, longitude: 77.654321, accuracy: 40 } }) });
+    await w.search();
+    w.locBtn().click();
+    await flush();
+    const before = fetchMock.mock.calls.length;
+    w.cards()[0].click();
+    expect(fetchMock.mock.calls.length).toBe(before);
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toMatch(/12\.3456|77\.6543/);
   });
 });
 
@@ -422,8 +518,8 @@ describe("phone scroll fix", () => {
     (document.querySelector(".rv-fas-list-col") as HTMLElement).getBoundingClientRect = box(0, stacked ? 390 : 400);
     (document.querySelector(".rv-fas-map-col") as HTMLElement).getBoundingClientRect = box(stacked ? 0 : 420, stacked ? 390 : 820);
   };
-  it("stacked list and map: a marker click highlights the row but does not scroll the page", async () => {
-    const w = await mount();
+  it("stacked list and map: a several-school marker click highlights its rows but does not scroll the page", async () => {
+    const w = await mount({ search: near(MULTI) });
     await w.search();
     layout(true);
     (Element.prototype.scrollIntoView as any).mockClear();
@@ -433,7 +529,7 @@ describe("phone scroll fix", () => {
     expect(calls.flyTo).toHaveLength(1);
     expect(calls.popups).toHaveLength(1);
   });
-  it("a multi-school popup choice does not scroll a stacked page either", async () => {
+  it("choosing a school in the popup opens Google Maps and does not scroll a stacked page either", async () => {
     const w = await mount({ search: near(MULTI) });
     await w.search();
     layout(true);
@@ -441,10 +537,11 @@ describe("phone scroll fix", () => {
     (Element.prototype.scrollIntoView as any).mockClear();
     ((calls.popups[0].content as HTMLElement).querySelectorAll(".rv-fas-pop-item")[2] as HTMLElement).click();
     expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    expect(opened).toHaveLength(1);
     expect(w.cards()[2].classList.contains("is-selected")).toBe(true);
   });
-  it("side by side (desktop): the row still scrolls into view", async () => {
-    const w = await mount();
+  it("side by side (desktop): a several-school marker still scrolls its rows into view", async () => {
+    const w = await mount({ search: near(MULTI) });
     await w.search();
     layout(false);
     (Element.prototype.scrollIntoView as any).mockClear();

@@ -257,12 +257,12 @@ describe("empty and failure states", () => {
 describe("uploaded text is never HTML", () => {
   it("a school name, district and state with markup are shown as plain text (list and map popup)", async () => {
     const evil = "<img src=x onerror=alert(1)><script>alert(2)</script>";
-    const w = await mount(async () => ok(found([hit({ schoolName: evil, district: "<b>D</b>", state: "<i>S</i>" })])));
+    const w = await mount(async () => ok(found([hit({ schoolName: evil, district: "<b>D</b>", state: "<i>S</i>" }), hit({ id: "2", schoolName: "Other School" })])));
     await w.search("110001");
     expect(document.querySelector("#rv-fas-list img, #rv-fas-list script, #rv-fas-list b, #rv-fas-list i")).toBeNull();
     expect(w.cards()[0].querySelector("h3")!.textContent).toBe(evil);
     expect(w.cards()[0].textContent).toContain("<b>D</b>");
-    w.calls.markers[0].el.click(); // click opens the popup
+    w.calls.markers[0].el.click(); // two schools at one point: the click opens the list popup
     const popup = w.calls.popups[0].content as HTMLElement;
     expect(popup instanceof HTMLElement).toBe(true);
     expect(popup.querySelector("img, script")).toBeNull();

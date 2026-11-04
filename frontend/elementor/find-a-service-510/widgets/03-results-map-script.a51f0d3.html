@@ -9,6 +9,7 @@
 			</label>
 			<p class="rv-fas-loc-msg" id="rv-fas-loc-msg" role="status" aria-live="polite" hidden></p>
 			<p class="rv-fas-loc-help" id="rv-fas-loc-help">Your location stays in your browser. It is only added to the Google Maps link you open for directions, and is never sent to RoboValley.</p>
+			<p class="rv-fas-loc-note" id="rv-fas-dir-note">Click or tap a school to open it in Google Maps in a new tab. Google Maps may show a similarly named school. Please check the address.</p>
 		</div>
 	</div>
 	<div class="rv-fas-layout">
@@ -65,9 +66,14 @@
 .rv-fas-loc .rv-fas-btn[hidden],.rv-fas-loc-msg[hidden],.rv-fas-map-note[hidden]{display:none!important}
 .rv-fas-loc-mode{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--rv-fas-muted)}
 .rv-fas-loc-mode select{height:40px;padding:0 10px;font:inherit;font-size:14px;color:var(--rv-fas-brand-dark);background:#fff;border:1.5px solid var(--rv-fas-line-2);border-radius:10px}
-.rv-fas-loc-msg,.rv-fas-loc-help{flex:1 1 100%;margin:0;font-size:13px;line-height:1.4;color:var(--rv-fas-muted)}
+.rv-fas-loc-msg,.rv-fas-loc-help,.rv-fas-loc-note{flex:1 1 100%;margin:0;font-size:13px;line-height:1.4;color:var(--rv-fas-muted)}
 .rv-fas-loc-msg{font-weight:700;color:var(--rv-fas-brand-dark)}
 .rv-fas-loc-msg.is-problem{color:var(--rv-fas-amber-ink)}
+.rv-fas-pop-row{padding:6px 0;border-bottom:1px solid var(--rv-fas-line)}
+.rv-fas-pop-row:last-child{border-bottom:0}
+.rv-fas-pop-row .rv-fas-pop-item{border-bottom:0;padding:4px 10px}
+.rv-fas a.rv-fas-dir-link.rv-fas-dir-link--small,.rv-fas-pop-row a.rv-fas-dir-link{min-height:32px;margin:2px 0 0 10px;padding:0 12px;font-size:13px}
+.rv-fas-pop-note{margin:8px 0 0;font-size:12px;line-height:1.35;color:var(--rv-fas-muted)}
 .rv-fas-map-note{margin:8px 2px 0;font-size:13px;color:var(--rv-fas-amber-ink)}
 .rv-fas-me{display:block;width:16px;height:16px;background:#2563eb;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 2px #2563eb,0 2px 6px rgba(0,0,0,.3)}
 </style>
@@ -103,6 +109,8 @@
 	var TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 	var GEOCODER = 'https://nominatim.openstreetmap.org/search'; // only called when a PIN code has no stored position, once per Search press
 	var DIRECTIONS = 'https://www.google.com/maps/dir/';
+	var PLACE = 'https://www.google.com/maps/search/';
+	var DIR_NOTE = 'Google Maps may show a similarly named school. Please check the address.';
 	var GEONAMES = ' · Postal code data: <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">GeoNames</a> (CC BY 4.0)';
 	var ATTRIBUTION_OFM = '<a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap</a> <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener noreferrer">&copy; OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>' + GEONAMES;
 	var ATTRIBUTION_OSM = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors' + GEONAMES;
@@ -474,10 +482,49 @@
 			var v = el.mode ? el.mode.value : '';
 			return v === 'walking' || v === 'transit' ? v : 'driving';
 		}
+		/** One clean piece of text from a data field: no control characters, no interface labels, single spaces. */
+		var UI_LABELS = /\b(same pin code|distance|km away)\b/gi;
+		function tidy( v ) {
+			return String( v == null ? '' : v ).replace( /[\u0000-\u001f\u007f]/g, ' ' ).replace( UI_LABELS, ' ' ).replace( /\s+/g, ' ' ).replace( /^[\s,;]+|[\s,;]+$/g, '' );
+		}
+		function words( v ) {
+			return ' ' + String( v ).toLowerCase().replace( /[^\p{L}\p{N}]+/gu, ' ' ).trim() + ' ';
+		}
+		/** The Google Maps search text, built only from the file's own fields: school name, district, state, PIN code, India.
+		    A part that is already in the text (the district inside the name, say) is not repeated. */
+		function placeQuery( r ) {
+			var parts = [ tidy( r.schoolName ) ].filter( Boolean );
+			[ tidy( r.district ), tidy( r.state ), tidy( r.pincode ), 'India' ].forEach( function ( p ) {
+				if ( p && words( parts.join( ' ' ) ).indexOf( words( p ) ) < 0 ) {
+					parts.push( p );
+				}
+			} );
+			return parts.join( ', ' );
+		}
+		/** Google Maps place search: opens the school's place page (name, address, photos, Directions). */
+		function placeUrl( r ) {
+			var q = new URLSearchParams();
+			q.set( 'api', '1' );
+			q.set( 'query', placeQuery( r ) );
+			var u = new URL( PLACE );
+			u.search = q.toString();
+			return u.toString();
+		}
+		/** Opens Google Maps in a new tab. Called straight from the click or tap handler, so browsers do not treat it as a pop-up. */
+		function openPlace( r ) {
+			var a = document.createElement( 'a' );
+			a.href = placeUrl( r );
+			a.target = '_blank';
+			a.rel = 'noopener noreferrer';
+			a.style.display = 'none';
+			document.body.appendChild( a );
+			a.click();
+			document.body.removeChild( a );
+		}
 		function directionsUrl( r ) {
 			var q = new URLSearchParams();
 			q.set( 'api', '1' );
-			q.set( 'destination', [ r.schoolName, r.district, r.state, r.pincode ].filter( Boolean ).join( ', ' ) );
+			q.set( 'destination', placeQuery( r ) );
 			if ( S.me ) {
 				q.set( 'origin', S.me.lat.toFixed( 6 ) + ',' + S.me.lng.toFixed( 6 ) );
 			}
@@ -624,82 +671,56 @@
 			li.appendChild( meta );
 			li.appendChild( dirLink( r ) );
 			wire( li, 'row-' + r.rank, function () { return tipGroup( groupOf( r ) ); },
-				function () { setHover( r.pincode ); }, function () { setHover( '' ); }, function () { activate( groupOf( r ), r ); } );
+				function () { setHover( r.pincode ); }, function () { setHover( '' ); }, function () { openSchool( r ); } );
 			return li;
 		}
 
-		/* ---------- Click: fly to the exact spot, open the popup, highlight the row ---------- */
+		/* ---------- Click on one school (a row, a single-school marker, a school in the list popup): highlight it and open Google Maps ---------- */
+		function openSchool( r ) {
+			hideTip();
+			selectRows( r.pincode, r.rank );
+			openPlace( r );
+		}
+		/* ---------- Click on a marker that holds several schools: fly to it and open the list popup ---------- */
 		function activate( g, school ) {
 			hideTip();
-			selectRows( g.pin, school && g.items.length > 1 ? school.rank : 0 );
-			scrollToRow( g.pin, school && g.items.length > 1 ? school.rank : 0 );
+			selectRows( g.pin, 0 );
+			scrollToRow( g.pin, 0 );
 			if ( ! map || g.lat == null ) {
 				return;
 			}
 			var ll = [ g.lat, g.lng ], zoom = Math.max( map.getZoom(), CLICK_ZOOM );
 			var pop = L.popup( { maxWidth: 230, autoPan: true, autoPanPadding: [ 16, 16 ], className: 'rv-fas-popup' } ).setLatLng( ll );
-			pop.setContent( popupFor( g, school, pop ) );
+			pop.setContent( popupFor( g ) );
 			// Open the popup when the flight has landed: a popup opened before a flyTo is closed again by the move.
 			var opened = false, open = function () { if ( ! opened ) { opened = true; pop.openOn( map ); } };
 			map.once( 'moveend', open );
 			setTimeout( open, 1200 ); // already at that spot: no move happens, so no moveend
 			map.flyTo( ll, zoom, { animate: ! reduce.matches, duration: 0.8 } );
 		}
-		function schoolDetails( r ) {
-			var dl = make( 'dl' );
-			[ [ 'ATL UID', detail( r, /uid/i ) ], [ 'UDISE code', r.udiseCode ], [ 'District', r.district ], [ 'PIN code', r.pincode ], [ 'Distance', fmtKm( r.distanceKm ) ] ].forEach( function ( p ) {
-				if ( p[ 1 ] ) {
-					dl.appendChild( make( 'dt', null, p[ 0 ] ) );
-					dl.appendChild( make( 'dd', null, p[ 1 ] ) );
-				}
-			} );
-			return dl;
-		}
-		function popupFor( g, school, pop ) {
+		function popupFor( g ) {
 			var box = make( 'div', 'rv-fas-pop' );
-			// The popup can grow after it opens (a school chosen in the list), so it is capped to the map's height and scrolls inside.
+			// Capped to the map's height, so on a phone the heading and the first school stay in view and the rest scrolls inside.
 			box.style.maxHeight = Math.max( 150, el.map.clientHeight - 130 ) + 'px'; // room for the marker, the tip and the pan padding
 			box.style.overflowY = 'auto';
 			if ( L && L.DomEvent && L.DomEvent.disableScrollPropagation ) {
 				L.DomEvent.disableScrollPropagation( box );
 			}
-			if ( g.items.length === 1 ) {
-				box.appendChild( make( 'h4', null, g.items[ 0 ].schoolName ) );
-				box.appendChild( dirLink( g.items[ 0 ] ) );
-				box.appendChild( schoolDetails( g.items[ 0 ] ) );
-				return box;
-			}
 			box.appendChild( make( 'h4', null, plural( g.items.length, 'school', 'schools' ) + ' in PIN code ' + g.pin ) );
-			var list = make( 'div', 'rv-fas-pop-list' ), pane = make( 'div', 'rv-fas-pop-detail' ), buttons = [];
-			pane.setAttribute( 'aria-live', 'polite' );
-			function focusSchool( r ) {
-				buttons.forEach( function ( b ) { b.setAttribute( 'aria-current', b.getAttribute( 'data-rank' ) === String( r.rank ) ? 'true' : 'false' ); } );
-				clear( pane );
-				pane.appendChild( make( 'h4', null, r.schoolName ) );
-				pane.appendChild( dirLink( r ) ); // before the details, so it stays in view in a small popup
-				pane.appendChild( schoolDetails( r ) );
-				selectRows( g.pin, r.rank );
-				scrollToRow( g.pin, r.rank );
-				if ( pop && typeof pop.update === 'function' ) {
-					pop.update(); // the popup just grew: re-measure it and pan it back into view
-				}
-			}
+			var list = make( 'div', 'rv-fas-pop-list' );
 			g.items.forEach( function ( r ) {
+				var row = make( 'div', 'rv-fas-pop-row' );
 				var b = make( 'button', 'rv-fas-pop-item', r.rank + '. ' + r.schoolName );
 				b.type = 'button';
 				b.setAttribute( 'data-rank', String( r.rank ) );
-				b.addEventListener( 'click', function () { focusSchool( r ); } );
-				buttons.push( b );
-				list.appendChild( b );
+				b.setAttribute( 'aria-label', 'Open ' + r.schoolName + ' in Google Maps (new tab)' );
+				b.addEventListener( 'click', function () { openSchool( r ); } );
+				row.appendChild( b );
+				row.appendChild( dirLink( r ) );
+				list.appendChild( row );
 			} );
 			box.appendChild( list );
-			box.appendChild( pane );
-			if ( school ) {
-				focusSchool( school );
-			}
-			if ( L && L.DomEvent && L.DomEvent.disableScrollPropagation ) {
-				L.DomEvent.disableScrollPropagation( list );
-			}
+			box.appendChild( make( 'p', 'rv-fas-pop-note', DIR_NOTE ) );
 			return box;
 		}
 
@@ -765,7 +786,7 @@
 				if ( mel ) {
 					mel.removeAttribute( 'title' );
 					mel.setAttribute( 'aria-label', g.items.length === 1 ? first.rank + '. ' + first.schoolName : plural( g.items.length, 'school', 'schools' ) + ' in PIN code ' + g.pin + ', starting at number ' + first.rank );
-					wire( mel, 'pin-' + g.pin, function () { return tipGroup( g ); }, function () { setHover( g.pin ); }, function () { setHover( '' ); }, function () { activate( g, null ); } );
+					wire( mel, 'pin-' + g.pin, function () { return tipGroup( g ); }, function () { setHover( g.pin ); }, function () { setHover( '' ); }, function () { if ( g.items.length === 1 ) { openSchool( g.items[ 0 ] ); } else { activate( g, null ); } } );
 				}
 			} );
 			if ( ! fitMode ) {
