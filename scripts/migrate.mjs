@@ -19,10 +19,13 @@
 // Options:  --only <prefix>   run only files whose name starts with this (e.g. 003)
 //           --file <path>     run one specific SQL file (e.g. db/rollback/003_down.sql)
 //           --apply           actually execute (default is a dry run)
+//           --status          READ-ONLY: connect and report which migrations are applied / missing / partial (never applies anything)
+//           --force           with --apply: run a migration even though its objects already exist (normally skipped)
 
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { formatStatus, migrationStatus, statusOf } from "./migration-status.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const MIGRATIONS_DIR = resolve(here, "..", "db", "migrations");
@@ -72,11 +75,24 @@ export async function applyFile(run, expectDb, sqlText) {
   }
 }
 
+/** A short, plain-English next step for common failures. No SQL, values or connection details. */
+export function hintFor(e) {
+  const code = e && e.code;
+  if (code === "42P01") return "\nHint: a table it needs does not exist. An earlier migration is probably missing - run with --status.";
+  if (code === "42703") return "\nHint: a column it needs does not exist. An earlier migration is probably missing - run with --status.";
+  if (code === "23505") return "\nHint: existing data conflicts with a new unique rule. Nothing was changed; look at the data before retrying.";
+  if (code === "23514") return "\nHint: existing data breaks a new rule. Nothing was changed; look at the data before retrying.";
+  if (code === "42501") return "\nHint: this database user is not allowed to do that. Use an account that owns the tables.";
+  return "";
+}
+
 function parseArgs(argv) {
-  const a = { apply: false, expectDb: undefined, only: undefined, file: undefined };
+  const a = { apply: false, status: false, force: false, expectDb: undefined, only: undefined, file: undefined };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
-    if (t === "--apply") a.apply = true;
+    if (t === "--status") a.status = true;
+    else if (t === "--force") a.force = true;
+    else if (t === "--apply") a.apply = true;
     else if (t === "--expect-db") a.expectDb = argv[++i];
     else if (t === "--only") a.only = argv[++i];
     else if (t === "--file") a.file = argv[++i];
@@ -96,18 +112,20 @@ async function main() {
   const urlDb = dbNameFromUrl(url);
   if (!urlDb) fail("Could not read a database name from DATABASE_URL.");
   const isLocal = /^(localhost|127\.0\.0\.1|\[?::1\]?)$/.test(new URL(url).hostname);
-  const files = pickFiles({ only: args.only, file: args.file });
-  if (!files.length) fail("No migration files matched.");
+  if (args.status && (args.apply || args.force || args.only || args.file)) fail("--status only reads the database. It cannot be combined with --apply, --force, --only or --file.");
+  const files = args.status ? [] : pickFiles({ only: args.only, file: args.file });
+  if (!args.status && !files.length) fail("No migration files matched.");
 
   console.log("Target database name :", urlDb);
   console.log("Server location      :", isLocal ? "this computer (loopback)" : "remote server");
   console.log("You confirmed        :", args.expectDb);
-  console.log("Files to run, in order:");
+  if (!args.status) console.log("Files to run, in order:");
   for (const f of files) console.log("  -", f.replace(resolve(here, "..") + "\\", "").replace(resolve(here, "..") + "/", ""));
 
   if (urlDb !== args.expectDb) fail(`DATABASE_URL points to database "${urlDb}" but you confirmed "${args.expectDb}".`);
-  if (!args.apply) {
+  if (!args.apply && !args.status) {
     console.log("\nDRY RUN: nothing was connected or changed. Add --apply to run these files.");
+    console.log("To see which of them the database already has, run the same command with --status (read-only).");
     return;
   }
 
@@ -117,18 +135,31 @@ async function main() {
   try {
     const { rows } = await client.query("select current_database() as d");
     if (rows[0].d !== args.expectDb) fail(`Connected to database "${rows[0].d}" but you confirmed "${args.expectDb}".`);
+    if (args.status) {
+      await client.query("SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY"); // the database itself refuses any write from here on
+      console.log("\n" + formatStatus(await migrationStatus((sql) => client.query(sql))));
+      return;
+    }
     const run = {
       setExpected: (name) => client.query("select set_config('rv.expected_db', $1, false)", [name]),
       exec: (sql) => client.query(sql), // simple query protocol: the file's own BEGIN/COMMIT makes it all-or-nothing
     };
     for (const f of files) {
-      process.stdout.write(`Applying ${f.split(/[\\/]/).pop()} ... `);
+      const name = f.split(/[\\/]/).pop();
+      // Skip what the database already has, and refuse to start one whose prerequisite is missing. (A --file run, e.g. a rollback, is exempt.)
+      if (!args.file) {
+        const st = statusOf(await migrationStatus((sql) => client.query(sql)), name.slice(0, 3));
+        if (st && st.status === "applied" && !args.force) { console.log(`Skipping ${name} (already applied; --force runs it again)`); continue; }
+        if (st && st.blockedBy.length) fail(`${name} needs migration ${st.blockedBy.join(", ")} first (its tables are not in this database). Run --status to see the state.`);
+        if (st && st.status === "partial") console.log(`Note: ${name} is partly applied (${st.absent.join(", ")} missing); running it completes it.`);
+      }
+      process.stdout.write(`Applying ${name} ... `);
       try {
         await applyFile(run, args.expectDb, readFileSync(f, "utf8"));
         console.log("done");
       } catch (e) {
         console.log("FAILED");
-        fail(`${f.split(/[\\/]/).pop()}: ${String(e.message).split("\n")[0]}`);
+        fail(`${name}: ${String(e.message).split("\n")[0]}${hintFor(e)}\nThe file runs as one transaction, so it left nothing half-applied.`);
       }
     }
     console.log("\nAll requested files applied.");
@@ -138,5 +169,11 @@ async function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch((e) => { console.error("\n✖ " + (e && e.message ? String(e.message).split("\n")[0] : "Unexpected error") + "\nNothing further was changed."); process.exit(1); });
+  main().catch((e) => {
+    // Connection errors normally contain the server address and port; say what happened without them.
+    const unreachable = e && ["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "ECONNRESET", "EAI_AGAIN"].includes(e.code);
+    const msg = unreachable ? `Could not connect to the database (${e.code}). Check DATABASE_URL and that the server is running.` : e && e.message ? String(e.message).split("\n")[0] : "Unexpected error";
+    console.error("\n✖ " + msg + "\nNothing further was changed.");
+    process.exit(1);
+  });
 }
