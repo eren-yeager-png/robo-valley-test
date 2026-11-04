@@ -1,8 +1,8 @@
 <?php
-// RoboValley Projects: Stage 2 test data. LOCAL TEST SITE ONLY. Run: wp eval-file stage2-setup.php
+// RoboValley Projects: Stage 2 test data. LOCAL TEST SITE ONLY. Run: wp eval-file rvprojects-testdata-setup.php
 // Creates temporary projects titled "RVPT ..." with unique MARKER strings in every restricted field, plus unpublished ones
 // that must never be listed. Writes the markers and ids to wp-content/uploads/rvp-markers.json for the HTTP checks.
-// Remove everything with stage2-teardown.php.
+// Remove everything with rvprojects-testdata-teardown.php.
 
 if ( ! defined( 'RVP_POST_TYPE' ) ) {
 	WP_CLI::error( 'RoboValley Projects is not active.' );
@@ -25,7 +25,7 @@ $m   = array(
 $subject = wp_insert_term( $m['subject'], RVP_TAX_SUBJECT );
 $subject_id = is_wp_error( $subject ) ? 0 : $subject['term_id'];
 
-// A tiny test image (flagged so stage2-teardown.php removes it), created here so the tests do not depend on the Media Library.
+// A tiny test image (flagged so rvprojects-testdata-teardown.php removes it), created here so the tests do not depend on the Media Library.
 $image = get_posts( array( 'post_type' => 'attachment', 'meta_key' => '_rvp_test_image', 'meta_value' => '1', 'numberposts' => 1, 'post_status' => 'inherit', 'fields' => 'ids' ) );
 $image_id = $image ? (int) $image[0] : 0;
 if ( ! $image_id ) {

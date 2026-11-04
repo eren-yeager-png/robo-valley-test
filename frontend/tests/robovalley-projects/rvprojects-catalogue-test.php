@@ -1,6 +1,6 @@
 <?php
 // RoboValley Projects: Stage 2 checks of the public catalogue endpoint (in-process, anonymous). LOCAL TEST SITE ONLY.
-// Run after stage2-setup.php:  wp eval-file stage2-test.php   (reads uploads/rvp-markers.json)
+// Run after rvprojects-testdata-setup.php:  wp eval-file rvprojects-catalogue-test.php   (reads uploads/rvp-markers.json)
 // The expected results are computed independently here (plain PHP over the stored data) and compared with the endpoint.
 
 $GLOBALS['rvp_pass'] = 0;
@@ -13,7 +13,7 @@ function t( $name, $ok, $detail = '' ) {
 $dir  = wp_upload_dir();
 $data = json_decode( (string) file_get_contents( $dir['basedir'] . '/rvp-markers.json' ), true );
 if ( ! $data ) {
-	WP_CLI::error( 'Run stage2-setup.php first.' );
+	WP_CLI::error( 'Run rvprojects-testdata-setup.php first.' );
 }
 $M = $data['markers'];
 wp_set_current_user( 0 ); // anonymous visitor.

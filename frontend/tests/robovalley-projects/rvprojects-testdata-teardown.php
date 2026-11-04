@@ -1,5 +1,5 @@
 <?php
-// RoboValley Projects: removes everything stage2-setup.php created. LOCAL TEST SITE ONLY. Run: wp eval-file stage2-teardown.php
+// RoboValley Projects: removes everything rvprojects-testdata-setup.php created. LOCAL TEST SITE ONLY. Run: wp eval-file rvprojects-testdata-teardown.php
 if ( ! defined( 'RVP_POST_TYPE' ) ) {
 	WP_CLI::error( 'RoboValley Projects is not active.' );
 }

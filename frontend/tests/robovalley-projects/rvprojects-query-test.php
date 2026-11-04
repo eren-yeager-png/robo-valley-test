@@ -1,6 +1,6 @@
 <?php
 // RoboValley Projects: checks of POST /rvp/v1/projects/query (in-process, anonymous). LOCAL TEST SITE ONLY.
-// Run after stage2-setup.php:  wp eval-file stage4-query-test.php
+// Run after rvprojects-testdata-setup.php:  wp eval-file rvprojects-query-test.php
 
 $GLOBALS['rvp_pass'] = 0;
 $GLOBALS['rvp_fail'] = 0;
@@ -10,7 +10,7 @@ function t( $name, $ok, $detail = '' ) {
 }
 $dir  = wp_upload_dir();
 $data = json_decode( (string) file_get_contents( $dir['basedir'] . '/rvp-markers.json' ), true );
-if ( ! $data ) { WP_CLI::error( 'Run stage2-setup.php first.' ); }
+if ( ! $data ) { WP_CLI::error( 'Run rvprojects-testdata-setup.php first.' ); }
 $M = $data['markers'];
 wp_set_current_user( 0 );
 

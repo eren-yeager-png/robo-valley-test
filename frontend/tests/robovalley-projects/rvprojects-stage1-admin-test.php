@@ -1,6 +1,6 @@
 <?php
 // RoboValley Projects: Stage 1 checks (capabilities, saving, sanitizing, seeding, no public exposure).
-// LOCAL TEST SITE ONLY. Run: wp eval-file stage1-test.php   (creates temporary users/project/term and deletes them again).
+// LOCAL TEST SITE ONLY. Run: wp eval-file rvprojects-stage1-admin-test.php   (creates temporary users/project/term and deletes them again).
 // wp eval-file runs this inside a function, so counters must live in $GLOBALS (a plain `global $pass` would be a different variable).
 $GLOBALS['rvp_pass'] = 0;
 $GLOBALS['rvp_fail'] = 0;

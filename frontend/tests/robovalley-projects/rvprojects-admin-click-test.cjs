@@ -1,5 +1,5 @@
 // RoboValley Projects: wp-admin click-through (Edge headless over CDP, Node 22+, no dependencies). LOCAL TEST SITE ONLY.
-// It publishes a project "RVP CLICK TEST" and a technology "RVP CLICK TECH"; remove them with cleanup-click-data.php (wp eval-file).
+// It publishes a project "RVP CLICK TEST" and a technology "RVP CLICK TECH"; remove them with rvprojects-admin-click-cleanup.php (wp eval-file).
 // Needs one image in the Media Library. Env: RVP_ADMIN_PW (required), RVP_ADMIN_USER, RVP_BASE, RVP_SHOTS.
 const { spawn } = require('child_process'); const os = require('os'); const path = require('path'); const fs = require('fs');
 const BASE = process.env.RVP_BASE || 'http://localhost:8080'; const SHOTS = process.env.RVP_SHOTS || path.join(os.tmpdir(), 'rvp-shots'); fs.mkdirSync(SHOTS, { recursive: true });

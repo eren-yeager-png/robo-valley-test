@@ -9,7 +9,7 @@
 import { getCurrentUser, type CurrentUser } from "./currentUser";
 import { originAllowed, withCors } from "./cors";
 import { json } from "./http";
-import { clientIp, rateLimit } from "./rateLimit";
+import { clientIp, rateLimit } from "./projectsRateLimit";
 
 export const IP_LIMIT = { limit: 120, windowMs: 60_000 };
 export const USER_LIMIT = { limit: 60, windowMs: 60_000 };

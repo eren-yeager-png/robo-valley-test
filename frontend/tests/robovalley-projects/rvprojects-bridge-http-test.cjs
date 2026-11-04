@@ -1,10 +1,10 @@
 // RoboValley Projects: Stage 3 bridge over real HTTP (Node 22+, no dependencies). LOCAL TEST SITE ONLY.
-// Usage:  RVP_BRIDGE_SECRET=<secret> node stage3-bridge-http.cjs <rvp-markers.json> [normal|disabled] [base url]
+// Usage:  RVP_BRIDGE_SECRET=<secret> node rvprojects-bridge-http-test.cjs <rvp-markers.json> [normal|disabled] [base url]
 //   normal    the constant is set (>= 32 chars): proves the wire-level behaviour, above all that no Access-Control-* header is sent
 //   disabled  the constant is missing or too short: every request must be 503
 const fs = require('fs'); const crypto = require('crypto');
 const [markersFile, mode = 'normal', baseArg] = process.argv.slice(2); const BASE = (baseArg || 'http://localhost:8080').replace(/\/$/, '');
-if (!markersFile) { console.error('usage: node stage3-bridge-http.cjs <rvp-markers.json> [normal|disabled] [base]'); process.exit(2); }
+if (!markersFile) { console.error('usage: node rvprojects-bridge-http-test.cjs <rvp-markers.json> [normal|disabled] [base]'); process.exit(2); }
 const SECRET = process.env.RVP_BRIDGE_SECRET || crypto.randomBytes(32).toString('hex');
 const data = JSON.parse(fs.readFileSync(markersFile, 'utf8')); const hid = data.ids.published.hidden_fields;
 let pass = 0, fail = 0; const check = (n, ok, d) => { ok ? pass++ : fail++; console.log((ok ? 'PASS ' : 'FAIL ') + n + (!ok && d !== undefined ? '  -> ' + JSON.stringify(d) : '')); };

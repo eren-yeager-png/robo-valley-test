@@ -6,7 +6,7 @@
 // clears the cookie). Move to a sessions table if per-session revocation is needed.
 
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { validateReturnTo } from "./returnTo";
+import { validateReturnTo } from "./projectsReturnTo";
 
 export const SESSION_COOKIE = "rv_session";
 export const SESSION_TTL_SECONDS = 12 * 60 * 60; // browser-session cookie, token valid 12 h
@@ -103,7 +103,7 @@ export function projectsReturnPath(env: NodeJS.ProcessEnv = process.env): string
 }
 
 /**
- * Validates a "returnTo" value from the URL (see returnTo.ts) against the configured site and Projects page. Returns the
+ * Validates a "returnTo" value from the URL (see projectsReturnTo.ts) against the configured site and Projects page. Returns the
  * canonical address to send the visitor to after sign-in, or null (then the caller uses destinationFor, i.e. SITE_URL).
  */
 export const resolveReturnTo = (raw: unknown, env: NodeJS.ProcessEnv = process.env): string | null =>

@@ -1,9 +1,9 @@
 // RoboValley Projects: Stage 2 over real HTTP (Node 22+, no dependencies). LOCAL TEST SITE ONLY.
 // Fetches the public catalogue and every other public surface as an anonymous visitor and proves that no restricted marker
-// (written by stage2-setup.php) appears anywhere. Usage:  node stage2-http.cjs <path to rvp-markers.json> [base url]
+// (written by rvprojects-testdata-setup.php) appears anywhere. Usage:  node rvprojects-public-leak-scan.cjs <path to rvp-markers.json> [base url]
 const fs = require('fs');
 const markersFile = process.argv[2]; const BASE = (process.argv[3] || 'http://localhost:8080').replace(/\/$/, '');
-if (!markersFile) { console.error('usage: node stage2-http.cjs <rvp-markers.json> [base]'); process.exit(2); }
+if (!markersFile) { console.error('usage: node rvprojects-public-leak-scan.cjs <rvp-markers.json> [base]'); process.exit(2); }
 const data = JSON.parse(fs.readFileSync(markersFile, 'utf8'));
 const markers = Object.values(data.markers).concat(['zebra']);
 const hiddenTitles = ['RVPT Hidden Draft', 'RVPT Hidden Pending', 'RVPT Hidden Private', 'RVPT Hidden Future', 'RVPT Hidden Password'];
@@ -72,7 +72,7 @@ const leaks = (body, url = '') => { let u = url; try { u = decodeURIComponent(ur
 	const types = JSON.parse((await get('/wp-json/wp/v2/types')).body); check('/wp/v2/types does not list rv_project', !('rv_project' in types));
 	const taxes = JSON.parse((await get('/wp-json/wp/v2/taxonomies')).body); check('/wp/v2/taxonomies lists none of the rv_ taxonomies', !Object.keys(taxes).some((k) => k.startsWith('rv_')));
 	const idxJson = JSON.parse((await get('/wp-json/')).body); const idxRoutes = Object.keys(idxJson.routes || {});
-	check('REST index lists the rvp/v1 namespace with exactly our 2 routes and no rv_ route', idxJson.namespaces.includes('rvp/v1') && idxRoutes.filter((k) => k.startsWith('/rvp/')).length === 2 && !idxRoutes.some((k) => /rv_/.test(k)), idxRoutes.filter((k) => /rv/.test(k)));
+	check('REST index lists the rvp/v1 namespace with exactly our 3 routes (namespace, catalogue, POST query) and no rv_ route', idxJson.namespaces.includes('rvp/v1') && idxRoutes.filter((k) => k.startsWith('/rvp/')).length === 3 && !idxRoutes.some((k) => /rv_/.test(k)), idxRoutes.filter((k) => /rv/.test(k)));
 	for (const id of Object.values(data.ids.unpublished)) { const x = await get('/?p=' + id); check(`/?p=${id} (unpublished project) is not served as a page`, x.status !== 200 || !/RVPT/.test(x.body), x.status); }
 	const pubDirect = await get('/?p=' + data.ids.published.hidden_fields); check('published project has no public URL of its own (not 200 with its content)', !(pubDirect.status === 200 && /Hidden Fields Project/.test(pubDirect.body)), pubDirect.status);
 	console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

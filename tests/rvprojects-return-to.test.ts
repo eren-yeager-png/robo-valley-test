@@ -1,7 +1,7 @@
-// returnTo validation (src/lib/returnTo.ts + resolveReturnTo in src/lib/session.ts). The value is attacker-controlled input
+// returnTo validation (src/lib/projectsReturnTo.ts + resolveReturnTo in src/lib/session.ts). The value is attacker-controlled input
 // from a URL, so this is mostly an open-redirect test list: everything must come back null (callers then use SITE_URL).
 import { describe, expect, it } from "vitest";
-import { validateReturnTo } from "../src/lib/returnTo";
+import { validateReturnTo } from "../src/lib/projectsReturnTo";
 import { projectsReturnPath, resolveReturnTo, siteUrl } from "../src/lib/session";
 
 const SITE = "https://techytree.in/";

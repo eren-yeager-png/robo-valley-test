@@ -1,7 +1,7 @@
 <?php
 // RoboValley Projects: Stage 3 checks of the server-to-server bridge (in-process). LOCAL TEST SITE ONLY.
-// Needs: the plugin active, RVP_BRIDGE_SECRET defined in wp-config.php (>= 32 chars), and stage2-setup.php data.
-// Run: wp eval-file stage3-bridge-test.php
+// Needs: the plugin active, RVP_BRIDGE_SECRET defined in wp-config.php (>= 32 chars), and rvprojects-testdata-setup.php data.
+// Run: wp eval-file rvprojects-bridge-test.php
 // The signer below is written independently of the plugin's, so the two implementations check each other.
 
 $GLOBALS['rvp_pass'] = 0;
@@ -18,7 +18,7 @@ $SECRET = RVP_BRIDGE_SECRET;
 $dir    = wp_upload_dir();
 $data   = json_decode( (string) file_get_contents( $dir['basedir'] . '/rvp-markers.json' ), true );
 if ( ! $data ) {
-	WP_CLI::error( 'Run stage2-setup.php first.' );
+	WP_CLI::error( 'Run rvprojects-testdata-setup.php first.' );
 }
 $M = $data['markers'];
 wp_set_current_user( 0 );

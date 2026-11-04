@@ -1,6 +1,6 @@
 // RoboValley Projects: Stage 3 end to end (Node 22+, no dependencies). LOCAL TEST SITES ONLY.
 // A black-box client against the real app (Next.js) and the real WordPress, wired together through the signed bridge.
-// Prerequisites: stage2-setup.php data in WordPress, RVP_BRIDGE_SECRET set in wp-config.php and in the app's environment,
+// Prerequisites: rvprojects-testdata-setup.php data in WordPress, RVP_BRIDGE_SECRET set in wp-config.php and in the app's environment,
 // a test member created in the app's database.
 // Env: APP (default http://localhost:3000)  WP (default http://localhost:8080)  MARKERS (path to rvp-markers.json)
 //      E2E_EMAIL, E2E_PASSWORD (the test member)  EXPECT=up|bridge-off   ALLOWED_ORIGIN (the origin the app allows, default = WP)

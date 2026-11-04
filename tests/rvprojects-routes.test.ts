@@ -15,7 +15,7 @@ import * as projectRoute from "../src/app/api/projects/[id]/route";
 import * as subjectRoute from "../src/app/api/projects/subject-filter/route";
 import * as optionsRoute from "../src/app/api/projects/subject-options/route";
 import { IP_LIMIT, USER_LIMIT } from "../src/lib/projectsGate";
-import { __resetRateLimit } from "../src/lib/rateLimit";
+import { __resetRateLimit } from "../src/lib/projectsRateLimit";
 
 const { GET: getProject, OPTIONS: optionsProject } = projectRoute;
 const { GET: getSubjects, OPTIONS: optionsSubjects } = subjectRoute;
