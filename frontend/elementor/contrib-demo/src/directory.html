@@ -1,0 +1,137 @@
+<div class="rvd" id="rvd-directory" data-rvd="on"><p class="rvd-meta">Loading the preview…</p></div>
+<style>
+/*@CORE_CSS@*/
+.rvd-dhead{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin:0 0 18px}
+.rvd-dhead p{margin:6px 0 0;max-width:640px;color:var(--rvd-muted)}
+.rvd-search{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:0 0 14px}
+.rvd-search>div{flex:1 1 280px}
+.rvd-chips{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px}
+.rvd-chips .rvd-meta{font-weight:800}
+.rvd-dlayout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:24px;align-items:start}
+.rvd-cats{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.rvd .rvd-cat{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:0 14px;font:inherit;font-weight:700;text-align:left;color:var(--rvd-fg);background:#fff;border:1.5px solid var(--rvd-line);border-radius:12px;cursor:pointer}
+.rvd .rvd-cat:hover{background:var(--rvd-tint)}
+.rvd .rvd-cat[aria-current="true"]{color:#fff;background:var(--rvd-brand-dark);border-color:var(--rvd-brand-dark)}
+.rvd-subs{margin:6px 0 0 14px;padding:0;list-style:none;display:grid;gap:6px}
+.rvd-results{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin:0;padding:0;list-style:none}
+.rvd-results .rvd-card{border-top:4px solid var(--rvd-brand)}
+.rvd-results .rvd-card h3{margin:4px 0 4px;font-size:18px}
+.rvd-path{font-size:13px;font-weight:800;color:var(--rvd-blue)}
+.rvd-tags{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 0}
+.rvd-tag{padding:2px 10px;font-size:12.5px;font-weight:700;color:var(--rvd-brand-dark);background:var(--rvd-tint);border-radius:999px}
+.rvd-cats-toggle{display:none}
+@media (max-width:1024px){.rvd-dlayout{grid-template-columns:minmax(0,1fr)}.rvd-cats-toggle{display:inline-flex}.rvd-catbox[data-open="0"]{display:none}}
+</style>
+<script type="application/json" class="rvd-data">/*@DATA@*/</script>
+<script>
+/*@CORE_JS@*/
+RVD.start( 'rvd-directory', function ( root, D ) {
+	var h = RVD.h, P = RVD.params();
+	var sectorId = RVD.find( D.sectors, P.sector ) ? P.sector : '';
+	var st = { q: '', tag: '', near: false, sector: sectorId, cat: '', sub: '' };
+
+	root.appendChild( h( 'div', { 'class': 'rvd-dhead' }, h( 'div', null, h( 'h1', { text: 'RoboValley Directory' } ), h( 'p', { text: 'All Directory items: places, people, businesses, events and help, in one list.' } ) ),
+		h( 'a', { 'class': 'rvd-btn rvd-btn--primary', 'data-act': 'suggest', href: RVD.url( D.links.contribute, { sector: sectorId || D.sectors[ 0 ].id, type: 'supplier' } ), text: 'Suggest an item' } ) ) );
+
+	var q = h( 'input', { 'class': 'rvd-input', type: 'search', id: 'rvd-q', autocomplete: 'off', placeholder: 'Search the Directory' } );
+	q.addEventListener( 'input', function () { st.q = q.value; paint(); } );
+	root.appendChild( h( 'form', { 'class': 'rvd-search', role: 'search', 'aria-label': 'Search the Directory' }, h( 'div', null, h( 'label', { 'class': 'rvd-label', 'for': 'rvd-q', text: 'Search the Directory' } ), q ) ) );
+	root.querySelector( 'form' ).addEventListener( 'submit', function ( e ) { e.preventDefault(); } );
+
+	var chips = h( 'div', { 'class': 'rvd-chips', role: 'group', 'aria-label': 'Quick filters' } );
+	root.appendChild( chips );
+	var info = h( 'p', { 'class': 'rvd-meta', style: 'margin:0 0 14px' } );
+	root.appendChild( info );
+
+	var small = window.matchMedia && window.matchMedia( '(max-width:1024px)' ).matches; // on a phone the category list starts folded behind the Categories button
+	var catBox = h( 'nav', { 'class': 'rvd-catbox', 'aria-label': 'Directory categories', 'data-open': small ? '0' : '1' } );
+	var toggle = h( 'button', { type: 'button', 'class': 'rvd-btn rvd-btn--ghost rvd-cats-toggle', 'aria-expanded': small ? 'false' : 'true', 'aria-controls': 'rvd-catnav', text: 'Categories' } );
+	catBox.id = 'rvd-catnav';
+	toggle.addEventListener( 'click', function () { var open = catBox.getAttribute( 'data-open' ) !== '1'; catBox.setAttribute( 'data-open', open ? '1' : '0' ); toggle.setAttribute( 'aria-expanded', open ? 'true' : 'false' ); } );
+	var count = h( 'p', { 'class': 'rvd-meta', role: 'status', 'aria-live': 'polite', style: 'margin:0 0 12px;font-weight:700' } );
+	var list = h( 'ul', { 'class': 'rvd-results' } );
+	var empty = h( 'div', { 'class': 'rvd-card', hidden: true }, h( 'p', { text: 'No sample items match. Try removing a filter.' } ) );
+	root.appendChild( h( 'div', { 'class': 'rvd-dlayout' }, h( 'div', null, toggle, catBox ), h( 'div', null, count, list, empty ) ) );
+
+	function catOf( d ) { return RVD.find( D.directoryCategories, d.category ); }
+	function pathOf( d ) { var c = catOf( d ), s = c && d.sub ? RVD.find( c.subs, d.sub ) : null; return ( c ? c.label : d.category ) + ( s ? ' › ' + s.label : '' ); }
+	function match( d ) {
+		if ( st.sector && d.sectors.indexOf( st.sector ) < 0 ) { return false; }
+		if ( st.cat && d.category !== st.cat ) { return false; }
+		if ( st.sub && d.sub !== st.sub ) { return false; }
+		if ( st.tag && d.tags.indexOf( st.tag ) < 0 ) { return false; }
+		if ( st.near && d.district !== D.nearMeDistrict ) { return false; }
+		var words = st.q.toLowerCase().split( /\s+/ ).filter( Boolean ), hay = ( d.name + ' ' + d.summary + ' ' + d.tags.join( ' ' ) + ' ' + d.district ).toLowerCase();
+		return words.every( function ( w ) { return hay.indexOf( w ) >= 0; } );
+	}
+	function pill( label, on, fn, extra ) {
+		var b = h( 'button', { type: 'button', 'class': 'rvd-pill', 'aria-pressed': on ? 'true' : 'false', text: label } );
+		if ( extra ) { Object.keys( extra ).forEach( function ( k ) { b.setAttribute( k, extra[ k ] ); } ); }
+		b.addEventListener( 'click', fn );
+		return b;
+	}
+	function paintChips() {
+		chips.textContent = '';
+		chips.appendChild( h( 'span', { 'class': 'rvd-meta', text: 'Quick filters:' } ) );
+		D.quickTags.forEach( function ( t ) { chips.appendChild( pill( t, st.tag === t, function () { st.tag = st.tag === t ? '' : t; paint(); }, { 'data-tag': t } ) ); } );
+		chips.appendChild( pill( 'Near me', st.near, function () { st.near = ! st.near; paint(); }, { 'data-near': '1' } ) );
+		if ( st.sector ) {
+			var s = RVD.find( D.sectors, st.sector ), x = h( 'button', { type: 'button', 'class': 'rvd-pill is-on', 'data-sector-chip': '1', 'aria-label': 'Remove the sector filter: ' + s.name, text: 'Sector: ' + s.name + ' ×' } );
+			x.addEventListener( 'click', function () { st.sector = ''; paint(); } );
+			chips.appendChild( x );
+		}
+		info.textContent = st.near ? 'Near me uses the sample district “' + D.nearMeDistrict + '” in this preview. This page never asks for your location.' : '';
+	}
+	function paintCats() {
+		catBox.textContent = '';
+		var ul = h( 'ul', { 'class': 'rvd-cats' } );
+		function btn( label, cur, fn, n, extra ) {
+			var b = h( 'button', { type: 'button', 'class': 'rvd-cat', 'aria-current': cur ? 'true' : false }, h( 'span', { text: label } ), h( 'span', { 'class': 'rvd-meta', text: String( n ) } ) );
+			if ( extra ) { Object.keys( extra ).forEach( function ( k ) { b.setAttribute( k, extra[ k ] ); } ); }
+			b.addEventListener( 'click', fn );
+			return b;
+		}
+		var base = D.directory.filter( function ( d ) { return ! st.sector || d.sectors.indexOf( st.sector ) >= 0; } );
+		ul.appendChild( h( 'li', null, btn( 'All Directory items', ! st.cat, function () { st.cat = ''; st.sub = ''; paint(); }, base.length, { 'data-cat': '' } ) ) );
+		D.directoryCategories.forEach( function ( c ) {
+			var n = base.filter( function ( d ) { return d.category === c.id; } ).length, open = st.cat === c.id;
+			var li = h( 'li', null, btn( c.label + ( c.subs.length ? ( open ? ' ▾' : ' ▸' ) : '' ), open && ! st.sub, function () { st.cat = c.id; st.sub = ''; paint(); }, n, c.subs.length ? { 'data-cat': c.id, 'aria-expanded': open ? 'true' : 'false' } : { 'data-cat': c.id } ) );
+			if ( open && c.subs.length ) {
+				var sub = h( 'ul', { 'class': 'rvd-subs' } );
+				c.subs.forEach( function ( s ) {
+					var m = base.filter( function ( d ) { return d.category === c.id && d.sub === s.id; } ).length;
+					sub.appendChild( h( 'li', null, btn( s.label, st.sub === s.id, function () { st.sub = s.id; paint(); }, m, { 'data-sub': s.id } ) ) );
+				} );
+				li.appendChild( sub );
+			}
+			ul.appendChild( li );
+		} );
+		catBox.appendChild( ul );
+	}
+	function paintList() {
+		var rows = D.directory.filter( match );
+		list.textContent = '';
+		rows.forEach( function ( d ) {
+			var tags = h( 'div', { 'class': 'rvd-tags' } );
+			d.tags.forEach( function ( t ) { tags.appendChild( h( 'span', { 'class': 'rvd-tag', text: t } ) ); } );
+			var card = h( 'li', { 'class': 'rvd-card', 'data-id': d.id },
+				h( 'div', { style: 'display:flex;justify-content:space-between;gap:8px;align-items:center' }, h( 'span', { 'class': 'rvd-path', text: pathOf( d ) } ), RVD.chip() ),
+				h( 'h3', { text: d.name } ), h( 'p', { text: d.summary } ), tags,
+				h( 'p', { 'class': 'rvd-meta', style: 'margin-top:8px', text: d.district + ( d.fromContribution ? ' · From a contribution: ' + d.fromContribution : '' ) } ) );
+			RVD.clickable( card, 'Open sample listing: ' + d.name, function ( n ) {
+				RVD.openDrawer( n, function ( p, title ) {
+					title.textContent = d.name;
+					p.appendChild( h( 'p', { 'class': 'rvd-path', text: pathOf( d ) } ) );
+					p.appendChild( h( 'p', { 'class': 'rvd-meta', text: d.district } ) );
+					p.appendChild( h( 'p', { text: d.summary + ' This is a sample listing for a design preview. It is not a real person, business or service, and it has no real contact details.' } ) );
+				} );
+			} );
+			list.appendChild( card );
+		} );
+		count.textContent = rows.length + ( rows.length === 1 ? ' sample item' : ' sample items' );
+		empty.hidden = rows.length > 0;
+	}
+	function paint() { paintChips(); paintCats(); paintList(); }
+	paint();
+} );
+</script>

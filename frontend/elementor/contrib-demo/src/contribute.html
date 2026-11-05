@@ -1,0 +1,261 @@
+<div class="rvd" id="rvd-contribute" data-rvd="on"><p class="rvd-meta">Loading the preview…</p></div>
+<style>
+/*@CORE_CSS@*/
+.rvd-wiz{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;align-items:start}
+.rvd-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:18px 0 22px;padding:0;list-style:none;font-size:14px}
+.rvd-steps li{padding:10px 12px;font-weight:700;color:var(--rvd-muted);background:#eef1ef;border-radius:10px}
+.rvd-steps li.is-done{color:var(--rvd-brand-dark);background:var(--rvd-tint)}
+.rvd-steps li[aria-current="step"]{color:#fff;background:var(--rvd-brand)}
+.rvd-stack{display:grid;gap:18px}
+.rvd-fieldset{margin:0;padding:0;border:0;min-width:0}
+.rvd-fieldset legend{padding:0;margin:0 0 8px;font-size:15px;font-weight:800;color:var(--rvd-brand-dark)}
+.rvd-opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.rvd-opt{position:relative;display:flex;align-items:center;gap:10px;min-height:48px;padding:10px 14px;font-weight:600;background:#fff;border:1.5px solid var(--rvd-line);border-radius:12px;cursor:pointer}
+.rvd-opt:hover{border-color:var(--rvd-line-2);background:var(--rvd-tint)}
+.rvd-opt input{width:20px;height:20px;margin:0;accent-color:var(--rvd-brand)}
+.rvd-opt:has(input:checked){border-color:var(--rvd-brand);background:#f1f8f2;font-weight:800}
+.rvd-opt:has(input:focus-visible){outline:3px solid rgba(23,105,79,.5);outline-offset:2px}
+.rvd-form{display:grid;gap:14px}
+.rvd-form-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.rvd-nav{display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-end;padding-top:14px;border-top:1px solid var(--rvd-line)}
+.rvd-check{display:flex;align-items:flex-start;gap:10px;min-height:44px}
+.rvd-check input{width:22px;height:22px;margin-top:2px;accent-color:var(--rvd-brand)}
+.rvd-mine{display:grid;gap:10px;margin:12px 0 0;padding:0;list-style:none}
+.rvd-mine li{display:flex;justify-content:space-between;gap:10px;padding-bottom:8px;font-size:14px;border-bottom:1px solid var(--rvd-line)}
+.rvd-st{font-weight:800}
+.rvd-st--Draft{color:#4a4f4c}.rvd-st--Pending{color:#174f86}.rvd-st--Changes{color:#8a3f00}.rvd-st--Published{color:#1e6b2e}
+.rvd-side{display:grid;gap:16px}
+.rvd-note{background:#f5f8fc;border-color:#dce6f2;font-size:14px}
+.rvd-sum{display:grid;grid-template-columns:minmax(0,160px) minmax(0,1fr);gap:6px 14px;margin:12px 0 0;font-size:15px}
+.rvd-sum dt{font-weight:800;color:var(--rvd-muted)}
+.rvd-sum dd{margin:0;overflow-wrap:anywhere}
+@media (max-width:1024px){.rvd-wiz{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:640px){.rvd-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.rvd-nav{position:sticky;bottom:0;background:#fff;padding:12px 0}.rvd-nav .rvd-btn{flex:1 1 140px}.rvd-sum{grid-template-columns:minmax(0,1fr)}}
+</style>
+<script type="application/json" class="rvd-data">/*@DATA@*/</script>
+<script>
+/*@CORE_JS@*/
+RVD.start( 'rvd-contribute', function ( root, D ) {
+	var h = RVD.h, P = RVD.params(), W = D.wizard, STEPS = [ 'Scope', 'Type', 'Details', 'Preview' ];
+	var sector0 = RVD.find( D.sectors, P.sector ) || D.sectors[ 0 ];
+	var st = { step: 1, sector: sector0.id, mode: 'sector', robots: [], type: '', values: {}, contact: false, done: false, msg: '' };
+	if ( P.robot && RVD.find( sector0.robotTypes, P.robot ) ) { st.mode = 'types'; st.robots = [ P.robot ]; }
+	if ( P.type && RVD.find( W.types, P.type ) ) { st.type = P.type; }
+	var mine = D.myContributions.map( function ( m ) { return { id: m.id, title: m.title, status: m.status }; } ); // in memory only: gone on reload
+	var seq = 0;
+
+	var back = h( 'a', { href: RVD.url( D.links.sector, { sector: st.sector } ), id: 'rvd-back' } );
+	var steps = h( 'ol', { 'class': 'rvd-steps', 'aria-label': 'Steps' } );
+	var main = h( 'div', { 'class': 'rvd-stack', id: 'rvd-step' } );
+	var minePanel = h( 'section', { 'class': 'rvd-card', 'aria-labelledby': 'rvd-mine-h' } );
+	root.appendChild( h( 'div', null, back, h( 'h1', { style: 'margin-top:6px', text: 'Contribute' } ) ) );
+	root.appendChild( steps );
+	root.appendChild( h( 'div', { 'class': 'rvd-wiz' }, h( 'div', null, main ), h( 'aside', { 'class': 'rvd-side' }, minePanel,
+		h( 'section', { 'class': 'rvd-card rvd-note' }, h( 'h2', { style: 'font-size:16px', text: 'Before it goes live' } ),
+			h( 'p', { style: 'margin-top:8px', text: 'A moderator checks every contribution before publishing.' } ), h( 'p', { style: 'margin-top:6px', text: 'Publishing means editorial approval, not product certification.' } ),
+			h( 'p', { style: 'margin-top:6px', text: 'Each item carries a label: Member experience, Manufacturer claim or Independent test.' } ), h( 'p', { style: 'margin-top:6px', 'class': 'rvd-meta', text: 'In this preview nothing is sent: submitting only adds a line to the list on this page.' } ) ) ) ) );
+
+	function sector() { return RVD.find( D.sectors, st.sector ); }
+	function scopeText() {
+		var s = sector();
+		if ( st.mode === 'sector' || ! st.robots.length ) { return s.name + ' › entire sector'; }
+		return s.name + ' › ' + st.robots.map( function ( id ) { return RVD.find( s.robotTypes, id ).name; } ).join( ', ' );
+	}
+	function paintSteps() {
+		steps.textContent = '';
+		STEPS.forEach( function ( name, i ) {
+			var n = i + 1, li = h( 'li', { 'class': n < st.step || st.done ? 'is-done' : '', 'aria-current': n === st.step && ! st.done ? 'step' : false, text: n + ' ' + name + ( n < st.step || st.done ? ' ✓' : '' ) } );
+			steps.appendChild( li );
+		} );
+		back.textContent = '‹ Back to ' + sector().name;
+		back.href = RVD.url( D.links.sector, { sector: st.sector } );
+	}
+	function paintMine() {
+		minePanel.textContent = '';
+		minePanel.appendChild( h( 'h2', { id: 'rvd-mine-h', style: 'font-size:18px', text: 'My Contributions' } ) );
+		var ul = h( 'ul', { 'class': 'rvd-mine' } );
+		mine.forEach( function ( m ) {
+			ul.appendChild( h( 'li', { 'data-id': m.id }, h( 'span', null, m.title + ' ', RVD.chip() ), h( 'span', { 'class': 'rvd-st rvd-st--' + m.status.split( ' ' )[ 0 ], text: m.status } ) ) );
+		} );
+		minePanel.appendChild( ul );
+	}
+	function err( id, msg ) {
+		return h( 'p', { 'class': 'rvd-err', id: 'rvd-err-' + id, role: 'alert', hidden: ! msg, text: msg || '' } );
+	}
+	function showErr( id, msg, ctl ) {
+		var p = document.getElementById( 'rvd-err-' + id );
+		if ( p ) { p.textContent = msg || ''; p.hidden = ! msg; }
+		if ( ctl ) { if ( msg ) { ctl.setAttribute( 'aria-invalid', 'true' ); ctl.setAttribute( 'aria-describedby', 'rvd-err-' + id ); } else { ctl.removeAttribute( 'aria-invalid' ); } }
+	}
+	function nav( opts ) {
+		var box = h( 'div', { 'class': 'rvd-nav' } );
+		if ( st.step > 1 ) { var b = h( 'button', { type: 'button', 'class': 'rvd-btn rvd-btn--ghost', 'data-act': 'back', text: 'Back' } ); b.addEventListener( 'click', function () { go( st.step - 1 ); } ); box.appendChild( b ); }
+		if ( opts.draft ) { var d = h( 'button', { type: 'button', 'class': 'rvd-btn rvd-btn--ghost', 'data-act': 'draft', text: 'Save draft' } ); d.addEventListener( 'click', saveDraft ); box.appendChild( d ); }
+		var nx = h( 'button', { type: 'button', 'class': 'rvd-btn rvd-btn--primary', 'data-act': opts.submit ? 'submit' : 'next', text: opts.label } );
+		nx.addEventListener( 'click', function () { if ( opts.submit ) { submit(); } else { next(); } } );
+		box.appendChild( nx );
+		return box;
+	}
+	function status() {
+		return h( 'p', { 'class': 'rvd-meta', role: 'status', 'aria-live': 'polite', id: 'rvd-status', style: 'font-weight:700', text: st.msg } );
+	}
+
+	/* ---- step 1: scope ---- */
+	function robotBoxes( holder ) {
+		holder.textContent = '';
+		sector().robotTypes.forEach( function ( rt ) {
+			var cb = h( 'input', { type: 'checkbox', name: 'robot', value: rt.id, checked: st.robots.indexOf( rt.id ) >= 0 } );
+			cb.addEventListener( 'change', function () {
+				st.robots = Array.prototype.filter.call( holder.querySelectorAll( 'input' ), function ( i ) { return i.checked; } ).map( function ( i ) { return i.value; } );
+				showErr( 'robots', '', null );
+			} );
+			holder.appendChild( h( 'label', { 'class': 'rvd-opt' }, cb, rt.name ) );
+		} );
+	}
+	function stepScope() {
+		var sel = h( 'select', { 'class': 'rvd-select', id: 'rvd-sector' } );
+		D.sectors.forEach( function ( s ) { sel.appendChild( h( 'option', { value: s.id, text: s.name, selected: s.id === st.sector } ) ); } );
+		var robots = h( 'div', { 'class': 'rvd-opts', id: 'rvd-robots', hidden: st.mode !== 'types' } );
+		robotBoxes( robots );
+		sel.addEventListener( 'change', function () { st.sector = sel.value; st.robots = []; robotBoxes( robots ); paintSteps(); } );
+		function radio( v, label ) {
+			var r = h( 'input', { type: 'radio', name: 'scope', value: v, checked: st.mode === v } );
+			r.addEventListener( 'change', function () { st.mode = v; robots.hidden = v !== 'types'; showErr( 'robots', '', null ); } );
+			return h( 'label', { 'class': 'rvd-opt' }, r, label );
+		}
+		main.appendChild( h( 'div', { 'class': 'rvd-card rvd-stack' },
+			h( 'h2', { id: 'rvd-step-h', tabindex: '-1', text: 'Contribution applies to' } ),
+			h( 'p', { style: 'font-size:18px;font-weight:700', id: 'rvd-scope-now', text: scopeText() } ),
+			h( 'div', null, h( 'label', { 'class': 'rvd-label', 'for': 'rvd-sector', text: 'Sector' } ), sel ),
+			h( 'fieldset', { 'class': 'rvd-fieldset' }, h( 'legend', { text: 'Scope' } ), h( 'div', { 'class': 'rvd-opts' }, radio( 'sector', 'Entire sector' ), radio( 'types', 'Selected robot types' ) ) ),
+			robots, err( 'robots' ) ) );
+		main.appendChild( nav( { label: 'Next: Type' } ) );
+	}
+
+	/* ---- step 2: type (a radio group, four headed groups) ---- */
+	function stepType() {
+		var wrap = h( 'div', { 'class': 'rvd-card rvd-stack', role: 'radiogroup', 'aria-labelledby': 'rvd-step-h' }, h( 'h2', { id: 'rvd-step-h', tabindex: '-1', text: 'What would you like to share?' } ) );
+		W.groups.forEach( function ( g ) {
+			var fs = h( 'fieldset', { 'class': 'rvd-fieldset' }, h( 'legend', { text: g.label + ( g.note ? ' · ' + g.note : '' ) } ) ), opts = h( 'div', { 'class': 'rvd-opts' } );
+			W.types.filter( function ( t ) { return t.group === g.id; } ).forEach( function ( t ) {
+				var r = h( 'input', { type: 'radio', name: 'type', value: t.id, checked: st.type === t.id } );
+				r.addEventListener( 'change', function () { st.type = t.id; showErr( 'type', '', null ); } );
+				opts.appendChild( h( 'label', { 'class': 'rvd-opt' }, r, t.label ) );
+			} );
+			fs.appendChild( opts );
+			wrap.appendChild( fs );
+		} );
+		wrap.appendChild( err( 'type' ) );
+		main.appendChild( wrap );
+		main.appendChild( nav( { label: 'Next: Details' } ) );
+	}
+
+	/* ---- step 3: details (the form of the chosen type) ---- */
+	function curType() { return RVD.find( W.types, st.type ); }
+	function stepDetails() {
+		var t = curType();
+		var form = h( 'form', { 'class': 'rvd-form', novalidate: true } );
+		form.addEventListener( 'submit', function ( e ) { e.preventDefault(); } );
+		t.fields.forEach( function ( f ) {
+			var id = 'rvd-f-' + f.id, ctl;
+			if ( f.kind === 'textarea' ) { ctl = h( 'textarea', { 'class': 'rvd-textarea', id: id, rows: '3' } ); }
+			else if ( f.kind === 'select' ) { ctl = h( 'select', { 'class': 'rvd-select', id: id }, h( 'option', { value: '', text: 'Select' } ) ); f.options.forEach( function ( o ) { ctl.appendChild( h( 'option', { value: o, text: o } ) ); } ); }
+			else { ctl = h( 'input', { 'class': 'rvd-input', id: id, type: 'text', placeholder: f.placeholder || false } ); }
+			ctl.value = st.values[ f.id ] || '';
+			if ( f.required ) { ctl.setAttribute( 'aria-required', 'true' ); }
+			ctl.addEventListener( 'input', function () { st.values[ f.id ] = ctl.value; if ( ctl.value.trim() ) { showErr( f.id, '', ctl ); } } );
+			ctl.addEventListener( 'change', function () { st.values[ f.id ] = ctl.value; if ( ctl.value.trim() ) { showErr( f.id, '', ctl ); } } );
+			form.appendChild( h( 'div', { 'data-field': f.id }, h( 'label', { 'class': 'rvd-label', 'for': id, text: f.label + ( f.required ? ' *' : '' ) } ), ctl, err( f.id ) ) );
+		} );
+		var photos = h( 'div', { style: 'display:flex;flex-wrap:wrap;align-items:center;gap:10px' }, h( 'button', { type: 'button', 'class': 'rvd-btn rvd-btn--ghost rvd-btn--small', disabled: true, text: 'Add photos' } ), h( 'span', { 'class': 'rvd-meta', text: 'Optional. Photos are not stored in this preview.' } ) );
+		var cb = h( 'input', { type: 'checkbox', id: 'rvd-contact', checked: st.contact } ); // OFF by default
+		cb.addEventListener( 'change', function () { st.contact = cb.checked; } );
+		form.appendChild( photos );
+		form.appendChild( h( 'label', { 'class': 'rvd-check', 'for': 'rvd-contact' }, cb, h( 'span', { text: 'Show my contact details publicly. Private unless you tick this.' } ) ) );
+		main.appendChild( h( 'div', { 'class': 'rvd-card rvd-stack' }, h( 'h2', { id: 'rvd-step-h', tabindex: '-1', text: 'Details for: ' + t.label } ), h( 'p', { 'class': 'rvd-meta', text: 'Fields marked * are needed. Use sample text only.' } ), form ) );
+		main.appendChild( status() );
+		main.appendChild( nav( { label: 'Next: Preview', draft: true } ) );
+	}
+	function validateDetails() {
+		var t = curType(), first = null;
+		t.fields.forEach( function ( f ) {
+			var ctl = document.getElementById( 'rvd-f-' + f.id ), ok = ! f.required || ( st.values[ f.id ] || '' ).trim() !== '';
+			showErr( f.id, ok ? '' : f.label.replace( /\s*\(.*\)$/, '' ) + ' is required.', ctl );
+			if ( ! ok && ! first ) { first = ctl; }
+		} );
+		if ( first ) { first.focus(); }
+		return ! first;
+	}
+
+	/* ---- step 4: preview ---- */
+	function stepPreview() {
+		var t = curType(), dl = h( 'dl', { 'class': 'rvd-sum' } );
+		function row( k, v ) { if ( v ) { dl.appendChild( h( 'dt', { text: k } ) ); dl.appendChild( h( 'dd', { text: v } ) ); } }
+		row( 'Applies to', scopeText() );
+		row( 'Type', t.label );
+		t.fields.forEach( function ( f ) { row( f.label.replace( /\s*\(.*\)$/, '' ), st.values[ f.id ] ); } );
+		row( 'Contact details', st.contact ? 'Shown publicly' : 'Private' );
+		main.appendChild( h( 'div', { 'class': 'rvd-card rvd-stack' }, h( 'h2', { id: 'rvd-step-h', tabindex: '-1', text: 'Preview' } ), h( 'p', { 'class': 'rvd-meta', text: 'This is how your contribution would look to a moderator. Nothing is sent in this preview.' } ),
+			h( 'div', { 'class': 'rvd-card', style: 'background:var(--rvd-bg)' }, h( 'div', { 'class': 'rvd-card-top', style: 'display:flex;justify-content:space-between;gap:8px' }, h( 'span', { 'class': 'rvd-type', text: t.label } ), RVD.chip() ), h( 'h3', { style: 'margin-top:6px', text: st.values.title || 'Untitled' } ), dl ) ) );
+		main.appendChild( status() );
+		main.appendChild( nav( { label: 'Submit (demo)', draft: true, submit: true } ) );
+	}
+	function stepDone() {
+		var again = h( 'button', { type: 'button', 'class': 'rvd-btn rvd-btn--primary', 'data-act': 'again', text: 'Contribute something else' } );
+		again.addEventListener( 'click', function () { st.done = false; st.step = 1; st.type = ''; st.values = {}; st.contact = false; st.msg = ''; render(); } );
+		main.appendChild( h( 'div', { 'class': 'rvd-card rvd-stack' }, h( 'h2', { id: 'rvd-step-h', tabindex: '-1', text: 'Demo only: nothing was saved or sent' } ),
+			h( 'p', { text: 'Your sample contribution was added to “My Contributions” as Pending review, on this page only. If you reload the page it is gone.' } ),
+			h( 'div', { style: 'display:flex;flex-wrap:wrap;gap:10px' }, again, h( 'a', { 'class': 'rvd-btn rvd-btn--ghost', href: RVD.url( D.links.sector, { sector: st.sector } ), text: 'Back to ' + sector().name } ) ) ) );
+	}
+
+	function addMine( statusName ) {
+		mine.unshift( { id: 'n-' + ( ++seq ), title: st.values.title || 'Untitled', status: statusName } );
+		paintMine();
+	}
+	function saveDraft() {
+		if ( ! ( st.values.title || '' ).trim() ) {
+			var t = document.getElementById( 'rvd-f-title' );
+			if ( t ) { showErr( 'title', 'Title is required.', t ); t.focus(); }
+			return;
+		}
+		addMine( 'Draft' );
+		st.msg = 'Draft added to My Contributions. Demo only: nothing was saved or sent.';
+		var s = document.getElementById( 'rvd-status' );
+		if ( s ) { s.textContent = st.msg; }
+	}
+	function detailsOk() {
+		return curType().fields.every( function ( f ) { return ! f.required || ( st.values[ f.id ] || '' ).trim() !== ''; } );
+	}
+	function submit() {
+		if ( ! detailsOk() ) { go( 3 ); validateDetails(); return; }
+		addMine( 'Pending review' );
+		st.done = true;
+		render();
+	}
+	function next() {
+		if ( st.step === 1 && st.mode === 'types' && ! st.robots.length ) {
+			showErr( 'robots', 'Choose at least one robot type.', null );
+			var f = document.querySelector( '#rvd-robots input' ); if ( f ) { f.focus(); }
+			return;
+		}
+		if ( st.step === 2 && ! st.type ) {
+			showErr( 'type', 'Choose what you would like to share.', null );
+			var r = document.querySelector( 'input[name="type"]' ); if ( r ) { r.focus(); }
+			return;
+		}
+		if ( st.step === 3 && ! validateDetails() ) { return; }
+		go( st.step + 1 );
+	}
+	function go( n ) { st.step = n; st.msg = ''; render(); }
+	function render() {
+		main.textContent = '';
+		paintSteps();
+		if ( st.done ) { stepDone(); } else if ( st.step === 1 ) { stepScope(); } else if ( st.step === 2 ) { stepType(); } else if ( st.step === 3 ) { stepDetails(); } else { stepPreview(); }
+		var hd = document.getElementById( 'rvd-step-h' );
+		if ( hd && ( st.step > 1 || st.done || root.getAttribute( 'data-moved' ) ) ) { hd.focus(); }
+		root.setAttribute( 'data-moved', '1' );
+	}
+	paintMine();
+	render();
+} );
+</script>
