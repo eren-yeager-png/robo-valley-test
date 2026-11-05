@@ -189,8 +189,8 @@ All run locally (WordPress 7.1.4 + Astra + Elementor in Docker, the app in Next.
 
 | Area | Tests | Result |
 |---|---|---|
-| Vitest (whole suite) | 45 files, 1201 tests | 1201 passed; `admin-charts` cannot load (`recharts`); baseline before this work: 908 tests, 905 passed (3 intermittent failures) |
-| New Vitest (returnTo, bridge client, routes, UI flow) | 4 files, 293 tests | all passed |
+| Vitest (whole suite) | 45 files, 1243 tests | 1241 passed; the 2 failures are the known intermittent `login-ui` / `join-ui` bcrypt-timing tests (25/25 when re-run on their own); `admin-charts` cannot load (`recharts`); baseline before this work: 908 tests, 905 passed (3 intermittent failures) |
+| New Vitest (returnTo, bridge client, routes, UI flow) | 4 files, 335 tests | all passed |
 | Plugin: admin and saving (WP-CLI) | 39 | all passed |
 | Plugin: public catalogue (WP-CLI) | 105 | all passed |
 | Plugin: POST query (WP-CLI) | 71 | all passed |
@@ -198,7 +198,7 @@ All run locally (WordPress 7.1.4 + Astra + Elementor in Docker, the app in Next.
 | Bridge over HTTP (no CORS headers, Origin refused) | 32, plus 6 + 6 for secret missing / too short | all passed |
 | Public leak scan (195 URLs, markers in every restricted field) | 44 | all passed |
 | Page leak scan (logged-out source, shipped JS/CSS/PHP) | 30 | all passed |
-| App ↔ WordPress end to end | 62, plus 12 × 3 fail-closed modes | all passed |
-| wp-admin click-through (real browser) | 21 | all passed |
-| Projects page in a real browser (visitor, member, 1280/820/390, keyboard, reduced motion, no-JS, forced 401/503/network/truncated) | 81 | all passed |
+| App ↔ WordPress end to end | 64 (plus 12 × 3 fail-closed modes, last run before the returnTo change) | all passed |
+| wp-admin click-through (real browser) | 21 (last run before the returnTo change) | all passed |
+| Projects page in a real browser (visitor, member, 1280/820/390, keyboard, reduced motion, no-JS, forced 401/503/network/truncated, Subject lock returns to the page) | 82 | all passed |
 | LiteSpeed, same-site cookies, CDN CORS, clock sync, plain permalinks | — | **needs staging** |
