@@ -196,6 +196,9 @@ function rvp_page_check_svg() {
 
 /** A group of checkboxes. $options: list of [value, label]. */
 function rvp_page_filter_group( $key, $title, array $options ) {
+	if ( ! $options ) {
+		return ''; // no options (e.g. no technologies yet): show nothing rather than a heading with nothing under it.
+	}
 	$html = '<fieldset class="rvp-fgroup" data-group="' . esc_attr( $key ) . '"><legend>' . esc_html( $title ) . '</legend>';
 	foreach ( $options as $o ) {
 		$html .= '<label class="rvp-check"><input type="checkbox" name="' . esc_attr( $key ) . '" value="' . esc_attr( $o[0] ) . '"><span class="rvp-check-box">' . rvp_page_check_svg() . '</span><span>' . esc_html( $o[1] ) . '</span></label>';
