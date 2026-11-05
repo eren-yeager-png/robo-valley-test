@@ -34,9 +34,9 @@ async function mount(fetchImpl: (url: string) => Promise<Response>, opts: { api?
   const $ = (id: string) => document.getElementById(id) as HTMLElement;
   return {
     calls, fetchMock, $,
-    pin: $("rv-fas-pin") as HTMLInputElement, radius: $("rv-fas-radius") as HTMLInputElement, form: $("rv-fas-form") as HTMLFormElement,
+    pin: $("rv-fas-location") as HTMLInputElement, radius: $("rv-fas-radius") as HTMLInputElement, form: $("rv-fas-form") as HTMLFormElement,
     search: async (pin: string, radius?: string) => {
-      (document.getElementById("rv-fas-pin") as HTMLInputElement).value = pin;
+      (document.getElementById("rv-fas-location") as HTMLInputElement).value = pin;
       if (radius) { const r = $("rv-fas-radius") as HTMLInputElement; r.value = radius; r.dispatchEvent(new Event("input")); }
       $("rv-fas-form").dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
       await flush(12);
@@ -54,7 +54,8 @@ describe("the page contains no demo or sample data", () => {
   const JSONTXT = readFileSync(join(DIR, "../find-a-service-510.elementor.json"), "utf8");
   const BAD = /demo|Demonstration data|DEMO DATA|example\.org|rv-fas-data|Demo ATL Lab/i;
   it.each([["search panel", PANEL], ["results widget", RESULTS], ["upload widget", OTHERS[0]], ["directory widget", OTHERS[1]], ["Elementor JSON", JSONTXT]])("%s: no demo markup, no embedded facility list", (_n, html) => {
-    expect(html).not.toMatch(BAD);
+    // The one allowed use of the word: the label the Service list adds when the API says a service holds sample data (never a built-in list).
+    expect(html.replace(/c\.isDemo\s*\?\s*' · demo'\s*:\s*''/g, "")).not.toMatch(BAD);
   });
   it("the school list only ever comes from the API (no JSON blob in the page)", () => {
     for (const h of [PANEL, RESULTS, ...OTHERS]) expect(h).not.toMatch(/<script[^>]*application\/json/i);
@@ -66,15 +67,19 @@ describe("the page contains no demo or sample data", () => {
 });
 
 describe("search panel", () => {
-  it("has a 6-digit PIN code box and a 1-50 km slider (default 25), and no Location or Service text field (the chips start hidden)", () => {
+  it("has a Service combobox, a Location box (PIN code, district or state) and a 1-50 km slider (default 25); no PIN-only box (the chips start hidden)", () => {
     document.body.innerHTML = markup(PANEL);
-    const pin = document.getElementById("rv-fas-pin") as HTMLInputElement;
-    expect(pin.maxLength).toBe(6);
-    expect(pin.getAttribute("inputmode")).toBe("numeric");
+    const svc = document.getElementById("rv-fas-service") as HTMLInputElement;
+    expect([svc.getAttribute("role"), svc.getAttribute("aria-autocomplete"), svc.getAttribute("aria-expanded"), svc.getAttribute("aria-controls")]).toEqual(["combobox", "list", "false", "rv-fas-listbox"]);
+    expect(svc.placeholder).toBe("Search services, e.g. ATL Labs");
+    expect(document.getElementById("rv-fas-listbox")!.getAttribute("role")).toBe("listbox");
+    const loc = document.getElementById("rv-fas-location") as HTMLInputElement;
+    expect(loc.placeholder).toBe("PIN code, district or state");
+    expect(loc.getAttribute("inputmode")).toBeNull(); // text is allowed: it is not a numeric-only box
     const r = document.getElementById("rv-fas-radius") as HTMLInputElement;
     expect([r.min, r.max, r.step, r.value]).toEqual(["1", "50", "1", "25"]);
-    expect(document.getElementById("rv-fas-place")).toBeNull();
     expect(document.getElementById("rv-fas-geo")).toBeNull();
+    expect(document.querySelector(".rv-fas-field--pin")).toBeNull();
     expect((document.getElementById("rv-fas-cats") as HTMLElement).hidden).toBe(true);
   });
 });
@@ -128,17 +133,70 @@ describe("searching", () => {
 });
 
 describe("invalid input never reaches the API", () => {
-  it.each([["5 digits", "11000"], ["letters", "abcdef"], ["empty", ""], ["leading zero", "010001"]])("%s", async (_n, v) => {
+  it.each([["5 digits", "11000", "Enter a 6-digit PIN code, district or state"], ["7 digits", "1100012", "Enter a 6-digit PIN code, district or state"], ["leading zero", "010001", "Enter a 6-digit PIN code, district or state"], ["empty", "", "Enter a PIN code, district or state."], ["one letter", "a", "Enter a 6-digit PIN code, district or state"], ["punctuation only", "-- ..", "Enter a 6-digit PIN code, district or state"]])("%s", async (_n, v, msg) => {
     const w = await mount(async () => ok(found([])));
     await w.search(v);
     expect(w.fetchMock).not.toHaveBeenCalled();
-    expect((w.$("rv-fas-pin-err")).hidden).toBe(false);
+    expect((w.$("rv-fas-loc-err")).hidden).toBe(false);
+    expect(w.$("rv-fas-loc-err").textContent).toBe(msg);
     expect(w.pin.getAttribute("aria-invalid")).toBe("true");
+    expect(document.activeElement).toBe(w.pin);
   });
-  it("typing keeps only digits, at most 6", async () => {
+  it("the box keeps what is typed (text is allowed) and the error goes away when typing again", async () => {
     const w = await mount(async () => ok(found([])));
-    w.pin.value = "11a0-0 1234"; w.pin.dispatchEvent(new Event("input"));
-    expect(w.pin.value).toBe("110012");
+    await w.search("11000");
+    expect(w.$("rv-fas-loc-err").hidden).toBe(false);
+    w.pin.value = "Chittoor 1"; w.pin.dispatchEvent(new Event("input"));
+    expect(w.pin.value).toBe("Chittoor 1");
+    expect(w.$("rv-fas-loc-err").hidden).toBe(true);
+  });
+});
+
+describe("a district or state (text) search", () => {
+  const textBody = (n: number, over: Record<string, unknown> = {}) => ({ success: true, dataset: { id: "1" }, total: n, page: 1, pageSize: 50, results: Array.from({ length: Math.min(n, 50) }, (_v, i) => ({ id: String(i), schoolName: "School " + (i + 1), state: "ANDHRA PRADESH", district: "CHITTOOR", pincode: i % 2 ? "517415" : "517416", udiseCode: null, details: {}, lat: 13.6 + i / 100, lng: 79.4 + i / 100 })), ...over });
+  it("asks for the first 50 matches by name (location text, pageSize 50), with no pincode, lat, lng or radius", async () => {
+    const w = await mount(async () => ok(textBody(3)));
+    await w.search("Chittoor");
+    const u = new URL(w.urls()[0]);
+    expect([...u.searchParams.keys()].sort()).toEqual(["location", "pageSize"]);
+    expect(u.searchParams.get("location")).toBe("Chittoor");
+    expect(u.searchParams.get("pageSize")).toBe("50");
+    expect(w.summary()).toBe("3 schools in Chittoor");
+  });
+  it("two words go as one location text; no coordinates ever go to the API", async () => {
+    const w = await mount(async () => ok(textBody(2)));
+    await w.search("Andhra   Pradesh");
+    expect(new URL(w.urls()[0]).searchParams.get("location")).toBe("Andhra Pradesh");
+    expect(w.urls().join(" ")).not.toMatch(/lat=|lng=|pincode=/);
+  });
+  it("puts the matches on the map and fits the map to them; no circle; rows show no distance badge", async () => {
+    const w = await mount(async () => ok(textBody(4)));
+    await w.search("Chittoor");
+    expect(w.calls.markers.length).toBeGreaterThan(0);
+    expect(w.calls.circle).toHaveLength(0);
+    expect(w.calls.fit.length).toBeGreaterThan(0); // fitBounds to the points
+    expect(document.querySelectorAll(".rv-fas-dist")).toHaveLength(0);
+    expect(w.cards()).toHaveLength(4);
+  });
+  it("more than 50 matches: the summary says it shows the first 50", async () => {
+    const w = await mount(async () => ok(textBody(130)));
+    await w.search("Chittoor");
+    expect(w.summary()).toBe("130 schools in Chittoor (showing the first 50)");
+    expect(w.cards()).toHaveLength(50);
+  });
+  it("no match: \"We couldn't find that place\" and a hint, no stale rows", async () => {
+    const w = await mount(async () => ok(textBody(0)));
+    await w.search("Atlantis");
+    expect(w.stateText()).toContain("We couldn\u2019t find that place");
+    expect(w.stateText()).toContain("Try a PIN code, a district or a state.");
+    expect(w.cards()).toHaveLength(0);
+  });
+  it("the distance slider does not apply to text and is switched off, then back on for a PIN code", async () => {
+    const w = await mount(async (u) => ok(u.includes("pincode=") ? found([hit()]) : textBody(2)));
+    await w.search("Chittoor");
+    expect(w.radius.disabled).toBe(true);
+    await w.search("110001");
+    expect(w.radius.disabled).toBe(false);
   });
 });
 
@@ -239,7 +297,7 @@ describe("empty and failure states", () => {
     vi.spyOn(document.head, "appendChild").mockImplementation(((n: any) => { if (n.tagName === "SCRIPT") { setTimeout(() => n.onerror?.(), 0); return n; } return realAppend(n); }) as any);
     (0, eval)(scriptOf(RESULTS));
     await flush();
-    (document.getElementById("rv-fas-pin") as HTMLInputElement).value = "110001";
+    (document.getElementById("rv-fas-location") as HTMLInputElement).value = "110001";
     document.getElementById("rv-fas-form")!.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
     await flush(12);
     expect(document.querySelectorAll("#rv-fas-list > li")).toHaveLength(1);

@@ -246,3 +246,39 @@ describe("migration 007 and its rollback", () => {
     await pg.close();
   });
 });
+
+describe("data for the Service search box (aliases, counts, district/state text with a position)", () => {
+  it("the categories API returns each service's aliases (the page has no list of its own) and the unique count", async () => {
+    await goLive(ATL, "atl-labs");
+    const body = await (await categories(new Request("http://localhost/api/services/categories"))).json();
+    const by = Object.fromEntries(body.categories.map((c: any) => [c.slug, c]));
+    expect(by["atl-labs"].aliases).toEqual(["atl", "atal tinkering", "tinkering"]);
+    expect(by["robotics-labs"].aliases).toEqual(["robot", "robotics", "lab", "labs"]);
+    expect(by["stem-labs"].aliases).toEqual(["stem", "science", "lab", "labs"]);
+    expect(by["3d-printing-facilities"].aliases).toEqual(["3d", "printing", "printer"]);
+    expect(by["robotics-training-centres"].aliases).toEqual(["robot", "training", "coaching"]);
+    expect(by["innovation-centres"].aliases).toEqual(["innovation"]);
+    expect(by["atl-labs"].count).toBe(3);
+    expect(by["atl-labs"].isDemo).toBe(false);
+    expect(by["stem-labs"].count).toBe(0);
+  });
+  it("a district or state text search needs no PIN code: matches by name, with each school's PIN code position when it is stored", async () => {
+    await goLive(ATL, "atl-labs");
+    await sql("INSERT INTO pincode_locations (pincode, lat, lng, source) VALUES ('522005', 16.3, 80.4, 'geonames')");
+    const r = await get("?category=atl-labs&location=guntur&pageSize=50");
+    expect(r.status).toBe(200);
+    expect(r.body.total).toBe(2);
+    expect(r.body.results.map((x: any) => x.schoolName)).toEqual(["Atl One", "Atl Two"]); // sorted by name
+    expect(r.body.results.every((x: any) => x.lat === 16.3 && x.lng === 80.4)).toBe(true);
+    const t = await get("?category=atl-labs&location=telangana");
+    expect(t.body.results).toHaveLength(1);
+    expect(t.body.results[0].lat).toBeNull(); // no stored position for 506002: listed, not pinned
+    expect(t.body.near).toBeUndefined();
+  });
+  it("two words are both required (state + district), text that matches nothing is an empty list", async () => {
+    await goLive(ATL, "atl-labs");
+    expect((await get("?category=atl-labs&location=andhra%20guntur")).body.total).toBe(2);
+    expect((await get("?category=atl-labs&location=andhra%20warangal")).body.total).toBe(0);
+    expect((await get("?category=atl-labs&location=atlantis")).body.results).toEqual([]);
+  });
+});

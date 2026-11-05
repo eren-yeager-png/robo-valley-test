@@ -235,13 +235,13 @@ export type SearchResult = {
   near?: { center: { lat: number; lng: number } | null; pincodeKnown: boolean; radiusKm: number; limit: number };
 };
 
-export type CategoryInfo = { slug: string; name: string; active: boolean; count: number; uploadedAt: string | null; isDemo: boolean };
+export type CategoryInfo = { slug: string; name: string; aliases: readonly string[]; active: boolean; count: number; uploadedAt: string | null; isDemo: boolean };
 
 /** All six categories in their fixed order, each with whether it has live data, how many UNIQUE schools it has and whether it is demo data. */
 export async function listCategories(db: Queryable): Promise<CategoryInfo[]> {
   const r = await db.query("SELECT category, row_count, uploaded_at, is_demo FROM service_datasets WHERE status = 'active'");
   const live = new Map<string, { n: number; at: string; isDemo: boolean }>(r.rows.map((x) => [x.category, { n: x.row_count, at: new Date(x.uploaded_at).toISOString(), isDemo: x.is_demo === true }]));
-  return CATEGORIES.map((c) => ({ slug: c.slug, name: c.name, active: live.has(c.slug), count: live.get(c.slug)?.n ?? 0, uploadedAt: live.get(c.slug)?.at ?? null, isDemo: live.get(c.slug)?.isDemo ?? false }));
+  return CATEGORIES.map((c) => ({ slug: c.slug, name: c.name, aliases: c.aliases, active: live.has(c.slug), count: live.get(c.slug)?.n ?? 0, uploadedAt: live.get(c.slug)?.at ?? null, isDemo: live.get(c.slug)?.isDemo ?? false }));
 }
 
 export async function searchServices(db: Queryable, p: SearchParams): Promise<SearchResult> {
@@ -255,16 +255,17 @@ export async function searchServices(db: Queryable, p: SearchParams): Promise<Se
   if (p.near) return { ...(await searchNear(db, a, p.near)), category };
 
   const params: unknown[] = [a.id];
-  const where = ["dataset_id = $1"];
-  for (const t of p.terms) { params.push(likeOf(t)); where.push(`search_name LIKE $${params.length} ESCAPE '\\'`); }
-  for (const t of p.locationTerms) { params.push(likeOf(t)); where.push(`search_loc LIKE $${params.length} ESCAPE '\\'`); }
+  const where = ["r.dataset_id = $1"];
+  for (const t of p.terms) { params.push(likeOf(t)); where.push(`r.search_name LIKE $${params.length} ESCAPE '\\'`); }
+  for (const t of p.locationTerms) { params.push(likeOf(t)); where.push(`r.search_loc LIKE $${params.length} ESCAPE '\\'`); }
   const cond = where.join(" AND ");
 
-  const count = await db.query(`SELECT count(*)::int AS n FROM service_dataset_rows WHERE ${cond}`, params);
+  const count = await db.query(`SELECT count(*)::int AS n FROM service_dataset_rows r WHERE ${cond}`, params);
   const total: number = count.rows[0].n;
   const rows = await db.query(
-    `SELECT id, school_name, state, district, pincode, udise_code, data FROM service_dataset_rows WHERE ${cond}
-      ORDER BY search_name, id LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    `SELECT r.id, r.school_name, r.state, r.district, r.pincode, r.udise_code, r.data, pl.lat, pl.lng
+       FROM service_dataset_rows r LEFT JOIN pincode_locations pl ON pl.pincode = r.pincode WHERE ${cond}
+      ORDER BY r.search_name, r.id LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
     [...params, p.pageSize, (p.page - 1) * p.pageSize]
   );
   return {
@@ -273,6 +274,8 @@ export async function searchServices(db: Queryable, p: SearchParams): Promise<Se
     results: rows.rows.map((r) => ({
       id: String(r.id), schoolName: r.school_name, state: r.state, district: r.district, pincode: r.pincode, udiseCode: r.udise_code,
       details: r.data as Record<string, string>,
+      // Where the school's PIN code is (null when it has no stored position): lets the page put a district or state search on the map.
+      lat: r.lat == null ? null : Number(r.lat), lng: r.lng == null ? null : Number(r.lng),
     })),
   };
 }
