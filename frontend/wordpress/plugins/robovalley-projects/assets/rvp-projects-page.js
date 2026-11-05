@@ -70,14 +70,14 @@
 		return span ? span.textContent : slug;
 	}
 
-	/** Address in the app (sign in / sign up), with a returnTo that brings the visitor back to this project. The app validates it. */
+	/** Address in the app (sign in / sign up), with a returnTo that brings the visitor back to this project (or, with no project, to this page). The app validates it. */
 	function authUrl( path, projectId ) {
 		if ( ! APP ) { return ''; }
-		if ( ! projectId ) { return APP + path; }
 		var back;
 		try {
 			var u = new URL( cfg.pageUrl || location.href, location.href );
-			u.searchParams.set( 'project', String( projectId ) );
+			u.search = '';
+			if ( projectId ) { u.searchParams.set( 'project', String( projectId ) ); }
 			u.hash = '';
 			back = u.href;
 		} catch ( e ) { return APP + path; }

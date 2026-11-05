@@ -17,6 +17,12 @@ describe("accepted values are rebuilt, never echoed", () => {
     ["https://techytree.in:443/projects/?project=9", "https://techytree.in/projects/?project=9"], // default port
     ["https://techytree.in/projects/?project=2147483647", "https://techytree.in/projects/?project=2147483647"],
     ["https://techytree.in/projects/?project=1", "https://techytree.in/projects/?project=1"],
+    // the Projects page itself, no project
+    ["https://techytree.in/projects/", "https://techytree.in/projects/"],
+    ["https://techytree.in/projects", "https://techytree.in/projects/"],
+    ["/projects/", "https://techytree.in/projects/"],
+    ["/projects", "https://techytree.in/projects/"],
+    ["https://TECHYTREE.IN:443/projects/", "https://techytree.in/projects/"],
   ])("%s", (raw, want) => expect(ok(raw)).toBe(want));
 });
 
@@ -114,8 +120,8 @@ describe("only the Projects page, only with a positive integer project", () => {
     (v) => expect(ok(`${base}?project=${v}`)).toBeNull(),
   );
   it.each([
-    [base, "no query at all"],
     [base + "?", "empty query"],
+    [base + "?#", "empty query and fragment"],
     [base + "?x=1", "no project parameter"],
     [base + "?Project=1", "wrong case"],
     [base + "?project=1&project=2", "repeated project"],
@@ -135,6 +141,39 @@ describe("only the Projects page, only with a positive integer project", () => {
     ["projects/?project=1", "relative path"],
     ["./projects/?project=1", "dot-relative path"],
     ["?project=1", "query only"],
+    // the Projects page itself is a valid target, but nothing may ride along with it
+    [base + "?x=1", "extra query parameter on the bare page"],
+    [base + "?a=1&b=2", "several extra parameters"],
+    [base + "?returnTo=https://evil.com", "nested returnTo"],
+    [base + "?redirect=//evil.com", "redirect smuggled in"],
+    [base + "../x", "path suffix /projects/../x"],
+    ["/projects/../x", "dot segments, relative"],
+    ["/projects/./", "dot segment normalising back"],
+    ["/projects/..", "parent of the page"],
+    [base + "x", "path suffix /projects/x"],
+    ["/projects//evil.com", "double slash then host"],
+    ["https://techytree.in/projects//evil.com", "double slash then host, absolute"],
+    ["/projects/\evil.com", "backslash after the path"],
+    ["/projects-evil/", "same prefix, different path"],
+    ["/projects-evil", "same prefix, no slash"],
+    ["/projectsevil/", "same prefix, longer segment"],
+    [base + "#", "empty fragment"],
+    [base + "#evil", "fragment"],
+    [base + "#/\evil.com", "fragment with host"],
+    ["/PROJECTS/", "uppercase path"],
+    ["/Projects", "capitalised path"],
+    ["https://techytree.in/PROJECTS", "uppercase path, absolute"],
+    ["/%70rojects/", "encoded letter in the path"],
+    ["/projects%2f", "encoded trailing slash"],
+    ["/projects%2F..%2Fx", "encoded traversal"],
+    ["/%2e%2e/projects/", "encoded dot segments before"],
+    ["/projects/%00", "encoded NUL"],
+    ["//techytree.in/projects/", "protocol-relative, even for the right host"],
+    ["//evil.com/projects/", "protocol-relative, other host"],
+    ["https://evil.com/projects/", "other host, bare page"],
+    ["https://user@techytree.in/projects/", "user-info, bare page"],
+    ["javascript:/projects/", "javascript scheme"],
+    ["data:text/html,/projects/", "data scheme"],
   ])("%s (%s) is rejected", (raw) => expect(ok(raw)).toBeNull());
 
   it("the result is always built from site origin + fixed path + digits, whatever went in", () => {
@@ -184,7 +223,7 @@ describe("configuration (SITE_URL / PROJECTS_RETURN_PATH)", () => {
     let accepted = 0;
     for (const a of parts) for (const b of parts) for (const c of parts) {
       const r = ok(a + b + c);
-      if (r !== null) { accepted++; expect(r).toMatch(/^https:\/\/techytree\.in\/projects\/\?project=[1-9][0-9]{0,9}$/); }
+      if (r !== null) { accepted++; expect(r).toMatch(/^https:\/\/techytree\.in\/projects\/(?:\?project=[1-9][0-9]{0,9})?$/); }
     }
     expect(accepted).toBeGreaterThan(0); // the generator does hit valid shapes, so the assertion above is not vacuous
   });

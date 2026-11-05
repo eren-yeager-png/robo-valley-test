@@ -67,6 +67,22 @@ describe("the login page validates ?returnTo on the server", () => {
     expect(h.nav).toHaveBeenCalledWith(GOOD);
   });
 
+  it("the bare Projects page (no project) is a valid returnTo: kept in the form and used after login", async () => {
+    await seedUser();
+    const page = "https://techytree.in/projects/";
+    render(await LoginPage(sp({ returnTo: page })));
+    expect(signUpHref()).toBe(`/join?returnTo=${encodeURIComponent(page)}`);
+    await login();
+    await waitFor(() => expect(h.nav).toHaveBeenCalledWith(page));
+  });
+
+  it.each(["https://techytree.in/projects/?x=1", "https://techytree.in/projects/../x", "https://techytree.in/projects//evil.com", "https://techytree.in/projects-evil/"])(
+    "a look-alike of the bare page (%j) is ignored", async (value) => {
+      await seedUser();
+      render(await LoginPage(sp({ returnTo: value })));
+      expect(signUpHref()).toBe("/join");
+    });
+
   it("a path-only returnTo is rebuilt against the configured site", async () => {
     await seedUser();
     render(await LoginPage(sp({ returnTo: "/projects/?project=4" })));

@@ -1,12 +1,13 @@
 // "Return to the Projects page after sign-in / sign-up". The value comes from a URL query parameter, so it is hostile input.
 // This is an allow-list, not a filter: the result is always REBUILT from the configured site origin, the fixed Projects
-// path and a validated project number. The caller's string is never returned, so nothing in it can survive.
+// path and an optional validated project number. The caller's string is never returned, so nothing in it can survive.
 //
-// Accepted:   https://techytree.in/projects/?project=12      (the configured site origin; the path is the fixed one)
-//             /projects/?project=12                            (a path only; resolved against the site origin)
+// Accepted:   https://techytree.in/projects/                  (the Projects page itself)
+//             https://techytree.in/projects/?project=12      (the configured site origin; the path is the fixed one)
+//             /projects/  and  /projects/?project=12         (a path only; resolved against the site origin)
 // Everything else is rejected (null) and the caller falls back to SITE_URL: another host, a look-alike host, user-info,
 // a protocol-relative URL, backslashes, encoded characters, javascript:/data:, control characters or spaces, a fragment,
-// extra or repeated query parameters, or a project value that is not a positive integer.
+// dot segments, extra or repeated query parameters, an empty "?", or a project value that is not a positive integer.
 //
 // Pure (no Node imports) so tests, server components and anything else can share it.
 
@@ -50,8 +51,10 @@ export function validateReturnTo(raw: unknown, siteUrl: string, projectsPath: st
   if (url.username !== "" || url.password !== "") return null;
   if (url.pathname !== path && url.pathname + "/" !== path) return null;
   if (url.hash !== "") return null;
+  if (/\/\.\.?(?:[/?]|$)/.test(raw)) return null; // no dot segments, even ones that normalise back onto the Projects path
 
   const keys = [...url.searchParams.keys()];
+  if (keys.length === 0) return raw.includes("?") ? null : `${site.origin}${path}`; // the Projects page itself
   const values = url.searchParams.getAll("project");
   if (keys.length !== 1 || keys[0] !== "project" || values.length !== 1) return null;
   if (!/^[1-9][0-9]{0,9}$/.test(values[0])) return null;

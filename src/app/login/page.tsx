@@ -20,7 +20,7 @@ function isThisHost(url: string, host: string | null): boolean {
 // shown instead of redirecting, so a misconfiguration cannot create a redirect loop.
 //
 // ?returnTo=<Projects page address> (set by the website's "Unlock Project Details" prompt) is validated here on the server
-// (see lib/projectsReturnTo.ts: configured site origin + fixed Projects path + ?project=<positive integer>, nothing else). A valid
+// (see lib/projectsReturnTo.ts: configured site origin + fixed Projects path, optionally + ?project=<positive integer>, nothing else). A valid
 // value replaces SITE_URL as the place to go afterwards; anything else is ignored, so without it nothing changes.
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

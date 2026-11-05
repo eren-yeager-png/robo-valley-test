@@ -74,7 +74,7 @@ define( 'RVP_BRIDGE_SECRET', 'PASTE-64-RANDOM-HEX-CHARACTERS-HERE' );
 |---|---|---|
 | `RVP_BRIDGE_URL` | `https://techytree.in` | Address of WordPress **as the app server reaches it**, no trailing slash. Expects the standard `/wp-json` REST prefix (**needs staging** if the site uses plain permalinks). |
 | `RVP_BRIDGE_SECRET` | the same value as the constant above | 32+ characters |
-| `PROJECTS_RETURN_PATH` | `/projects/` | Path of the Projects page. Only this page (plus `?project=<number>`) is accepted as a return address after sign-in. Must match the page slug. |
+| `PROJECTS_RETURN_PATH` | `/projects/` | Path of the Projects page. Only this page, optionally with `?project=<number>`, is accepted as a return address after sign-in. Must match the page slug. If the slug is not `projects`, change it in four places: the page permalink, this variable, `slug` in `rvprojects-page-config.json`, and (only if you set it) the `PROJECTS_RETURN_PATH` of every environment. |
 | `ALLOWED_ORIGINS` | existing | Must include `https://techytree.in` (it does by default) |
 | `SITE_URL` | existing | Must be `https://techytree.in/` |
 | `SESSION_SECRET`, `DATABASE_URL` | existing | unchanged |
@@ -161,7 +161,7 @@ Mark each with the date and who did it.
 - [ ] View source as a visitor: no overview, skills, components, outcome, subject names, no secret
 - [ ] Search, tabs, filters, chips, Clear all, Load more, mobile drawer work at 1280, 820 and 390 px
 - [ ] Subject filter shows a lock; clicking it, and "View Project", open "Unlock Project Details"
-- [ ] Register Now / Login go to the app with a `returnTo`; after signing in you return to the page and the project opens by itself, and `?project=` disappears from the address bar
+- [ ] Register Now / Login go to the app with a `returnTo`; after signing in you return to the page and the project opens by itself, and `?project=` disappears from the address bar. From the Subject lock, sign-in returns to the Projects page (no project opens)
 
 **Member**
 - [ ] "View Project" opens the details window (overview, subjects, skills, components, outcome)
@@ -180,7 +180,7 @@ Mark each with the date and who did it.
 
 - **Rate limiting is in memory, per server instance.** On a single server it is exact; on serverless hosting each instance counts separately, so the real limit is "per instance". A shared limiter would need a new database table and migration, which was deliberately not added. Limits: 120 requests/minute per IP, 60/minute per member.
 - **Two intermittent pre-existing Vitest tests.** `tests/login-ui.test.tsx` ("submitting an unknown email shows the very same message") and two in `tests/join-ui.test.tsx` fail on some runs, including on untouched `main`. Cause: real bcrypt at cost 12 (about 0.5 s per hash or compare) inside a `waitFor` whose default timeout is 1 s. Not changed in this PR. `tests/admin-charts.test.tsx` cannot load when the `recharts` package is not installed.
-- **Subject filter lock → sign-in** returns to the site home, not the Projects page, because `returnTo` must name a project (`?project=<id>`).
+- **Where sign-in returns to:** the Projects page itself (no project) from the Subject lock, or the page with `?project=<id>` from "View Project". Nothing else is accepted; anything else falls back to `SITE_URL`.
 - **Not verified without staging:** LiteSpeed behaviour, same-site cookies, real CORS through the CDN, clock sync, plain permalinks, the Yoast sitemap.
 
 ## 13. Test evidence

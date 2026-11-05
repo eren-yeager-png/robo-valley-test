@@ -74,11 +74,8 @@ function rvp_page_auth_url( $path, $project_id = 0 ) {
 	if ( '' === $base ) {
 		return '';
 	}
-	$url = $base . $path;
-	if ( $project_id > 0 ) {
-		$url .= '?returnTo=' . rawurlencode( add_query_arg( 'project', (int) $project_id, rvp_page_url() ) );
-	}
-	return $url;
+	$back = $project_id > 0 ? add_query_arg( 'project', (int) $project_id, rvp_page_url() ) : rvp_page_url();
+	return $base . $path . '?returnTo=' . rawurlencode( $back );
 }
 
 /**

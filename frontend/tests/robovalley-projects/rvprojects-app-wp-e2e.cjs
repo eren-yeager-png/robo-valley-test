@@ -90,6 +90,8 @@ const noStore = (r) => r.headers.get('cache-control') === 'no-store';
 	const good = process.env.GOOD_RETURN_TO || 'http://localhost:8080/projects-test/?project=12';
 	const anchors = (html) => [...html.matchAll(/<a [^>]*href="([^"]*)"/g)].map((m) => m[1].replace(/&amp;/g, '&'));
 	const lp = await get('/login?returnTo=' + encodeURIComponent(good)); check('/login?returnTo=<valid>: the Sign up link carries it', lp.status === 200 && anchors(lp.text).includes('/join?returnTo=' + encodeURIComponent(good)), anchors(lp.text));
+	const bareGood = good.split('?')[0]; const bl = await get('/login?returnTo=' + encodeURIComponent(bareGood)); check('/login?returnTo=<the bare Projects page>: the Sign up link carries it', bl.status === 200 && anchors(bl.text).includes('/join?returnTo=' + encodeURIComponent(bareGood)), anchors(bl.text));
+	const bj = await get('/join?returnTo=' + encodeURIComponent(bareGood + '?x=1')); check('/join?returnTo=<bare page + extra parameter>: ignored', bj.status === 200 && !anchors(bj.text).some((h) => /returnTo/.test(h)), anchors(bj.text));
 	const jp = await get('/join?returnTo=' + encodeURIComponent(good)); check('/join?returnTo=<valid>: the Sign in link carries it', jp.status === 200 && anchors(jp.text).includes('/login?returnTo=' + encodeURIComponent(good)), anchors(jp.text));
 	for (const evil of ['//evil.com', 'https://evil.com/projects-test/?project=1', 'http://localhost:8080/other/?project=1', 'http://localhost:8080/projects-test/?project=abc', 'javascript:alert(1)', 'http://localhost:8080.evil.com/projects-test/?project=1']) {
 		const a = await get('/login?returnTo=' + encodeURIComponent(evil)); const b = await get('/join?returnTo=' + encodeURIComponent(evil));
