@@ -57,9 +57,7 @@ let stale = 0;
 for (const [name, text] of Object.entries(files)) {
   const path = join(OUT, name);
   if (process.argv.includes("--check")) {
-    if (!existsSync(path) || readFileSync(path, "utf8").replace(/
-/g, "
-") !== text) { console.error("out of date: " + name); stale++; }
+    if (!existsSync(path) || readFileSync(path, "utf8").replace(/\r\n/g, "\n") !== text) { console.error("out of date: " + name); stale++; }
   } else {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, text);
