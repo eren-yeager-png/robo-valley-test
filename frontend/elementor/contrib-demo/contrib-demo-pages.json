@@ -1,0 +1,26 @@
+{
+    "note": "Create each page as a DRAFT (never publish it) and import its .elementor.json. Slugs and titles are the demo's own; no live page is changed.",
+    "pages": [
+        {
+            "title": "Robots by Sector (DEMO)",
+            "slug": "sector-demo",
+            "status": "draft",
+            "file": "contrib-demo-sector.elementor.json",
+            "widget": "widgets/06-sector.html"
+        },
+        {
+            "title": "Contribute (DEMO)",
+            "slug": "contribute-demo",
+            "status": "draft",
+            "file": "contrib-demo-contribute.elementor.json",
+            "widget": "widgets/07-contribute.html"
+        },
+        {
+            "title": "RoboValley Directory (DEMO)",
+            "slug": "directory-demo",
+            "status": "draft",
+            "file": "contrib-demo-directory.elementor.json",
+            "widget": "widgets/08-directory.html"
+        }
+    ]
+}

@@ -1,0 +1,180 @@
+<div class="rvd" id="rvd-sector" data-rvd="on"><p class="rvd-meta">Loading the preview…</p></div>
+<style>
+/*@CORE_CSS@*/
+.rvd-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin:0 0 8px}
+.rvd-head p{margin:6px 0 0;max-width:640px;color:var(--rvd-muted)}
+.rvd-switch{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 0;font-size:14px;color:var(--rvd-muted)}
+.rvd-tabs{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 16px}
+.rvd-panel{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:24px;align-items:start;padding:20px}
+.rvd-panel ul{margin:8px 0 0;padding-left:20px}
+.rvd-panel-actions{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0 0}
+.rvd-challenge{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;background:var(--rvd-tint)}
+.rvd-challenge h3{margin:6px 0 2px}
+.rvd-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:0 0 18px}
+.rvd-feed{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0;padding:0;list-style:none}
+.rvd-feed .rvd-card h3{margin:6px 0 4px}
+.rvd-type{font-size:13px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--rvd-muted)}
+.rvd-card-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between}
+.rvd-card-foot{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:10px 0 0}
+.rvd-more{display:flex;justify-content:center;margin:18px 0 0}
+.rvd-dir-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.rvd-dir-grid h3{font-size:15px;color:var(--rvd-blue);margin:0 0 8px}
+.rvd-dir-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:10px}
+@media (max-width:1024px){.rvd-feed{grid-template-columns:repeat(2,minmax(0,1fr))}.rvd-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.rvd-panel{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:640px){.rvd-feed{grid-template-columns:minmax(0,1fr)}.rvd-filters{grid-template-columns:minmax(0,1fr)}.rvd-dir-grid{grid-template-columns:minmax(0,1fr)}.rvd .rvd-head .rvd-btn{width:100%}}
+</style>
+<script type="application/json" class="rvd-data">/*@DATA@*/</script>
+<script>
+/*@CORE_JS@*/
+RVD.start( 'rvd-sector', function ( root, D ) {
+	var h = RVD.h, P = RVD.params();
+	var sector = RVD.find( D.sectors, P.sector ) || D.sectors[ 0 ];
+	var st = { robot: sector.robotTypes[ 0 ].id, f: { type: '', robot: '', loc: '', date: 'new' }, shown: D.pageSize };
+	var items = D.contributions.filter( function ( c ) { return c.sector === sector.id; } );
+
+	/* breadcrumb, title, tagline, the sector's button */
+	root.appendChild( h( 'nav', { 'class': 'rvd-crumbs', 'aria-label': 'Breadcrumb' }, h( 'a', { href: '/', text: 'Home' } ), ' / ', h( 'a', { href: '/robots-by-sector/', text: 'Robots by Sector' } ), ' / ', h( 'span', { 'aria-current': 'page', text: sector.name } ) ) );
+	root.appendChild( h( 'div', { 'class': 'rvd-head' }, h( 'div', null, h( 'h1', { text: sector.name } ), h( 'p', { text: sector.tagline } ) ),
+		h( 'a', { 'class': 'rvd-btn rvd-btn--primary', 'data-act': 'contribute-sector', href: RVD.url( D.links.contribute, { sector: sector.id } ), text: 'Contribute to this sector' } ) ) );
+	var sw = h( 'p', { 'class': 'rvd-switch' }, 'Preview another sector:' );
+	D.sectors.forEach( function ( s ) {
+		sw.appendChild( h( 'a', { 'class': 'rvd-pill' + ( s.id === sector.id ? ' is-on' : '' ), href: RVD.url( D.links.sector, { sector: s.id } ), 'aria-current': s.id === sector.id ? 'page' : false, text: s.name } ) );
+	} );
+	root.appendChild( sw );
+
+	/* robots at work here: four tabs, one panel */
+	var tabs = h( 'div', { 'class': 'rvd-tabs', role: 'tablist', 'aria-label': 'Robot types in ' + sector.name } );
+	var panel = h( 'div', { 'class': 'rvd-card rvd-panel', role: 'tabpanel', id: 'rvd-robot-panel', tabindex: '0' } );
+	root.appendChild( h( 'section', { 'class': 'rvd-section', 'aria-labelledby': 'rvd-robots-h' }, h( 'h2', { id: 'rvd-robots-h', text: 'Robots at work here' } ), h( 'div', { style: 'height:12px' } ), tabs, panel ) );
+	function selectRobot( id, focus ) {
+		st.robot = id;
+		var rt = RVD.find( sector.robotTypes, id );
+		Array.prototype.forEach.call( tabs.children, function ( b ) {
+			var on = b.getAttribute( 'data-id' ) === id;
+			b.setAttribute( 'aria-selected', on ? 'true' : 'false' );
+			b.tabIndex = on ? 0 : -1;
+			if ( on && focus ) { b.focus(); }
+		} );
+		panel.setAttribute( 'aria-labelledby', 'rvd-tab-' + id );
+		panel.textContent = '';
+		var shared = h( 'button', { type: 'button', 'class': 'rvd-btn rvd-btn--ghost', 'data-act': 'see-shared', text: 'See what members shared about ' + rt.name.toLowerCase() + ' ↓' } );
+		shared.addEventListener( 'click', function () {
+			st.f.robot = id; st.shown = D.pageSize;
+			filt.robot.value = id;
+			renderFeed();
+			feedHead.focus();
+		} );
+		var models = h( 'ul' );
+		rt.models.forEach( function ( m ) { models.appendChild( h( 'li', { text: m } ) ); } );
+		panel.appendChild( RVD.photo( rt.name ) );
+		panel.appendChild( h( 'div', null, h( 'h3', { text: rt.name } ), h( 'p', { text: rt.desc, style: 'margin-top:8px' } ), h( 'p', { 'class': 'rvd-meta', style: 'margin-top:12px', text: 'Specific models (sample names):' } ), models,
+			h( 'div', { 'class': 'rvd-panel-actions' }, h( 'a', { 'class': 'rvd-btn rvd-btn--primary', 'data-act': 'contribute-robot', href: RVD.url( D.links.contribute, { sector: sector.id, robot: id } ), text: 'Contribute about ' + rt.name.toLowerCase() } ), shared ), h( 'p', { style: 'margin-top:12px' }, RVD.chip() ) ) );
+	}
+	sector.robotTypes.forEach( function ( rt ) {
+		var b = h( 'button', { type: 'button', 'class': 'rvd-pill', role: 'tab', id: 'rvd-tab-' + rt.id, 'data-id': rt.id, 'aria-controls': 'rvd-robot-panel', text: rt.name } );
+		b.addEventListener( 'click', function () { selectRobot( rt.id, false ); } );
+		b.addEventListener( 'keydown', function ( e ) {
+			var ids = sector.robotTypes.map( function ( r ) { return r.id; } ), i = ids.indexOf( st.robot ), n = ids.length;
+			if ( e.key === 'ArrowRight' || e.key === 'ArrowDown' ) { e.preventDefault(); selectRobot( ids[ ( i + 1 ) % n ], true ); }
+			else if ( e.key === 'ArrowLeft' || e.key === 'ArrowUp' ) { e.preventDefault(); selectRobot( ids[ ( i + n - 1 ) % n ], true ); }
+			else if ( e.key === 'Home' ) { e.preventDefault(); selectRobot( ids[ 0 ], true ); }
+			else if ( e.key === 'End' ) { e.preventDefault(); selectRobot( ids[ n - 1 ], true ); }
+		} );
+		tabs.appendChild( b );
+	} );
+
+	/* community project challenge */
+	var ch = sector.challenge;
+	var chBtn = h( 'button', { type: 'button', 'class': 'rvd-btn rvd-btn--ghost', 'data-act': 'challenge', text: 'View and contribute ›' } );
+	chBtn.addEventListener( 'click', function () {
+		RVD.openDrawer( chBtn, function ( p, title ) {
+			title.textContent = ch.title;
+			p.appendChild( h( 'p', { 'class': 'rvd-meta', text: 'Community project challenge · ' + sector.name } ) );
+			p.appendChild( h( 'p', { text: ch.detail } ) );
+			p.appendChild( h( 'p', null, h( 'a', { 'class': 'rvd-btn rvd-btn--primary', href: RVD.url( D.links.contribute, { sector: sector.id, type: 'challenge' } ), text: 'Contribute to this challenge' } ) ) );
+		} );
+	} );
+	root.appendChild( h( 'section', { 'class': 'rvd-section' }, h( 'div', { 'class': 'rvd-card rvd-challenge' }, h( 'div', null, h( 'p', { 'class': 'rvd-type', text: 'Community project challenge' } ), h( 'h3', { text: ch.title } ), h( 'p', { 'class': 'rvd-meta', text: ch.line } ), h( 'p', { style: 'margin-top:8px' }, RVD.chip() ) ), chBtn ) ) );
+
+	/* community contributions: filters, cards, load more */
+	var feedHead = h( 'h2', { id: 'rvd-feed-h', tabindex: '-1', text: 'Community contributions' } );
+	var filt = {};
+	function select( key, label, opts ) {
+		var s = h( 'select', { 'class': 'rvd-select', id: 'rvd-f-' + key } );
+		opts.forEach( function ( o ) { s.appendChild( h( 'option', { value: o[ 0 ], text: o[ 1 ] } ) ); } );
+		s.addEventListener( 'change', function () { st.f[ key ] = s.value; st.shown = D.pageSize; renderFeed(); } );
+		filt[ key ] = s;
+		return h( 'div', null, h( 'label', { 'class': 'rvd-label', 'for': 'rvd-f-' + key, text: label } ), s );
+	}
+	function uniq( k ) { var o = {}; items.forEach( function ( c ) { if ( c[ k ] ) { o[ c[ k ] ] = 1; } } ); return Object.keys( o ).sort(); }
+	var filters = h( 'div', { 'class': 'rvd-filters' },
+		select( 'type', 'Type', [ [ '', 'All types' ] ].concat( uniq( 'typeLabel' ).map( function ( t ) { return [ t, t ]; } ) ) ),
+		select( 'robot', 'Robot type', [ [ '', 'All robot types' ] ].concat( sector.robotTypes.map( function ( r ) { return [ r.id, r.name ]; } ) ) ),
+		select( 'loc', 'Location', [ [ '', 'Anywhere' ] ].concat( uniq( 'district' ).map( function ( d ) { return [ d, d ]; } ) ) ),
+		select( 'date', 'Date', [ [ 'new', 'Newest first' ], [ 'old', 'Oldest first' ] ] ) );
+	var list = h( 'ul', { 'class': 'rvd-feed' } ), count = h( 'p', { 'class': 'rvd-meta', role: 'status', 'aria-live': 'polite', style: 'margin:0 0 12px' } );
+	var more = h( 'button', { type: 'button', 'class': 'rvd-btn rvd-btn--ghost', 'data-act': 'load-more', text: 'Load more' } );
+	more.addEventListener( 'click', function () { st.shown += D.pageSize; renderFeed(); } );
+	var empty = h( 'div', { 'class': 'rvd-card', hidden: true }, h( 'p', { text: 'No sample contributions match these filters.' } ) );
+	var clear = h( 'button', { type: 'button', 'class': 'rvd-btn rvd-btn--ghost rvd-btn--small', style: 'margin-top:10px', text: 'Clear filters' } );
+	clear.addEventListener( 'click', function () { st.f = { type: '', robot: '', loc: '', date: 'new' }; Object.keys( filt ).forEach( function ( k ) { filt[ k ].value = st.f[ k ]; } ); st.shown = D.pageSize; renderFeed(); } );
+	empty.appendChild( clear );
+	root.appendChild( h( 'section', { 'class': 'rvd-section', 'aria-labelledby': 'rvd-feed-h' }, feedHead, h( 'p', { 'class': 'rvd-meta', text: 'Shared by members across this sector. A moderator reviews each one before it appears.' } ), filters, count, list, empty, h( 'div', { 'class': 'rvd-more' }, more ) ) );
+	function detail( c, from ) {
+		RVD.openDrawer( from, function ( p, title ) {
+			var rt = c.robotType ? RVD.find( sector.robotTypes, c.robotType ) : null;
+			title.textContent = c.title;
+			p.appendChild( h( 'p', { 'class': 'rvd-type', text: c.typeLabel } ) );
+			p.appendChild( h( 'p', { style: 'margin-top:8px' }, RVD.badge( c.label ) ) );
+			p.appendChild( h( 'p', { 'class': 'rvd-meta', text: c.role + ' · ' + c.district + ' · ' + c.date + ( rt ? ' · ' + rt.name : ' · whole sector' ) } ) );
+			p.appendChild( h( 'p', { text: c.detail } ) );
+		} );
+	}
+	function renderFeed() {
+		var f = st.f;
+		var rows = items.filter( function ( c ) {
+			return ( ! f.type || c.typeLabel === f.type ) && ( ! f.robot || c.robotType === f.robot ) && ( ! f.loc || c.district === f.loc );
+		} ).sort( function ( a, b ) { return f.date === 'old' ? ( a.date < b.date ? -1 : 1 ) : ( a.date < b.date ? 1 : -1 ); } );
+		list.textContent = '';
+		rows.slice( 0, st.shown ).forEach( function ( c ) {
+			var li = h( 'li', { 'class': 'rvd-card', 'data-id': c.id },
+				h( 'div', { 'class': 'rvd-card-top' }, h( 'span', { 'class': 'rvd-type', text: c.typeLabel } ), RVD.chip() ),
+				h( 'h3', { text: c.title } ), h( 'p', { text: c.text } ),
+				h( 'div', { 'class': 'rvd-card-foot' }, RVD.badge( c.label ), h( 'span', { 'class': 'rvd-meta', text: c.role + ' · ' + c.district } ) ) );
+			RVD.clickable( li, 'Open sample contribution: ' + c.title, function ( n ) { detail( c, n ); } );
+			list.appendChild( li );
+		} );
+		var shown = Math.min( rows.length, st.shown );
+		count.textContent = rows.length ? 'Showing ' + shown + ' of ' + rows.length + ' sample contributions' : '';
+		empty.hidden = rows.length > 0;
+		more.hidden = shown >= rows.length;
+	}
+	renderFeed();
+
+	/* from the RoboValley Directory: a heading shows only when it has listings */
+	var groups = {}, order = [];
+	D.directory.filter( function ( d ) { return d.sectors.indexOf( sector.id ) >= 0; } ).forEach( function ( d ) {
+		var cat = RVD.find( D.directoryCategories, d.category ), sub = cat && d.sub ? RVD.find( cat.subs, d.sub ) : null, name = sub ? sub.label : ( cat ? cat.label : d.category );
+		if ( ! groups[ name ] ) { groups[ name ] = []; order.push( name ); }
+		groups[ name ].push( d );
+	} );
+	var dirWrap = h( 'div', { 'class': 'rvd-dir-grid' } );
+	order.forEach( function ( name ) {
+		var box = h( 'div', null, h( 'h3', { text: name } ) );
+		groups[ name ].slice( 0, 2 ).forEach( function ( d ) {
+			var c = h( 'div', { 'class': 'rvd-card', style: 'margin:0 0 10px' }, h( 'p', { style: 'font-weight:800', text: d.name } ), h( 'p', { 'class': 'rvd-meta', text: d.summary } ), h( 'p', { style: 'margin-top:8px' }, RVD.chip() ) );
+			RVD.clickable( c, 'Open sample listing: ' + d.name, function ( n ) {
+				RVD.openDrawer( n, function ( p, title ) { title.textContent = d.name; p.appendChild( h( 'p', { 'class': 'rvd-meta', text: name + ' · ' + d.district } ) ); p.appendChild( h( 'p', { text: d.summary + ' This is a sample listing for a design preview, not a real provider.' } ) ); } );
+			} );
+			box.appendChild( c );
+		} );
+		dirWrap.appendChild( box );
+	} );
+	if ( order.length ) {
+		root.appendChild( h( 'section', { 'class': 'rvd-section', 'aria-labelledby': 'rvd-dir-h' }, h( 'div', { 'class': 'rvd-dir-head' }, h( 'h2', { id: 'rvd-dir-h', text: 'From the RoboValley Directory' } ), h( 'a', { href: RVD.url( D.links.directory, { sector: sector.id } ), text: 'Open in Directory →' } ) ),
+			h( 'p', { 'class': 'rvd-meta', style: 'margin:6px 0 16px', text: 'Help available in this sector. Each heading shows only when it has listings.' } ), dirWrap ) );
+	}
+	root.appendChild( h( 'p', { 'class': 'rvd-meta', style: 'margin-top:28px;padding-top:14px;border-top:1px solid var(--rvd-line)', text: 'Sector-wide contributions stay linked to the sector. Contributions about a robot type also appear on that robot type.' } ) );
+	selectRobot( st.robot, false );
+} );
+</script>
