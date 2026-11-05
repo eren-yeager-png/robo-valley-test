@@ -27,9 +27,9 @@
 .rv-fas-intro-text{max-width:740px}
 .rv-fas-intro-text p,.rv-fas-notice p{margin:0}
 /* Search panel */
-.rv-fas-panel{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;grid-template-areas:"pin radius submit" "cats cats cats";gap:20px 22px;align-items:start;margin:8px 0 0;padding:24px;background:var(--rv-fas-surface);border:1px solid var(--rv-fas-line);border-radius:22px;box-shadow:var(--rv-fas-shadow)}
+.rv-fas-panel{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,1fr) auto;grid-template-areas:"service loc radius submit" "cats cats cats cats";gap:20px 22px;align-items:start;margin:8px 0 0;padding:24px;background:var(--rv-fas-surface);border:1px solid var(--rv-fas-line);border-radius:22px;box-shadow:var(--rv-fas-shadow)}
 .rv-fas-field{position:relative;min-width:0}
-.rv-fas-field--pin{grid-area:pin}.rv-fas-field--radius{grid-area:radius}
+.rv-fas-field--service{grid-area:service}.rv-fas-field--loc{grid-area:loc}.rv-fas-field--radius{grid-area:radius}
 .rv-fas .rv-fas-label{display:block;margin:0 0 8px;font-size:14px;font-weight:800;line-height:22px;color:var(--rv-fas-brand-dark)}
 .rv-fas .rv-fas-input{width:100%;height:48px;margin:0;padding:0 14px;font:inherit;font-size:16px;color:var(--rv-fas-fg);background:#fff;border:1.5px solid var(--rv-fas-line);border-radius:12px;box-shadow:none;outline:0;transition:border-color .15s,box-shadow .15s}
 .rv-fas .rv-fas-input::placeholder{color:#7d8c85;opacity:1}
@@ -58,6 +58,23 @@
 .rv-fas-submit .rv-fas-btn{min-width:140px}
 .rv-fas-field-err{margin:6px 0 0;font-size:14px;font-weight:700;color:#8a3a12}
 .rv-fas .rv-fas-input[aria-invalid="true"]{border-color:#c0561f}
+/* Service combobox: a text box with a listbox of the six services under it (counts and aliases come from the API). */
+.rv-fas-combo{position:relative}
+.rv-fas .rv-fas-combo-input{padding-right:44px}
+.rv-fas .rv-fas-combo-clear{position:absolute;top:50%;right:8px;width:32px;height:32px;margin:0;padding:0;font:inherit;font-size:22px;line-height:1;color:var(--rv-fas-muted);background:transparent;border:0;border-radius:50%;cursor:pointer;transform:translateY(-50%)}
+.rv-fas .rv-fas-combo-clear:hover{color:var(--rv-fas-brand-dark);background:var(--rv-fas-tint)}
+.rv-fas .rv-fas-combo-clear:focus-visible{outline:3px solid rgba(23,105,79,.45);outline-offset:1px}
+.rv-fas .rv-fas-listbox{position:absolute;z-index:60;top:calc(100% + 6px);left:0;right:0;max-height:min(340px,60vh);margin:0;padding:6px;overflow-y:auto;list-style:none;background:#fff;border:1.5px solid var(--rv-fas-line-2);border-radius:14px;box-shadow:var(--rv-fas-shadow)}
+.rv-fas .rv-fas-opt{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 12px;min-height:44px;margin:0;padding:10px 12px;border-radius:10px;cursor:pointer;color:var(--rv-fas-fg)}
+.rv-fas .rv-fas-opt:hover,.rv-fas .rv-fas-opt.is-active{background:var(--rv-fas-tint)}
+.rv-fas .rv-fas-opt-name{font-weight:600}
+.rv-fas .rv-fas-opt-name strong{font-weight:800;color:var(--rv-fas-brand-dark)}
+.rv-fas .rv-fas-opt-meta{font-size:13px;font-weight:700;color:var(--rv-fas-brand)}
+.rv-fas .rv-fas-opt--soon .rv-fas-opt-name,.rv-fas .rv-fas-opt--soon .rv-fas-opt-meta{color:var(--rv-fas-muted)}
+.rv-fas .rv-fas-opt--soon .rv-fas-opt-meta{font-style:italic;font-weight:600}
+.rv-fas .rv-fas-opt.is-chosen .rv-fas-opt-name::after{content:" ✓";color:var(--rv-fas-brand)}
+.rv-fas .rv-fas-opt--none,.rv-fas .rv-fas-opt--none:hover{cursor:default;color:var(--rv-fas-amber-ink);background:var(--rv-fas-amber-bg)}
+.rv-fas .rv-fas-opt--head,.rv-fas .rv-fas-opt--head:hover{min-height:0;margin:6px 4px 2px;padding:0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--rv-fas-muted);cursor:default;background:transparent}
 .rv-fas-credit{margin:10px 0 0;font-size:12.5px;color:var(--rv-fas-muted)}
 .rv-fas-credit a{color:var(--rv-fas-brand)}
 /* Full-width page sections: the site's own container padding then gives the same frame as the header (no double inset). */
@@ -127,12 +144,13 @@
 .rv-fas-pop p{margin:2px 0!important;font-size:13px;line-height:1.4}
 .rv-fas-pop a{font-weight:800;color:var(--rv-fas-brand)}
 @media (max-width:1024px){
+	.rv-fas-panel{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"service loc" "radius submit" "cats cats"}
 	.rv-fas-layout{grid-template-columns:minmax(0,1fr)}
 	.rv-fas-map-col{position:relative;top:auto;order:-1}
 	.rv-fas-map{height:380px;min-height:0}
 }
 @media (max-width:640px){
-	.rv-fas-panel{grid-template-columns:minmax(0,1fr);grid-template-areas:"pin" "radius" "submit" "cats";gap:18px;padding:18px 16px;border-radius:18px}
+	.rv-fas-panel{grid-template-columns:minmax(0,1fr);grid-template-areas:"service" "loc" "radius" "submit" "cats";gap:18px;padding:18px 16px;border-radius:18px}
 	.rv-fas-submit .rv-fas-btn{width:100%}
 	.rv-fas-submit{padding-top:0}
 	.rv-fas-results-head{flex-direction:column;align-items:flex-start}
@@ -145,11 +163,21 @@
 }
 </style>
 <div class="rv-fas rv-fas-panel-wrap">
-<form class="rv-fas-panel" id="rv-fas-form" role="search" aria-label="Find schools near a PIN code" novalidate>
-	<div class="rv-fas-field rv-fas-field--pin">
-		<label class="rv-fas-label" for="rv-fas-pin">PIN code</label>
-		<input class="rv-fas-input" id="rv-fas-pin" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="postal-code" spellcheck="false" placeholder="6-digit PIN code, e.g. 110001" aria-describedby="rv-fas-pin-err">
-		<p class="rv-fas-field-err" id="rv-fas-pin-err" role="alert" hidden></p>
+<form class="rv-fas-panel" id="rv-fas-form" role="search" aria-label="Find a service near a place" novalidate>
+	<div class="rv-fas-field rv-fas-field--service">
+		<label class="rv-fas-label" for="rv-fas-service" id="rv-fas-service-label">Service</label>
+		<div class="rv-fas-combo" id="rv-fas-combo">
+			<input class="rv-fas-input rv-fas-combo-input" id="rv-fas-service" type="text" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="rv-fas-listbox" autocomplete="off" spellcheck="false" placeholder="Search services, e.g. ATL Labs" aria-describedby="rv-fas-service-err">
+			<button type="button" class="rv-fas-combo-clear" id="rv-fas-service-clear" aria-label="Clear service" hidden>&times;</button>
+			<ul class="rv-fas-listbox" id="rv-fas-listbox" role="listbox" aria-labelledby="rv-fas-service-label" hidden></ul>
+		</div>
+		<p class="rv-fas-field-err" id="rv-fas-service-err" role="alert" hidden></p>
+		<p class="rv-fas-sr" id="rv-fas-service-count" role="status" aria-live="polite"></p>
+	</div>
+	<div class="rv-fas-field rv-fas-field--loc">
+		<label class="rv-fas-label" for="rv-fas-location">Location</label>
+		<input class="rv-fas-input" id="rv-fas-location" type="text" autocomplete="off" spellcheck="false" maxlength="60" placeholder="PIN code, district or state" aria-describedby="rv-fas-loc-err">
+		<p class="rv-fas-field-err" id="rv-fas-loc-err" role="alert" hidden></p>
 	</div>
 	<div class="rv-fas-field rv-fas-field--radius">
 		<label class="rv-fas-label" for="rv-fas-radius">Distance: <output class="rv-fas-radius-out" id="rv-fas-radius-out" for="rv-fas-radius">25 km</output></label>
@@ -164,16 +192,19 @@
 </form>
 </div>
 <script>
-/* RoboValley Find a Service: the category chips and the page's shared category state.
-   The six categories come only from GET /api/services/categories (a category with an uploaded file is "active"). This script
-   publishes the chosen category as window.RvFasState and as a 'rv-fas-category' event; the results map and the directory listen.
-   Other widgets ask for a change with a 'rv-fas-select' event: detail {slug} to pick one, {slug:null} to clear. Names are only
-   ever set with textContent, never as HTML. */
+/* RoboValley Find a Service: the Service combobox, the category chips and the page's shared category state.
+   The six services come only from GET /api/services/categories (name, aliases, unique facility count, whether it is sample data; a service with an
+   uploaded file is "active"). Nothing is chosen for the visitor: until they pick one (from the list or a chip) there is no service.
+   This script publishes the chosen service as window.RvFasState and as a 'rv-fas-category' event; the results map and the directory listen.
+   Other widgets ask for a change with a 'rv-fas-select' event: detail {slug} to pick one, {slug:null} to clear, and they can ask for
+   the "Choose a service to search" message with a 'rv-fas-need-service' event. Names are only ever set with textContent, never as HTML. */
 ( function () {
 	'use strict';
 	var api = ( window.RoboValleyApi && window.RoboValleyApi.base ) || '';
 	var st = window.RvFasState = { ready: false, error: false, categories: [], selected: null, effective: null, firstActive: null };
 	var paint = function () {};
+	/* Words that carry no meaning in a service search ("labs near me" finds the labs). */
+	var FILLER = { a: 1, an: 1, the: 1, of: 1, for: 1, and: 1, in: 1, at: 1, to: 1, near: 1, me: 1, my: 1, find: 1, search: 1, service: 1, services: 1 };
 
 	function el( tag, cls, text ) {
 		var n = document.createElement( tag );
@@ -191,10 +222,53 @@
 		var first = null;
 		st.categories.forEach( function ( c ) { if ( ! first && c.active ) { first = c; } } );
 		st.firstActive = first;
-		st.effective = ( st.selected && find( st.selected ) ) || first; // nothing chosen: the first category that has data
+		st.effective = ( st.selected && find( st.selected ) ) || first; // the directory below shows the first live service until one is chosen; a search never does
 		st.ready = true;
 		paint();
 		document.dispatchEvent( new CustomEvent( 'rv-fas-category', { detail: st } ) );
+	}
+	function words( v ) {
+		return String( v == null ? '' : v ).toLowerCase().split( /[^\p{L}\p{N}]+/u ).filter( Boolean );
+	}
+	/** The meaningful words of what the visitor typed: lower case, filler words dropped. */
+	function queryWords( v ) {
+		return words( v ).filter( function ( w ) { return ! FILLER[ w ]; } );
+	}
+	/** How well a service matches: null = not at all; else {all, n, score, byName}. A query word matches when a word of the name or of an alias starts with it. */
+	function match( c, q ) {
+		var nameW = words( c.name ), aliasW = [];
+		( c.aliases || [] ).forEach( function ( a ) { aliasW = aliasW.concat( words( a ) ); } );
+		var n = 0, score = 0, byName = 0;
+		q.forEach( function ( w, i ) {
+			var inName = nameW.some( function ( x ) { return x.indexOf( w ) === 0; } );
+			if ( inName || aliasW.some( function ( x ) { return x.indexOf( w ) === 0; } ) ) {
+				n++;
+				score += q.length - i; // earlier words count for more
+				if ( inName ) { byName++; }
+			}
+		} );
+		return n ? { all: n === q.length, n: n, score: score, byName: byName } : null;
+	}
+	/** Matches best first: every word matched, then more words, then the earlier words, then name matches, then the fixed order. */
+	function rank( q ) {
+		var out = [];
+		st.categories.forEach( function ( c, i ) {
+			var m = match( c, q );
+			if ( m ) { out.push( { c: c, m: m, i: i } ); }
+		} );
+		out.sort( function ( a, b ) {
+			if ( a.m.all !== b.m.all ) { return a.m.all ? -1 : 1; }
+			if ( a.m.n !== b.m.n ) { return b.m.n - a.m.n; }
+			if ( a.m.score !== b.m.score ) { return b.m.score - a.m.score; }
+			if ( a.m.byName !== b.m.byName ) { return b.m.byName - a.m.byName; }
+			return a.i - b.i;
+		} );
+		return out.map( function ( x ) { return x.c; } );
+	}
+	function count( c ) {
+		if ( ! c.active ) { return 'Coming Soon!'; }
+		var n = c.count || 0;
+		return n.toLocaleString( 'en-IN' ) + ( n === 1 ? ' facility' : ' facilities' ) + ( c.isDemo ? ' · demo' : '' );
 	}
 
 	function start() {
@@ -203,12 +277,130 @@
 		box.setAttribute( 'data-ready', '1' );
 		var open = null;
 
+		/* ---------- Service combobox ---------- */
+		var input = document.getElementById( 'rv-fas-service' ), list = document.getElementById( 'rv-fas-listbox' ),
+			clearBtn = document.getElementById( 'rv-fas-service-clear' ), err = document.getElementById( 'rv-fas-service-err' ),
+			live = document.getElementById( 'rv-fas-service-count' ), combo = document.getElementById( 'rv-fas-combo' );
+		var opts = [], activeIdx = -1, typing = false, quiet = false;
+
+		function say( msg ) { if ( live ) { live.textContent = msg; } }
+		function serviceError( msg ) {
+			if ( ! err || ! input ) { return; }
+			err.textContent = msg || '';
+			err.hidden = ! msg;
+			if ( msg ) { input.setAttribute( 'aria-invalid', 'true' ); } else { input.removeAttribute( 'aria-invalid' ); }
+		}
+		function isOpen() { return !! list && ! list.hidden; }
+		function setActive( i ) {
+			activeIdx = i;
+			opts.forEach( function ( o, k ) {
+				o.node.classList.toggle( 'is-active', k === i );
+				o.node.setAttribute( 'aria-selected', k === i ? 'true' : 'false' );
+			} );
+			if ( i >= 0 && opts[ i ] ) {
+				input.setAttribute( 'aria-activedescendant', opts[ i ].node.id );
+				if ( opts[ i ].node.scrollIntoView ) { opts[ i ].node.scrollIntoView( { block: 'nearest' } ); }
+			} else {
+				input.removeAttribute( 'aria-activedescendant' );
+			}
+		}
+		function closeList() {
+			if ( ! list ) { return; }
+			list.hidden = true;
+			input.setAttribute( 'aria-expanded', 'false' );
+			setActive( -1 );
+		}
+		/** A name with the typed word prefixes in bold (built from text nodes, never as HTML). */
+		function nameNode( name, q ) {
+			var span = el( 'span', 'rv-fas-opt-name' ), re = /[\p{L}\p{N}]+|[^\p{L}\p{N}]+/gu, m;
+			while ( ( m = re.exec( name ) ) ) {
+				var w = m[ 0 ].toLowerCase(), hit = '';
+				q.forEach( function ( x ) { if ( w.indexOf( x ) === 0 && x.length > hit.length ) { hit = x; } } );
+				if ( hit && /^[\p{L}\p{N}]/u.test( m[ 0 ] ) ) {
+					span.appendChild( el( 'strong', null, m[ 0 ].slice( 0, hit.length ) ) );
+					if ( m[ 0 ].length > hit.length ) { span.appendChild( document.createTextNode( m[ 0 ].slice( hit.length ) ) ); }
+				} else {
+					span.appendChild( document.createTextNode( m[ 0 ] ) );
+				}
+			}
+			return span;
+		}
+		function optNode( id, cls ) {
+			var li = el( 'li', 'rv-fas-opt' + ( cls ? ' ' + cls : '' ) );
+			li.id = id;
+			li.setAttribute( 'role', 'option' );
+			li.setAttribute( 'aria-selected', 'false' );
+			return li;
+		}
+		function render() {
+			if ( ! list ) { return; }
+			var text = input.value, q = typing ? queryWords( text ) : [];
+			list.textContent = '';
+			opts = [];
+			if ( ! st.categories.length ) {
+				var wait = optNode( 'rv-fas-opt-wait', 'rv-fas-opt--none' );
+				wait.setAttribute( 'aria-disabled', 'true' );
+				wait.appendChild( el( 'span', 'rv-fas-opt-name', st.ready ? 'Services are not available right now.' : 'Loading services…' ) );
+				list.appendChild( wait );
+				say( st.ready ? 'Services are not available right now.' : 'Loading services' );
+				return;
+			}
+			var shown = q.length ? rank( q ) : st.categories.slice(), none = q.length > 0 && ! shown.length;
+			function add( c, qq ) {
+				var li = optNode( 'rv-fas-opt-' + c.slug, ( c.active ? '' : 'rv-fas-opt--soon' ) + ( st.selected === c.slug ? ' is-chosen' : '' ) );
+				li.appendChild( nameNode( c.name, qq ) );
+				li.appendChild( el( 'span', 'rv-fas-opt-meta', count( c ) ) );
+				var o = { c: c, node: li };
+				li.addEventListener( 'click', function () { pickOption( o ); } );
+				li.addEventListener( 'pointermove', function () { var k = opts.indexOf( o ); if ( k !== activeIdx ) { setActive( k ); } } );
+				opts.push( o );
+				list.appendChild( li );
+			}
+			if ( none ) {
+				var nm = optNode( 'rv-fas-opt-none', 'rv-fas-opt--none' );
+				nm.setAttribute( 'aria-disabled', 'true' );
+				nm.appendChild( el( 'span', 'rv-fas-opt-name', 'No service matches “' + text.trim() + '”' ) );
+				list.appendChild( nm );
+				var hd = optNode( 'rv-fas-opt-all', 'rv-fas-opt--head' );
+				hd.setAttribute( 'aria-disabled', 'true' );
+				hd.appendChild( el( 'span', 'rv-fas-opt-name', 'All services' ) );
+				list.appendChild( hd );
+				st.categories.forEach( function ( c ) { add( c, [] ); } );
+				say( 'No service matches ' + text.trim() + '. Showing all ' + st.categories.length + ' services.' );
+			} else {
+				shown.forEach( function ( c ) { add( c, q ); } );
+				say( q.length ? shown.length + ( shown.length === 1 ? ' service matches ' : ' services match ' ) + text.trim() : st.categories.length + ' services available' );
+			}
+		}
+		function openList( keepActive ) {
+			if ( ! list ) { return; }
+			render();
+			list.hidden = false;
+			input.setAttribute( 'aria-expanded', 'true' );
+			if ( ! keepActive ) { setActive( -1 ); }
+		}
+		function pickOption( o ) {
+			typing = false;
+			choose( o.c.slug );
+			closeList();
+			quiet = true; // putting focus back must not pop the list open again
+			input.focus();
+			quiet = false;
+		}
+		function syncInput() {
+			if ( ! input || typing ) { return; }
+			var c = st.selected && find( st.selected );
+			input.value = c ? c.name : '';
+			if ( clearBtn ) { clearBtn.hidden = ! input.value; }
+		}
+
 		function closeTip() {
 			if ( open ) { open.classList.remove( 'is-open' ); open = null; }
 		}
 		function choose( slug ) {
 			var hadX = document.activeElement && document.activeElement.className === 'rv-fas-chip-x';
 			st.selected = slug;
+			if ( slug ) { serviceError( '' ); }
 			publish();
 			if ( hadX ) { // the x that had focus is gone: keep keyboard focus on the chip row
 				var b = chips.querySelector( '.rv-fas-chip' );
@@ -226,6 +418,8 @@
 				b.setAttribute( 'aria-pressed', pressed ? 'true' : 'false' );
 				b.setAttribute( 'data-slug', c.slug );
 				b.addEventListener( 'click', function () {
+					typing = false;
+					closeList();
 					choose( pressed ? null : c.slug );
 					if ( ! c.active ) { // touch: the tap shows "Coming Soon!" until the next tap elsewhere (the chips were just redrawn)
 						var again = chips.querySelector( '[data-slug="' + c.slug + '"]' ); // slug is from the fixed list, never user text
@@ -241,7 +435,7 @@
 					var x = el( 'button', 'rv-fas-chip-x', '×' );
 					x.type = 'button';
 					x.setAttribute( 'aria-label', 'Clear ' + c.name );
-					x.addEventListener( 'click', function () { choose( null ); } );
+					x.addEventListener( 'click', function () { typing = false; choose( null ); } );
 					wrap.appendChild( x );
 				}
 				if ( ! c.active ) {
@@ -256,9 +450,64 @@
 				chips.appendChild( wrap );
 			} );
 			box.hidden = ! st.categories.length;
+			syncInput(); // the text box always shows the service the chips show
+			if ( isOpen() ) { render(); }
 		};
+
+		if ( input && list ) {
+			input.addEventListener( 'input', function () {
+				typing = true;
+				serviceError( '' );
+				if ( st.selected ) { // editing the text drops the chosen service: the box and the chips never disagree
+					st.selected = null;
+					publish();
+				}
+				if ( clearBtn ) { clearBtn.hidden = ! input.value; }
+				openList( false );
+			} );
+			input.addEventListener( 'focus', function () { if ( ! quiet && ! isOpen() ) { openList( false ); } } );
+			input.addEventListener( 'click', function () { if ( ! isOpen() ) { openList( false ); } } );
+			input.addEventListener( 'keydown', function ( e ) {
+				var n = opts.length;
+				if ( e.key === 'ArrowDown' || e.key === 'ArrowUp' ) {
+					e.preventDefault();
+					if ( ! isOpen() ) { openList( false ); n = opts.length; }
+					if ( n ) { setActive( e.key === 'ArrowDown' ? ( activeIdx + 1 ) % n : ( activeIdx <= 0 ? n - 1 : activeIdx - 1 ) ); }
+				} else if ( ( e.key === 'Home' || e.key === 'End' ) && isOpen() && n ) {
+					e.preventDefault();
+					setActive( e.key === 'Home' ? 0 : n - 1 );
+				} else if ( e.key === 'Enter' && isOpen() ) {
+					var o = opts[ activeIdx ] || ( queryWords( input.value ).length && opts.length && ! list.querySelector( '.rv-fas-opt--none' ) ? opts[ 0 ] : null );
+					if ( o ) { e.preventDefault(); pickOption( o ); } else { closeList(); } // nothing highlighted: Enter just searches
+				} else if ( e.key === 'Escape' ) {
+					if ( isOpen() ) { e.preventDefault(); closeList(); } else if ( input.value ) { e.preventDefault(); typing = false; input.value = ''; if ( clearBtn ) { clearBtn.hidden = true; } if ( st.selected ) { choose( null ); } }
+				} else if ( e.key === 'Tab' ) {
+					closeList();
+				}
+			} );
+			list.addEventListener( 'mousedown', function ( e ) { e.preventDefault(); } ); // clicking an option must not blur the box first
+			document.addEventListener( 'pointerdown', function ( e ) { if ( isOpen() && combo && ! combo.contains( e.target ) ) { closeList(); } } );
+			if ( clearBtn ) {
+				clearBtn.addEventListener( 'click', function () {
+					typing = false;
+					input.value = '';
+					clearBtn.hidden = true;
+					serviceError( '' );
+					if ( st.selected ) { choose( null ); }
+					input.focus();
+					openList( false );
+				} );
+			}
+			document.addEventListener( 'rv-fas-need-service', function () {
+				serviceError( 'Choose a service to search' );
+				input.focus();
+				openList( false );
+			} );
+		}
+
 		document.addEventListener( 'rv-fas-select', function ( e ) {
 			var slug = e.detail && e.detail.slug;
+			typing = false;
 			choose( slug && find( slug ) ? slug : null );
 		} );
 		document.addEventListener( 'pointerdown', function ( e ) { if ( open && ! open.contains( e.target ) ) { closeTip(); } } );
@@ -278,13 +527,12 @@
 					if ( ! d ) { throw new Error( 'categories' ); }
 					st.error = false;
 					st.categories = d.categories || [];
-					if ( first && ! st.selected ) { st.selected = d.defaultSlug || null; } // start on the first category that has data
 					if ( st.selected && ! find( st.selected ) ) { st.selected = null; }
 					publish();
 				} )
-				.catch( function () { st.error = true; if ( first ) { publish(); } } ); // without chips the page still works: the API answers with its default category
+				.catch( function () { st.error = true; if ( first ) { publish(); } } ); // without the list the page still works: the API answers with its default service
 		}
-		document.addEventListener( 'rv-dir-refresh', function () { load( false ); } ); // after an admin publishes a file a category may have become active
+		document.addEventListener( 'rv-dir-refresh', function () { load( false ); } ); // after an admin publishes a file a service may have become active
 		load( true );
 	}
 	if ( document.readyState === 'loading' ) { document.addEventListener( 'DOMContentLoaded', start ); } else { start(); }

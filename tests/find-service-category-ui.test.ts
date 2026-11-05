@@ -79,7 +79,9 @@ async function mount(opts: { active?: string[]; search?: Handler; dir?: Handler;
     searchUrls: () => fetchMock.mock.calls.map((c) => String(c[0])).filter((u) => u.includes("pincode=")),
     dirUrls: () => fetchMock.mock.calls.map((c) => String(c[0])).filter((u) => u.includes("/search") && !u.includes("pincode=")),
     search: async (pin = "110001", km?: string) => {
-      ($("rv-fas-pin") as HTMLInputElement).value = pin;
+      const st = (window as any).RvFasState; // no silent default: a search needs a chosen service, so the helper picks the first live one like a visitor would
+      if (st?.ready && st.categories.length && !st.selected) document.dispatchEvent(new CustomEvent("rv-fas-select", { detail: { slug: (st.firstActive ?? st.categories[0]).slug } }));
+      ($("rv-fas-location") as HTMLInputElement).value = pin;
       if (km) { const r = $("rv-fas-radius") as HTMLInputElement; r.value = km; r.dispatchEvent(new Event("input")); }
       $("rv-fas-form").dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
       await flush(14);
@@ -111,13 +113,18 @@ afterEach(() => {
 });
 
 describe("category chips", () => {
-  it("shows the six categories; the first with data is selected as a tag chip with a clear button; the rest are Coming Soon", async () => {
+  it("shows the six services as chips; none is chosen for the visitor (no silent default); the rest are Coming Soon", async () => {
     const w = await mount();
     expect(w.chips().map((c) => c.textContent)).toEqual(NAMES);
+    expect(w.chips().every((c) => c.getAttribute("aria-pressed") === "false")).toBe(true);
+    expect(document.querySelectorAll(".rv-fas-chip-x")).toHaveLength(0);
+    expect((w.$("rv-fas-service") as HTMLInputElement).value).toBe("");
+    expect(w.state$().selected).toBeNull();
+    expect(w.$("rv-fas-cats").hidden).toBe(false);
+    w.chip("ATL Labs").click(); // choosing one shows it as a tag chip with a clear button, and in the Service box
     expect(w.chip("ATL Labs").getAttribute("aria-pressed")).toBe("true");
     expect(document.querySelector(".rv-fas-chip-x")!.getAttribute("aria-label")).toBe("Clear ATL Labs");
-    expect(document.querySelectorAll(".rv-fas-chip-x")).toHaveLength(1);
-    expect(w.$("rv-fas-cats").hidden).toBe(false);
+    expect((w.$("rv-fas-service") as HTMLInputElement).value).toBe("ATL Labs");
   });
   it("a category without an upload has a dark 'Coming Soon!' tooltip, linked with aria-describedby", async () => {
     const w = await mount();
@@ -378,15 +385,19 @@ describe("tooltips", () => {
     await sleep(130);
     expect(w.tip().hidden).toBe(true);
   });
-  it("keyboard: Enter on a single-school marker or on a row opens Google Maps; Enter on a several-school marker opens its list", async () => {
+  it("keyboard: Enter on a single-school marker opens Google Maps; Enter on a row selects it first and a second Enter opens it; Enter on a several-school marker opens its list", async () => {
     const w = await mount();
     await w.search();
     calls.markers[1].el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(opened).toHaveLength(1);
-    w.cards()[0].dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    const row = w.cards()[4];
+    row.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(opened).toHaveLength(1); // the first Enter on a row only selects it (and flies to its marker)
+    expect(row.classList.contains("is-selected")).toBe(true);
+    row.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(opened).toHaveLength(2);
     calls.markers[0].el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    expect(calls.popups).toHaveLength(1);
+    expect(calls.popups.length).toBeGreaterThan(0);
     expect(opened).toHaveLength(2); // the list popup is not a Google Maps tab
   });
   it("touch: the first tap shows the tooltip only, the second tap closes it and opens Google Maps, a tap elsewhere closes it", async () => {
@@ -407,11 +418,15 @@ describe("tooltips", () => {
     expect(w.tip().hidden).toBe(false);
     pointer(document.body, "pointerdown", "touch");
     expect(w.tip().hidden).toBe(true);
-    // a row works the same way
+    // a row acts on the first tap (no tooltip step): it selects, flies to its marker and highlights; a second tap on the same row opens Google Maps
     const row = w.cards()[4];
     pointer(row, "pointerdown", "touch");
     row.click();
-    expect(w.tip().hidden).toBe(false);
+    expect(opened).toHaveLength(1); // still only the marker's tab
+    expect(row.classList.contains("is-selected")).toBe(true);
+    pointer(row, "pointerdown", "touch");
+    row.click();
+    expect(opened).toHaveLength(2);
   });
   it("the tooltip never intercepts the pointer, stays inside the viewport and is a single linked element", async () => {
     const w = await mount();
@@ -460,15 +475,51 @@ describe("click", () => {
     expect(w.cards()[1].classList.contains("is-selected")).toBe(true);
     expect(w.cards()[0].classList.contains("is-selected")).toBe(false);
   });
-  it("a row click does the same (and nothing reloads: same list element)", async () => {
+  it("a row click selects the row, scrolls to the map, flies to its marker and opens a card with \"Open in Google Maps\"; a second click opens Google Maps (and nothing reloads: same list element)", async () => {
     const w = await mount();
     await w.search();
     const list = w.$("rv-fas-list");
+    const scroll = (Element.prototype as any).scrollIntoView as ReturnType<typeof vi.fn>;
+    scroll.mockClear();
+    const flights = calls.flyTo.length;
     w.cards()[4].click();
+    expect(opened).toHaveLength(0); // the first click does not leave the page
+    expect(scroll).toHaveBeenCalled(); // the page scrolls to the map
+    expect(calls.flyTo.length).toBe(flights + 1); // and the map flies to that school's marker
+    expect(w.cards()[4].classList.contains("is-selected")).toBe(true);
+    expect((calls.markers[1].el.querySelector(".rv-fas-pin") as HTMLElement).classList.contains("is-active")).toBe(true); // marker highlighted
+    const card = calls.popups[calls.popups.length - 1].content as HTMLElement;
+    expect(card.querySelector("h4")!.textContent).toContain("Near School");
+    const btn = card.querySelector<HTMLButtonElement>("button.rv-fas-pop-open")!;
+    expect(btn.textContent).toBe("Open in Google Maps");
+    expect(card.querySelector("a.rv-fas-dir-link")).not.toBeNull(); // Directions stays
+    w.cards()[4].click(); // second click on the same row
     expect(opened).toHaveLength(1);
     expect(new URL(opened[0].href).searchParams.get("query")).toBe("Near School, Central Delhi, 110002, India");
-    expect(w.cards()[4].classList.contains("is-selected")).toBe(true);
     expect(w.$("rv-fas-list")).toBe(list);
+  });
+  it("the card's \"Open in Google Maps\" button opens Google Maps; a different row starts again at the first step", async () => {
+    const w = await mount();
+    await w.search();
+    w.cards()[4].click();
+    (calls.popups[calls.popups.length - 1].content as HTMLElement).querySelector<HTMLButtonElement>("button.rv-fas-pop-open")!.click();
+    expect(opened).toHaveLength(1);
+    w.cards()[0].click(); // another row: select only
+    expect(opened).toHaveLength(1);
+    expect(w.cards()[0].classList.contains("is-selected")).toBe(true);
+    expect(w.cards()[4].classList.contains("is-selected")).toBe(false);
+  });
+  it("a row in a several-school marker opens the list popup with that school marked; a second click on the row opens its Google Maps page", async () => {
+    const w = await mount();
+    await w.search();
+    w.cards()[2].click();
+    expect(opened).toHaveLength(0);
+    const pop = calls.popups[calls.popups.length - 1].content as HTMLElement;
+    expect(pop.querySelectorAll(".rv-fas-pop-item")).toHaveLength(4);
+    expect(pop.querySelector('.rv-fas-pop-item[aria-current="true"]')!.getAttribute("data-rank")).toBe("3");
+    w.cards()[2].click();
+    expect(opened).toHaveLength(1);
+    expect(new URL(opened[0].href).searchParams.get("query")).toBe("Third School, New Delhi, 110001, India");
   });
   it("a marker with several schools flies there and lists all of them in a scrollable popup; clicking one opens Google Maps for that school", async () => {
     const w = await mount();
@@ -533,7 +584,7 @@ describe("range, circle and zoom", () => {
     expect(calls.circle[0].o.radius).toBe(40000);
     expect(calls.fit).toHaveLength(fits + 1);
     expect(calls.fit.at(-1)[1]).toMatchObject({ padding: [24, 24], maxZoom: 15 });
-    expect((w.$("rv-fas-pin") as HTMLInputElement).value).toBe("110001");
+    expect((w.$("rv-fas-location") as HTMLInputElement).value).toBe("110001");
     await sleep(320);
     await flush();
     expect(w.searchUrls().at(-1)).toContain("radius=40");
@@ -573,13 +624,14 @@ describe("empty and error states keep the map working", () => {
     expect(w.summary()).toBe("No data uploaded yet.");
     expect(calls.markers).toHaveLength(0);
     await w.search("110001");
-    expect(w.state()).toContain("No data uploaded yet");
+    expect(w.state()).toContain("COMING SOON!"); // the visitor picked a service and none has data yet: the friendly Coming Soon card, no search
+    expect(w.searchUrls()).toHaveLength(0);
   });
   it("an invalid PIN code never reaches the API", async () => {
     const w = await mount();
     await w.search("12345");
     expect(w.searchUrls()).toHaveLength(0);
-    expect(w.$("rv-fas-pin-err").hidden).toBe(false);
+    expect(w.$("rv-fas-loc-err").hidden).toBe(false);
   });
   it("an unknown PIN code: a clear message and no circle", async () => {
     const w = await mount({ search: () => near([], { total: 0, near: { center: null, pincodeKnown: false, radiusKm: 25, limit: 50 } }) });
@@ -587,7 +639,7 @@ describe("empty and error states keep the map working", () => {
     await w.search("100001");
     await sleep(1250);
     await flush();
-    expect(w.state()).toContain("We could not find PIN code 100001");
+    expect(w.state()).toContain("We couldn\u2019t find that place");
     expect(calls.circle).toHaveLength(0);
   });
   it("the API fails: an error with Try again, no stale results, the map is still there", async () => {

@@ -1,13 +1,14 @@
 // The fixed list of Find a Service categories. A category can only ever be one of these names: it is chosen from this list
 // (never typed free-hand), checked against it on every request, and stored as its slug. The names are plain text; every page
-// that shows one inserts it with textContent.
+// that shows one inserts it with textContent. `aliases` are the extra words a visitor may type in the Service search box (matched by
+// word prefix, never shown as results). The page gets them from GET /api/services/categories, so no widget repeats this list.
 export const CATEGORIES = [
-  { slug: "atl-labs", name: "ATL Labs" },
-  { slug: "robotics-labs", name: "Robotics Labs" },
-  { slug: "stem-labs", name: "STEM Labs" },
-  { slug: "3d-printing-facilities", name: "3D Printing Facilities" },
-  { slug: "robotics-training-centres", name: "Robotics Training Centres" },
-  { slug: "innovation-centres", name: "Innovation Centres" },
+  { slug: "atl-labs", name: "ATL Labs", aliases: ["atl", "atal tinkering", "tinkering"] },
+  { slug: "robotics-labs", name: "Robotics Labs", aliases: ["robot", "robotics", "lab", "labs"] },
+  { slug: "stem-labs", name: "STEM Labs", aliases: ["stem", "science", "lab", "labs"] },
+  { slug: "3d-printing-facilities", name: "3D Printing Facilities", aliases: ["3d", "printing", "printer"] },
+  { slug: "robotics-training-centres", name: "Robotics Training Centres", aliases: ["robot", "training", "coaching"] },
+  { slug: "innovation-centres", name: "Innovation Centres", aliases: ["innovation"] },
 ] as const;
 
 export type CategorySlug = (typeof CATEGORIES)[number]["slug"];

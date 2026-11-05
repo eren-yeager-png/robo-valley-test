@@ -1,6 +1,7 @@
+<!-- rv-fas widget 03 PR#17 -->
 <div class="rv-fas rv-fas-results" id="rv-fas-results">
 	<div class="rv-fas-results-head">
-		<p class="rv-fas-summary" id="rv-fas-summary" role="status" aria-live="polite">Enter a PIN code to find schools near you.</p>
+		<p class="rv-fas-summary" id="rv-fas-summary" role="status" aria-live="polite">Choose a service and a place to see results.</p>
 	</div>
 	<div class="rv-fas-layout">
 		<div class="rv-fas-list-col">
@@ -95,7 +96,7 @@
 	var ATTRIBUTION_OFM = '<a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap</a> <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener noreferrer">&copy; OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>' + GEONAMES;
 	var ATTRIBUTION_OSM = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors' + GEONAMES;
 	var PIN_RE = /^[1-9][0-9]{5}$/;
-	var MAX_KM = 50, INDIA_VIEW = [ 22.5, 79 ], INDIA_ZOOM = 5, TIP_NAMES = 3, CLICK_ZOOM = 14, FIT = { padding: [ 24, 24 ], maxZoom: 15 };
+	var TEXT_LIMIT = 50, MAX_KM = 50, INDIA_VIEW = [ 22.5, 79 ], INDIA_ZOOM = 5, TIP_NAMES = 3, CLICK_ZOOM = 14, FIT = { padding: [ 24, 24 ], maxZoom: 15 };
 
 	function start() {
 		var $ = function ( id ) { return document.getElementById( id ); };
@@ -105,14 +106,14 @@
 		}
 		root.setAttribute( 'data-ready', '1' );
 		var el = {
-			pin: $( 'rv-fas-pin' ), pinErr: $( 'rv-fas-pin-err' ), go: $( 'rv-fas-go' ), radius: $( 'rv-fas-radius' ), radiusOut: $( 'rv-fas-radius-out' ),
+			loc: $( 'rv-fas-location' ), locErr: $( 'rv-fas-loc-err' ), go: $( 'rv-fas-go' ), radius: $( 'rv-fas-radius' ), radiusOut: $( 'rv-fas-radius-out' ),
 			summary: $( 'rv-fas-summary' ), alert: $( 'rv-fas-alert' ), state: $( 'rv-fas-state' ), list: $( 'rv-fas-list' ), map: $( 'rv-fas-map' ), mapMsg: $( 'rv-fas-map-msg' ), mapNote: $( 'rv-fas-map-note' )
 		};
 		var api = ( window.RoboValleyApi && window.RoboValleyApi.base ) || '';
 		var reduce = window.matchMedia( '(prefers-reduced-motion: reduce)' );
 		var L = null, map = null, layer = null, circle = null, glLayer = null, rasterOn = false;
 		var S = {
-			pin: '', seq: 0, ctl: null, results: [], groups: [], byPin: {}, markers: {}, originMarker: null, lastAsk: 0, searched: false,
+			pin: '', mode: 'pin', selRank: 0, seq: 0, ctl: null, results: [], groups: [], byPin: {}, markers: {}, originMarker: null, lastAsk: 0, searched: false,
 			flownPin: '', catName: '', pointer: '', tipKey: '', hoverPin: ''
 		};
 		var radiusTimer, tipTimer;
@@ -179,7 +180,7 @@
 		paintRadius();
 		el.radius.addEventListener( 'input', function () {
 			paintRadius();
-			if ( S.searched && S.pin && ! isSoon() ) {
+			if ( S.searched && S.pin && S.mode === 'pin' && ! isSoon() ) {
 				// The circle follows the slider at once and the view refits to it; the schools are fetched shortly after the last move.
 				if ( circle && map ) {
 					circle.setRadius( radiusKm() * 1000 );
@@ -194,32 +195,49 @@
 		}
 
 		/* ---------- Form ---------- */
-		function pinError( msg ) {
-			el.pinErr.textContent = msg || '';
-			el.pinErr.hidden = ! msg;
+		var LOC_HELP = 'Enter a 6-digit PIN code, district or state';
+		function locError( msg ) {
+			el.locErr.textContent = msg || '';
+			el.locErr.hidden = ! msg;
 			if ( msg ) {
-				el.pin.setAttribute( 'aria-invalid', 'true' );
+				el.loc.setAttribute( 'aria-invalid', 'true' );
 			} else {
-				el.pin.removeAttribute( 'aria-invalid' );
+				el.loc.removeAttribute( 'aria-invalid' );
 			}
 		}
-		el.pin.addEventListener( 'input', function () {
-			var cleaned = el.pin.value.replace( /[^0-9]/g, '' ).slice( 0, 6 );
-			if ( cleaned !== el.pin.value ) {
-				el.pin.value = cleaned;
+		/** What the Location box holds: a 6-digit PIN code, some text (a district or a state), or a mistake to explain. */
+		function readLocation() {
+			var v = el.loc.value.replace( /\s+/g, ' ' ).trim();
+			if ( ! v ) {
+				return { error: 'Enter a PIN code, district or state.' };
 			}
-			pinError( '' );
+			if ( /^[0-9]+$/.test( v ) ) {
+				return PIN_RE.test( v ) ? { place: v } : { error: LOC_HELP };
+			}
+			return v.length < 2 || ! /\p{L}/u.test( v ) ? { error: LOC_HELP } : { place: v };
+		}
+		el.loc.addEventListener( 'input', function () {
+			locError( '' );
 		} );
 		form.addEventListener( 'submit', function ( e ) {
 			e.preventDefault();
-			var pin = el.pin.value.trim();
-			if ( ! PIN_RE.test( pin ) ) {
-				pinError( pin ? 'Enter a valid 6-digit PIN code (digits only, not starting with 0).' : 'Enter a 6-digit PIN code.' );
-				el.pin.focus();
+			var st = window.RvFasState, loc = readLocation();
+			if ( st && st.ready && st.categories.length && ! st.selected ) { // no silent default: the visitor must choose a service
+				locError( loc.error || '' );
+				document.dispatchEvent( new CustomEvent( 'rv-fas-need-service' ) );
 				return;
 			}
-			pinError( '' );
-			run( pin, true );
+			if ( isSoon() ) {
+				locError( '' );
+				showSoon();
+				return;
+			}
+			locError( loc.error || '' );
+			if ( loc.error ) {
+				el.loc.focus();
+				return;
+			}
+			run( loc.place, true );
 		} );
 
 		/* ---------- Messages and states ---------- */
@@ -346,8 +364,9 @@
 		window.addEventListener( 'scroll', function () { if ( S.tipKey ) { hideTip(); } }, true );
 		window.addEventListener( 'resize', hideTip );
 
-		/** Hover, focus and touch on one target (a marker or a row). `content()` builds the tooltip; `act()` is the click. */
-		function wire( node, key, content, enterHover, leaveHover, act ) {
+		/** Hover, focus and touch on one target (a marker or a row). `content()` builds the tooltip; `act()` is the click.
+		    A marker keeps the two-tap rule on a phone (the first tap shows the tooltip, the second acts); a row (`oneTap`) acts on the first tap. */
+		function wire( node, key, content, enterHover, leaveHover, act, oneTap ) {
 			node.setAttribute( 'aria-describedby', 'rv-fas-tip' );
 			node.addEventListener( 'pointerenter', function ( e ) {
 				if ( e.pointerType === 'touch' ) {
@@ -381,13 +400,13 @@
 				}
 			} );
 			node.addEventListener( 'click', function ( e ) {
-				if ( S.pointer === 'touch' && S.tipKey !== key ) { // first tap: show the tooltip only
+				if ( S.pointer === 'touch' && ! oneTap && S.tipKey !== key ) { // first tap: show the tooltip only
 					if ( e.stopPropagation ) { e.stopPropagation(); }
 					enterHover();
 					showTip( node, key, content() );
 					return;
 				}
-				if ( S.pointer === 'touch' ) { // second tap: close the tooltip and do the click action
+				if ( S.pointer === 'touch' && ! oneTap ) { // second tap: close the tooltip and do the click action
 					hideTip();
 					leaveHover();
 				}
@@ -522,6 +541,7 @@
 		function setResults( items ) {
 			items.forEach( function ( r, i ) { r.rank = i + 1; } );
 			S.results = items;
+			S.selRank = 0;
 			S.byPin = {};
 			clear( el.list );
 			items.forEach( function ( r ) { el.list.appendChild( card( r ) ); } );
@@ -537,7 +557,9 @@
 			var head = make( 'div', 'rv-fas-card-head' );
 			head.appendChild( make( 'span', 'rv-fas-rank', String( r.rank ) ) );
 			head.appendChild( make( 'h3', 'rv-fas-card-title', r.schoolName ) );
-			head.appendChild( make( 'span', 'rv-fas-dist', fmtKm( r.distanceKm ) ) );
+			if ( typeof r.distanceKm === 'number' ) {
+					head.appendChild( make( 'span', 'rv-fas-dist', fmtKm( r.distanceKm ) ) );
+				}
 			li.appendChild( head );
 			var meta = make( 'dl', 'rv-fas-meta' );
 			[ [ 'District', r.district ], [ 'State', r.state ], [ 'PIN code', r.pincode ], [ 'UDISE', r.udiseCode ] ].forEach( function ( p ) {
@@ -551,34 +573,76 @@
 			li.appendChild( meta );
 			li.appendChild( dirLink( r ) );
 			wire( li, 'row-' + r.rank, function () { return tipGroup( groupOf( r ) ); },
-				function () { setHover( r.pincode ); }, function () { setHover( '' ); }, function () { openSchool( r ); } );
+				function () { setHover( r.pincode ); }, function () { setHover( '' ); }, function () { chooseRow( r ); }, true );
 			return li;
 		}
 
-		/* ---------- Click on one school (a row, a single-school marker, a school in the list popup): highlight it and open Google Maps ---------- */
+		/* ---------- Click on a school ----------
+		   A result row: the first click or tap selects it (the page scrolls to the map, the map flies to its marker, the marker and the row are highlighted
+		   and a small card with "Open in Google Maps" opens on the marker); a second click or tap on the same row opens Google Maps in a new tab.
+		   A single-school marker, and a school in the list popup, open Google Maps at once. All of it runs inside the click handler, so pop-up blockers stay quiet. */
 		function openSchool( r ) {
 			hideTip();
 			selectRows( r.pincode, r.rank );
 			openPlace( r );
 		}
-		/* ---------- Click on a marker that holds several schools: fly to it and open the list popup ---------- */
-		function activate( g, school ) {
-			hideTip();
-			selectRows( g.pin, 0 );
-			scrollToRow( g.pin, 0 );
-			if ( ! map || g.lat == null ) {
+		function showMap() {
+			if ( el.map.scrollIntoView ) {
+				el.map.scrollIntoView( { block: stacked() ? 'center' : 'nearest', behavior: reduce.matches ? 'auto' : 'smooth' } );
+			}
+		}
+		function chooseRow( r ) {
+			if ( S.selRank === r.rank ) { // already selected: this click opens Google Maps
+				openSchool( r );
 				return;
 			}
+			hideTip();
+			S.selRank = r.rank;
+			selectRows( r.pincode, r.rank );
+			showMap();
+			var g = S.byPin[ r.pincode ];
+			if ( map && g && g.lat != null ) {
+				flyAndOpen( g, g.items.length > 1 ? popupFor( g, r.rank ) : schoolCard( r ) );
+			}
+		}
+		/** Fly to a marker and open a popup on it once the flight has landed. */
+		function flyAndOpen( g, content ) {
 			var ll = [ g.lat, g.lng ], zoom = Math.max( map.getZoom(), CLICK_ZOOM );
 			var pop = L.popup( { maxWidth: 230, autoPan: true, autoPanPadding: [ 16, 16 ], className: 'rv-fas-popup' } ).setLatLng( ll );
-			pop.setContent( popupFor( g ) );
+			pop.setContent( content );
 			// Open the popup when the flight has landed: a popup opened before a flyTo is closed again by the move.
 			var opened = false, open = function () { if ( ! opened ) { opened = true; pop.openOn( map ); } };
 			map.once( 'moveend', open );
 			setTimeout( open, 1200 ); // already at that spot: no move happens, so no moveend
 			map.flyTo( ll, zoom, { animate: ! reduce.matches, duration: 0.8 } );
 		}
-		function popupFor( g ) {
+		/* ---------- Click on a marker that holds several schools: fly to it and open the list popup ---------- */
+		function activate( g ) {
+			hideTip();
+			S.selRank = 0;
+			selectRows( g.pin, 0 );
+			scrollToRow( g.pin, 0 );
+			if ( map && g.lat != null ) {
+				flyAndOpen( g, popupFor( g, 0 ) );
+			}
+		}
+		/** The card on a single-school marker after its row was chosen. */
+		function schoolCard( r ) {
+			var box = make( 'div', 'rv-fas-pop' );
+			box.appendChild( make( 'h4', null, r.rank + '. ' + r.schoolName ) );
+			var where = [ r.district, r.state, r.pincode ].filter( Boolean ).join( ', ' );
+			if ( where ) {
+				box.appendChild( make( 'p', null, where ) );
+			}
+			var b = make( 'button', 'rv-fas-btn rv-fas-btn--primary rv-fas-btn--small rv-fas-pop-open', 'Open in Google Maps' );
+			b.type = 'button';
+			b.setAttribute( 'aria-label', 'Open ' + r.schoolName + ' in Google Maps (new tab)' );
+			b.addEventListener( 'click', function () { openSchool( r ); } );
+			box.appendChild( b );
+			box.appendChild( dirLink( r ) );
+			return box;
+		}
+		function popupFor( g, rank ) {
 			var box = make( 'div', 'rv-fas-pop' );
 			// Capped to the map's height, so on a phone the heading and the first school stay in view and the rest scrolls inside.
 			box.style.maxHeight = Math.max( 150, el.map.clientHeight - 130 ) + 'px'; // room for the marker, the tip and the pan padding
@@ -593,6 +657,9 @@
 				var b = make( 'button', 'rv-fas-pop-item', r.rank + '. ' + r.schoolName );
 				b.type = 'button';
 				b.setAttribute( 'data-rank', String( r.rank ) );
+				if ( rank && r.rank === rank ) {
+					b.setAttribute( 'aria-current', 'true' );
+				}
 				b.setAttribute( 'aria-label', 'Open ' + r.schoolName + ' in Google Maps (new tab)' );
 				b.addEventListener( 'click', function () { openSchool( r ); } );
 				row.appendChild( b );
@@ -665,7 +732,7 @@
 				if ( mel ) {
 					mel.removeAttribute( 'title' );
 					mel.setAttribute( 'aria-label', g.items.length === 1 ? first.rank + '. ' + first.schoolName : plural( g.items.length, 'school', 'schools' ) + ' in PIN code ' + g.pin + ', starting at number ' + first.rank );
-					wire( mel, 'pin-' + g.pin, function () { return tipGroup( g ); }, function () { setHover( g.pin ); }, function () { setHover( '' ); }, function () { if ( g.items.length === 1 ) { openSchool( g.items[ 0 ] ); } else { activate( g, null ); } } );
+					wire( mel, 'pin-' + g.pin, function () { return tipGroup( g ); }, function () { setHover( g.pin ); }, function () { setHover( '' ); }, function () { if ( g.items.length === 1 ) { openSchool( g.items[ 0 ] ); } else { activate( g ); } } );
 				}
 			} );
 			if ( ! fitMode ) {
@@ -864,10 +931,16 @@
 				} );
 			} );
 		}
-		function searchUrl( pin, km, centre ) {
-			var q = 'pincode=' + encodeURIComponent( pin ) + '&radius=' + km + categoryParam();
-			if ( centre ) {
-				q += '&lat=' + centre.lat.toFixed( 6 ) + '&lng=' + centre.lng.toFixed( 6 );
+		/** A 6-digit PIN code searches around its position within the range; any other text is matched against districts and states (the first TEXT_LIMIT, by name, with no distance). */
+		function searchUrl( place, km, centre ) {
+			var q;
+			if ( PIN_RE.test( place ) ) {
+				q = 'pincode=' + encodeURIComponent( place ) + '&radius=' + km + categoryParam();
+				if ( centre ) {
+					q += '&lat=' + centre.lat.toFixed( 6 ) + '&lng=' + centre.lng.toFixed( 6 );
+				}
+			} else {
+				q = 'location=' + encodeURIComponent( place ) + '&pageSize=' + TEXT_LIMIT + categoryParam();
 			}
 			return api + '/api/services/search?' + q;
 		}
@@ -891,8 +964,8 @@
 		}
 
 		/* ---------- Search ---------- */
-		/** `newPin` true when the visitor pressed Search (fly to the PIN code); false for a range change (refit to the circle). */
-		function run( pin, newPin ) {
+		/** `place` is a 6-digit PIN code or text (a district or a state). `newPin` true when the visitor pressed Search (fly to the PIN code); false for a range change (refit to the circle). */
+		function run( place, newPin ) {
 			if ( isSoon() ) { // a category without an upload runs no search
 				showSoon();
 				return;
@@ -901,22 +974,25 @@
 				showState( 'Search is not available', [ 'This page is not connected to the school list. Please try again later.' ] );
 				return;
 			}
-			var seq = ++S.seq, km = radiusKm();
+			var seq = ++S.seq, km = radiusKm(), isPin = PIN_RE.test( place );
 			if ( S.ctl ) {
 				S.ctl.abort();
 			}
 			var ctl = window.AbortController ? new AbortController() : null;
 			S.ctl = ctl;
-			S.pin = pin;
+			S.pin = place;
+			S.mode = isPin ? 'pin' : 'text';
+			el.radius.disabled = ! isPin; // the range only applies around a PIN code
+			el.radius.title = isPin ? '' : 'The distance applies to a PIN code search';
 			S.searched = true;
 			setAlert( '' );
 			el.go.disabled = true;
 			el.summary.textContent = 'Searching…';
 			showLoading();
-			fetchJson( searchUrl( pin, km ), ctl ).then( function ( body ) {
-				if ( body.near && ! body.near.center ) { // no stored position for this PIN code: ask OpenStreetMap, then search again around that point
-					return geocodePin( pin, ctl ).then( function ( c ) {
-						return c ? fetchJson( searchUrl( pin, km, c ), ctl ) : body;
+			fetchJson( searchUrl( place, km ), ctl ).then( function ( body ) {
+				if ( isPin && body.near && ! body.near.center ) { // no stored position for this PIN code: ask OpenStreetMap, then search again around that point
+					return geocodePin( place, ctl ).then( function ( c ) {
+						return c ? fetchJson( searchUrl( place, km, c ), ctl ) : body;
 					} );
 				}
 				return body;
@@ -926,7 +1002,7 @@
 				}
 				return mapReady.then( function () {
 					if ( seq === S.seq ) {
-						show( pin, km, body, newPin || S.flownPin !== pin );
+						show( place, km, body, newPin || S.flownPin !== place );
 					}
 				} );
 			} ).catch( function ( e ) {
@@ -937,20 +1013,21 @@
 				setResults( [] );
 				drawMap( null, km, [], 'fit' );
 				el.summary.textContent = 'The search could not be completed.';
-				showState( 'The school search is not available right now', [ e && e.status === 400 && e.message ? e.message : 'Please check your connection and try again.' ], [ { label: 'Try again', run: function () { run( pin, true ); } } ] );
+				showState( 'The school search is not available right now', [ e && e.status === 400 && e.message ? e.message : 'Please check your connection and try again.' ], [ { label: 'Try again', run: function () { run( place, true ); } } ] );
 			} ).then( function () {
 				if ( seq === S.seq ) {
 					el.go.disabled = false;
 				}
 			} );
 		}
-		function show( pin, km, body, flyThere ) {
+		function show( place, km, body, flyThere ) {
+			var isPin = PIN_RE.test( place );
 			var items = body.results || [], centre = body.near && body.near.center;
 			S.catName = body.category && body.category.name ? body.category.name : '';
 			setResults( items );
-			drawMap( centre, km, items, flyThere ? 'fly' : 'fit' );
+			drawMap( centre, km, items, isPin && flyThere ? 'fly' : 'fit' );
 			if ( centre ) {
-				S.flownPin = pin;
+				S.flownPin = place;
 			}
 			if ( ! body.dataset ) {
 				el.summary.textContent = 'No school list yet.';
@@ -960,22 +1037,26 @@
 			var total = body.total || 0, shown = items.length;
 			if ( ! shown ) {
 				el.summary.textContent = 'No schools found.';
-				var more = km < MAX_KM ? [ { label: 'Search ' + MAX_KM + ' km', run: function () { el.radius.value = String( MAX_KM ); paintRadius(); run( pin, false ); } } ] : [];
+				if ( ! isPin ) {
+					showState( 'We couldn\u2019t find that place', [ 'Try a PIN code, a district or a state.' ] );
+					return;
+				}
+				var more = km < MAX_KM ? [ { label: 'Search ' + MAX_KM + ' km', run: function () { el.radius.value = String( MAX_KM ); paintRadius(); run( place, false ); } } ] : [];
 				showState(
-					centre ? ( km < MAX_KM ? 'No schools within ' + km + ' km. Try a larger range.' : 'No schools within ' + km + ' km of this PIN code.' ) : 'We could not find PIN code ' + pin,
+					centre ? ( km < MAX_KM ? 'No schools within ' + km + ' km. Try a larger range.' : 'No schools within ' + km + ' km of this PIN code.' ) : 'We couldn\u2019t find that place',
 					centre ? [] : [ 'Check the PIN code and try again.' ],
 					centre ? more : []
 				);
 				return;
 			}
 			hideState();
-			var text = centre ? plural( total, 'school', 'schools' ) + ' within ' + km + ' km of ' + pin : plural( total, 'school', 'schools' ) + ' in PIN code ' + pin;
+			var text = ! isPin ? plural( total, 'school', 'schools' ) + ' in ' + place : centre ? plural( total, 'school', 'schools' ) + ' within ' + km + ' km of ' + place : plural( total, 'school', 'schools' ) + ' in PIN code ' + place;
 			if ( total > shown ) {
-				text += ' (showing the nearest ' + shown + ')';
+				text += ' (showing the ' + ( isPin ? 'nearest ' : 'first ' ) + shown + ')';
 			}
 			el.summary.textContent = text;
-			if ( ! centre ) {
-				setAlert( 'We could not find PIN code ' + pin + ' on the map, so only the schools in this exact PIN code are listed.' );
+			if ( isPin && ! centre ) {
+				setAlert( 'We could not find PIN code ' + place + ' on the map, so only the schools in this exact PIN code are listed.' );
 			}
 		}
 
@@ -1005,14 +1086,21 @@
 			actions.push( { label: 'Show all services', run: function () { pick( null ); } } );
 			showState( c.name, [ 'This service is not listed on RoboValley yet. Meanwhile, you can search:' ], actions, 'rv-fas-soon', 'COMING SOON!' );
 		}
+		/** Nothing to show yet, or the service was cleared: no search runs and nothing stale stays on screen. */
 		function showIdle() {
+			S.seq++;
+			if ( S.ctl ) {
+				S.ctl.abort();
+			}
+			clearTimeout( radiusTimer );
+			el.go.disabled = false;
 			setResults( [] );
 			if ( map ) {
 				drawMap( null, radiusKm(), [], 'fit' );
 			}
-			el.summary.textContent = 'Enter a PIN code to find schools near you.';
+			el.summary.textContent = 'Choose a service and a place to see results.';
 			setAlert( '' );
-			showState( 'Find schools near you', [ 'Enter a 6-digit PIN code and choose a distance, then press Search.' ] );
+			showState( 'Find a service near you', [ 'Choose a service, enter a PIN code, district or state, then press Search.' ] );
 		}
 		function onCategory() {
 			var st = window.RvFasState;
@@ -1024,7 +1112,9 @@
 				showState( 'No data uploaded yet', [ 'Please check back soon.' ] );
 				return;
 			}
-			if ( isSoon() ) {
+			if ( st && st.ready && st.categories.length && ! st.selected ) { // the service was cleared: no silent default
+				showIdle();
+			} else if ( isSoon() ) {
 				showSoon();
 			} else if ( S.searched && S.pin ) {
 				run( S.pin, false ); // the other category's schools around the same PIN code, no page reload
@@ -1035,7 +1125,7 @@
 		document.addEventListener( 'rv-fas-category', onCategory );
 
 		/* Nothing is shown until a PIN code is searched (or the chosen category turns out to be Coming Soon). */
-		showState( 'Find schools near you', [ 'Enter a 6-digit PIN code and choose a distance, then press Search.' ] );
+		showState( 'Find a service near you', [ 'Choose a service, enter a PIN code, district or state, then press Search.' ] );
 		if ( window.RvFasState && window.RvFasState.ready ) {
 			onCategory();
 		}
