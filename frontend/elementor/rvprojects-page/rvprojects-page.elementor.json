@@ -1,0 +1,28 @@
+{
+    "version": "0.4",
+    "title": "RoboValley Projects (rvprojects)",
+    "type": "page",
+    "content": [
+        {
+            "id": "rvp00c1",
+            "elType": "container",
+            "settings": {
+                "_title": "RoboValley Projects: shortcode",
+                "content_width": "full",
+                "padding": { "unit": "px", "top": "0", "right": "0", "bottom": "0", "left": "0", "isLinked": true },
+                "margin": { "unit": "px", "top": "0", "right": "0", "bottom": "0", "left": "0", "isLinked": true }
+            },
+            "elements": [
+                {
+                    "id": "rvp00w1",
+                    "elType": "widget",
+                    "widgetType": "shortcode",
+                    "settings": { "shortcode": "[robovalley_projects]" },
+                    "elements": []
+                }
+            ],
+            "isInner": false
+        }
+    ],
+    "page_settings": { "hide_title": "yes" }
+}

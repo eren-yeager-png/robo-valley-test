@@ -1,0 +1,16 @@
+{
+    "note": "Settings for the new Projects page. Create a NEW page (do not reuse Home or Find a Service). Slug: projects.",
+    "title": "Projects",
+    "slug": "projects",
+    "status": "publish",
+    "front_page": false,
+    "meta": {
+        "_elementor_edit_mode": "builder",
+        "_elementor_page_settings": { "hide_title": "yes" },
+        "_elementor_template_type": "wp-page",
+        "_wp_page_template": "elementor_header_footer",
+        "ast-site-content-layout": "full-width-container",
+        "site-post-title": "disabled",
+        "robovalley_projects": "1"
+    }
+}

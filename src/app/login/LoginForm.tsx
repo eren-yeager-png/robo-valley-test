@@ -9,7 +9,8 @@ import { hardNavigate } from "../../lib/navigate";
 
 type Errors = Record<string, string>;
 
-export default function LoginForm() {
+// returnTo: an address the server has already validated (see login/page.tsx). Absent = exactly the previous behaviour.
+export default function LoginForm({ returnTo }: { returnTo?: string } = {}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -43,7 +44,7 @@ export default function LoginForm() {
       const data = await res.json().catch(() => ({}));
       if (data.success) {
         // Everyone (admins too) goes to the normal website. The server decides where; only http(s) or a local path is followed.
-        const to = typeof data.redirectTo === "string" && /^(https?:\/\/|\/(?!\/))/.test(data.redirectTo) ? data.redirectTo : "/";
+        const to = returnTo ?? (typeof data.redirectTo === "string" && /^(https?:\/\/|\/(?!\/))/.test(data.redirectTo) ? data.redirectTo : "/");
         hardNavigate(to);
         return;
       }
@@ -93,7 +94,7 @@ export default function LoginForm() {
             <button type="submit" className="btn primary block" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
           </form>
 
-          <p className="alt">Don't have an account? <Link href="/join">Sign up</Link></p>
+          <p className="alt">Don't have an account? <Link href={returnTo ? `/join?returnTo=${encodeURIComponent(returnTo)}` : "/join"}>Sign up</Link></p>
         </div>
       </main>
     </div>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../lib/currentUser";
-import { destinationFor } from "../../lib/session";
+import { destinationFor, resolveReturnTo } from "../../lib/session";
 import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
@@ -18,11 +18,19 @@ function isThisHost(url: string, host: string | null): boolean {
 // A visitor who is already signed in is sent straight to the website (on the server, so the form never flashes);
 // everyone else sees the sign-in form. "/" re-exports this page. If SITE_URL ever points at this very host the form is
 // shown instead of redirecting, so a misconfiguration cannot create a redirect loop.
-export default async function LoginPage() {
+//
+// ?returnTo=<Projects page address> (set by the website's "Unlock Project Details" prompt) is validated here on the server
+// (see lib/projectsReturnTo.ts: configured site origin + fixed Projects path, optionally + ?project=<positive integer>, nothing else). A valid
+// value replaces SITE_URL as the place to go afterwards; anything else is ignored, so without it nothing changes.
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export default async function LoginPage({ searchParams }: { searchParams?: SearchParams } = {}) {
+  const rawReturnTo = (await searchParams)?.returnTo;
+  const returnTo = resolveReturnTo(typeof rawReturnTo === "string" ? rawReturnTo : undefined);
   const user = await getCurrentUser();
   if (user) {
-    const to = destinationFor(user.role);
+    const to = returnTo ?? destinationFor(user.role);
     if (!isThisHost(to, (await headers()).get("host"))) redirect(to);
   }
-  return <LoginForm />;
+  return <LoginForm returnTo={returnTo ?? undefined} />;
 }
