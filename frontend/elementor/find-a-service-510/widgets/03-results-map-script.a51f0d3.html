@@ -1,4 +1,4 @@
-<!-- rv-fas widget 03 PR#17 -->
+<!-- rv-fas widget 03 PR#24 -->
 <div class="rv-fas rv-fas-results" id="rv-fas-results">
 	<div class="rv-fas-results-head">
 		<p class="rv-fas-summary" id="rv-fas-summary" role="status" aria-live="polite">Choose a service and a place to see results.</p>
@@ -114,7 +114,7 @@
 		var L = null, map = null, layer = null, circle = null, glLayer = null, rasterOn = false;
 		var S = {
 			pin: '', mode: 'pin', selRank: 0, seq: 0, ctl: null, results: [], groups: [], byPin: {}, markers: {}, originMarker: null, lastAsk: 0, searched: false,
-			flownPin: '', catName: '', pointer: '', tipKey: '', hoverPin: ''
+			flownPin: '', catName: '', pointer: '', tipKey: '', hoverPin: '', blockedUntil: 0, pending: null, limitTimer: 0, prevSummary: ''
 		};
 		var radiusTimer, tipTimer;
 
@@ -242,8 +242,59 @@
 
 		/* ---------- Messages and states ---------- */
 		function setAlert( msg ) {
+			clearLimitTimer(); // any other message replaces the "busy" notice and stops its countdown
 			el.alert.textContent = msg || '';
 			el.alert.hidden = ! msg;
+		}
+		/* ---------- Too many searches (HTTP 429): the earlier results stay, nothing is sent until the countdown ends ---------- */
+		function clearLimitTimer() {
+			if ( S.limitTimer ) {
+				clearInterval( S.limitTimer );
+				S.limitTimer = 0;
+			}
+		}
+		function limitSeconds() {
+			return Math.max( 0, Math.ceil( ( S.blockedUntil - Date.now() ) / 1000 ) );
+		}
+		/** The notice above the list: the message with the seconds left and a Try again button that wakes up when the wait is over. */
+		function paintLimit() {
+			var sec = limitSeconds();
+			clear( el.alert );
+			el.alert.appendChild( make( 'span', 'rv-fas-limit-msg', sec > 0 ? 'Lots of people are searching right now. Please try again in ' + sec + ( sec === 1 ? ' second.' : ' seconds.' ) : 'You can search again now.' ) );
+			var b = make( 'button', 'rv-fas-btn rv-fas-btn--ghost rv-fas-btn--small rv-fas-limit-retry', 'Try again' );
+			b.type = 'button';
+			b.disabled = sec > 0;
+			b.addEventListener( 'click', function () {
+				var p = S.pending;
+				clearLimitTimer();
+				if ( p && limitSeconds() === 0 ) {
+					run( p.place, p.newPin );
+				}
+			} );
+			el.alert.appendChild( b );
+			el.alert.hidden = false;
+			if ( sec === 0 ) {
+				clearLimitTimer();
+			}
+		}
+		function showLimit() {
+			clearLimitTimer();
+			paintLimit();
+			if ( limitSeconds() > 0 ) {
+				S.limitTimer = setInterval( paintLimit, 1000 );
+			}
+		}
+		/** The server said 429: keep what is on screen, put the summary back, and wait. */
+		function limitHit( place, newPin, seconds ) {
+			S.blockedUntil = Date.now() + Math.max( 1, Math.min( 120, seconds || 30 ) ) * 1000;
+			S.pending = { place: place, newPin: newPin };
+			el.summary.textContent = S.prevSummary && S.prevSummary !== 'Searching…' ? S.prevSummary : 'Choose a service and a place to see results.';
+			if ( S.results.length ) {
+				hideState();
+			} else {
+				showState( 'Find a service near you', [ 'Choose a service, enter a PIN code, district or state, then press Search.' ] );
+			}
+			showLimit();
 		}
 		function showState( title, lines, actions, extraClass, pill ) {
 			clear( el.state );
@@ -925,6 +976,7 @@
 					if ( ! r.ok || ! body || body.success !== true ) {
 						var e = new Error( body && body.message ? body.message : 'Search failed' );
 						e.status = r.status;
+						e.retryAfter = body && body.retryAfter ? Number( body.retryAfter ) : ( r.headers && r.headers.get ? parseInt( r.headers.get( 'Retry-After' ), 10 ) : 0 );
 						throw e;
 					}
 					return body;
@@ -974,6 +1026,11 @@
 				showState( 'Search is not available', [ 'This page is not connected to the school list. Please try again later.' ] );
 				return;
 			}
+			if ( S.blockedUntil > Date.now() ) { // still waiting after a 429: no request leaves the browser
+				S.pending = { place: place, newPin: newPin };
+				showLimit();
+				return;
+			}
 			var seq = ++S.seq, km = radiusKm(), isPin = PIN_RE.test( place );
 			if ( S.ctl ) {
 				S.ctl.abort();
@@ -987,6 +1044,9 @@
 			S.searched = true;
 			setAlert( '' );
 			el.go.disabled = true;
+			if ( el.summary.textContent !== 'Searching…' ) {
+				S.prevSummary = el.summary.textContent;
+			}
 			el.summary.textContent = 'Searching…';
 			showLoading();
 			fetchJson( searchUrl( place, km ), ctl ).then( function ( body ) {
@@ -1007,6 +1067,10 @@
 				} );
 			} ).catch( function ( e ) {
 				if ( seq !== S.seq || ( e && e.name === 'AbortError' ) ) {
+					return;
+				}
+				if ( e && e.status === 429 ) { // too many searches: keep the earlier results, wait, then let the visitor try again
+					limitHit( place, newPin, e.retryAfter );
 					return;
 				}
 				// The map keeps working; nothing stale is left on screen as if it were current.
