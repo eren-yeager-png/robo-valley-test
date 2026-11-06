@@ -837,6 +837,7 @@ a.rvp-tile:visited {
 	display: flex;
 	flex-direction: column;
 	width: min(560px, 100%);
+	min-width: 0; /* a grid item: without this the nowrap tab strip could make the window wider than the screen */
 	max-height: calc(100vh - 40px);
 	max-height: calc(100dvh - 40px);
 	background: var(--rvp-surface);
