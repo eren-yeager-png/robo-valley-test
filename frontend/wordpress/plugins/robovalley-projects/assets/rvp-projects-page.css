@@ -248,6 +248,28 @@ a.rvp-tile:visited {
 .rvp-hero-cta {
 	margin: 18px 0 0;
 }
+.rvp-hero-stats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px 32px;
+	margin: 28px 0 0;
+	padding: 20px 0 0;
+	border-top: 1px solid rgba(238, 245, 241, 0.22);
+	list-style: none;
+}
+.rvp-hero-stats li {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.rvp-hero-stats strong {
+	font: 800 1.7rem/1 var(--rvp-display);
+	color: #fff;
+}
+.rvp-hero-stats span {
+	font-size: 0.82rem;
+	color: var(--rvp-hero-muted);
+}
 .rvp-hero-visual {
 	display: flex;
 	justify-content: center;
@@ -382,8 +404,25 @@ a.rvp-tile:visited {
 	justify-content: space-between;
 }
 .rvp-filters-head h3 {
-	margin: 0 0 8px;
+	margin: 0 auto 8px 0;
 	font: 800 1.1rem var(--rvp-display);
+}
+.rvp-page .rvp-linkbtn {
+	margin: 0 0 8px;
+	padding: 4px 6px;
+	border: 0;
+	background: transparent;
+	color: var(--rvp-brand);
+	font: 700 0.85rem var(--rvp-body);
+	text-decoration: underline;
+	cursor: pointer;
+}
+.rvp-page .rvp-linkbtn[hidden] {
+	display: none;
+}
+.rvp-page .rvp-linkbtn:focus-visible {
+	outline: 3px solid var(--rvp-amber);
+	outline-offset: 2px;
 }
 .rvp-page .rvp-drawer-close,
 .rvp-page .rvp-drawer-done {
@@ -621,6 +660,27 @@ a.rvp-tile:visited {
 	-webkit-box-orient: vertical;
 	overflow: hidden;
 }
+.rvp-card-meta {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 2px;
+	padding-top: 10px;
+	border-top: 1px solid var(--rvp-line);
+}
+.rvp-meta-row {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+}
+.rvp-meta-label {
+	flex: none;
+	min-width: 62px;
+	font: 800 0.7rem/1 var(--rvp-body);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--rvp-muted);
+}
 .rvp-levels {
 	display: flex;
 	flex-wrap: wrap;
@@ -665,8 +725,26 @@ a.rvp-tile:visited {
 	margin-top: 24px;
 }
 
-/* ---------- mobile: filters become a drawer ---------- */
-@media (max-width: 900px) {
+/* ---------- laptop / small desktop (about 1100px): tighter columns ---------- */
+@media (max-width: 1100px) {
+	.rvp-hero-grid {
+		gap: 28px;
+	}
+	.rvp-tiles {
+		grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+	}
+	.rvp-layout {
+		grid-template-columns: 230px 1fr;
+		gap: 22px;
+	}
+	.rvp-grid {
+		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+		gap: 16px;
+	}
+}
+
+/* ---------- tablet and below (about 760px): filters become a drawer ---------- */
+@media (max-width: 760px) {
 	.rvp-hero-grid {
 		grid-template-columns: 1fr;
 	}
@@ -715,7 +793,8 @@ a.rvp-tile:visited {
 		background: rgba(18, 63, 51, 0.5);
 	}
 }
-@media (max-width: 560px) {
+/* ---------- phone (about 450px): one column ---------- */
+@media (max-width: 450px) {
 	.rvp-wrap {
 		width: min(1180px, 100% - 32px);
 	}
@@ -758,6 +837,7 @@ a.rvp-tile:visited {
 	display: flex;
 	flex-direction: column;
 	width: min(560px, 100%);
+	min-width: 0; /* a grid item: without this the nowrap tab strip could make the window wider than the screen */
 	max-height: calc(100vh - 40px);
 	max-height: calc(100dvh - 40px);
 	background: var(--rvp-surface);
@@ -847,6 +927,56 @@ a.rvp-tile:visited {
 	grid-template-columns: 1fr 1fr;
 	gap: 0 28px;
 }
+.rvp-modal .rvp-detail-text {
+	margin: 0;
+	color: var(--rvp-fg);
+	white-space: pre-line;
+}
+.rvp-dpanel {
+	padding-top: 6px;
+}
+.rvp-dpanel[hidden] {
+	display: none;
+}
+.rvp-dpanel > .rvp-detail-section:first-child,
+.rvp-dpanel > .rvp-detail-cols > .rvp-detail-section {
+	margin-top: 16px;
+}
+.rvp-dtabs {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	display: flex;
+	gap: 4px;
+	margin: 20px -28px 0;
+	padding: 0 28px;
+	overflow-x: auto;
+	background: var(--rvp-surface);
+	border-bottom: 1px solid var(--rvp-line);
+}
+.rvp-modal-root .rvp-dtab {
+	flex: none;
+	min-height: 44px;
+	padding: 10px 14px;
+	border: 0;
+	border-bottom: 3px solid transparent;
+	background: transparent;
+	color: var(--rvp-muted);
+	font: 700 0.92rem var(--rvp-body);
+	white-space: nowrap;
+	cursor: pointer;
+}
+.rvp-modal-root .rvp-dtab:hover {
+	color: var(--rvp-brand);
+}
+.rvp-modal-root .rvp-dtab[aria-selected="true"] {
+	color: var(--rvp-brand);
+	border-bottom-color: var(--rvp-brand);
+}
+.rvp-modal-root .rvp-dtab:focus-visible {
+	outline: 3px solid var(--rvp-amber);
+	outline-offset: -3px;
+}
 .rvp-loading {
 	padding: 48px 28px;
 	text-align: center;
@@ -864,7 +994,7 @@ a.rvp-tile:visited {
 }
 @keyframes rvp-spin { to { transform: rotate(360deg); } }
 
-@media (max-width: 700px) {
+@media (max-width: 760px) {
 	.rvp-modal-root {
 		padding: 0;
 		align-items: stretch;
@@ -883,7 +1013,7 @@ a.rvp-tile:visited {
 		grid-template-columns: 1fr;
 	}
 }
-@media (max-width: 700px) {
+@media (max-width: 760px) {
 	.rvp-modal:not(.rvp-modal-wide) {
 		align-self: end;
 		border-radius: 20px 20px 0 0;

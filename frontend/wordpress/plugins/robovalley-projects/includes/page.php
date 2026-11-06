@@ -166,13 +166,21 @@ function rvp_page_card_html( array $p ) {
 	}
 	$diff = $p['difficulty'] ? '<span class="rvp-diff rvp-diff-' . esc_attr( $p['difficulty']['slug'] ) . '">' . esc_html( $p['difficulty']['label'] ) . '</span>' : '';
 	$media = rvp_page_img_html( $p['thumbnail'], 'rvp-card-img' );
+	// The meta rows (difficulty, education levels). Keep in step with cardEl() in assets/rvp-projects-page.js.
+	$meta = '';
+	if ( $diff ) {
+		$meta .= '<div class="rvp-meta-row"><span class="rvp-meta-label">' . esc_html__( 'Difficulty', 'robovalley-projects' ) . '</span>' . $diff . '</div>';
+	}
+	if ( $edu ) {
+		$meta .= '<div class="rvp-meta-row"><span class="rvp-meta-label">' . esc_html__( 'Levels', 'robovalley-projects' ) . '</span><ul class="rvp-levels" aria-label="' . esc_attr__( 'Education levels', 'robovalley-projects' ) . '">' . $edu . '</ul></div>';
+	}
 	return '<article class="rvp-card" data-id="' . $id . '">'
 		. '<div class="rvp-card-media">' . ( $media ? $media : rvp_page_placeholder_svg() ) . '</div>'
 		. '<div class="rvp-card-body">'
-		. '<div class="rvp-card-tags">' . $tech . $diff . '</div>'
+		. '<div class="rvp-card-tags">' . $tech . '</div>'
 		. '<h3 class="rvp-card-title">' . esc_html( $p['title'] ) . '</h3>'
 		. ( '' !== $p['short_description'] ? '<p class="rvp-card-desc">' . esc_html( $p['short_description'] ) . '</p>' : '' )
-		. ( $edu ? '<ul class="rvp-levels" aria-label="' . esc_attr__( 'Education levels', 'robovalley-projects' ) . '">' . $edu . '</ul>' : '' )
+		. ( $meta ? '<div class="rvp-card-meta">' . $meta . '</div>' : '' )
 		. '<a class="rvp-btn rvp-btn-primary" data-rvp-view="' . $id . '" href="' . esc_url( '' !== $login ? $login : '#' ) . '">' . esc_html__( 'View Project', 'robovalley-projects' ) . '<span class="rvp-sr"> ' . esc_html( $p['title'] ) . '</span></a>'
 		. '</div></article>';
 }
@@ -232,6 +240,19 @@ function rvp_page_shortcode() {
 		$diff_options[] = array( $slug, $label );
 	}
 
+	// "At a glance" numbers for the hero: public counts only (published projects, technologies, education levels).
+	$all_total = (int) rvp_catalogue_query( array( 'search' => '', 'technology' => array(), 'education' => array(), 'difficulty' => array(), 'view' => 'all', 'page' => 1, 'per_page' => 1, 'include' => null ) )->found_posts;
+	$stats     = array();
+	if ( $all_total > 0 ) {
+		$stats[] = array( $all_total, _n( 'Project', 'Projects', $all_total, 'robovalley-projects' ) );
+		if ( $techs ) {
+			$stats[] = array( count( $techs ), _n( 'Technology', 'Technologies', count( $techs ), 'robovalley-projects' ) );
+		}
+		if ( $edu_options ) {
+			$stats[] = array( count( $edu_options ), _n( 'Education level', 'Education levels', count( $edu_options ), 'robovalley-projects' ) );
+		}
+	}
+
 	$tiles = '';
 	foreach ( $techs as $t ) {
 		$img    = rvp_page_img_html( $t['image'], 'rvp-tile-img' );
@@ -257,6 +278,13 @@ function rvp_page_shortcode() {
 					<button type="submit" class="rvp-btn rvp-btn-amber"><?php esc_html_e( 'Search', 'robovalley-projects' ); ?></button>
 				</form>
 				<p class="rvp-hero-cta"><a class="rvp-btn rvp-btn-light" href="#rvp-discover"><?php esc_html_e( 'Browse all projects', 'robovalley-projects' ); ?></a></p>
+				<?php if ( $stats ) : ?>
+				<ul class="rvp-hero-stats" aria-label="<?php esc_attr_e( 'RoboValley Projects at a glance', 'robovalley-projects' ); ?>">
+					<?php foreach ( $stats as $s ) : ?>
+						<li><strong><?php echo (int) $s[0]; ?></strong><span><?php echo esc_html( $s[1] ); ?></span></li>
+					<?php endforeach; ?>
+				</ul>
+				<?php endif; ?>
 			</div>
 			<div class="rvp-hero-visual"><?php echo rvp_page_hero_svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static markup built from escaped parts. ?></div>
 		</div>
@@ -276,7 +304,7 @@ function rvp_page_shortcode() {
 			<h2 id="rvp-disc-title" class="rvp-h2"><?php esc_html_e( 'Discover Projects', 'robovalley-projects' ); ?></h2>
 			<div class="rvp-layout">
 				<aside class="rvp-filters rvp-js-only" id="rvp-filters" aria-label="<?php esc_attr_e( 'Filters', 'robovalley-projects' ); ?>">
-					<div class="rvp-filters-head"><h3><?php esc_html_e( 'Filters', 'robovalley-projects' ); ?></h3><button type="button" class="rvp-iconbtn rvp-drawer-close" id="rvp-drawer-close" aria-label="<?php esc_attr_e( 'Close filters', 'robovalley-projects' ); ?>">&times;</button></div>
+					<div class="rvp-filters-head"><h3><?php esc_html_e( 'Filters', 'robovalley-projects' ); ?></h3><button type="button" class="rvp-linkbtn" id="rvp-filters-clear" hidden><?php esc_html_e( 'Clear all', 'robovalley-projects' ); ?></button><button type="button" class="rvp-iconbtn rvp-drawer-close" id="rvp-drawer-close" aria-label="<?php esc_attr_e( 'Close filters', 'robovalley-projects' ); ?>">&times;</button></div>
 					<?php
 					echo rvp_page_filter_group( 'technology', __( 'Technology', 'robovalley-projects' ), $tech_options ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 					echo rvp_page_filter_group( 'education', __( 'Education level', 'robovalley-projects' ), $edu_options ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
