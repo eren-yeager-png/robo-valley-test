@@ -51,6 +51,9 @@ let pass = 0, fail = 0; const check = (n, ok, d) => { ok ? pass++ : fail++; cons
 	const first = await cards(); check('server-rendered first page of cards is visible without any request', first > 0 && first <= 12, first);
 	check('Featured is the default tab (featured projects exist)', (await ev('document.querySelector("#rvp-tab-featured").getAttribute("aria-selected")')) === 'true');
 	check('card shows thumbnail area, title, technology, difficulty, education levels and View Project (nothing else)', (await ev(`(function(){var c=document.querySelector('.rvp-card');return !!c.querySelector('.rvp-card-media')&&!!c.querySelector('.rvp-card-title')&&!!c.querySelector('.rvp-chip-tech')&&!!c.querySelector('.rvp-diff')&&!!c.querySelector('.rvp-levels li')&&!!c.querySelector('a[data-rvp-view]')&&!c.querySelector('.rvp-card-skills,.rvp-card-subjects,.rvp-card-components')})()`)) === true);
+	check('card: difficulty and levels sit in labelled meta rows', (await ev('(function(){var m=document.querySelector(".rvp-card .rvp-card-meta");return !!m&&m.querySelectorAll(".rvp-meta-label").length>=1&&!!m.querySelector(".rvp-diff")})()')) === true);
+	check('hero: "at a glance" strip shows public counts only (projects first)', (await ev('(function(){var s=document.querySelectorAll(".rvp-hero-stats li");return s.length>=1&&/^[0-9]+Projects?$/.test(s[0].textContent)})()')) === true);
+	check('filter panel: "Clear all" is hidden with no filter, shown with one, and clears it', (await ev('document.getElementById("rvp-filters-clear").hidden')) === true && (await click('input[name=difficulty] + .rvp-check-box')) && (await sleep(50), await settle(), (await ev('document.getElementById("rvp-filters-clear").hidden')) === false) && (await click('#rvp-filters-clear')) && (await sleep(50), await settle(), (await ev('document.getElementById("rvp-filters-clear").hidden')) === true && (await ev('document.querySelectorAll(".rvp-chips .rvp-chip-x").length')) === 0));
 	check('images (if any) are lazy with width and height', (await ev('[].every.call(document.querySelectorAll("img.rvp-card-img,img.rvp-tile-img"),function(i){return i.loading==="lazy"&&i.width>0&&i.height>0})')) === true);
 	check('no horizontal scroll at 1280', (await hasHScroll()) === false);
 	check('locked Subject filter is shown to a visitor, with its lock', (await ev('!!document.querySelector("#rvp-subject-lock")&&document.querySelector("#rvp-subject-lock").offsetParent!==null&&!document.querySelector("#rvp-subject-options input")')) === true);
@@ -165,7 +168,8 @@ let pass = 0, fail = 0; const check = (n, ok, d) => { ok ? pass++ : fail++; cons
 
 	// ============ RESPONSIVE: 820 and 390 ============
 	await viewport(820, 1000); await go(PAGE); check('820px: no horizontal scroll', (await hasHScroll()) === false); await ev('document.getElementById("rvp-discover").scrollIntoView()'); await sleep(300); await shot('04-visitor-820-discover');
-	check('820px: the Filters button replaces the sidebar', (await ev('getComputedStyle(document.getElementById("rvp-filter-open")).display')) !== 'none');
+	check('820px: the sidebar is still shown beside the cards (the drawer starts at 760px), no Filters button', (await ev('getComputedStyle(document.getElementById("rvp-filter-open")).display')) === 'none' && (await ev('(function(){var r=document.getElementById("rvp-filters").getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&getComputedStyle(document.getElementById("rvp-filters")).visibility==="visible"})()')) === true);
+	await viewport(740, 1000); await go(PAGE); check('740px: the Filters button replaces the sidebar, no horizontal scroll', (await ev('getComputedStyle(document.getElementById("rvp-filter-open")).display')) !== 'none' && (await hasHScroll()) === false);
 	await viewport(390, 844, true); await go(PAGE);
 	check('390px: no horizontal scroll', (await hasHScroll()) === false); await shot('05-visitor-390-top');
 	await ev('document.getElementById("rvp-discover").scrollIntoView()'); await sleep(300); await shot('06-visitor-390-discover');
@@ -192,7 +196,14 @@ let pass = 0, fail = 0; const check = (n, ok, d) => { ok ? pass++ : fail++; cons
 	mi = await modalInfo();
 	check('...and the details window opened by itself for the same project', mi && mi.title && mi.title !== 'Unlock Project Details' && mi.title !== 'Loading project…', mi && mi.title);
 	check('...the ?project parameter was removed from the address (history.replaceState)', !(await ev('location.search')).includes('project='), await ev('location.href'));
-	check('details window shows overview, subjects, skills, components and expected outcome', mi && /Overview/i.test(mi.text) && /Subjects/i.test(mi.text) && /Skills required/i.test(mi.text) && /Components required/i.test(mi.text) && /Expected outcome/i.test(mi.text), mi && mi.text.slice(0, 200));
+	check('details window: three tabs (Overview, Skills & components, Expected outcome), Overview selected, with the overview text and subjects', mi && (await ev('[].map.call(document.querySelectorAll(".rvp-modal [role=tab]"),function(t){return t.textContent+":"+t.getAttribute("aria-selected")}).join("|")')) === 'Overview:true|Skills & components:false|Expected outcome:false' && /Subjects/i.test(mi.text) && (await ev('document.querySelector("#rvp-dpanel-0 .rvp-detail-text").textContent.length')) > 20, mi && mi.text.slice(0, 200));
+	await click('#rvp-dtab-1'); await sleep(150);
+	check('...Skills & components tab shows skills and components (and the other panels are hidden)', (await ev('(function(){var d=document.querySelector(".rvp-modal");return d.innerText.indexOf("Skills required")>-1&&d.innerText.indexOf("Components required")>-1&&document.getElementById("rvp-dpanel-0").hidden&&document.getElementById("rvp-dpanel-2").hidden})()')) === true);
+	await click('#rvp-dtab-2'); await sleep(150);
+	check('...Expected outcome tab shows the outcome', (await ev('document.querySelector("#rvp-dpanel-2 .rvp-detail-text").textContent.length')) > 20 && (await ev('document.getElementById("rvp-dpanel-2").hidden')) === false);
+	await ev('document.getElementById("rvp-dtab-2").focus()'); await key('ArrowLeft', 'ArrowLeft', 37);
+	check('keyboard: ArrowLeft on a details tab moves focus to the previous tab and selects it; only the current tab is in the Tab order', (await ev('document.activeElement.id')) === 'rvp-dtab-1' && (await ev('document.getElementById("rvp-dtab-1").getAttribute("aria-selected")')) === 'true' && (await ev('[].filter.call(document.querySelectorAll(".rvp-modal [role=tab]"),function(t){return t.tabIndex===0}).length')) === 1);
+	await click('#rvp-dtab-0'); await sleep(150);
 	check('...with image area / title, technology, difficulty and education levels', (await ev('(function(){var d=document.querySelector(".rvp-modal");return !!d.querySelector("h2")&&!!d.querySelector(".rvp-chip-tech")&&!!d.querySelector(".rvp-diff")&&!!d.querySelector(".rvp-levels li")})()')) === true);
 	check('...dialog semantics, focus inside, background inert, scroll locked', mi && mi.modal === 'true' && mi.inside && mi.inert && mi.locked, mi);
 	await shot('09-member-details-1280');
