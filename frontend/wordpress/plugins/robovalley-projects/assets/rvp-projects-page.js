@@ -31,6 +31,7 @@
 	var filtersEl = root.querySelector( '#rvp-filters' );
 	var filterOpen = root.querySelector( '#rvp-filter-open' );
 	var filterCount = root.querySelector( '#rvp-filter-count' );
+	var panelClear = root.querySelector( '#rvp-filters-clear' );
 	var searchForm = root.querySelector( '#rvp-hero-search' );
 	var searchInput = root.querySelector( '#rvp-q' );
 
@@ -318,6 +319,7 @@
 		}
 		filterCount.textContent = String( list.length );
 		filterCount.hidden = list.length === 0;
+		panelClear.hidden = list.length === 0;
 	}
 	function changed() {
 		state.subjectIds = null;
@@ -376,6 +378,7 @@
 	} );
 	moreBtn.addEventListener( 'click', function () { load( true ); } );
 	root.querySelector( '#rvp-empty-clear' ).addEventListener( 'click', clearAll );
+	panelClear.addEventListener( 'click', clearAll );
 
 	/* ---------- mobile filter drawer ---------- */
 	var scrim = null;
@@ -386,7 +389,7 @@
 			scrim = el( 'div', 'rvp-scrim' );
 			scrim.addEventListener( 'click', function () { drawerOpen( false ); filterOpen.focus(); } );
 			root.appendChild( scrim );
-			var first = filtersEl.querySelector( 'input,button' );
+			var first = filtersEl.querySelector( 'input,button:not([hidden])' );
 			if ( first ) { first.focus(); }
 		} else if ( scrim ) { scrim.remove(); scrim = null; }
 	}

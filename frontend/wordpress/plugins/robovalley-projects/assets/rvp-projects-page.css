@@ -404,8 +404,25 @@ a.rvp-tile:visited {
 	justify-content: space-between;
 }
 .rvp-filters-head h3 {
-	margin: 0 0 8px;
+	margin: 0 auto 8px 0;
 	font: 800 1.1rem var(--rvp-display);
+}
+.rvp-page .rvp-linkbtn {
+	margin: 0 0 8px;
+	padding: 4px 6px;
+	border: 0;
+	background: transparent;
+	color: var(--rvp-brand);
+	font: 700 0.85rem var(--rvp-body);
+	text-decoration: underline;
+	cursor: pointer;
+}
+.rvp-page .rvp-linkbtn[hidden] {
+	display: none;
+}
+.rvp-page .rvp-linkbtn:focus-visible {
+	outline: 3px solid var(--rvp-amber);
+	outline-offset: 2px;
 }
 .rvp-page .rvp-drawer-close,
 .rvp-page .rvp-drawer-done {

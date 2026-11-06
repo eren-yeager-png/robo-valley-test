@@ -304,7 +304,7 @@ function rvp_page_shortcode() {
 			<h2 id="rvp-disc-title" class="rvp-h2"><?php esc_html_e( 'Discover Projects', 'robovalley-projects' ); ?></h2>
 			<div class="rvp-layout">
 				<aside class="rvp-filters rvp-js-only" id="rvp-filters" aria-label="<?php esc_attr_e( 'Filters', 'robovalley-projects' ); ?>">
-					<div class="rvp-filters-head"><h3><?php esc_html_e( 'Filters', 'robovalley-projects' ); ?></h3><button type="button" class="rvp-iconbtn rvp-drawer-close" id="rvp-drawer-close" aria-label="<?php esc_attr_e( 'Close filters', 'robovalley-projects' ); ?>">&times;</button></div>
+					<div class="rvp-filters-head"><h3><?php esc_html_e( 'Filters', 'robovalley-projects' ); ?></h3><button type="button" class="rvp-linkbtn" id="rvp-filters-clear" hidden><?php esc_html_e( 'Clear all', 'robovalley-projects' ); ?></button><button type="button" class="rvp-iconbtn rvp-drawer-close" id="rvp-drawer-close" aria-label="<?php esc_attr_e( 'Close filters', 'robovalley-projects' ); ?>">&times;</button></div>
 					<?php
 					echo rvp_page_filter_group( 'technology', __( 'Technology', 'robovalley-projects' ), $tech_options ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 					echo rvp_page_filter_group( 'education', __( 'Education level', 'robovalley-projects' ), $edu_options ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
