@@ -99,7 +99,7 @@ describe("the demo data file", () => {
   });
   it("the page files are DRAFT instructions for three new pages: no live page is named", () => {
     const pages = JSON.parse(readFileSync(join(ROOT, "frontend/elementor/contrib-demo/contrib-demo-pages.json"), "utf8")).pages;
-    expect(pages.map((p: any) => p.slug)).toEqual(["sector-demo", "contribute-demo", "directory-demo"]);
+    expect(pages.map((p: any) => p.slug)).toEqual(["robots-by-sector-demo", "contribute-demo", "robovalley-directory-demo"]);
     expect(pages.every((p: any) => p.status === "draft")).toBe(true);
     const all = Object.values(FILE).map((f) => readFileSync(join(WID, f), "utf8")).join("\n");
     expect(all).not.toMatch(/(?:fetch|XMLHttpRequest|localStorage|sessionStorage|document\.cookie|geolocation|navigator\.sendBeacon|innerHTML|insertAdjacentHTML)\s*[(.[=]/);
@@ -267,7 +267,7 @@ describe("sector page", () => {
       for (const hd of $$(".rvd-dir-grid > div")) expect(hd.querySelectorAll(".rvd-card").length, hd.textContent!).toBeGreaterThan(0);
       expect(new Set(heads).size).toBe(heads.length);
       const a = [...document.querySelectorAll<HTMLAnchorElement>("a")].find((x) => x.textContent === "Open in Directory →")!;
-      expect(a.getAttribute("href")).toBe("/directory-demo/?sector=" + s.id);
+      expect(a.getAttribute("href")).toBe("/robovalley-directory-demo/?sector=" + s.id);
     }
   });
   it("writes nowhere", () => {
@@ -296,7 +296,7 @@ describe("Contribute wizard", () => {
     expect(($('input[name="scope"][value="types"]') as HTMLInputElement).checked).toBe(true);
     expect(($('input[name="robot"][value="telehealth"]') as HTMLInputElement).checked).toBe(true);
     expect($("#rvd-back").textContent).toBe("‹ Back to Healthcare");
-    expect($("#rvd-back").getAttribute("href")).toBe("/sector-demo/?sector=healthcare");
+    expect($("#rvd-back").getAttribute("href")).toBe("/robots-by-sector-demo/?sector=healthcare");
   });
   it("Selected robot types needs at least one robot type; the message is a live-region alert and focus goes to the first box", () => {
     const { $ } = mount("contribute");

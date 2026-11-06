@@ -19,9 +19,9 @@ const coreCss = readFileSync(join(SRC, "core.css"), "utf8").trimEnd();
 const coreJs = readFileSync(join(SRC, "core.js"), "utf8").trimEnd();
 
 const PAGES = [
-  { src: "sector.html", widget: "06-sector.html", json: "contrib-demo-sector.elementor.json", id: "rvd0c01", title: "Robots by Sector (DEMO)", slug: "sector-demo" },
+  { src: "sector.html", widget: "06-sector.html", json: "contrib-demo-sector.elementor.json", id: "rvd0c01", title: "Robots by Sector (DEMO)", slug: "robots-by-sector-demo" },
   { src: "contribute.html", widget: "07-contribute.html", json: "contrib-demo-contribute.elementor.json", id: "rvd0c02", title: "Contribute (DEMO)", slug: "contribute-demo" },
-  { src: "directory.html", widget: "08-directory.html", json: "contrib-demo-directory.elementor.json", id: "rvd0c03", title: "RoboValley Directory (DEMO)", slug: "directory-demo" },
+  { src: "directory.html", widget: "08-directory.html", json: "contrib-demo-directory.elementor.json", id: "rvd0c03", title: "RoboValley Directory (DEMO)", slug: "robovalley-directory-demo" },
 ];
 
 const files = {};

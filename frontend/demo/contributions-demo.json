@@ -5,8 +5,8 @@
   "notice": "Sample content for design preview. Not real contributions.",
   "links": {
     "contribute": "/contribute-demo/",
-    "directory": "/directory-demo/",
-    "sector": "/sector-demo/",
+    "directory": "/robovalley-directory-demo/",
+    "sector": "/robots-by-sector-demo/",
     "contact": "/contact-us/"
   },
   "pageSize": 6,
