@@ -1,13 +1,17 @@
 <?php
 /**
  * Plugin Name: RoboValley Contribution button
- * Description: Adds the "Contribution" button to the right end of the Robots by Sector / RoboValley Directory bar (rv-sector-bar). Does not edit that plugin.
- * Version: 1.0.0
+ * Description: Adds the "Contribution" button to the right end of the Robots by Sector / RoboValley Directory bar (rv-sector-bar 2.0.0). Does not edit that plugin.
+ * Version: 1.1.0
  *
  * Settings (optional, in wp-config.php):
  *   define( 'RV_CONTRIBUTE_URL', 'https://techytree.in/contribute/' ); // where the button goes (default: /contribute/ on this site)
  *   define( 'RV_CONTRIBUTE_PUBLIC', true );                           // show to everyone (default: only logged-in administrators)
  * The button is never shown on the Contact Us page. Filters: rv_contribute_button_url, rv_contribute_button_visible.
+ *
+ * How it hooks in: rv-sector-bar prints its bar only through the [rv_sector_bar] shortcode, as
+ * <nav class="rv-sector-bar" id="rv-sector-bar"> .rv-fixed (the two tabs), one .rv-group per tab, then </nav>.
+ * The filter below adds the button as the last child of that nav, so it is outside .rv-fixed and there is exactly one per bar.
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -35,7 +39,7 @@ function rv_contribute_button_html() {
 		. '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Contribution</a>';
 }
 
-/* The button goes inside the bar's <nav>, after the tabs and pills, so the bar's flex row pushes it to the right (margin-left:auto). */
+/* The button goes inside the bar's <nav>, after the tabs and groups, so the bar's flex row pushes it to the right (margin-left:auto). */
 add_filter(
 	'do_shortcode_tag',
 	function ( $output, $tag ) {
@@ -43,13 +47,23 @@ add_filter(
 			return $output;
 		}
 		$pos = strripos( $output, '</nav>' );
-		return false === $pos ? $output : substr_replace( $output, rv_contribute_button_html(), $pos, 0 );
+		if ( false === $pos ) {
+			return $output;
+		}
+		$output = substr_replace( $output, rv_contribute_button_html(), $pos, 0 );
+		return preg_replace( '/<nav class="rv-sector-bar"/', '<nav class="rv-sector-bar rv-has-contribute"', $output, 1 );
 	},
 	20,
 	2
 );
 
-/* Styles: the reference design, exactly. Printed once, only when the button can show. */
+/*
+ * Styles: the reference design. Two changes forced by the real bar (it is a flex row with overflow-x:auto, so it also clips vertically):
+ *  - margin-right is 0, not the mock's -24px: inside the theme header the bar has no side padding, so a negative margin cut the button off;
+ *  - the bar gets room above and below (.rv-has-contribute) so the shadow and the 1px hover lift are not clipped.
+ * The button is sticky at the right edge, so on a phone (where the bar scrolls sideways) it stays visible.
+ * Printed once, only when the button can show.
+ */
 add_action(
 	'wp_head',
 	function () {
@@ -57,36 +71,16 @@ add_action(
 			return;
 		}
 		echo '<style id="rv-contribute-btn-css">'
-			. '.rv-contribute-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;height:40px;padding:0 22px;margin-left:auto;margin-right:-24px;border-radius:12px;background:linear-gradient(180deg,#1B6952 0%,#19614B 100%);color:#fff;font-size:15px;font-weight:700;line-height:1;white-space:nowrap;text-decoration:none;box-shadow:0 6px 14px rgba(16,70,52,.35),0 2px 4px rgba(0,0,0,.18);transition:transform .15s ease,box-shadow .15s ease,background .15s ease}'
+			. '.rv-contribute-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;height:40px;padding:0 22px;margin-left:auto;margin-right:0;border-radius:12px;background:linear-gradient(180deg,#1B6952 0%,#19614B 100%);color:#fff;font-size:15px;font-weight:700;line-height:1;white-space:nowrap;text-decoration:none;box-shadow:0 6px 14px rgba(16,70,52,.35),0 2px 4px rgba(0,0,0,.18);transition:transform .15s ease,box-shadow .15s ease,background .15s ease}'
 			. '.rv-contribute-btn:hover{color:#fff;background:linear-gradient(180deg,#17594A 0%,#134E3C 100%);transform:translateY(-1px);box-shadow:0 8px 18px rgba(16,70,52,.4),0 2px 4px rgba(0,0,0,.2)}'
 			. '.rv-contribute-btn:active{transform:translateY(0);box-shadow:0 3px 8px rgba(16,70,52,.35)}'
 			. '.rv-contribute-btn:focus-visible{outline:3px solid #9AD3B5;outline-offset:2px}'
 			. '.rv-contribute-btn svg{flex:none}'
-			. '@media (max-width:720px){.rv-contribute-btn{margin-right:0;min-height:44px;position:sticky;right:8px;z-index:2}}'
+			. '.rv-sector-bar.rv-has-contribute{padding-top:6px;padding-bottom:16px;margin-bottom:-8px}'
+			. '.rv-sector-bar .rv-contribute-btn{flex:0 0 auto;position:sticky;right:0;z-index:2}'
+			. '@media (max-width:720px){.rv-contribute-btn{min-height:44px}.rv-sector-bar .rv-contribute-btn{right:8px}}'
 			. '@media (prefers-reduced-motion:reduce){.rv-contribute-btn{transition:none}.rv-contribute-btn:hover{transform:none}}'
 			. '</style>' . "\n";
-	},
-	99
-);
-
-/* Fallback: if the bar was printed some other way than the shortcode, add the button once in the browser. Never adds a second one. */
-add_action(
-	'wp_footer',
-	function () {
-		if ( ! rv_contribute_visible() ) {
-			return;
-		}
-		?>
-<script id="rv-contribute-btn-js">
-( function () {
-	var bar = document.getElementById( 'rv-sector-bar' );
-	if ( ! bar || document.querySelector( '.rv-contribute-btn' ) ) { return; }
-	var tpl = document.createElement( 'div' );
-	tpl.innerHTML = <?php echo wp_json_encode( rv_contribute_button_html() ); ?>;
-	bar.appendChild( tpl.firstChild );
-}() );
-</script>
-		<?php
 	},
 	99
 );
