@@ -5,7 +5,7 @@
  * Version: 1.1.0
  *
  * Settings (optional, in wp-config.php):
- *   define( 'RV_CONTRIBUTE_URL', 'https://techytree.in/contribute/' ); // where the button goes (default: /contribute/ on this site)
+ *   define( 'RV_CONTRIBUTE_URL', 'https://techytree.in/contribute-now/' ); // where the button goes (default: /contribute-now/ on this site)
  *   define( 'RV_CONTRIBUTE_PUBLIC', true );                           // show to everyone (default: only logged-in administrators)
  * The button is never shown on the Contact Us page. Filters: rv_contribute_button_url, rv_contribute_button_visible.
  *
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 function rv_contribute_url() {
-	$url = defined( 'RV_CONTRIBUTE_URL' ) && RV_CONTRIBUTE_URL ? RV_CONTRIBUTE_URL : home_url( '/contribute/' );
+	$url = defined( 'RV_CONTRIBUTE_URL' ) && RV_CONTRIBUTE_URL ? RV_CONTRIBUTE_URL : home_url( '/contribute-now/' );
 	return esc_url( apply_filters( 'rv_contribute_button_url', $url ) );
 }
 
