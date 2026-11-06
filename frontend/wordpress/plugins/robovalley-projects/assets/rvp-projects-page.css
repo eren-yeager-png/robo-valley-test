@@ -926,6 +926,56 @@ a.rvp-tile:visited {
 	grid-template-columns: 1fr 1fr;
 	gap: 0 28px;
 }
+.rvp-modal .rvp-detail-text {
+	margin: 0;
+	color: var(--rvp-fg);
+	white-space: pre-line;
+}
+.rvp-dpanel {
+	padding-top: 6px;
+}
+.rvp-dpanel[hidden] {
+	display: none;
+}
+.rvp-dpanel > .rvp-detail-section:first-child,
+.rvp-dpanel > .rvp-detail-cols > .rvp-detail-section {
+	margin-top: 16px;
+}
+.rvp-dtabs {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	display: flex;
+	gap: 4px;
+	margin: 20px -28px 0;
+	padding: 0 28px;
+	overflow-x: auto;
+	background: var(--rvp-surface);
+	border-bottom: 1px solid var(--rvp-line);
+}
+.rvp-modal-root .rvp-dtab {
+	flex: none;
+	min-height: 44px;
+	padding: 10px 14px;
+	border: 0;
+	border-bottom: 3px solid transparent;
+	background: transparent;
+	color: var(--rvp-muted);
+	font: 700 0.92rem var(--rvp-body);
+	white-space: nowrap;
+	cursor: pointer;
+}
+.rvp-modal-root .rvp-dtab:hover {
+	color: var(--rvp-brand);
+}
+.rvp-modal-root .rvp-dtab[aria-selected="true"] {
+	color: var(--rvp-brand);
+	border-bottom-color: var(--rvp-brand);
+}
+.rvp-modal-root .rvp-dtab:focus-visible {
+	outline: 3px solid var(--rvp-amber);
+	outline-offset: -3px;
+}
 .rvp-loading {
 	padding: 48px 28px;
 	text-align: center;

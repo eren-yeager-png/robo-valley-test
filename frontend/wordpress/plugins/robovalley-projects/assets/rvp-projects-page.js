@@ -407,7 +407,7 @@
 	var modal = null; // { root, dialog, opener }
 
 	function focusables( c ) {
-		return Array.prototype.filter.call( c.querySelectorAll( 'a[href],button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])' ), function ( n ) { return n.offsetParent !== null || n === document.activeElement; } );
+		return Array.prototype.filter.call( c.querySelectorAll( 'a[href],button:not([disabled]):not([tabindex="-1"]),input:not([disabled]),[tabindex]:not([tabindex="-1"])' ), function ( n ) { return n.offsetParent !== null || n === document.activeElement; } );
 	}
 	function lockScroll( on ) {
 		if ( on ) {
@@ -531,13 +531,51 @@
 		s.appendChild( ul );
 		return s;
 	}
-	function text( title, value ) {
-		var s = el( 'section', 'rvp-detail-section' );
-		s.appendChild( el( 'h3', '', title ) );
-		s.appendChild( el( 'p', '', value ) );
-		return s;
-	}
 	function names( arr ) { return ( arr || [] ).map( function ( t ) { return t.name; } ); }
+
+	/** Tabs for the details window (WAI-ARIA tabs: arrow keys, Home and End move between them). Returns one wrapper holding the tab list and the panels. */
+	function detailTabs( groups ) {
+		var wrap = el( 'div', 'rvp-dtabs-wrap' );
+		var bar = el( 'div', 'rvp-dtabs' );
+		bar.setAttribute( 'role', 'tablist' );
+		bar.setAttribute( 'aria-label', 'Project information' );
+		wrap.appendChild( bar );
+		var tabs = [], panels = [];
+		function select( i, focus ) {
+			tabs.forEach( function ( t, j ) {
+				var on = i === j;
+				t.setAttribute( 'aria-selected', on ? 'true' : 'false' );
+				t.tabIndex = on ? 0 : -1;
+				panels[ j ].hidden = ! on;
+			} );
+			if ( focus ) { tabs[ i ].focus(); }
+		}
+		groups.forEach( function ( g, i ) {
+			var tab = el( 'button', 'rvp-dtab', g.label );
+			tab.type = 'button';
+			tab.id = 'rvp-dtab-' + i;
+			tab.setAttribute( 'role', 'tab' );
+			tab.setAttribute( 'aria-controls', 'rvp-dpanel-' + i );
+			var panel = el( 'div', 'rvp-dpanel' );
+			panel.id = 'rvp-dpanel-' + i;
+			panel.setAttribute( 'role', 'tabpanel' );
+			panel.setAttribute( 'aria-labelledby', tab.id );
+			panel.appendChild( g.node );
+			tab.addEventListener( 'click', function () { select( i, false ); } );
+			tab.addEventListener( 'keydown', function ( e ) {
+				var n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? groups.length - 1 : null;
+				if ( n === null ) { return; }
+				e.preventDefault();
+				select( ( n + groups.length ) % groups.length, true );
+			} );
+			bar.appendChild( tab );
+			tabs.push( tab );
+			panels.push( panel );
+			wrap.appendChild( panel );
+		} );
+		select( 0, false );
+		return wrap;
+	}
 
 	function renderDetails( m, p ) {
 		m.scroll.replaceChildren();
@@ -559,13 +597,28 @@
 			names( p.education ).forEach( function ( n ) { lv.appendChild( el( 'li', '', n ) ); } );
 			body.appendChild( lv );
 		}
-		if ( p.overview ) { body.appendChild( text( 'Overview', p.overview ) ); }
-		if ( p.subjects && p.subjects.length ) { body.appendChild( list( 'Subjects', names( p.subjects ) ) ); }
-		var cols = el( 'div', 'rvp-detail-cols' );
-		if ( p.skills && p.skills.length ) { cols.appendChild( list( 'Skills required', p.skills ) ); }
-		if ( p.components && p.components.length ) { cols.appendChild( list( 'Components required', p.components ) ); }
-		if ( cols.children.length ) { body.appendChild( cols ); }
-		if ( p.outcome ) { body.appendChild( text( 'Expected outcome', p.outcome ) ); }
+		// The same fields as before, grouped into tabs: Overview (+ subjects), Skills & components, Expected outcome.
+		var groups = [];
+		var gOverview = el( 'div' );
+		if ( p.overview ) { gOverview.appendChild( el( 'p', 'rvp-detail-text', p.overview ) ); }
+		if ( p.subjects && p.subjects.length ) { gOverview.appendChild( list( 'Subjects', names( p.subjects ) ) ); }
+		if ( gOverview.children.length ) { groups.push( { label: 'Overview', node: gOverview } ); }
+		var gSkills = el( 'div', 'rvp-detail-cols' );
+		if ( p.skills && p.skills.length ) { gSkills.appendChild( list( 'Skills required', p.skills ) ); }
+		if ( p.components && p.components.length ) { gSkills.appendChild( list( 'Components required', p.components ) ); }
+		if ( gSkills.children.length ) { groups.push( { label: 'Skills & components', node: gSkills } ); }
+		if ( p.outcome ) {
+			var gOutcome = el( 'div' );
+			gOutcome.appendChild( el( 'p', 'rvp-detail-text', p.outcome ) );
+			groups.push( { label: 'Expected outcome', node: gOutcome } );
+		}
+		if ( groups.length === 1 ) {
+			var only = el( 'div', 'rvp-dpanel' );
+			only.appendChild( groups[ 0 ].node );
+			body.appendChild( only );
+		} else if ( groups.length > 1 ) {
+			body.appendChild( detailTabs( groups ) );
+		}
 		m.scroll.appendChild( body );
 		if ( document.activeElement === m.close || ! m.dialog.contains( document.activeElement ) ) { h.focus(); }
 	}
