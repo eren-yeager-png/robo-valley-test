@@ -248,6 +248,28 @@ a.rvp-tile:visited {
 .rvp-hero-cta {
 	margin: 18px 0 0;
 }
+.rvp-hero-stats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px 32px;
+	margin: 28px 0 0;
+	padding: 20px 0 0;
+	border-top: 1px solid rgba(238, 245, 241, 0.22);
+	list-style: none;
+}
+.rvp-hero-stats li {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.rvp-hero-stats strong {
+	font: 800 1.7rem/1 var(--rvp-display);
+	color: #fff;
+}
+.rvp-hero-stats span {
+	font-size: 0.82rem;
+	color: var(--rvp-hero-muted);
+}
 .rvp-hero-visual {
 	display: flex;
 	justify-content: center;
@@ -620,6 +642,27 @@ a.rvp-tile:visited {
 	-webkit-line-clamp: 3;
 	-webkit-box-orient: vertical;
 	overflow: hidden;
+}
+.rvp-card-meta {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 2px;
+	padding-top: 10px;
+	border-top: 1px solid var(--rvp-line);
+}
+.rvp-meta-row {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+}
+.rvp-meta-label {
+	flex: none;
+	min-width: 62px;
+	font: 800 0.7rem/1 var(--rvp-body);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--rvp-muted);
 }
 .rvp-levels {
 	display: flex;

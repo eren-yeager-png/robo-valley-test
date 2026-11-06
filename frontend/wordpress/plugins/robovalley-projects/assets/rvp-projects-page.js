@@ -120,18 +120,27 @@
 		var body = el( 'div', 'rvp-card-body' );
 		var tags = el( 'div', 'rvp-card-tags' );
 		( p.technology || [] ).forEach( function ( t ) { tags.appendChild( el( 'span', 'rvp-chip rvp-chip-tech', t.name ) ); } );
-		if ( p.difficulty ) {
-			tags.appendChild( el( 'span', 'rvp-diff rvp-diff-' + String( p.difficulty.slug ).replace( /[^a-z-]/g, '' ), p.difficulty.label ) );
-		}
 		body.appendChild( tags );
 		body.appendChild( el( 'h3', 'rvp-card-title', p.title ) );
 		if ( p.short_description ) { body.appendChild( el( 'p', 'rvp-card-desc', p.short_description ) ); }
+		// The meta rows (difficulty, education levels). Keep in step with rvp_page_card_html() in includes/page.php.
+		var meta = el( 'div', 'rvp-card-meta' );
+		if ( p.difficulty ) {
+			var drow = el( 'div', 'rvp-meta-row' );
+			drow.appendChild( el( 'span', 'rvp-meta-label', 'Difficulty' ) );
+			drow.appendChild( el( 'span', 'rvp-diff rvp-diff-' + String( p.difficulty.slug ).replace( /[^a-z-]/g, '' ), p.difficulty.label ) );
+			meta.appendChild( drow );
+		}
 		if ( p.education && p.education.length ) {
+			var erow = el( 'div', 'rvp-meta-row' );
+			erow.appendChild( el( 'span', 'rvp-meta-label', 'Levels' ) );
 			var ul = el( 'ul', 'rvp-levels' );
 			ul.setAttribute( 'aria-label', 'Education levels' );
 			p.education.forEach( function ( e ) { ul.appendChild( el( 'li', '', e.name ) ); } );
-			body.appendChild( ul );
+			erow.appendChild( ul );
+			meta.appendChild( erow );
 		}
+		if ( meta.children.length ) { body.appendChild( meta ); }
 		var a = el( 'a', 'rvp-btn rvp-btn-primary', 'View Project' );
 		a.setAttribute( 'data-rvp-view', String( p.id ) );
 		a.href = authUrl( '/login', p.id ) || '#';
