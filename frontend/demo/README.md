@@ -20,4 +20,4 @@ Swapping the sample data for real data later is a one-file change: `contribution
 Delete `frontend/demo/`, `frontend/elementor/contrib-demo/`, `scripts/build-contrib-demo.mjs`, `scripts/wp-import-contrib-demo.php`, `tests/contrib-demo.test.ts` and the `build:contrib-demo` line in `package.json`; trash the three draft pages. Nothing else in the project refers to the demo.
 
 ## Pages (drafts only)
-`sector-demo` (use `?sector=agriculture-dairy`, `education` or `healthcare`), `contribute-demo` (`?sector=`, `?robot=`, `?type=`), `directory-demo` (`?sector=`).
+`robots-by-sector-demo` (use `?sector=agriculture-dairy`, `education` or `healthcare`), `contribute-demo` (`?sector=`, `?robot=`, `?type=`), `robovalley-directory-demo` (`?sector=`).
