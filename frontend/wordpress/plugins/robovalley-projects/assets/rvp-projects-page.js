@@ -388,7 +388,7 @@
 		if ( e.key === 'Escape' && filtersEl.classList.contains( 'rvp-open' ) && ! modal ) { drawerOpen( false ); filterOpen.focus(); }
 	} );
 	if ( window.matchMedia ) {
-		window.matchMedia( '(min-width: 901px)' ).addEventListener( 'change', function ( m ) { if ( m.matches ) { drawerOpen( false ); } } );
+		window.matchMedia( '(min-width: 761px)' ).addEventListener( 'change', function ( m ) { if ( m.matches ) { drawerOpen( false ); } } );
 	}
 
 	/* ---------- windows (sign-in prompt and project details) ---------- */

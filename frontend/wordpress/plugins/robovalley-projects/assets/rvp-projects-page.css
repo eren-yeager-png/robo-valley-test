@@ -665,8 +665,26 @@ a.rvp-tile:visited {
 	margin-top: 24px;
 }
 
-/* ---------- mobile: filters become a drawer ---------- */
-@media (max-width: 900px) {
+/* ---------- laptop / small desktop (about 1100px): tighter columns ---------- */
+@media (max-width: 1100px) {
+	.rvp-hero-grid {
+		gap: 28px;
+	}
+	.rvp-tiles {
+		grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+	}
+	.rvp-layout {
+		grid-template-columns: 230px 1fr;
+		gap: 22px;
+	}
+	.rvp-grid {
+		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+		gap: 16px;
+	}
+}
+
+/* ---------- tablet and below (about 760px): filters become a drawer ---------- */
+@media (max-width: 760px) {
 	.rvp-hero-grid {
 		grid-template-columns: 1fr;
 	}
@@ -715,7 +733,8 @@ a.rvp-tile:visited {
 		background: rgba(18, 63, 51, 0.5);
 	}
 }
-@media (max-width: 560px) {
+/* ---------- phone (about 450px): one column ---------- */
+@media (max-width: 450px) {
 	.rvp-wrap {
 		width: min(1180px, 100% - 32px);
 	}
@@ -864,7 +883,7 @@ a.rvp-tile:visited {
 }
 @keyframes rvp-spin { to { transform: rotate(360deg); } }
 
-@media (max-width: 700px) {
+@media (max-width: 760px) {
 	.rvp-modal-root {
 		padding: 0;
 		align-items: stretch;
@@ -883,7 +902,7 @@ a.rvp-tile:visited {
 		grid-template-columns: 1fr;
 	}
 }
-@media (max-width: 700px) {
+@media (max-width: 760px) {
 	.rvp-modal:not(.rvp-modal-wide) {
 		align-self: end;
 		border-radius: 20px 20px 0 0;
