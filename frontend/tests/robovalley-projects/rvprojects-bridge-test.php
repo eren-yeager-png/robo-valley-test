@@ -129,6 +129,7 @@ t( 'Origin refusal has the generic body and no CORS header objects', false !== s
 $oo = req( $P . $hid ); $n3 = $oo->get_header( 'x_rvp_nonce' ); $oo->set_header( 'Origin', 'http://localhost:8080' ); go( $oo );
 t( 'an Origin refusal does not consume the nonce', 200 === go( req( $P . $hid, array(), array( 'nonce' => $n3 ) ) )->get_status() );
 t( 'empty Origin header is also refused', 403 === go( req( $P . $hid, array(), array( 'origin' => '' ) ) )->get_status() );
+t( 'Origin: null (sandboxed iframe / redirect) is refused too', 403 === go( req( $P . $hid, array(), array( 'origin' => 'null' ) ) )->get_status() );
 
 // ===== which projects are visible
 $notfound = array();
