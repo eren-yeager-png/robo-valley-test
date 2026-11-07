@@ -13,6 +13,8 @@ UNPUB=<the id of one DRAFT project>
 
 Tick **Pass** or **Fail** for every item. A single Fail on sections 1, 2 or 4 blocks the launch.
 
+**Known limitation (accepted):** the Projects rate limits are counted in each app instance's memory (so per instance on serverless hosting, best effort) and the per-IP limit trusts the host's `X-Forwarded-For`; a shared limiter was deliberately not built. Do not fail the checklist for this.
+
 Marker strings for the leak checks: take one sentence from the **Overview** and one line from **Skills required** of a published project in wp-admin. Below they are called `OVERVIEW-TEXT` and `SKILL-TEXT`.
 
 ---
