@@ -17,7 +17,7 @@ type FileResult = { filename: string; type: string; size: number; key: string; w
 
 const DATASET_EXT = [".xlsx", ".csv"];
 const FILE_EXT = [".xlsx", ".csv", ".pdf", ".docx", ".png", ".jpg", ".jpeg", ".txt"];
-const DATASET_MAX = 10 * 1024 * 1024; // the server enforces the real limits; these only give instant feedback
+const DATASET_MAX = 4 * 1024 * 1024; // keep equal to MAX_FILE_BYTES in src/lib/spreadsheet/parse.ts (Vercel refuses bodies over 4.5 MB) // the server enforces the real limits; these only give instant feedback
 const FILE_MAX = 4 * 1024 * 1024;
 
 const mb = (n: number) => `${(n / 1024 / 1024).toFixed(n < 1048576 ? 2 : 1)} MB`;
@@ -78,7 +78,7 @@ export default function UploadForm({ categories, initialCategory, filesReady }: 
     const list = m === "dataset" ? DATASET_EXT : FILE_EXT;
     if (!list.includes(ext)) return `This file type is not allowed. Allowed: ${list.join(", ")}.`;
     if (f.size === 0) return "The file is empty.";
-    if (f.size > (m === "dataset" ? DATASET_MAX : FILE_MAX)) return `The file is ${mb(f.size)}, which is more than the ${mb(m === "dataset" ? DATASET_MAX : FILE_MAX)} limit.`;
+    if (f.size > (m === "dataset" ? DATASET_MAX : FILE_MAX)) return `The file is ${mb(f.size)}, which is more than the ${mb(m === "dataset" ? DATASET_MAX : FILE_MAX)} limit.${m === "dataset" ? " Please remove unused rows or columns, or split it into two files, and try again." : ""}`;
     return "";
   }
 
