@@ -63,6 +63,10 @@ export const MIGRATIONS = [
     ...["dedupe_version", "rows_read", "duplicate_row_count", "filled_row_count", "possible_duplicate_count", "report", "is_demo"].map((column) => ({ kind: "column", table: "service_datasets", column })),
     { kind: "index", name: "service_dataset_rows_dedupe_key_uq" },
   ] },
+  { id: "011", title: "search rate limit", feature: "Per-visitor request limit for the Find a Service search and categories", requires: [], checks: [
+    { kind: "table", table: "api_rate_limits" },
+    { kind: "index", name: "api_rate_limits_window_idx" },
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */
