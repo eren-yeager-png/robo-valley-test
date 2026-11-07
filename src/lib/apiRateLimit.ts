@@ -75,9 +75,43 @@ export function rateLimitedResponse(retryAfterSeconds: number): Response {
   );
 }
 
+/**
+ * KILL SWITCH. Set the environment variable SERVICE_RATE_LIMIT_ENABLED to "false" (or "0", "off", "no", "disabled") in Vercel to turn the
+ * limiter off without a code change (Vercel needs a redeploy to pick up a changed variable). Unset or any other value means ON.
+ */
+export function rateLimitEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return !/^(false|0|off|no|disabled)$/i.test((env.SERVICE_RATE_LIMIT_ENABLED ?? "").trim());
+}
+
 /** For a route: returns a 429 Response when this caller is over the limit, otherwise null. */
 export async function enforceRateLimit(req: Request, scope: RateScope): Promise<Response | null> {
+  if (!rateLimitEnabled()) return null; // switched off: no counting, no database call
   const d = await hitRateLimit(clientIp(req), scope);
   void maybeCleanupRateLimits();
   return d.allowed ? null : rateLimitedResponse(d.retryAfterSeconds);
+}
+
+/**
+ * Self-check for the visitor-address risk, AGGREGATES ONLY (no key, hash or address is ever returned). If the platform's
+ * X-Forwarded-For header were wrong and everyone looked like one visitor, one key would hold almost all the hits.
+ */
+export type RateLimitSummary = {
+  enabled: boolean; windowHours: 1; scopes: Record<string, { distinctVisitors: number; totalHits: number; maxHitsOneVisitorOneMinute: number; maxHitsOneVisitorLastHour: number; topVisitorShare: number }>;
+  verdict: "no data" | "looks normal" | "CHECK: one visitor holds almost all hits";
+};
+export async function rateLimitSummary(db: Queryable = pool, env: NodeJS.ProcessEnv = process.env): Promise<RateLimitSummary> {
+  const { rows } = await db.query(`
+    SELECT split_part(key, ':', 1) AS scope, count(*)::int AS distinct_visitors, sum(h)::int AS total_hits, max(mx)::int AS max_minute, max(h)::int AS max_hour
+      FROM (SELECT key, sum(hits) AS h, max(hits) AS mx FROM api_rate_limits WHERE window_start > now() - interval '1 hour' GROUP BY key) k
+     GROUP BY 1`);
+  const scopes: RateLimitSummary["scopes"] = {};
+  let worst = 0, total = 0;
+  for (const r of rows) {
+    const t = Number(r.total_hits), top = Number(r.max_hour);
+    scopes[String(r.scope)] = { distinctVisitors: Number(r.distinct_visitors), totalHits: t, maxHitsOneVisitorOneMinute: Number(r.max_minute), maxHitsOneVisitorLastHour: top, topVisitorShare: t ? Math.round((top / t) * 100) / 100 : 0 };
+    total += t;
+    if (t >= 100 && Number(r.distinct_visitors) <= 2) worst = 1;
+    if (t >= 100 && top / t >= 0.9) worst = 1;
+  }
+  return { enabled: rateLimitEnabled(env), windowHours: 1, scopes, verdict: !total ? "no data" : worst ? "CHECK: one visitor holds almost all hits" : "looks normal" };
 }
