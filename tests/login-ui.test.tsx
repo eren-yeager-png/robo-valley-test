@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, configure, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedUser, testDb } from "./helpers";
@@ -11,6 +11,10 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: h.replace, refr
 
 import LoginForm from "../src/app/login/LoginForm";
 import { POST as loginRoute } from "../src/app/api/auth/login/route";
+
+// The sign-in / sign-up routes run real bcrypt (cost 12) in-process; under a loaded machine that exceeds
+// testing-library's default 1 s waitFor timeout. Test-only: raise it, production code is unchanged.
+configure({ asyncUtilTimeout: 10000 });
 
 const PASSWORD = "correct horse";
 let calls: Array<Record<string, unknown>>;
