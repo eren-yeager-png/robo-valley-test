@@ -5,14 +5,13 @@ import { json } from "../../../../lib/http";
 import { pool } from "../../../../lib/db";
 import { stageDataset, writeAudit } from "../../../../lib/serviceDatasets";
 import { categoryName, parseCategory } from "../../../../lib/serviceCategories";
-import { MAX_FILE_BYTES, parseUpload, safeFilename, UploadError } from "../../../../lib/spreadsheet/parse";
+import { MAX_FILE_BYTES, parseUpload, safeFilename, UPLOAD_MULTIPART_OVERHEAD, uploadTooLargeMessage, UploadError } from "../../../../lib/spreadsheet/parse";
 import { readBodyLimited } from "../../../../lib/uploadBody";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const METHODS = "POST, OPTIONS";
-const OVERHEAD = 256 * 1024; // multipart framing around the file
 
 export const OPTIONS = (req: Request) => preflight(req, METHODS);
 
@@ -30,10 +29,10 @@ export async function POST(req: Request) {
     const type = req.headers.get("content-type") ?? "";
     if (!/^multipart\/form-data\s*;/i.test(type)) return reply({ success: false, error: "BAD_REQUEST", message: "Send the file as multipart/form-data." }, 415);
 
-    const body = await readBodyLimited(req, MAX_FILE_BYTES + OVERHEAD);
+    const body = await readBodyLimited(req, MAX_FILE_BYTES + UPLOAD_MULTIPART_OVERHEAD);
     if (!body) {
       await writeAudit(pool, { userId: admin.id, action: "upload", result: "rejected", detail: "file too large" });
-      return reply({ success: false, error: "FILE_TOO_LARGE", message: `The file is larger than the ${MAX_FILE_BYTES / 1024 / 1024} MB limit.` }, 413);
+      return reply({ success: false, error: "FILE_TOO_LARGE", message: uploadTooLargeMessage() }, 413);
     }
     let form: FormData;
     try {

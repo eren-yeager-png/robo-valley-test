@@ -77,7 +77,7 @@ describe("fail open", () => {
     await testDb().raw.exec("DROP TABLE api_rate_limits");
     expect((await search(req("/api/services/search?location=Guntur", "9.9.9.9"))).status).toBe(200);
     expect((await categories(req("/api/services/categories", "9.9.9.9"))).status).toBe(200);
-    await testDb().raw.exec(readFileSync(resolve("db/migrations/011_api_rate_limits.sql"), "utf8").replace(/BEGIN;[sS]*?END $;/, "BEGIN;")); // put the table back for the next tests
+    await testDb().raw.exec(readFileSync(resolve("db/migrations/011_api_rate_limits.sql"), "utf8").replace(/DO \$\$[\s\S]*?END \$\$;/, "")); // put the table back for the next tests
   });
 });
 
@@ -120,10 +120,10 @@ describe("the public routes", () => {
     expect(res.status).toBe(429);
     expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
-  it("a normal search is unchanged (200, success body, no-store)", async () => {
+  it("a normal search is unchanged (200, success body; cacheable since PR 2)", async () => {
     const res = await search(req("/api/services/search?location=Guntur", "5.5.5.5"));
     expect(res.status).toBe(200);
-    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    expect(res.headers.get("Cache-Control")).toBe("public, s-maxage=60, stale-while-revalidate=30");
     expect((await res.json()).success).toBe(true);
   });
   it("a bad request still gets its 400", async () => {

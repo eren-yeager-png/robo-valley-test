@@ -17,7 +17,7 @@ type FileResult = { filename: string; type: string; size: number; key: string; w
 
 const DATASET_EXT = [".xlsx", ".csv"];
 const FILE_EXT = [".xlsx", ".csv", ".pdf", ".docx", ".png", ".jpg", ".jpeg", ".txt"];
-const DATASET_MAX = 10 * 1024 * 1024; // the server enforces the real limits; these only give instant feedback
+const DATASET_MAX = 4 * 1024 * 1024; // keep equal to MAX_FILE_BYTES in src/lib/spreadsheet/parse.ts (Vercel refuses bodies over 4.5 MB) // the server enforces the real limits; these only give instant feedback
 const FILE_MAX = 4 * 1024 * 1024;
 
 const mb = (n: number) => `${(n / 1024 / 1024).toFixed(n < 1048576 ? 2 : 1)} MB`;
@@ -78,7 +78,7 @@ export default function UploadForm({ categories, initialCategory, filesReady }: 
     const list = m === "dataset" ? DATASET_EXT : FILE_EXT;
     if (!list.includes(ext)) return `This file type is not allowed. Allowed: ${list.join(", ")}.`;
     if (f.size === 0) return "The file is empty.";
-    if (f.size > (m === "dataset" ? DATASET_MAX : FILE_MAX)) return `The file is ${mb(f.size)}, which is more than the ${mb(m === "dataset" ? DATASET_MAX : FILE_MAX)} limit.`;
+    if (f.size > (m === "dataset" ? DATASET_MAX : FILE_MAX)) return `The file is ${mb(f.size)}, which is more than the ${mb(m === "dataset" ? DATASET_MAX : FILE_MAX)} limit.${m === "dataset" ? " Please remove unused rows or columns, or split it into two files, and try again." : ""}`;
     return "";
   }
 
@@ -176,7 +176,7 @@ export default function UploadForm({ categories, initialCategory, filesReady }: 
           <div className="adm-tablewrap"><table className="adm-table"><thead><tr><th>School</th><th>State</th><th>District</th><th>PIN code</th></tr></thead>
             <tbody>{dataset.preview.map((r, i) => <tr key={i}><td className="cell-wrap">{r.schoolName}</td><td>{r.state}</td><td>{r.district}</td><td>{r.pincode}</td></tr>)}</tbody></table></div>
           {live ? (
-            <div className="adm-note" role="status" style={{ marginTop: 12 }}><strong>Now live</strong>This file is the live data for {dataset.category.name}.</div>
+            <div className="adm-note" role="status" style={{ marginTop: 12 }}><strong>Now live</strong>This file is the live data for {dataset.category.name}. It may take about a minute to appear on the website.</div>
           ) : (
             <div style={{ marginTop: 12 }}><ActivateButton datasetId={dataset.datasetId} label={dataset.filename} onDone={() => setLive(true)} /></div>
           )}
