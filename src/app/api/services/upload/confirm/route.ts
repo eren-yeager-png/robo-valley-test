@@ -3,6 +3,7 @@ import { preflight, withCors } from "../../../../../lib/cors";
 import { json, readJson } from "../../../../../lib/http";
 import { pool } from "../../../../../lib/db";
 import { confirmDataset, DatasetError, writeAudit } from "../../../../../lib/serviceDatasets";
+import { NEW_DATA_DELAY_NOTE } from "../../../../../lib/serviceCache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
   try {
     const done = await confirmDataset(pool, id);
     await writeAudit(pool, { userId: admin.id, action: "confirm", result: "success", datasetId: done.id, filename: done.filename, detail: `${done.category}: ${done.rowCount} rows now live` });
-    return reply({ success: true, datasetId: done.id, rowCount: done.rowCount, category: done.category, message: "The new data is now live for everyone." }, 200);
+    return reply({ success: true, datasetId: done.id, rowCount: done.rowCount, category: done.category, message: `The new data is now live for everyone. ${NEW_DATA_DELAY_NOTE}` }, 200);
   } catch (e) {
     if (e instanceof DatasetError) {
       await writeAudit(pool, { userId: admin.id, action: "confirm", result: "rejected", datasetId: id, detail: e.code });

@@ -304,7 +304,7 @@
 
 			function done( x ) {
 				frame( 'Published' );
-				dlg.appendChild( message( 'ok', x.rowCount.toLocaleString( 'en-IN' ) + ' rows are now live for everyone' + ( staged && staged.category && staged.category.name ? ' in ' + staged.category.name : '' ) + '.' ) );
+				dlg.appendChild( message( 'ok', x.rowCount.toLocaleString( 'en-IN' ) + ' rows are now live for everyone' + ( staged && staged.category && staged.category.name ? ' in ' + staged.category.name : '' ) + '. It may take about a minute to appear on the website.' ) );
 				var actions = el( 'div', 'rv-fas-dlg-actions' );
 				var fin = button( 'Done', 'primary', close );
 				actions.appendChild( fin );

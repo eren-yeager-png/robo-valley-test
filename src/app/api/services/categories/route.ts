@@ -2,6 +2,7 @@ import { preflight, withCors } from "../../../../lib/cors";
 import { json } from "../../../../lib/http";
 import { pool } from "../../../../lib/db";
 import { enforceRateLimit } from "../../../../lib/apiRateLimit";
+import { SERVICE_CACHE_CONTROL } from "../../../../lib/serviceCache";
 import { listCategories } from "../../../../lib/serviceDatasets";
 
 export const runtime = "nodejs";
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
   if (limited) return withCors(req, limited, METHODS);
   try {
     const categories = await listCategories(pool);
-    return reply({ success: true, categories, defaultSlug: categories.find((c) => c.active)?.slug ?? null }, 200);
+    return withCors(req, json({ success: true, categories, defaultSlug: categories.find((c) => c.active)?.slug ?? null }, 200, { "Cache-Control": SERVICE_CACHE_CONTROL }), METHODS);
   } catch {
     console.error("categories failed: server error");
     return reply({ success: false, error: "SERVER_ERROR", message: "Categories are not available right now. Please try again." }, 500);

@@ -514,7 +514,7 @@ describe("search (same data for everyone)", () => {
     expect(await sql("select count(*)::int n from users")).toEqual([{ n: 2 }]);
   });
 
-  it("is identical for anonymous users, regular users and admins, and is never cached", async () => {
+  it("is identical for anonymous users, regular users and admins, and is cacheable for a minute (PR 2)", async () => {
     const get = async () => { const r = await search(searchReq("?q=school")); return { body: await r.json(), cc: r.headers.get("cache-control") }; };
     const anon = await get();
     signIn(user.id, "ST");
@@ -523,7 +523,7 @@ describe("search (same data for everyone)", () => {
     const asAdmin = await get();
     expect(asUser.body).toEqual(anon.body);
     expect(asAdmin.body).toEqual(anon.body);
-    expect(anon.cc).toBe("no-store");
+    expect(anon.cc).toBe("public, s-maxage=60, stale-while-revalidate=30");
     expect(anon.body.results.length).toBeGreaterThan(0);
   });
 
