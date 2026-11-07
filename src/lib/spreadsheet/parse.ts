@@ -9,7 +9,15 @@ import { createHash } from "node:crypto";
 import { dedupeRows, type DedupeSummary, MAX_REPORT_ENTRIES, normPin } from "./dedupe";
 import { type Header, MAX_CELL_CHARS, normalizeHeaders, sanitizeCell, sanitizeText } from "./sanitize";
 
-export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+// The stated upload limit. It must stay BELOW what the hosting platform accepts: Vercel refuses any request body over 4.5 MB before our code
+// runs (and answers with a plain error page, not our message). The file plus the form framing must fit inside that, so the file limit is 4 MB
+// and the framing allowance is 256 KB (4.25 MB in total). tests/services-upload.test.ts keeps these three numbers in step.
+export const VERCEL_BODY_LIMIT_BYTES = 4.5 * 1024 * 1024;
+export const MAX_FILE_BYTES = 4 * 1024 * 1024;
+export const UPLOAD_MULTIPART_OVERHEAD = 256 * 1024;
+/** The sentence the admin sees (the upload widget and the admin form use the same words). */
+export const uploadTooLargeMessage = (): string =>
+  `The file is larger than the ${MAX_FILE_BYTES / 1024 / 1024} MB limit. Please remove unused rows or columns, or split it into two files, and try again.`;
 export const MAX_ROWS = 100_000;
 export const MAX_COLUMNS = 100;
 const MAX_UNZIPPED_BYTES = 150 * 1024 * 1024;
@@ -176,7 +184,7 @@ export async function parseUpload(input: { filename: string; mime: string; buffe
   const ext = extensionOf(input.filename);
   const { buffer } = input;
   if (buffer.length === 0) throw new UploadError("EMPTY_FILE", "The file is empty.", 400);
-  if (buffer.length > MAX_FILE_BYTES) throw new UploadError("FILE_TOO_LARGE", `The file is larger than the ${MAX_FILE_BYTES / 1024 / 1024} MB limit.`, 413);
+  if (buffer.length > MAX_FILE_BYTES) throw new UploadError("FILE_TOO_LARGE", uploadTooLargeMessage(), 413);
   const mime = input.mime.split(";")[0]!.trim().toLowerCase();
   if (!(ext === "xlsx" ? XLSX_MIME : CSV_MIME).includes(mime)) {
     throw new UploadError("UNSUPPORTED_FILE_TYPE", `Unsupported file type (${mime || "unknown"}). Please upload an .xlsx or .csv file.`, 415);

@@ -1,6 +1,8 @@
 // Admin-only spreadsheet upload, atomic dataset replacement and public search. Real routes and real SQL on the in-process
 // PostgreSQL (PGlite); no real database, no network.
 import ExcelJS from "exceljs";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeFakePool, seedUser, testDb } from "./helpers";
 import { createSessionToken } from "../src/lib/session";
@@ -15,6 +17,7 @@ import { POST as upload, OPTIONS as uploadOptions } from "../src/app/api/service
 import { POST as confirm } from "../src/app/api/services/upload/confirm/route";
 import { GET as search } from "../src/app/api/services/search/route";
 import { GET as me } from "../src/app/api/auth/me/route";
+import { MAX_FILE_BYTES, UPLOAD_MULTIPART_OVERHEAD, uploadTooLargeMessage, VERCEL_BODY_LIMIT_BYTES } from "../src/lib/spreadsheet/parse";
 
 const SECRET = "unit-test-secret-unit-test-secret-1234";
 const tokenFor = (id: string, role: string) => createSessionToken({ id, role }, false, Date.now(), { SESSION_SECRET: SECRET } as never).token;
@@ -191,8 +194,26 @@ describe("file validation (everything is rejected with a clear message and nothi
     await rejected(csv(""), 400, /empty/i);
     await rejected(csv("School Name,District\n"), 422, /no data rows/);
   });
-  it("a file over 10 MB is refused (even without a Content-Length header)", async () => {
-    await rejected({ name: "big.csv", type: "text/csv", data: Buffer.alloc(11 * 1024 * 1024, 97) }, 413, /10 MB/, "FILE_TOO_LARGE");
+  it("a file over 4 MB is refused with a clear message (even without a Content-Length header)", async () => {
+    const b = await rejected({ name: "big.csv", type: "text/csv", data: Buffer.alloc(5 * 1024 * 1024, 97) }, 413, /4 MB/, "FILE_TOO_LARGE");
+    expect(b.message).toBe("The file is larger than the 4 MB limit. Please remove unused rows or columns, or split it into two files, and try again.");
+  });
+  it("a file just over 4 MB is refused too (4.1 MB)", async () => {
+    await rejected({ name: "big.csv", type: "text/csv", data: Buffer.alloc(Math.round(4.1 * 1024 * 1024), 97) }, 413, /4 MB/, "FILE_TOO_LARGE");
+  });
+  it("the stated limit, the form allowance and the hosting limit stay in step (Vercel refuses bodies over 4.5 MB)", () => {
+    expect(MAX_FILE_BYTES).toBe(4 * 1024 * 1024);
+    expect(MAX_FILE_BYTES + UPLOAD_MULTIPART_OVERHEAD).toBeLessThan(VERCEL_BODY_LIMIT_BYTES);
+    expect(VERCEL_BODY_LIMIT_BYTES).toBe(4.5 * 1024 * 1024);
+    expect(uploadTooLargeMessage()).toContain("4 MB");
+  });
+  it("the upload widget and the admin form say the same 4 MB (no stale 10 MB anywhere)", () => {
+    const widget = readFileSync(resolve("frontend/elementor/find-a-service-510/widgets/04-upload-button.a51f0e2.html"), "utf8");
+    expect(widget).toContain("var MAX_BYTES = 4 * 1024 * 1024;");
+    expect(widget).toContain("Maximum 4 MB and 100,000 rows.");
+    expect(widget).toContain("The file is larger than the 4 MB limit. Please remove unused rows or columns, or split it into two files, and try again.");
+    expect(widget).not.toMatch(/10 MB/);
+    expect(readFileSync(resolve("src/app/admin/_components/UploadForm.tsx"), "utf8")).toContain("const DATASET_MAX = 4 * 1024 * 1024;");
   });
   it("missing school name: the WHOLE file is rejected and the message says exactly what is missing", async () => {
     const b = await rejected(csv("Foo,District\nx,Guntur"), 422, /missing: School Name\./, "MISSING_COLUMNS");
