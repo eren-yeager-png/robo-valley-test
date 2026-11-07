@@ -63,10 +63,9 @@ export const MIGRATIONS = [
     ...["dedupe_version", "rows_read", "duplicate_row_count", "filled_row_count", "possible_duplicate_count", "report", "is_demo"].map((column) => ({ kind: "column", table: "service_datasets", column })),
     { kind: "index", name: "service_dataset_rows_dedupe_key_uq" },
   ] },
-  { id: "012", title: "contributions", feature: "Contributions, sectors and which sector(s) each contribution is about", requires: ["001"], checks: [
-    ...["sectors", "contributions", "contribution_scopes"].map((table) => ({ kind: "table", table })),
-    ...["contributions_user_status_idx", "contributions_public_idx", "contribution_scopes_sector_idx"].map((name) => ({ kind: "index", name })),
-    ...["contributions_type_ck", "contributions_status_ck", "contributions_submitted_ck", "contributions_published_ck"].map((name) => ({ kind: "constraint", name })),
+  { id: "011", title: "search rate limit", feature: "Per-visitor request limit for the Find a Service search and categories", requires: [], checks: [
+    { kind: "table", table: "api_rate_limits" },
+    { kind: "index", name: "api_rate_limits_window_idx" },
   ] },
 ];
 
