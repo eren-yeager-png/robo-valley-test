@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CONTRIBUTION_TYPES, STATUS_LABELS, canTransition, contributionDbError, validateContribution } from "../src/lib/contributions";
+import { CONTRIBUTION_LIMITS, CONTRIBUTION_STATUSES, CONTRIBUTION_TYPES, STATUS_LABELS, canTransition, contributionDbError, validateContribution } from "../src/lib/contributions";
 
 const SECTORS = ["agriculture-dairy", "education", "healthcare"];
 const good = { type: "problem", title: "Shed cleaning by hand", body: "Two workers clean the shed by hand every day.", sectors: ["agriculture-dairy"] };
@@ -84,5 +85,27 @@ describe("contributionDbError", () => {
     expect(contributionDbError({ code: "23514", constraint: "contributions_title_ck" })).toMatchObject({ field: "title" });
     expect(contributionDbError({ code: "08006" })).toBeNull();
     expect(contributionDbError(null)).toBeNull();
+  });
+});
+
+// CONTRIBUTION_LIMITS is the one place the numbers live in code; this test fails if the migration disagrees with it.
+describe("code and database use the same limits", () => {
+  const sql = readFileSync("db/migrations/012_contributions.sql", "utf8");
+  const L = CONTRIBUTION_LIMITS;
+  it("title, body and slug lengths", () => {
+    expect(sql).toContain(`char_length(btrim(title)) BETWEEN ${L.titleMin} AND ${L.titleMax}`);
+    expect(sql).toContain(`char_length(btrim(body)) BETWEEN ${L.bodyMin} AND ${L.bodyMax}`);
+    expect(sql).toContain(`title        varchar(${L.titleMax})`);
+    expect(sql).toContain(`robot_type   varchar(${L.slugMax})`);
+    expect(sql).toContain(`slug        varchar(${L.slugMax})`);
+  });
+  it("the 14 types and the 4 statuses", () => {
+    const list = (name: string) => {
+      const at = sql.indexOf(name + " CHECK");
+      const open = sql.indexOf("IN (", at) + 4;
+      return sql.slice(open, sql.indexOf(")", open)).split(",").map((x) => x.trim().replace(/'/g, ""));
+    };
+    expect(list("contributions_type_ck")).toEqual(CONTRIBUTION_TYPES.map((t) => t.id));
+    expect(list("contributions_status_ck")).toEqual([...CONTRIBUTION_STATUSES]);
   });
 });
