@@ -42,7 +42,12 @@ export const STATUS_TRANSITIONS: Record<ContributionStatus, readonly Contributio
 };
 export const canTransition = (from: ContributionStatus, to: ContributionStatus) => STATUS_TRANSITIONS[from].includes(to);
 
-export const CONTRIBUTION_LIMITS = { titleMin: 5, titleMax: 150, bodyMin: 10, bodyMax: 4000, slugMax: 60, maxSectors: 20 };
+export const CONTRIBUTION_LIMITS = {
+  titleMin: 5, titleMax: 150, bodyMin: 10, bodyMax: 4000, slugMax: 60, maxSectors: 20,
+  // photos (migration 013): up to 3, JPG or PNG, 4 MB (the platform refuses request bodies much larger), alt text required
+  photosMax: 3, photoBytesMax: 4 * 1024 * 1024, altMin: 1, altMax: 200,
+};
+export const PHOTO_MIMES = ["image/jpeg", "image/png"] as const;
 
 export const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const TYPE_IDS: readonly string[] = CONTRIBUTION_TYPES.map((t) => t.id);

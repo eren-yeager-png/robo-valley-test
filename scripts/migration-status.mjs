@@ -71,6 +71,10 @@ export const MIGRATIONS = [
     ...["sectors", "contributions", "contribution_scopes"].map((table) => ({ kind: "table", table })),
     ...["contributions_user_status_idx", "contributions_public_idx", "contribution_scopes_sector_idx"].map((name) => ({ kind: "index", name })),
   ] },
+  { id: "013", title: "contribution photos", feature: "Up to 3 photos (JPG or PNG, 4 MB, with alt text) on a contribution", requires: ["012"], checks: [
+    ...["contribution_photos", "contribution_photo_blobs"].map((table) => ({ kind: "table", table })),
+    ...["contribution_photos_position_uq", "contribution_photos_position_ck", "contribution_photos_mime_ck", "contribution_photos_size_ck", "contribution_photos_alt_ck", "contribution_photos_sha_ck"].map((name) => ({ kind: "constraint", name })),
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */
