@@ -136,11 +136,11 @@ describe("GET /api/services/categories", () => {
     expect(body.categories.find((c: any) => c.slug === "stem-labs")).toMatchObject({ active: true, count: 2 });
     expect(body.categories.find((c: any) => c.slug === "robotics-labs")).toMatchObject({ active: false, count: 0, uploadedAt: null });
   });
-  it("is public, never cached and has no demo content", async () => {
+  it("is public, cacheable for a minute (PR 2) and has no demo content", async () => {
     m.cookie = undefined;
     const r = await categories(new Request("http://localhost/api/services/categories"));
     expect(r.status).toBe(200);
-    expect(r.headers.get("cache-control")).toBe("no-store");
+    expect(r.headers.get("cache-control")).toBe("public, s-maxage=60, stale-while-revalidate=30"); // PR 2: a shared cache may keep it for a minute
   });
 });
 

@@ -120,10 +120,10 @@ describe("the public routes", () => {
     expect(res.status).toBe(429);
     expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
-  it("a normal search is unchanged (200, success body, no-store)", async () => {
+  it("a normal search is unchanged (200, success body; cacheable since PR 2)", async () => {
     const res = await search(req("/api/services/search?location=Guntur", "5.5.5.5"));
     expect(res.status).toBe(200);
-    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    expect(res.headers.get("Cache-Control")).toBe("public, s-maxage=60, stale-while-revalidate=30");
     expect((await res.json()).success).toBe(true);
   });
   it("a bad request still gets its 400", async () => {
