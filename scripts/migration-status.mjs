@@ -67,6 +67,10 @@ export const MIGRATIONS = [
     { kind: "table", table: "api_rate_limits" },
     { kind: "index", name: "api_rate_limits_window_idx" },
   ] },
+  { id: "012", title: "contributions", feature: "Sectors, contributions and their sector scopes (foundation for the Contribute pages)", requires: [], checks: [
+    ...["sectors", "contributions", "contribution_scopes"].map((table) => ({ kind: "table", table })),
+    ...["contributions_user_status_idx", "contributions_public_idx", "contribution_scopes_sector_idx"].map((name) => ({ kind: "index", name })),
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */

@@ -40,7 +40,7 @@
 	if ( ! root || ! api || ! window.fetch ) {
 		return;
 	}
-	var MAX_BYTES = 10 * 1024 * 1024;
+	var MAX_BYTES = 4 * 1024 * 1024; // the server allows 4 MB (the hosting platform refuses anything over 4.5 MB)
 
 	fetch( api + '/api/auth/me', { credentials: 'include', cache: 'no-store' } )
 		.then( function ( r ) { return r.ok ? r.json() : null; } )
@@ -141,7 +141,7 @@
 				function choose( errText ) {
 				frame( 'Upload school data' );
 				dlg.appendChild( el( 'p', '', 'Choose an Excel (.xlsx) or CSV (.csv) file. It needs a School Name column and a location column (District or Pincode). You can check it before it goes live.' ) );
-				dlg.appendChild( el( 'p', 'rv-fas-dlg-note', 'Maximum 10 MB and 100,000 rows. Uploading a new file replaces only the data of the category you choose, for everyone, once you confirm. Other categories are not touched.' ) );
+				dlg.appendChild( el( 'p', 'rv-fas-dlg-note', 'Maximum 4 MB and 100,000 rows. Uploading a new file replaces only the data of the category you choose, for everyone, once you confirm. Other categories are not touched.' ) );
 				var selLabel = el( 'label', '', 'Category' );
 				selLabel.setAttribute( 'for', 'rv-fas-dlg-cat' );
 				dlg.appendChild( selLabel );
@@ -188,7 +188,7 @@
 						msg.appendChild( message( 'err', /\.xls$/i.test( file.name ) ? 'Legacy .xls files are not accepted. Save the file as .xlsx or .csv and try again.' : 'Unsupported file type. Please choose an .xlsx or .csv file.' ) );
 						return;
 					}
-					if ( file.size > MAX_BYTES ) { msg.appendChild( message( 'err', 'The file is larger than the 10 MB limit.' ) ); return; }
+					if ( file.size > MAX_BYTES ) { msg.appendChild( message( 'err', 'The file is larger than the 4 MB limit. Please remove unused rows or columns, or split it into two files, and try again.' ) ); return; }
 					keep.slug = sel.value;
 						send( file, go, msg, sel.value );
 				} );
