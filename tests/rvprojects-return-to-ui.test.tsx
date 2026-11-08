@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 // returnTo through the real pages and forms: /login and /join validate ?returnTo on the server, the value survives the whole
 // Join -> Sign in -> Login journey, and without a (valid) returnTo everything behaves exactly as before.
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, configure, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedUser } from "./helpers";
 import { createSessionToken } from "../src/lib/session";
+
+// The sign-up route runs real bcrypt (cost 12) in-process; under a loaded machine that exceeds testing-library's default 1 s
+// waitFor timeout. Test-only: raise it, production code is unchanged (same as login-ui and join-ui).
+configure({ asyncUtilTimeout: 10000 });
 
 const SECRET = "unit-test-secret-unit-test-secret-1234";
 const h = vi.hoisted(() => ({ push: vi.fn(), nav: vi.fn(), cookie: undefined as string | undefined, host: "app.techytree.in", lastDevOtp: "" }));
