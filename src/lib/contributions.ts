@@ -46,6 +46,8 @@ export const CONTRIBUTION_LIMITS = {
   titleMin: 5, titleMax: 150, bodyMin: 10, bodyMax: 4000, slugMax: 60, maxSectors: 20,
   // photos (migration 013): up to 3, JPG or PNG, 4 MB (the platform refuses request bodies much larger), alt text required
   photosMax: 3, photoBytesMax: 4 * 1024 * 1024, altMin: 1, altMax: 200,
+  // private contact details (migration 014)
+  contactNameMax: 150, emailMax: 254, phoneDigits: 10,
 };
 export const PHOTO_MIMES = ["image/jpeg", "image/png"] as const;
 

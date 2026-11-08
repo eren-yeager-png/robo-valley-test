@@ -75,6 +75,10 @@ export const MIGRATIONS = [
     ...["contribution_photos", "contribution_photo_blobs"].map((table) => ({ kind: "table", table })),
     ...["contribution_photos_position_uq", "contribution_photos_position_ck", "contribution_photos_mime_ck", "contribution_photos_size_ck", "contribution_photos_alt_ck", "contribution_photos_sha_ck"].map((name) => ({ kind: "constraint", name })),
   ] },
+  { id: "014", title: "contribution contacts", feature: "Private contact details for a contribution (owner only, or a moderator when shared)", requires: ["012"], checks: [
+    { kind: "table", table: "contribution_contacts" },
+    ...["contribution_contacts_name_ck", "contribution_contacts_email_ck", "contribution_contacts_phone_ck", "contribution_contacts_reach_ck"].map((name) => ({ kind: "constraint", name })),
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */
