@@ -28,6 +28,7 @@ async function build() {
   for (const f of pickFiles()) await applyFile(runner(pg), name, read(f));
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('Asha','a@example.com','TC','x'),('Ravi','r@example.com','TC','x'),('Meera','m@example.com','TC','x')");
   await pg.exec("insert into sectors (slug,name) values ('education','Education')");
+  await pg.exec("update users set is_moderator = true where id = 3"); // the moderator flag comes from the database (migration 015)
   return { pg, name };
 }
 const newContribution = async (pg: PGlite, user = 1) =>
@@ -35,9 +36,9 @@ const newContribution = async (pg: PGlite, user = 1) =>
 const bad = (pg: PGlite, sql: string, re?: RegExp) => expect(pg.exec(sql)).rejects.toThrow(re);
 const ins = (cid: number, cols = "", vals = "") => `insert into contribution_contacts (contribution_id,contact_name${cols}) values (${cid},'Asha Rao'${vals})`;
 const CONTACT = { name: "Asha Rao", email: "asha@example.com", phone: "9876543210", shareWithModerators: false };
-const OWNER = { userId: 1, isModerator: false };
-const STRANGER = { userId: 2, isModerator: false };
-const MODERATOR = { userId: 3, isModerator: true };
+const OWNER = 1;
+const STRANGER = 2;
+const MODERATOR = 3; // flagged in build() the way a manual database step would do it
 
 describe("migration 014", () => {
   it("adds only contribution_contacts and is safe to run twice", async () => {
@@ -131,6 +132,9 @@ describe("who can read a contact", () => {
     expect(await readContact(db(pg), c, MODERATOR)).toMatchObject({ email: "asha@example.com", phone: "9876543210" });
     await saveContact(db(pg), c, 1, { ...CONTACT, shareWithModerators: false }); // taking it back works at once
     expect(await readContact(db(pg), c, MODERATOR)).toBeNull();
+    await saveContact(db(pg), c, 1, { ...CONTACT, shareWithModerators: true });
+    await pg.exec("update users set is_moderator = false where id = 3"); // flag removed: the access goes with it
+    expect(await readContact(db(pg), c, MODERATOR)).toBeNull();
     await pg.close();
   });
 
@@ -138,8 +142,7 @@ describe("who can read a contact", () => {
     for (const share of [false, true]) {
       const { pg, c } = await withContact(share);
       expect(await readContact(db(pg), c, STRANGER)).toBeNull();
-      expect(await readContact(db(pg), c, { userId: 2, isModerator: "yes" as unknown as boolean })).toBeNull(); // only a real true counts
-      expect(await readContact(db(pg), c, { userId: 999, isModerator: false })).toBeNull();
+      expect(await readContact(db(pg), c, 999)).toBeNull(); // not a user at all
       expect(await readContact(db(pg), 424242, OWNER)).toBeNull();
       await pg.close();
     }
@@ -211,7 +214,8 @@ describe("the contact table stays private in the code", () => {
     expect(code).not.toMatch(/SELECT\s+\*|\.\*|RETURNING\s+\*/i);
     expect(code).not.toMatch(/console\.|logger|JSON\.stringify/);
     expect(READ_CONTACT_SQL).toMatch(/SELECT cc\.contact_name, cc\.email, cc\.phone, cc\.share_with_moderators FROM/);
-    expect(READ_CONTACT_SQL).toContain("c.user_id = $2 OR ($3::boolean AND cc.share_with_moderators)");
+    expect(READ_CONTACT_SQL).toContain("c.user_id = $2 OR (cc.share_with_moderators AND EXISTS (SELECT 1 FROM users m WHERE m.id = $2 AND m.is_moderator))");
+    expect(READ_CONTACT_SQL).not.toContain("$3"); // the caller supplies no moderator claim
   });
 
   it("the other contribution modules (photos, listings, validation) never select or return contact fields", () => {
