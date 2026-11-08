@@ -18,7 +18,7 @@ const count = async (pg: PGlite, sql: string) => Number(((await pg.query(sql)).r
 const UP = "db/migrations/012_contributions.sql";
 const DOWN = "db/rollback/012_down.sql";
 const NEW = ["contribution_scopes", "contributions", "sectors"];
-const PHOTOS = ["contribution_photo_blobs", "contribution_photos"]; // migration 013
+const PHOTOS = ["contribution_contacts", "contribution_photo_blobs", "contribution_photos"]; // later migrations that depend on contributions (013, 014)
 
 async function build() {
   const pg = new PGlite();
@@ -175,8 +175,9 @@ describe("rollback 012", () => {
   it("removes exactly the new objects, keeps everything else, and the migration can be applied again", async () => {
     const { pg, name } = await build();
     const before = (await tables(pg)).filter((t) => !NEW.includes(t) && !PHOTOS.includes(t));
-    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(); // 013 (photos) depends on contributions: undo 013 first
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(); // 013 (photos) and 014 (contacts) depend on contributions: undo them first
     await pg.exec("ROLLBACK");
+    await applyFile(runner(pg), name, read("db/rollback/014_down.sql"));
     await applyFile(runner(pg), name, read("db/rollback/013_down.sql"));
     await applyFile(runner(pg), name, read(DOWN));
     const after = await tables(pg);
@@ -187,6 +188,7 @@ describe("rollback 012", () => {
     await applyFile(runner(pg), name, read(DOWN));
     await applyFile(runner(pg), name, read(UP));
     await applyFile(runner(pg), name, read("db/migrations/013_contribution_photos.sql"));
+    await applyFile(runner(pg), name, read("db/migrations/014_contribution_contacts.sql"));
     expect(await tables(pg)).toContain("contributions");
     await pg.close();
   });
