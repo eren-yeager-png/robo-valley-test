@@ -127,6 +127,7 @@ describe("resulting schema", () => {
       ["age_category", "character varying(10)", true, null, ""], ["profile", "jsonb", false, "'{}'::jsonb", ""], ["consents", "jsonb", false, "'{}'::jsonb", ""],
       ["mobile_verification", "character varying(10)", false, "'none'::character varying", ""], ["email_verification", "character varying(10)", false, "'none'::character varying", ""],
       ["must_change_password", "boolean", false, "false", ""], // added by migration 004
+      ["is_moderator", "boolean", false, "false", ""], // added by migration 015
     ],
     guardian_details: [
       ["id", "bigint", false, null, "a"], ["user_id", "bigint", false, null, ""], ["guardian_name", "character varying(150)", false, null, ""],
