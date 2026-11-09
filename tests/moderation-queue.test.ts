@@ -118,7 +118,7 @@ describe("reading one item", () => {
     const id = await make(a, "pending_review"); const d = await make(a, "draft");
     await addPhoto(testPool() as never, id, { mime: "image/jpeg", bytes: JPEG, alt: "A cow shed", sha256: createHash("sha256").update(JPEG).digest("hex") });
     const x = await call(detail.GET, "GET", "/x", undefined, P(id));
-    expect(x.b.item).toMatchObject({ id, status: "pending_review", description: "Cows are milked by hand.", role: "Farmer", district: "Guntur", authorLabel: `Member #${a}`, own: false, actions: ["approve", "request_changes", "reject"], history: [] });
+    expect(x.b.item).toMatchObject({ id, status: "pending_review", description: "Cows are milked by hand.", role: "Farmer", district: "Guntur", authorLabel: `Member #${a}`, own: false, actions: ["verify", "approve", "request_changes", "reject", "remove"], history: [] }); // an administrator's view (PR B adds verify and remove)
     expect(x.b.item.photoList).toMatchObject([{ alt: "A cow shed", mime: "image/jpeg" }]);
     expect(JSON.stringify(x.b)).not.toMatch(/@example\.com|full_name|password/i);
     expect((await call(detail.GET, "GET", "/x", undefined, P(d))).r.status).toBe(404);
@@ -197,7 +197,7 @@ describe("decisions", () => {
   });
   it("nobody can review their own item (403) and nothing changes, not even for an administrator", async () => {
     const mod = await user("TC", true), admin = await user("admin"); const m = await make(mod, "pending_review"), ad = await make(admin, "pending_review");
-    as(mod); const x = await decide(m, "approve"); expect(x.r.status).toBe(403); expect(x.b.error).toBe("OWN_ITEM");
+    as(mod); const x = await decide(m, "request_changes", "Please add more."); expect(x.r.status).toBe(403); expect(x.b.error).toBe("OWN_ITEM"); // approving is admin-only anyway (PR B)
     as(admin); expect((await decide(ad, "reject", "I do not want this.")).r.status).toBe(403);
     expect(await status(m)).toBe("pending_review"); expect(await status(ad)).toBe("pending_review");
     expect(await reviews(m)).toEqual([]);
@@ -206,9 +206,10 @@ describe("decisions", () => {
   it("every decision writes exactly one append-only audit row with who, what and the note; a second decision is a 409 and adds no row", async () => {
     const a = await user("ST"), admin = await user("admin"), mod = await user("TC", true); const id = await make(a, "pending_review");
     as(admin); await decide(id, "approve", "Looks good.");
-    as(mod); expect((await decide(id, "approve")).r.status).toBe(409);
-    await decide(id, "unpublish", "Needs a second look.");
-    expect(await reviews(id)).toEqual([{ reviewer_id: String(admin), action: "approve", note: "Looks good." }, { reviewer_id: String(mod), action: "unpublish", note: "Needs a second look." }]);
+    expect((await decide(id, "approve")).r.status).toBe(409);
+    as(mod); expect((await decide(id, "unpublish", "Needs a second look.")).r.status).toBe(403); // unpublishing is admin-only (PR B)
+    as(admin); await decide(id, "unpublish", "Needs a second look.");
+    expect(await reviews(id)).toEqual([{ reviewer_id: String(admin), action: "approve", note: "Looks good." }, { reviewer_id: String(admin), action: "unpublish", note: "Needs a second look." }]);
     await expect(q("UPDATE contribution_reviews SET note='x' WHERE contribution_id=$1", [id])).rejects.toThrow(/never changed or deleted/);
     await expect(q("DELETE FROM contribution_reviews WHERE contribution_id=$1", [id])).rejects.toThrow(/never changed or deleted/);
   });
@@ -231,7 +232,7 @@ describe("decisions", () => {
     expect((await call(decision.POST, "POST", "/x", { action: "approve" }, P("abc"))).r.status).toBe(404);
     expect(await status(id)).toBe("pending_review");
     expect(checkDecision("approve", null)).toMatchObject({ ok: true, note: null });
-    expect(Object.keys(ACTIONS)).toEqual(["approve", "request_changes", "reject", "unpublish", "republish"]);
+    expect(Object.keys(ACTIONS)).toEqual(["verify", "approve", "request_changes", "reject", "remove", "unpublish", "republish"]);
   });
   it("no audit row, no decision: if the audit write fails the status does not change", async () => {
     const a = await user("ST"); as(await user("admin")); const id = await make(a, "pending_review");
