@@ -18,7 +18,7 @@ const count = async (pg: PGlite, sql: string) => Number(((await pg.query(sql)).r
 const UP = "db/migrations/012_contributions.sql";
 const DOWN = "db/rollback/012_down.sql";
 const NEW = ["contribution_scopes", "contributions", "sectors"];
-const PHOTOS = ["contribution_contacts", "contribution_photo_blobs", "contribution_photos"]; // later migrations that depend on contributions (013, 014)
+const PHOTOS = ["contribution_contacts", "contribution_photo_blobs", "contribution_photos", "contribution_title_keys"]; // later migrations that depend on contributions (013, 014, 018)
 
 async function build() {
   const pg = new PGlite();
@@ -29,8 +29,9 @@ async function build() {
   await pg.exec("insert into sectors (slug,name) values ('education','Education'),('healthcare','Healthcare')"); // agriculture-dairy is already there (id 1): migration 016 adds it
   return { pg, name };
 }
-const draftSql = "insert into contributions (user_id,type,title,body) values (1,'problem','Shed cleaning by hand','Two workers clean the shed by hand.') returning id";
-const newDraft = async (pg: PGlite) => Number(((await pg.query(draftSql)).rows[0] as any).id);
+let titleNo = 0; // each fixture gets its own title: migration 018 refuses two live contributions with the same title in one sector
+const draftSql = () => `insert into contributions (user_id,type,title,body) values (1,'problem','Shed cleaning by hand ${++titleNo}','Two workers clean the shed by hand.') returning id`;
+const newDraft = async (pg: PGlite) => Number(((await pg.query(draftSql())).rows[0] as any).id);
 const bad = (pg: PGlite, sql: string, re?: RegExp) => expect(pg.exec(sql)).rejects.toThrow(re);
 
 describe("migration 012", () => {
@@ -120,7 +121,7 @@ describe("migration 012", () => {
   it("a sector count includes a multi-sector contribution once per sector, never twice in one sector", async () => {
     const { pg: p } = await build();
     const mk = async (user: number, sectors: number[], published: boolean, demo = false) => {
-      const id = Number(((await p.query(`insert into contributions (user_id,type,title,body,is_demo) values (${user},'problem','A fine title','A fine body text',${demo}) returning id`)).rows[0] as any).id);
+      const id = Number(((await p.query(`insert into contributions (user_id,type,title,body,is_demo) values (${user},'problem','A fine title ${++titleNo}','A fine body text',${demo}) returning id`)).rows[0] as any).id);
       for (const s of sectors) await p.exec(`insert into contribution_scopes values (${id},${s})`);
       if (published) await p.exec(`update contributions set status='published', submitted_at=now(), published_at=now() where id=${id}`);
       return id;
@@ -154,7 +155,7 @@ describe("migration 012", () => {
 
   it("deleting a user removes their contributions and sectors; a sector in use cannot be deleted", async () => {
     const { pg: p } = await build();
-    const id = Number(((await p.query(draftSql)).rows[0] as any).id);
+    const id = Number(((await p.query(draftSql())).rows[0] as any).id);
     await p.exec(`insert into contribution_scopes values (${id},1),(${id},2)`);
     await p.exec(`update contributions set status='pending_review', submitted_at=now() where id=${id}`);
     await expect(p.exec("delete from sectors where id=1")).rejects.toThrow(/foreign key|violates/);
@@ -177,6 +178,7 @@ describe("rollback 012", () => {
     const before = (await tables(pg)).filter((t) => !NEW.includes(t) && !PHOTOS.includes(t) && t !== "contribution_reviews");
     await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(); // 013 (photos), 014 (contacts) and 017 (reviews) depend on contributions: undo them first
     await pg.exec("ROLLBACK");
+    await applyFile(runner(pg), name, read("db/rollback/018_down.sql"));
     await applyFile(runner(pg), name, read("db/rollback/017_down.sql"));
     await applyFile(runner(pg), name, read("db/rollback/014_down.sql"));
     await applyFile(runner(pg), name, read("db/rollback/013_down.sql"));

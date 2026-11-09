@@ -6,9 +6,9 @@ import { OWNER_RULES } from "./contributionApi";
 
 type Db = { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }> };
 
-export const MINE_STATUS_ORDER: ContributionStatus[] = ["draft", "changes_requested", "pending_review", "published", "unpublished", "rejected"];
+export const MINE_STATUS_ORDER: ContributionStatus[] = ["draft", "changes_requested", "pending_review", "published", "unpublished", "rejected", "removed"];
 /** The note is shown to the author only for the statuses where a moderator's words explain what happened. */
-const NOTE_STATUSES = new Set<string>(["changes_requested", "rejected", "unpublished"]);
+const NOTE_STATUSES = new Set<string>(["changes_requested", "rejected", "unpublished", "removed"]);
 const TYPE_LABEL = new Map<string, string>(CONTRIBUTION_TYPES.map((t) => [t.id, t.label]));
 const MAX_ITEMS = 200;
 

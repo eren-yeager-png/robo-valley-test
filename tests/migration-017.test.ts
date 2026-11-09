@@ -21,7 +21,7 @@ async function build(upTo017 = true) {
   const pg = new PGlite();
   await pg.exec(read("tests/helpers/baseSchema.sql"));
   const name = String(((await pg.query("select current_database() d")).rows[0] as any).d);
-  for (const f of pickFiles().filter((x: string) => upTo017 || !/017_/.test(x))) await applyFile(runner(pg), name, read(f));
+  for (const f of pickFiles().filter((x: string) => upTo017 || !/01[78]_/.test(x))) await applyFile(runner(pg), name, read(f));
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('A','a@example.com','TC','x'),('B','b@example.com','TC','x')");
   await pg.exec("insert into sectors (slug,name) values ('education','Education') on conflict do nothing");
   return { pg, name };
@@ -39,7 +39,7 @@ describe("migration 017: statuses", () => {
     const id = await item(pg, "draft");
     await expect(pg.exec(`update contributions set status='rejected', submitted_at=now() where id=${id}`)).rejects.toThrow(/contributions_status_ck/);
     await applyFile(runner(pg), name, read(UP));
-    for (const s of CONTRIBUTION_STATUSES) {
+    for (const s of CONTRIBUTION_STATUSES.filter((x) => x !== "removed")) { // 'removed' arrives with migration 018
       const i = await item(pg, s);
       expect(await n(pg, `select count(*) n from contributions where id=${i} and status='${s}'`)).toBe(1);
     }
