@@ -40,4 +40,8 @@
 .mod-msg--ok{color:var(--mod-dark);background:var(--mod-tint)}
 .mod-note{padding:12px 16px;color:var(--mod-amber-ink);background:var(--mod-amber-bg);border:1px solid #f0cf96;border-radius:14px}
 .mod :focus-visible{outline:3px solid #9AD3B5;outline-offset:2px}
+.mod-dup{margin-top:14px;padding:12px 14px;color:var(--mod-amber-ink);background:var(--mod-amber-bg);border:1px solid #f0cf96;border-radius:12px}
+.mod-dup ul{margin:6px 0;padding-left:20px}
+.mod-check{display:flex;gap:8px;align-items:flex-start;margin:10px 0;font-weight:600}
+.mod-check input{width:20px;height:20px;margin-top:2px}
 @media (max-width:860px){.mod-main{grid-template-columns:1fr;padding:14px}.mod-btn{width:100%}}
