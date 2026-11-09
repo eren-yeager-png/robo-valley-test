@@ -5,6 +5,7 @@
 export const SERVICE_RATE_LIMITS = {
   search: 60,
   categories: 30,
+  hubCounts: 30,
 } as const;
 export const RATE_WINDOW_SECONDS = 60;
 
