@@ -134,20 +134,20 @@ describe("who may upload (checked on the server)", () => {
     expect(bad.headers.get("access-control-allow-origin")).toBeNull();
   });
 
-  it("/api/auth/me returns only the role and the FIRST name: admin, user, or signed out", async () => {
+  it("/api/auth/me returns only the role, the FIRST name and the stakeholder label: admin, user, or signed out", async () => {
     signIn(admin.id, "admin");
-    expect(await (await me(new Request("http://localhost/api/auth/me"))).json()).toEqual({ role: "admin", firstName: "Asha" });
+    expect(await (await me(new Request("http://localhost/api/auth/me"))).json()).toEqual({ role: "admin", firstName: "Asha", stakeholder: null });
     signIn(user.id, "ST");
-    expect(await (await me(new Request("http://localhost/api/auth/me"))).json()).toEqual({ role: "user", firstName: "Asha" });
+    expect(await (await me(new Request("http://localhost/api/auth/me"))).json()).toEqual({ role: "user", firstName: "Asha", stakeholder: "Student" }); // the profile role's label, for the Contribute form
     m.cookie = undefined;
-    expect(await (await me(new Request("http://localhost/api/auth/me"))).json()).toEqual({ role: null, firstName: null });
+    expect(await (await me(new Request("http://localhost/api/auth/me"))).json()).toEqual({ role: null, firstName: null, stakeholder: null });
   });
 
   it("/api/auth/me never includes the full name, email or id, and keeps the CORS allow-list", async () => {
     signIn(admin.id, "admin");
     const res = await me(new Request("http://localhost/api/auth/me", { headers: { origin: "https://techytree.in" } }));
     const text = await res.text();
-    expect(Object.keys(JSON.parse(text)).sort()).toEqual(["firstName", "role"]);
+    expect(Object.keys(JSON.parse(text)).sort()).toEqual(["firstName", "role", "stakeholder"]);
     expect(text).not.toMatch(/Rao|@|"id"/);
     expect(res.headers.get("access-control-allow-origin")).toBe("https://techytree.in");
     const other = await me(new Request("http://localhost/api/auth/me", { headers: { origin: "https://example.com" } }));

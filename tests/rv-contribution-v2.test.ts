@@ -60,7 +60,7 @@ const submit = async () => { q<HTMLFormElement>("#contribute").dispatchEvent(new
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
 async function choosePhoto(bytes: Uint8Array, name: string, size?: number) {
   const input = q<HTMLInputElement>("#photo-file");
-  const file = new File([bytes], name);
+  const file = new File([bytes as unknown as BlobPart], name);
   if (size) Object.defineProperty(file, "size", { value: size });
   (file as any).slice = () => ({ arrayBuffer: async () => bytes.buffer.slice(0, 16) });
   Object.defineProperty(input, "files", { value: [file], configurable: true });
