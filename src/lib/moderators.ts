@@ -39,3 +39,39 @@ export async function setModerator(pool: Pool, adminId: number, targetId: number
     client.release();
   }
 }
+
+/**
+ * For the admin Users page: which of these users are moderators. If migration 015 has not been applied yet the column does not
+ * exist (PostgreSQL error 42703); the page then simply shows no moderator controls instead of failing.
+ */
+export async function moderatorFlags(db: Db, userIds: string[]): Promise<{ ready: boolean; flags: Map<string, boolean> }> {
+  const flags = new Map<string, boolean>();
+  const ids = userIds.map((x) => parseUserId(x)).filter((x): x is number => x !== null);
+  if (ids.length === 0) return { ready: true, flags };
+  try {
+    const { rows } = await db.query("SELECT id, is_moderator FROM users WHERE id = ANY($1::bigint[])", [ids]);
+    for (const r of rows) flags.set(String(r.id), r.is_moderator === true);
+    return { ready: true, flags };
+  } catch (e) {
+    if ((e as { code?: string })?.code === "42703") return { ready: false, flags };
+    throw e;
+  }
+}
+
+export type ModeratorChangeRow = { when: string; by: string; person: string; granted: boolean };
+
+/** The last few changes of the flag, for the admin Users page (names only: no email, no id). Empty if migration 015 is not applied. */
+export async function recentModeratorChanges(db: Db, limit = 10): Promise<ModeratorChangeRow[]> {
+  try {
+    const { rows } = await db.query(
+      "SELECT a.created_at, a.granted, ad.full_name AS admin_name, tu.full_name AS person_name " +
+      "FROM moderator_audit a LEFT JOIN users ad ON ad.id = a.admin_id LEFT JOIN users tu ON tu.id = a.target_user_id " +
+      "ORDER BY a.created_at DESC, a.id DESC LIMIT $1",
+      [Math.max(1, Math.min(50, Math.floor(limit)))]
+    );
+    return rows.map((r) => ({ when: new Date(r.created_at).toISOString(), by: r.admin_name ?? "A manual database step", person: r.person_name ?? "A removed account", granted: r.granted === true }));
+  } catch (e) {
+    if ((e as { code?: string })?.code === "42P01") return [];
+    throw e;
+  }
+}
