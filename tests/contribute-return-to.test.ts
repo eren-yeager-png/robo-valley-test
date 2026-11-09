@@ -46,3 +46,23 @@ describe("with the Projects page and the site settings", () => {
     expect(resolveReturnTo("/share/", { SITE_URL: SITE, CONTRIBUTE_RETURN_PATH: "/share/" } as unknown as NodeJS.ProcessEnv)).toBe("https://techytree.in/share/");
   });
 });
+
+describe("returning to the Contribution (v2) plugin pages after sign-in", () => {
+  const env = { SITE_URL: "https://techytree.in/" } as unknown as NodeJS.ProcessEnv;
+  it("accepts the plugin's two default pages, with or without a sector", () => {
+    expect(resolveReturnTo("https://techytree.in/contribution/", env)).toBe("https://techytree.in/contribution/");
+    expect(resolveReturnTo("https://techytree.in/contributor", env)).toBe("https://techytree.in/contributor/");
+    expect(resolveReturnTo("/contribution/?sector=agriculture-dairy", env)).toBe("https://techytree.in/contribution/?sector=agriculture-dairy");
+  });
+  it("still rejects everything hostile, other hosts, other pages and the Contact page", () => {
+    for (const bad of ["https://evil.example/contribution/", "//evil.example/contribution/", "/contribution/../admin/", "/contribution/x", "/contact-us/", "/contact/", "/contribution/#x", "javascript:alert(1)", "/contribution/?next=http://evil.example"]) expect(resolveReturnTo(bad, env), bad).toBeNull();
+  });
+  it("CONTRIBUTION_PAGE_PATHS replaces the list; bad entries are ignored and an empty or bad list falls back", async () => {
+    const { contributionPagePaths } = await import("../src/lib/session");
+    expect(contributionPagePaths({} as never)).toEqual(["/contribution/", "/contributor/"]);
+    expect(contributionPagePaths({ CONTRIBUTION_PAGE_PATHS: "/give, /members/ , //evil, /, https://x.test/y" } as never)).toEqual(["/give/", "/members/"]);
+    expect(contributionPagePaths({ CONTRIBUTION_PAGE_PATHS: "//evil,/" } as never)).toEqual(["/contribution/", "/contributor/"]);
+    expect(resolveReturnTo("/give/", { SITE_URL: "https://techytree.in/", CONTRIBUTION_PAGE_PATHS: "/give" } as never)).toBe("https://techytree.in/give/");
+    expect(resolveReturnTo("/contribution/", { SITE_URL: "https://techytree.in/", CONTRIBUTION_PAGE_PATHS: "/give" } as never)).toBeNull();
+  });
+});

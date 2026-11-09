@@ -119,7 +119,20 @@ export function mineReturnPath(env: NodeJS.ProcessEnv = process.env): string {
   return raw && /^\/[A-Za-z0-9/_-]*$/.test(raw) && !raw.includes("//") ? (raw.endsWith("/") ? raw : raw + "/") : "/your-contributions/";
 }
 
-export const resolveReturnTo = (raw: unknown, env: NodeJS.ProcessEnv = process.env): string | null =>
-  validateReturnTo(raw, siteUrl(env), projectsReturnPath(env)) ??
-  validateContributeReturn(raw, siteUrl(env), contributeReturnPath(env)) ??
-  validateContributeReturn(raw, siteUrl(env), mineReturnPath(env));
+/**
+ * The two pages of the Contribution (v2) WordPress plugin, the other pages "returnTo" may point at. They are the plugin's default page
+ * slugs (RV_CONTRIBUTION_PAGES in wp-config.php); if the site uses other slugs, set CONTRIBUTION_PAGE_PATHS here to the same
+ * comma separated list of paths, e.g. "/contribution/,/contributor/". Each entry must be one plain path.
+ */
+export function contributionPagePaths(env: NodeJS.ProcessEnv = process.env): string[] {
+  const raw = env.CONTRIBUTION_PAGE_PATHS?.trim();
+  const list = (raw ? raw.split(",") : ["/contribution/", "/contributor/"]).map((x) => x.trim()).filter((x) => /^\/[A-Za-z0-9/_-]*$/.test(x) && !x.includes("//") && x !== "/");
+  return list.length ? list.map((x) => (x.endsWith("/") ? x : x + "/")) : ["/contribution/", "/contributor/"];
+}
+
+export const resolveReturnTo = (raw: unknown, env: NodeJS.ProcessEnv = process.env): string | null => {
+  const site = siteUrl(env);
+  let hit = validateReturnTo(raw, site, projectsReturnPath(env)) ?? validateContributeReturn(raw, site, contributeReturnPath(env)) ?? validateContributeReturn(raw, site, mineReturnPath(env));
+  for (const path of contributionPagePaths(env)) hit = hit ?? validateContributeReturn(raw, site, path);
+  return hit;
+};
