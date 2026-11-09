@@ -190,41 +190,52 @@ a.rvp-tile:visited {
 	color: var(--rvp-fg);
 }
 
-/* ---------- hero ---------- */
+/* ---------- hero: a contained, rounded, bordered card (the card is the .rvp-wrap box, so it lines up with the page below) ---------- */
 .rvp-hero {
-	background: radial-gradient(1200px 500px at 85% -10%, #1d5b49 0%, transparent 60%), var(--rvp-hero);
-	color: var(--rvp-hero-fg);
-	padding: clamp(48px, 7vw, 96px) 0;
+	padding: clamp(16px, 2.4vw, 28px) 0 0;
 }
 .rvp-hero-grid {
 	display: grid;
-	grid-template-columns: 1.15fr 0.85fr;
-	gap: 40px;
+	grid-template-columns: 1.35fr 0.65fr;
+	gap: 28px;
 	align-items: center;
+	padding: clamp(24px, 3.4vw, 44px);
+	background: radial-gradient(900px 360px at 88% -20%, #1d5b49 0%, transparent 62%), var(--rvp-hero);
+	color: var(--rvp-hero-fg);
+	border: 1px solid var(--rvp-line);
+	border-radius: 24px;
+	overflow: hidden;
 }
 .rvp-eyebrow {
-	margin: 0 0 12px;
+	margin: 0 0 8px;
 	font: 700 0.8rem/1 var(--rvp-body);
 	letter-spacing: 0.14em;
 	text-transform: uppercase;
 	color: var(--rvp-amber);
 }
 .rvp-hero-title {
-	margin: 0 0 16px;
-	font: 800 clamp(2.2rem, 5.2vw, 4rem)/1.05 var(--rvp-display);
+	margin: 0 0 12px;
+	font: 800 clamp(1.9rem, 3.4vw, 2.8rem)/1.08 var(--rvp-display);
 	letter-spacing: -0.02em;
 	color: #fff;
 }
 .rvp-hero-text {
-	margin: 0 0 24px;
-	max-width: 56ch;
-	font-size: clamp(1rem, 1.6vw, 1.15rem);
+	margin: 0 0 18px;
+	max-width: 62ch;
+	font-size: clamp(0.95rem, 1.3vw, 1.02rem);
 	color: var(--rvp-hero-muted);
+}
+.rvp-hero-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
 }
 .rvp-search {
 	display: flex;
+	flex: 1 1 340px;
 	gap: 8px;
-	max-width: 560px;
+	max-width: 520px;
 	padding: 6px;
 	background: #fff;
 	border-radius: 999px;
@@ -246,14 +257,14 @@ a.rvp-tile:visited {
 	outline: 3px solid var(--rvp-amber);
 }
 .rvp-hero-cta {
-	margin: 18px 0 0;
+	margin: 0;
 }
 .rvp-hero-stats {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 12px 32px;
-	margin: 28px 0 0;
-	padding: 20px 0 0;
+	gap: 10px 32px;
+	margin: 20px 0 0;
+	padding: 16px 0 0;
 	border-top: 1px solid rgba(238, 245, 241, 0.22);
 	list-style: none;
 }
@@ -263,7 +274,7 @@ a.rvp-tile:visited {
 	gap: 2px;
 }
 .rvp-hero-stats strong {
-	font: 800 1.7rem/1 var(--rvp-display);
+	font: 800 1.5rem/1 var(--rvp-display);
 	color: #fff;
 }
 .rvp-hero-stats span {
@@ -275,7 +286,7 @@ a.rvp-tile:visited {
 	justify-content: center;
 }
 .rvp-hero-art {
-	width: min(100%, 420px);
+	width: min(100%, 300px);
 	height: auto;
 }
 .rvp-art-robot {
@@ -728,7 +739,8 @@ a.rvp-tile:visited {
 /* ---------- laptop / small desktop (about 1100px): tighter columns ---------- */
 @media (max-width: 1100px) {
 	.rvp-hero-grid {
-		gap: 28px;
+		gap: 20px;
+		grid-template-columns: 1.5fr 0.5fr;
 	}
 	.rvp-tiles {
 		grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
@@ -752,7 +764,10 @@ a.rvp-tile:visited {
 		order: -1;
 	}
 	.rvp-hero-art {
-		width: min(60%, 240px);
+		width: min(50%, 170px);
+	}
+	.rvp-search {
+		max-width: none;
 	}
 	.rvp-layout {
 		grid-template-columns: 1fr;
@@ -797,6 +812,21 @@ a.rvp-tile:visited {
 @media (max-width: 450px) {
 	.rvp-wrap {
 		width: min(1180px, 100% - 32px);
+	}
+	.rvp-hero-grid {
+		padding: 20px;
+		border-radius: 20px;
+	}
+	.rvp-hero-visual {
+		display: none; /* the illustration would only push the headline down on a phone */
+	}
+	.rvp-hero-actions {
+		flex-direction: column;
+		align-items: stretch;
+	}
+	.rvp-hero-cta .rvp-btn {
+		width: 100%;
+		justify-content: center;
 	}
 	.rvp-search {
 		flex-direction: column;

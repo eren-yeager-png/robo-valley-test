@@ -272,12 +272,14 @@ function rvp_page_shortcode() {
 				<p class="rvp-eyebrow"><?php esc_html_e( 'Explore Projects', 'robovalley-projects' ); ?></p>
 				<h1 id="rvp-hero-title" class="rvp-hero-title"><?php esc_html_e( 'Ideas into Innovation.', 'robovalley-projects' ); ?></h1>
 				<p class="rvp-hero-text"><?php esc_html_e( 'Discover innovative projects, explore emerging technologies and find your next idea to build. From foundational STEM concepts to advanced engineering applications, explore possibilities with RoboValley.', 'robovalley-projects' ); ?></p>
-				<form class="rvp-search rvp-js-only" role="search" id="rvp-hero-search" autocomplete="off">
-					<label class="rvp-sr" for="rvp-q"><?php esc_html_e( 'Search projects, technologies and topics', 'robovalley-projects' ); ?></label>
-					<input id="rvp-q" type="search" name="q" maxlength="100" placeholder="<?php esc_attr_e( 'Search projects, technologies, ideas…', 'robovalley-projects' ); ?>">
-					<button type="submit" class="rvp-btn rvp-btn-amber"><?php esc_html_e( 'Search', 'robovalley-projects' ); ?></button>
-				</form>
-				<p class="rvp-hero-cta"><a class="rvp-btn rvp-btn-light" href="#rvp-discover"><?php esc_html_e( 'Browse all projects', 'robovalley-projects' ); ?></a></p>
+				<div class="rvp-hero-actions">
+					<form class="rvp-search rvp-js-only" role="search" id="rvp-hero-search" autocomplete="off">
+						<label class="rvp-sr" for="rvp-q"><?php esc_html_e( 'Search projects, technologies and topics', 'robovalley-projects' ); ?></label>
+						<input id="rvp-q" type="search" name="q" maxlength="100" placeholder="<?php esc_attr_e( 'Search projects, technologies, ideas…', 'robovalley-projects' ); ?>">
+						<button type="submit" class="rvp-btn rvp-btn-amber"><?php esc_html_e( 'Search', 'robovalley-projects' ); ?></button>
+					</form>
+					<p class="rvp-hero-cta"><a class="rvp-btn rvp-btn-light" href="#rvp-discover"><?php esc_html_e( 'Browse all projects', 'robovalley-projects' ); ?></a></p>
+				</div>
 				<?php if ( $stats ) : ?>
 				<ul class="rvp-hero-stats" aria-label="<?php esc_attr_e( 'RoboValley Projects at a glance', 'robovalley-projects' ); ?>">
 					<?php foreach ( $stats as $s ) : ?>
