@@ -9,6 +9,9 @@ export const SERVICE_RATE_LIMITS = {
   contribIp: 40, // contributors: writes per visitor address per minute
   contribUser: 20, // contributors: writes per signed-in user per minute
   contribPhoto: 6, // contributors: photo uploads per signed-in user per minute
+  modIp: 240, // reviewers: requests per visitor address per minute
+  modUser: 120, // reviewers: requests per reviewer per minute
+  modDecision: 30, // reviewers: decisions per reviewer per minute
 } as const;
 export const RATE_WINDOW_SECONDS = 60;
 

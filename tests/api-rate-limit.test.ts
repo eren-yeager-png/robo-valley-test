@@ -26,7 +26,7 @@ afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe("the numbers live in one place", () => {
   it("search 60, categories 30 and the Contribute hub counts 30 per minute", () => {
-    expect(SERVICE_RATE_LIMITS).toEqual({ search: 60, categories: 30, hubCounts: 30, contribIp: 40, contribUser: 20, contribPhoto: 6 });
+    expect(SERVICE_RATE_LIMITS).toEqual({ search: 60, categories: 30, hubCounts: 30, contribIp: 40, contribUser: 20, contribPhoto: 6, modIp: 240, modUser: 120, modDecision: 30 });
     expect(RATE_WINDOW_SECONDS).toBe(60);
   });
 });
