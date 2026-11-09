@@ -11,7 +11,7 @@ const METHODS = "PUT, DELETE, OPTIONS";
 type Ctx = { params: Promise<{ id: string }> };
 export const OPTIONS = (req: Request) => preflight(req, METHODS);
 
-/** Your private contact details for this contribution. Only you can read them back; moderators only when you allow it. */
+/** Your private contact details for this contribution. Only you can read them back; the reviewers only when you allow it. */
 export async function PUT(req: Request, ctx: Ctx) {
   const g = await guardContributor(req, METHODS);
   if ("res" in g) return g.res;

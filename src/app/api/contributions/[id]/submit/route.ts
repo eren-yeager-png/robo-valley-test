@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 const METHODS = "POST, OPTIONS";
 export const OPTIONS = (req: Request) => preflight(req, METHODS);
 
-/** Sends your own draft (or an item that needs changes) to the moderators. */
+/** Sends your own draft (or an item that needs changes) for review. */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const g = await guardContributor(req, METHODS);
   if ("res" in g) return g.res;
