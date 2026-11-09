@@ -1,0 +1,26 @@
+/* The owner's form styles (category form_web.html), unchanged in value, only SCOPED to .rv-c2 so they cannot restyle the rest of the
+   WordPress page. Their <header> and <main> are .rv-c2-header and .rv-c2-main here (a page may have only one <main>). */
+.rv-c2{color-scheme:light;--ink:#17312f;--muted:#506864;--line:#cbdad6;--green:#11634d;--pale:#edf7f2;font:16px/1.5 system-ui,sans-serif;color:var(--ink);background:#f3f7f6}
+.rv-c2 *,.rv-c2 *::before,.rv-c2 *::after{box-sizing:border-box}
+.rv-c2 .rv-c2-header{background:#143b35;color:#fff;padding:15px max(18px,calc((100% - 760px)/2));font-weight:700}
+.rv-c2 .rv-c2-main{max-width:800px;margin:auto;padding:22px 18px 38px}
+.rv-c2 h1{font-size:clamp(1.7rem,4vw,2.45rem);margin:5px 0}.rv-c2 h2{font-size:1.12rem;margin:0 0 12px}
+.rv-c2 p{margin:0 0 12px}.rv-c2 .crumb,.rv-c2 .hint,.rv-c2 small{color:var(--muted)}.rv-c2 .crumb{font-size:.9rem}
+.rv-c2 form,.rv-c2 aside{padding:clamp(15px,3vw,24px);background:#fff;border:1px solid var(--line);border-radius:14px;margin-top:16px}
+.rv-c2 fieldset{min-width:0;padding:0;border:0;margin:0 0 18px}.rv-c2 legend{font-weight:700;padding:0;margin:0 0 10px}
+.rv-c2 label{display:block;font-weight:600}.rv-c2 input,.rv-c2 select,.rv-c2 textarea,.rv-c2 button{font:inherit}
+.rv-c2 input,.rv-c2 select,.rv-c2 textarea{display:block;width:100%;margin-top:5px;padding:9px 10px;border:1px solid #a9c0b9;border-radius:7px;background:#fff;color:var(--ink);min-height:44px}
+.rv-c2 textarea{resize:vertical}.rv-c2 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.rv-c2 .links{border-top:1px solid var(--line);padding-top:16px}
+.rv-c2 .reference{padding:12px;border:1px solid var(--line);border-radius:8px;margin:10px 0}
+.rv-c2 .reference .grid{margin:0 0 10px}
+.rv-c2 button{min-height:44px;padding:8px 13px;border-radius:7px;border:1px solid var(--green);color:var(--green);background:#fff;font-weight:650;cursor:pointer}
+.rv-c2 button.primary{background:var(--green);color:#fff}.rv-c2 .remove{margin-top:10px}
+.rv-c2 .actions{border-top:1px solid var(--line);padding-top:15px}
+.rv-c2 .notice{background:var(--pale);border-left:4px solid var(--green);padding:10px 12px;margin-top:14px;border-radius:4px}
+.rv-c2 .notice[hidden]{display:none}.rv-c2 .status{color:var(--green);font-weight:650}
+.rv-c2 li{margin:5px 0}.rv-c2 :focus-visible{outline:3px solid #167e9c;outline-offset:2px}
+@media(max-width:550px){.rv-c2 .grid{grid-template-columns:1fr}}
+.rv-c2 .choices{display:flex;flex-wrap:wrap;gap:8px 16px;margin-bottom:12px}.rv-c2 .choices label{display:flex;align-items:center;gap:6px;min-height:38px}.rv-c2 .choices input{width:auto;min-height:0;margin:0}.rv-c2 .category-details{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:14px}.rv-c2 .category-details legend{padding:0 5px}.rv-c2 .count{display:block;margin:6px 0}.rv-c2 button:disabled{opacity:.55;cursor:default}.rv-c2 [hidden]{display:none!important}
+/* the bot trap: invisible to people and screen readers, filled only by bots */
+.rv-c2 .rv-c2-trap{position:absolute!important;left:-9999px!important;width:1px;height:1px;overflow:hidden}
