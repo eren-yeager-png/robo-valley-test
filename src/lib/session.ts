@@ -7,6 +7,7 @@
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { validateReturnTo } from "./projectsReturnTo";
+import { validateContributeReturn } from "./contributeReturnTo";
 
 export const SESSION_COOKIE = "rv_session";
 export const SESSION_TTL_SECONDS = 12 * 60 * 60; // browser-session cookie, token valid 12 h
@@ -106,5 +107,11 @@ export function projectsReturnPath(env: NodeJS.ProcessEnv = process.env): string
  * Validates a "returnTo" value from the URL (see projectsReturnTo.ts) against the configured site and Projects page. Returns the
  * canonical address to send the visitor to after sign-in, or null (then the caller uses destinationFor, i.e. SITE_URL).
  */
+/** The Contribute page on the website, the other page "returnTo" may point at. CONTRIBUTE_RETURN_PATH overrides the default. */
+export function contributeReturnPath(env: NodeJS.ProcessEnv = process.env): string {
+  const raw = env.CONTRIBUTE_RETURN_PATH?.trim();
+  return raw && /^\/[A-Za-z0-9/_-]*$/.test(raw) && !raw.includes("//") ? (raw.endsWith("/") ? raw : raw + "/") : "/contribute-now/";
+}
+
 export const resolveReturnTo = (raw: unknown, env: NodeJS.ProcessEnv = process.env): string | null =>
-  validateReturnTo(raw, siteUrl(env), projectsReturnPath(env));
+  validateReturnTo(raw, siteUrl(env), projectsReturnPath(env)) ?? validateContributeReturn(raw, siteUrl(env), contributeReturnPath(env));
