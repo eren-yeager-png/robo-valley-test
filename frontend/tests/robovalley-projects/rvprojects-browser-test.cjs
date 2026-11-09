@@ -38,6 +38,7 @@ let pass = 0, fail = 0; const check = (n, ok, d) => { ok ? pass++ : fail++; cons
 	const waitReq = async (fn, ms = 40000) => { const end = Date.now() + ms; while (Date.now() < end) { if (reqs.some(fn)) return true; await sleep(150); } return false; };
 	await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
 	const hasHScroll = () => ev('document.documentElement.scrollWidth>document.documentElement.clientWidth+1');
+	const heroInfo = () => ev('JSON.stringify((function(){var h=document.querySelector(".rvp-hero-grid"),r=h.getBoundingClientRect(),c=getComputedStyle(h),w=document.querySelector(".rvp-section .rvp-wrap").getBoundingClientRect(),v=getComputedStyle(document.querySelector(".rvp-hero-visual")),a=document.querySelector(".rvp-hero-art").getBoundingClientRect(),q=document.getElementById("rvp-q").getBoundingClientRect();return {h:Math.round(r.height),w:Math.round(r.width),l:Math.round(r.left),wl:Math.round(w.left),ww:Math.round(w.width),radius:parseFloat(c.borderTopLeftRadius),bw:parseFloat(c.borderTopWidth),border:c.borderTopColor,bg:c.backgroundColor,artDisplay:v.display,artW:Math.round(a.width),over:document.documentElement.scrollWidth>innerWidth+1,full:r.width>=innerWidth-1,qIn:q.left>=0&&q.right<=innerWidth,qH:Math.round(document.getElementById("rvp-hero-search").getBoundingClientRect().height)}})())').then(JSON.parse);
 
 	// ============ VISITOR, 1280 ============
 	await viewport(1280, 900); await send('Network.clearBrowserCookies');
@@ -166,12 +167,57 @@ let pass = 0, fail = 0; const check = (n, ok, d) => { ok ? pass++ : fail++; cons
 	await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] }); await go(PAGE);
 	check('normal motion: the hero animation runs', parseFloat(await ev('getComputedStyle(document.querySelector(".rvp-art-robot")).animationDuration')) > 1);
 
+	// ---- design update (0.2.2): hero card, technology illustrations, fallback rules, shipped SVGs
+	await viewport(1280, 900); await go(PAGE);
+	const hero = await heroInfo();
+	check('hero at 1280: a contained card as wide as the page container, not full-bleed', !hero.full && Math.abs(hero.w - hero.ww) <= 1 && Math.abs(hero.l - hero.wl) <= 1, hero);
+	check('hero at 1280: about 360-420px tall (never above 480px)', hero.h >= 340 && hero.h <= 480, hero.h);
+	check('hero at 1280: the search box is one slim row (80px at most)', hero.qH > 30 && hero.qH <= 80, hero.qH);
+	check('hero at 1280: rounded (24px), 1px border in the page line colour, dark green kept', hero.radius >= 20 && hero.bw === 1 && hero.border === 'rgb(214, 223, 217)' && hero.bg === 'rgb(18, 63, 51)', hero);
+	check('hero at 1280: the robot illustration is still shown', hero.artDisplay !== 'none' && hero.artW > 100, hero);
+	const illus = JSON.parse(await ev('JSON.stringify([].map.call(document.querySelectorAll(".rvp-tile"),function(t){var i=t.querySelector("img");return {slug:t.getAttribute("data-tech"),src:i&&i.getAttribute("src"),cls:i&&i.className,alt:i&&i.alt,w:i&&i.getAttribute("width"),h:i&&i.getAttribute("height"),lazy:i&&i.loading}}))'));
+	const WHITE = ['robotics', 'embedded-systems', 'stem', 'artificial-intelligence', 'iot', '3d-printing', 'automation', 'electronics', 'drone-technology', 'other-technologies'];
+	check('technology tiles: each one shows the illustration of its technology (or the neutral default) as a lazy <img> with width, height and alt', illus.length > 0 && illus.every((t) => t.src && /\/assets\/img\/tech-[a-z0-9-]+\.svg$/.test(t.src) && t.src.endsWith('/tech-' + (WHITE.includes(t.slug) ? t.slug : 'default') + '.svg') && t.w === '320' && t.h === '200' && t.lazy === 'lazy' && t.alt.length > 3), illus.slice(0, 3));
+	const svgRes = await ev('Promise.all(' + JSON.stringify(WHITE.concat(['default']).map((x) => '/wp-content/plugins/robovalley-projects/assets/img/tech-' + x + '.svg')) + '.map(function(u){return fetch(u).then(function(r){return r.text().then(function(t){return {u:u,ok:r.ok,type:r.headers.get("content-type"),n:t.length,txt:t}})})})).then(function(a){return JSON.stringify(a)})');
+	const svgs = JSON.parse(svgRes);
+	check('all 11 illustration files are served as SVG, each 5 KB or smaller', svgs.length === 11 && svgs.every((x) => x.ok && /svg/.test(x.type || '') && x.n > 100 && x.n <= 5120), svgs.map((x) => [x.u.slice(-26), x.ok, x.type, x.n]));
+	check('the SVGs hold no script, event handler, external link or restricted marker (80-marker scan)', svgs.every((x) => !/<script|\son\w+=|href=|xlink|javascript:|https?:\/\/(?!www\.w3\.org\/2000\/svg)/i.test(x.txt) && !M.some((m) => x.txt.includes(m))));
+	const cardSrc = await ev('JSON.stringify([].map.call(document.querySelectorAll("#rvp-grid .rvp-card"),function(c){var i=c.querySelector(".rvp-card-media img");var ch=c.querySelector(".rvp-card-media .rvp-card-chip");var t=c.querySelector(".rvp-chip-tech");return {src:i&&i.getAttribute("src"),illus:!!(i&&i.classList.contains("rvp-illus")),chip:ch&&ch.textContent,tech:t&&t.textContent}}))').then(JSON.parse);
+	check('cards: the picture area always holds an image, and the chip on it names the first technology', cardSrc.length > 0 && cardSrc.every((c) => c.src && c.chip && c.chip === c.tech), cardSrc.slice(0, 2));
+	// forced catalogue answer: no image, a new (unknown) technology, prototype-looking slugs, a real image, and no technology at all
+	await send('Fetch.enable', { patterns: [{ urlPattern: '*/wp-json/rvp/v1/projects*' }] });
+	const realImg = WP + '/wp-includes/images/w-logo-blue.png';
+	const mk = (id, title, tech, thumb) => ({ id, title, short_description: 'x', thumbnail: thumb, technology: tech, difficulty: null, education: [] });
+	paused = [{ re: /rvp\/v1\/projects(\?|$)/, status: 200, body: { items: [
+		mk(9001, 'Fallback robotics', [{ slug: 'robotics', name: 'Robotics' }], null),
+		mk(9002, 'Fallback unknown', [{ slug: 'zz-new-tech', name: 'New <b>Tech</b>' }], null),
+		mk(9003, 'Fallback constructor', [{ slug: 'constructor', name: 'Ctor' }], null),
+		mk(9004, 'Fallback proto', [{ slug: '__proto__', name: 'Proto' }], null),
+		mk(9005, 'Real image', [{ slug: 'robotics', name: 'Robotics' }], { url: realImg, width: 100, height: 100, alt: 'A real photo' }),
+		mk(9006, 'No technology', [], null),
+	], pagination: { page: 1, per_page: 12, total: 6, total_pages: 1 }, technologies: [] } }];
+	await click('#rvp-tab-latest'); await settle();
+	const forced = await ev('JSON.stringify([].map.call(document.querySelectorAll("#rvp-grid .rvp-card"),function(c){var i=c.querySelector(".rvp-card-media img");var ch=c.querySelector(".rvp-card-media .rvp-card-chip");return {t:c.querySelector(".rvp-card-title").textContent,src:i&&i.getAttribute("src"),illus:!!(i&&i.classList.contains("rvp-illus")),lazy:i&&i.loading,w:i&&i.getAttribute("width"),h:i&&i.getAttribute("height"),alt:i&&i.alt,chip:ch&&ch.textContent,chipHtml:ch&&ch.innerHTML,hasB:!!(ch&&ch.querySelector("b")),svgPh:!!c.querySelector("svg.rvp-card-ph")}}))').then(JSON.parse);
+	const F = Object.fromEntries(forced.map((c) => [c.t, c]));
+	check('card picture: a project without an image gets its technology\'s illustration (robotics), as a lazy <img> with width, height and alt', forced.length === 6 && F['Fallback robotics'] && /\/assets\/img\/tech-robotics\.svg$/.test(F['Fallback robotics'].src) && F['Fallback robotics'].illus && F['Fallback robotics'].lazy === 'lazy' && F['Fallback robotics'].w === '320' && F['Fallback robotics'].h === '200' && /Robotics/.test(F['Fallback robotics'].alt), F['Fallback robotics']);
+	check('card picture: an unknown (admin-added) technology falls back to the neutral default', /\/tech-default\.svg$/.test(F['Fallback unknown'].src) && F['Fallback unknown'].illus, F['Fallback unknown']);
+	check('card picture: slugs like "constructor" and "__proto__" cannot pick anything but the default', /\/tech-default\.svg$/.test(F['Fallback constructor'].src) && /\/tech-default\.svg$/.test(F['Fallback proto'].src), [F['Fallback constructor'].src, F['Fallback proto'].src]);
+	check('card picture: a real featured image always wins over the illustration', F['Real image'].src === realImg && !F['Real image'].illus && F['Real image'].alt === 'A real photo', F['Real image']);
+	check('card picture: a project with no technology gets the default illustration and no chip', /\/tech-default\.svg$/.test(F['No technology'].src) && F['No technology'].chip === null, F['No technology']);
+	check('chip text is set as text (textContent): markup in a technology name stays literal, no element is created', F['Fallback unknown'].chip === 'New <b>Tech</b>' && F['Fallback unknown'].hasB === false, F['Fallback unknown']);
+	check('the generic grey robot-face placeholder is no longer used in the grid', forced.every((c) => !c.svgPh));
+	paused = null; await send('Fetch.disable'); await go(PAGE);
+
 	// ============ RESPONSIVE: 820 and 390 ============
 	await viewport(820, 1000); await go(PAGE); check('820px: no horizontal scroll', (await hasHScroll()) === false); await ev('document.getElementById("rvp-discover").scrollIntoView()'); await sleep(300); await shot('04-visitor-820-discover');
 	check('820px: the sidebar is still shown beside the cards (the drawer starts at 760px), no Filters button', (await ev('getComputedStyle(document.getElementById("rvp-filter-open")).display')) === 'none' && (await ev('(function(){var r=document.getElementById("rvp-filters").getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&getComputedStyle(document.getElementById("rvp-filters")).visibility==="visible"})()')) === true);
 	await viewport(740, 1000); await go(PAGE); check('740px: the Filters button replaces the sidebar, no horizontal scroll', (await ev('getComputedStyle(document.getElementById("rvp-filter-open")).display')) !== 'none' && (await hasHScroll()) === false);
 	await viewport(390, 844, true); await go(PAGE);
 	check('390px: no horizontal scroll', (await hasHScroll()) === false); await shot('05-visitor-390-top');
+	const hero390 = await heroInfo();
+	check('hero at 390: the card stacks inside the screen with nothing overflowing, search box fully visible', !hero390.over && hero390.l >= 0 && hero390.l + hero390.w <= 390 && hero390.qIn && hero390.radius >= 16 && hero390.bw === 1, hero390);
+	check('hero at 390: the illustration is hidden or small (240px at most) and the card is no taller than 620px', (hero390.artDisplay === 'none' || hero390.artW <= 240) && hero390.h <= 620, hero390);
+	check('hero at 390: the search box is only as tall as its content (input and button), not stretched', hero390.qH >= 80 && hero390.qH <= 150, hero390.qH);
 	await ev('document.getElementById("rvp-discover").scrollIntoView()'); await sleep(300); await shot('06-visitor-390-discover');
 	check('390px: filters are closed by default (off-screen), Filters button is shown', (await ev('document.getElementById("rvp-filters").getBoundingClientRect().right<=0||getComputedStyle(document.getElementById("rvp-filters")).visibility==="hidden"')) === true && (await ev('getComputedStyle(document.getElementById("rvp-filter-open")).display')) !== 'none');
 	await click('#rvp-filter-open'); await sleep(500);

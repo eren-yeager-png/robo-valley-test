@@ -23,7 +23,8 @@ const leaks = (t) => markers.filter((m) => t.includes(m)); const unpub = ['RVPT 
 	check('page source contains no subject checkboxes (only the locked button)', !/name="subject"/.test(page.body) && /id="rvp-subject-lock"/.test(page.body));
 	check('page source has no <script> that carries project data (only the small RVP_PAGE config)', (page.body.match(/<script[^>]*>[\s\S]*?<\/script>/g) || []).filter((s) => /window\.RVP_PAGE=/.test(s)).every((s) => !/overview|skills|components|outcome/i.test(s)));
 	const cfg = (page.body.match(/window\.RVP_PAGE=(\{[^<]*?\});/) || [])[1]; const parsed = cfg ? JSON.parse(cfg) : null;
-	check('RVP_PAGE config holds only public addresses and numbers', parsed && Object.keys(parsed).sort().join() === 'app,catalogue,pageUrl,perPage,query', parsed && Object.keys(parsed));
+	check('RVP_PAGE config holds only public addresses and numbers', parsed && Object.keys(parsed).sort().join() === 'app,catalogue,imgBase,pageUrl,perPage,query', parsed && Object.keys(parsed));
+	check('RVP_PAGE imgBase is only the public folder of the illustration files of the plugin (a plain address, nothing secret)', parsed && /^https?:\/\/[^\s"<>?#]+\/robovalley-projects\/assets\/img\/$/.test(parsed.imgBase || '') && !/secret|token|key|bridge/i.test(parsed.imgBase), parsed && parsed.imgBase);
 	check('page assets are versioned (?ver=...) and only rvp-projects-page.css/.js (+ optional fonts) are added', /rvp-projects-page\.css\?ver=[\d.]+/.test(page.body) && /rvp-projects-page\.js\?ver=[\d.]+/.test(page.body));
 	check('page response is not marked private/no-store by the plugin (public, cacheable page)', !/no-store|private/.test(page.headers.get('cache-control') || ''), page.headers.get('cache-control'));
 	check('no Set-Cookie on the public page', page.headers.get('set-cookie') === null, page.headers.get('set-cookie'));
