@@ -1,0 +1,43 @@
+.mod{--mod-brand:#17694f;--mod-dark:#123f33;--mod-fg:#15302a;--mod-muted:#56675f;--mod-line:#d6dfd9;--mod-tint:#e3ede7;--mod-amber-bg:#fbefd9;--mod-amber-ink:#5a3b06;--mod-err:#8a1f11;--mod-err-bg:#fdecea;min-height:100vh;background:#f5f8f6;color:var(--mod-fg);font-family:var(--rv-body),system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}
+.mod *{box-sizing:border-box}
+.mod-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding:12px 20px;background:#fff;border-bottom:1px solid var(--mod-line)}
+.mod-logo{font-family:var(--rv-display),system-ui,sans-serif;font-weight:800;font-size:20px;color:var(--mod-dark)}
+.mod-top a{display:inline-flex;align-items:center;min-height:44px;font-weight:800;color:var(--mod-brand)}
+.mod-main{display:grid;gap:20px;grid-template-columns:minmax(260px,380px) 1fr;max-width:1300px;margin:0 auto;padding:20px}
+.mod h1{margin:0 0 4px;font-family:var(--rv-display),system-ui,sans-serif;font-size:28px;color:var(--mod-dark)}
+.mod h2{margin:0 0 8px;font-family:var(--rv-display),system-ui,sans-serif;font-size:22px;color:var(--mod-dark)}
+.mod-lead{margin:0 0 14px;color:var(--mod-muted)}
+.mod-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;padding:0;list-style:none}
+.mod-tabs a{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;font-weight:800;color:var(--mod-brand);background:#fff;border:1.5px solid #b9cfc4;border-radius:12px;text-decoration:none}
+.mod-tabs a[aria-current="page"]{color:#fff;background:var(--mod-brand);border-color:var(--mod-brand)}
+.mod-list{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.mod-list a{display:block;padding:12px 14px;color:inherit;text-decoration:none;background:#fff;border:1.5px solid var(--mod-line);border-radius:14px}
+.mod-list a[aria-current="true"]{border-color:var(--mod-brand);box-shadow:0 0 0 3px rgba(23,105,79,.18)}
+.mod-list strong{display:block;overflow-wrap:anywhere}
+.mod-meta{display:block;margin-top:2px;font-size:13px;color:var(--mod-muted)}
+.mod-card{padding:20px;background:#fff;border:1.5px solid var(--mod-line);border-radius:18px}
+.mod-dl dt{margin:14px 0 2px;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--mod-muted)}
+.mod-dl dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.mod-photos{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.mod-photos img{max-width:240px;max-height:200px;border-radius:10px;border:1px solid var(--mod-line)}
+.mod-photos figure{margin:0}.mod-photos figcaption{font-size:13px;color:var(--mod-muted);max-width:240px}
+.mod-contact{margin-top:14px;padding:12px 14px;background:var(--mod-tint);border-radius:12px}
+.mod-contact--none{background:#f0f0f0;color:var(--mod-muted)}
+.mod-history{margin:6px 0 0;padding:0;list-style:none}
+.mod-history li{padding:8px 0;border-top:1px solid var(--mod-line);font-size:14px}
+.mod-act{margin-top:18px;padding-top:14px;border-top:1px solid var(--mod-line)}
+.mod-act label{display:block;margin:0 0 6px;font-weight:800}
+.mod-act textarea{display:block;width:100%;min-height:96px;padding:10px 12px;font:inherit;border:1.5px solid #b9cfc4;border-radius:12px}
+.mod-act textarea[aria-invalid="true"]{border-color:var(--mod-err);background:var(--mod-err-bg)}
+.mod-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.mod-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;font:inherit;font-weight:800;color:var(--mod-brand);background:#fff;border:1.5px solid #b9cfc4;border-radius:12px;cursor:pointer}
+.mod-btn:hover{background:var(--mod-tint)}
+.mod-btn--primary{color:#fff;background:var(--mod-brand);border-color:var(--mod-brand)}
+.mod-btn--danger{color:var(--mod-err);border-color:#e8b4ad}
+.mod-btn[disabled]{opacity:.5;cursor:not-allowed}
+.mod-msg{margin:10px 0 0;padding:10px 14px;border-radius:12px;font-weight:700}
+.mod-msg--err{color:var(--mod-err);background:var(--mod-err-bg)}
+.mod-msg--ok{color:var(--mod-dark);background:var(--mod-tint)}
+.mod-note{padding:12px 16px;color:var(--mod-amber-ink);background:var(--mod-amber-bg);border:1px solid #f0cf96;border-radius:14px}
+.mod :focus-visible{outline:3px solid #9AD3B5;outline-offset:2px}
+@media (max-width:860px){.mod-main{grid-template-columns:1fr;padding:14px}.mod-btn{width:100%}}

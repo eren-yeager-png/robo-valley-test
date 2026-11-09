@@ -1,0 +1,792 @@
+<!-- rv-contribute widget 02 wizard -->
+<section class="rv-wz" id="rv-wz" aria-labelledby="rv-wz-steps" hidden>
+	<p class="rv-wz-steps" id="rv-wz-steps"></p>
+	<div class="rv-wz-errors" id="rv-wz-errors" role="alert" aria-live="assertive" hidden></div>
+	<div class="rv-wz-body" id="rv-wz-body"></div>
+	<p class="rv-wz-status" id="rv-wz-status" role="status" aria-live="polite"></p>
+</section>
+<style>
+.rv-wz{--wz-brand:#17694f;--wz-dark:#123f33;--wz-fg:#15302a;--wz-muted:#56675f;--wz-line:#d6dfd9;--wz-tint:#e3ede7;--wz-amber-bg:#fbefd9;--wz-amber-ink:#5a3b06;--wz-err:#8a1f11;--wz-err-bg:#fdecea;max-width:820px;margin:8px auto 0;padding:22px 20px 40px;font-family:'Mulish',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:var(--wz-fg);background:#fff;border:1.5px solid var(--wz-line);border-radius:20px}
+.rv-wz *{box-sizing:border-box}
+.rv-wz[hidden],.rv-wz-errors[hidden]{display:none}
+.rv-wz-steps{margin:0 0 6px;font-size:14px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--wz-brand)}
+.rv-wz-h{margin:0 0 6px;font-family:'Bricolage Grotesque','Mulish',system-ui,sans-serif;font-weight:800;font-size:clamp(24px,3.4vw,32px);line-height:1.15;color:var(--wz-dark)}
+.rv-wz-h:focus{outline:none}
+.rv-wz-lead{margin:0 0 16px;color:var(--wz-muted);font-size:16px}
+.rv-wz-errors{margin:10px 0 14px;padding:12px 16px;color:var(--wz-err);background:var(--wz-err-bg);border:1.5px solid #e8b4ad;border-radius:14px;font-size:15px}
+.rv-wz-errors ul{margin:6px 0 0;padding-left:20px}
+.rv-wz-field{display:block;margin:0 0 16px;border:0;padding:0}
+.rv-wz-label{display:block;margin:0 0 6px;font-weight:800;font-size:16px}
+.rv-wz-hint{display:block;margin:0 0 6px;font-size:14px;color:var(--wz-muted)}
+.rv-wz-in,.rv-wz-ta{display:block;width:100%;min-height:44px;padding:10px 12px;font:inherit;color:var(--wz-fg);background:#fff;border:1.5px solid #b9cfc4;border-radius:12px}
+.rv-wz-ta{min-height:110px;resize:vertical}
+.rv-wz-in[aria-invalid="true"],.rv-wz-ta[aria-invalid="true"]{border-color:var(--wz-err);background:var(--wz-err-bg)}
+.rv-wz-err{display:block;margin:6px 0 0;font-size:14px;font-weight:700;color:var(--wz-err)}
+.rv-wz-err:empty{display:none}
+.rv-wz-count{display:block;margin:4px 0 0;font-size:13px;color:var(--wz-muted);text-align:right}
+.rv-wz-opts{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));margin:0;padding:0;border:0}
+.rv-wz-opt{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 12px;background:#fff;border:1.5px solid var(--wz-line);border-radius:12px;font-weight:700;cursor:pointer}
+.rv-wz-opt:hover{border-color:var(--wz-brand);background:var(--wz-tint)}
+.rv-wz-opt input{flex:none;width:22px;height:22px;accent-color:var(--wz-brand)}
+.rv-wz-opt.is-on{border-color:var(--wz-brand);box-shadow:0 0 0 3px rgba(23,105,79,.18)}
+.rv-wz-group{margin:0 0 14px;padding:0;border:0}
+.rv-wz-group legend{margin:0 0 8px;padding:0;font-size:13px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--wz-muted)}
+.rv-wz-box{margin:0 0 16px;padding:14px 16px;background:var(--wz-tint);border-radius:14px}
+.rv-wz-private{margin:0 0 10px;font-size:15px}
+.rv-wz-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+.rv-wz-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;font:inherit;font-weight:800;color:var(--wz-brand);background:#fff;border:1.5px solid #b9cfc4;border-radius:12px;cursor:pointer}
+.rv-wz-btn:hover{background:var(--wz-tint);border-color:var(--wz-brand)}
+.rv-wz-btn--primary{color:#fff;background:var(--wz-brand);border-color:var(--wz-brand)}
+.rv-wz-btn--primary:hover{background:var(--wz-dark);border-color:var(--wz-dark)}
+.rv-wz-btn[disabled]{opacity:.5;cursor:not-allowed}
+.rv-wz-link{display:inline-flex;align-items:center;min-height:44px}
+.rv-wz :focus-visible{outline:3px solid #9AD3B5;outline-offset:2px}
+.rv-wz-status{min-height:22px;margin:12px 0 0;font-size:15px;color:var(--wz-muted)}
+.rv-wz-note{margin:12px 0;padding:12px 16px;font-size:15px;color:var(--wz-amber-ink);background:var(--wz-amber-bg);border:1px solid #f0cf96;border-radius:14px}
+.rv-wz-sum{margin:0 0 16px;padding:0}
+.rv-wz-sum dt{margin:12px 0 2px;font-size:13px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--wz-muted)}
+.rv-wz-sum dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.rv-wz-hp{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
+@media (max-width:640px){.rv-wz{padding:18px 14px 32px;border-radius:16px}.rv-wz-row{flex-direction:column}.rv-wz-btn{width:100%}.rv-wz-opts{grid-template-columns:1fr}}
+</style>
+<script>
+( function () {
+	var root = document.getElementById( 'rv-wz' );
+	if ( ! root || root.getAttribute( 'data-ready' ) ) {
+		return;
+	}
+	root.setAttribute( 'data-ready', '1' );
+	var api = ( window.RoboValleyApi && window.RoboValleyApi.base ) || '';
+	var stepsEl = document.getElementById( 'rv-wz-steps' ), errorsEl = document.getElementById( 'rv-wz-errors' );
+	var bodyEl = document.getElementById( 'rv-wz-body' ), statusEl = document.getElementById( 'rv-wz-status' );
+	var TYPES = [
+		[ 'share', 'Share', [ [ 'problem', 'Report a problem' ], [ 'discovered', 'Share a robot you discovered' ], [ 'experience', 'Share firsthand experience' ], [ 'costs', 'Share costs and economics' ], [ 'resource', 'Share a video or resource' ] ] ],
+		[ 'propose', 'Propose', [ [ 'challenge', 'Propose a project challenge' ], [ 'improve', 'Suggest improvements' ] ] ],
+		[ 'offer', 'Offer', [ [ 'rental', 'Offer rental or shared access' ], [ 'repairs', 'Offer repairs or spare parts' ], [ 'support', 'Offer project support' ], [ 'trial', 'Offer a trial site' ], [ 'learning', 'Share learning opportunities' ], [ 'supplier', 'Add a manufacturer or supplier' ] ] ],
+		[ 'fix', 'Fix', [ [ 'correct', 'Correct existing information' ] ] ]
+	];
+	var STEP_NAMES = [ 'Scope', 'Type', 'Details', 'Preview' ];
+	var MAX_PHOTO = 4 * 1024 * 1024;
+	var d = { sectors: [], type: '', title: '', description: '', howNow: '', affected: '', timeCost: '', improvement: '', role: '', district: '', robotType: '', photo: null, photoAlt: '', photoSent: false, contactOn: false, contact: { name: '', email: '', phone: '', share: false }, contactSaved: false, id: null };
+	var allSectors = [], step = 1, busy = false, signedIn = false;
+
+	function make( tag, cls, text ) {
+		var n = document.createElement( tag );
+		if ( cls ) {
+			n.className = cls;
+		}
+		if ( text != null ) {
+			n.textContent = text;
+		}
+		return n;
+	}
+	function clear( n ) {
+		while ( n.firstChild ) {
+			n.removeChild( n.firstChild );
+		}
+	}
+	function btn( label, cls, fn ) {
+		var b = make( 'button', 'rv-wz-btn' + ( cls ? ' ' + cls : '' ), label );
+		b.type = 'button';
+		b.addEventListener( 'click', fn );
+		return b;
+	}
+	function sectorName( slug ) {
+		for ( var i = 0; i < allSectors.length; i++ ) {
+			if ( allSectors[ i ].slug === slug ) {
+				return allSectors[ i ].name;
+			}
+		}
+		return slug;
+	}
+	function typeLabel( id ) {
+		for ( var g = 0; g < TYPES.length; g++ ) {
+			for ( var i = 0; i < TYPES[ g ][ 2 ].length; i++ ) {
+				if ( TYPES[ g ][ 2 ][ i ][ 0 ] === id ) {
+					return TYPES[ g ][ 2 ][ i ][ 1 ];
+				}
+			}
+		}
+		return '';
+	}
+	function setStatus( msg ) {
+		statusEl.textContent = msg || '';
+	}
+
+	/* ---------- errors: a live region plus a message under each field ---------- */
+	function clearErrors() {
+		errorsEl.hidden = true;
+		clear( errorsEl );
+		var f = bodyEl.querySelectorAll( '[aria-invalid]' ), i;
+		for ( i = 0; i < f.length; i++ ) {
+			f[ i ].removeAttribute( 'aria-invalid' );
+		}
+		var m = bodyEl.querySelectorAll( '.rv-wz-err' );
+		for ( i = 0; i < m.length; i++ ) {
+			m[ i ].textContent = '';
+		}
+	}
+	function showErrors( errs, summary ) {
+		clearErrors();
+		var keys = Object.keys( errs ), first = null, list = make( 'ul' );
+		errorsEl.appendChild( make( 'strong', null, summary || 'Please fix the highlighted fields.' ) );
+		keys.forEach( function ( k ) {
+			var field = bodyEl.querySelector( '[data-field="' + k + '"]' ), msg = bodyEl.querySelector( '[data-err="' + k + '"]' );
+			if ( msg ) {
+				msg.textContent = errs[ k ];
+			}
+			if ( field ) {
+				field.setAttribute( 'aria-invalid', 'true' );
+				if ( ! first ) {
+					first = field;
+				}
+			}
+			list.appendChild( make( 'li', null, errs[ k ] ) );
+		} );
+		errorsEl.appendChild( list );
+		errorsEl.hidden = false;
+		if ( first ) {
+			first.focus();
+		}
+	}
+
+	/* ---------- building blocks ---------- */
+	function heading( text, lead ) {
+		var h = make( 'h2', 'rv-wz-h', text );
+		h.id = 'rv-wz-h';
+		h.tabIndex = -1;
+		bodyEl.appendChild( h );
+		if ( lead ) {
+			bodyEl.appendChild( make( 'p', 'rv-wz-lead', lead ) );
+		}
+		return h;
+	}
+	function field( key, label, hint, opts ) {
+		opts = opts || {};
+		var wrap = make( 'div', 'rv-wz-field' ), id = 'rv-wz-f-' + key;
+		var lab = make( 'label', 'rv-wz-label', label );
+		lab.setAttribute( 'for', id );
+		wrap.appendChild( lab );
+		var describedBy = id + '-err';
+		if ( hint ) {
+			var h = make( 'span', 'rv-wz-hint', hint );
+			h.id = id + '-hint';
+			wrap.appendChild( h );
+			describedBy = id + '-hint ' + describedBy;
+		}
+		var inp = make( opts.area ? 'textarea' : 'input', opts.area ? 'rv-wz-ta' : 'rv-wz-in' );
+		inp.id = id;
+		if ( ! opts.area ) {
+			inp.type = opts.type || 'text';
+		}
+		if ( opts.max ) {
+			inp.maxLength = opts.max;
+		}
+		if ( opts.autocomplete ) {
+			inp.setAttribute( 'autocomplete', opts.autocomplete );
+		}
+		inp.value = opts.value || '';
+		inp.setAttribute( 'data-field', key );
+		inp.setAttribute( 'aria-describedby', describedBy );
+		if ( opts.required ) {
+			inp.setAttribute( 'aria-required', 'true' );
+		}
+		inp.addEventListener( 'input', function () {
+			if ( opts.onInput ) {
+				opts.onInput( inp.value );
+			}
+		} );
+		wrap.appendChild( inp );
+		var err = make( 'span', 'rv-wz-err' );
+		err.id = id + '-err';
+		err.setAttribute( 'data-err', key );
+		wrap.appendChild( err );
+		return wrap;
+	}
+	function nav( back, nextLabel, next, extra ) {
+		var row = make( 'div', 'rv-wz-row' );
+		if ( back ) {
+			row.appendChild( btn( 'Back', '', back ) );
+		}
+		( extra || [] ).forEach( function ( b ) {
+			row.appendChild( b );
+		} );
+		if ( next ) {
+			row.appendChild( btn( nextLabel, 'rv-wz-btn--primary', next ) );
+		}
+		bodyEl.appendChild( row );
+		return row;
+	}
+	function paintSteps() {
+		stepsEl.textContent = step >= 1 && step <= 4 ? 'Step ' + step + ' of 4: ' + STEP_NAMES[ step - 1 ] : '';
+	}
+	function render( n ) {
+		step = n;
+		clearErrors();
+		setStatus( '' );
+		clear( bodyEl );
+		paintSteps();
+		( { 1: stepScope, 2: stepType, 3: stepDetails, 4: stepPreview, 5: stepSignIn, 6: stepDone }[ n ] )();
+		var h = document.getElementById( 'rv-wz-h' );
+		if ( h ) {
+			h.focus();
+		}
+	}
+
+	/* ---------- the steps ---------- */
+	function stepSignIn() {
+		stepsEl.textContent = '';
+		heading( 'Sign in to contribute', 'We ask you to sign in first so we can keep your drafts safe and let moderators come back to you. You will return to this page with your sectors still chosen.' );
+		var back = location.origin + location.pathname + ( d.sectors.length ? '?sector=' + d.sectors.join( ',' ) : '' );
+		var a = make( 'a', 'rv-wz-btn rv-wz-btn--primary', 'Sign in' );
+		a.href = api + '/login?returnTo=' + encodeURIComponent( back );
+		var row = make( 'div', 'rv-wz-row' );
+		row.appendChild( a );
+		var j = make( 'a', 'rv-wz-link', 'Create an account' );
+		j.href = api + '/join?returnTo=' + encodeURIComponent( back );
+		row.appendChild( j );
+		bodyEl.appendChild( row );
+	}
+	function stepScope() {
+		heading( 'Which sectors is this about?', 'Pick one or more. You can change this later in the form.' );
+		var fs = make( 'fieldset', 'rv-wz-opts' ), lg = make( 'legend', 'rv-wz-hint', 'Sectors' );
+		lg.className = 'rv-wz-hint';
+		fs.appendChild( lg );
+		var holder = make( 'div', 'rv-wz-field' );
+		holder.setAttribute( 'data-field', 'sectors' );
+		holder.tabIndex = -1;
+		allSectors.forEach( function ( s ) {
+			var on = d.sectors.indexOf( s.slug ) >= 0;
+			var lab = make( 'label', 'rv-wz-opt' + ( on ? ' is-on' : '' ) );
+			var box = document.createElement( 'input' );
+			box.type = 'checkbox';
+			box.checked = on;
+			box.value = s.slug;
+			box.addEventListener( 'change', function () {
+				var i = d.sectors.indexOf( s.slug );
+				if ( box.checked && i < 0 ) {
+					d.sectors.push( s.slug );
+				} else if ( ! box.checked && i >= 0 ) {
+					d.sectors.splice( i, 1 );
+				}
+				lab.className = 'rv-wz-opt' + ( box.checked ? ' is-on' : '' );
+			} );
+			lab.appendChild( box );
+			lab.appendChild( document.createTextNode( s.name ) );
+			fs.appendChild( lab );
+		} );
+		bodyEl.appendChild( fs );
+		var err = make( 'span', 'rv-wz-err' );
+		err.setAttribute( 'data-err', 'sectors' );
+		bodyEl.appendChild( err );
+		nav( null, 'Continue', function () {
+			if ( ! d.sectors.length ) {
+				showErrors( { sectors: 'Choose at least one sector.' } );
+				fs.querySelector( 'input' ).focus();
+				return;
+			}
+			render( 2 );
+		} );
+	}
+	function stepType() {
+		heading( 'What do you want to contribute?', 'Choose the one that fits best.' );
+		var wrap = make( 'div' );
+		wrap.setAttribute( 'role', 'radiogroup' );
+		wrap.setAttribute( 'aria-label', 'What you want to contribute' );
+		TYPES.forEach( function ( g ) {
+			var fs = make( 'fieldset', 'rv-wz-group' ), lg = make( 'legend', null, g[ 1 ] );
+			fs.appendChild( lg );
+			var opts = make( 'div', 'rv-wz-opts' );
+			g[ 2 ].forEach( function ( t ) {
+				var lab = make( 'label', 'rv-wz-opt' + ( d.type === t[ 0 ] ? ' is-on' : '' ) );
+				var r = document.createElement( 'input' );
+				r.type = 'radio';
+				r.name = 'rv-wz-type';
+				r.value = t[ 0 ];
+				r.checked = d.type === t[ 0 ];
+				r.setAttribute( 'data-field', d.type ? 'x' : 'type' );
+				r.addEventListener( 'change', function () {
+					d.type = t[ 0 ];
+					var all = bodyEl.querySelectorAll( '.rv-wz-opt' ), i;
+					for ( i = 0; i < all.length; i++ ) {
+						all[ i ].className = 'rv-wz-opt' + ( all[ i ] === lab ? ' is-on' : '' );
+					}
+				} );
+				lab.appendChild( r );
+				lab.appendChild( document.createTextNode( t[ 1 ] ) );
+				opts.appendChild( lab );
+			} );
+			fs.appendChild( opts );
+			wrap.appendChild( fs );
+		} );
+		bodyEl.appendChild( wrap );
+		var err = make( 'span', 'rv-wz-err' );
+		err.setAttribute( 'data-err', 'type' );
+		bodyEl.appendChild( err );
+		nav( function () { render( 1 ); }, 'Continue', function () {
+			if ( ! d.type ) {
+				showErrors( { type: 'Choose what you want to contribute.' } );
+				return;
+			}
+			render( 3 );
+		} );
+	}
+	function counter( inp, max ) {
+		var c = make( 'span', 'rv-wz-count' );
+		function paint() {
+			c.textContent = inp.value.length + ' of ' + max;
+		}
+		inp.addEventListener( 'input', paint );
+		paint();
+		return c;
+	}
+	function stepDetails() {
+		heading( 'Tell us the details', 'Write plainly. Only your role and district are shown with your contribution, never your name.' );
+		var f;
+		function add( key, label, hint, opts ) {
+			opts = opts || {};
+			opts.value = d[ key ];
+			opts.onInput = function ( v ) { d[ key ] = v; };
+			f = field( key, label, hint, opts );
+			bodyEl.appendChild( f );
+			if ( opts.area && opts.max ) {
+				f.insertBefore( counter( f.querySelector( 'textarea' ), opts.max ), f.querySelector( '.rv-wz-err' ) );
+			}
+		}
+		add( 'title', 'Title', 'A short headline, 5 to 150 characters.', { max: 150, required: true } );
+		add( 'description', 'Details', 'What is the situation? At least 10 characters.', { area: true, max: 2000, required: true } );
+		add( 'howNow', 'How it is done now (optional)', null, { area: true, max: 800 } );
+		add( 'affected', 'Who is affected (optional)', null, { area: true, max: 800 } );
+		add( 'timeCost', 'Time or cost (optional)', 'For example hours a day or rupees a month.', { area: true, max: 800 } );
+		add( 'improvement', 'What should improve (optional)', null, { area: true, max: 800 } );
+		add( 'role', 'Your role (optional)', 'For example farmer, teacher, nurse.', { max: 80 } );
+		add( 'district', 'Your district (optional)', null, { max: 80 } );
+		add( 'robotType', 'Robot type (optional)', 'Lowercase words with dashes, like milking-robot.', { max: 60 } );
+
+		/* one photo, with a description for people who cannot see it */
+		var pw = make( 'div', 'rv-wz-box' );
+		pw.appendChild( make( 'strong', null, 'One photo (optional)' ) );
+		pw.appendChild( make( 'span', 'rv-wz-hint', 'JPG or PNG, up to 4 MB. Hidden details such as the place the photo was taken are removed.' ) );
+		var file = document.createElement( 'input' );
+		file.type = 'file';
+		file.id = 'rv-wz-f-photo';
+		file.accept = 'image/jpeg,image/png';
+		file.className = 'rv-wz-in';
+		file.setAttribute( 'data-field', 'photo' );
+		file.setAttribute( 'aria-describedby', 'rv-wz-f-photo-err' );
+		var fl = make( 'label', 'rv-wz-label', 'Photo' );
+		fl.setAttribute( 'for', 'rv-wz-f-photo' );
+		pw.appendChild( fl );
+		pw.appendChild( file );
+		var fe = make( 'span', 'rv-wz-err' );
+		fe.id = 'rv-wz-f-photo-err';
+		fe.setAttribute( 'data-err', 'photo' );
+		pw.appendChild( fe );
+		file.addEventListener( 'change', function () {
+			d.photo = file.files && file.files[ 0 ] ? file.files[ 0 ] : null;
+			d.photoSent = false;
+		} );
+		if ( d.photoSent && ! d.photo ) {
+			pw.appendChild( make( 'span', 'rv-wz-hint', 'A photo is already saved with this contribution. Choose a new file only to add another.' ) );
+		}
+		pw.appendChild( field( 'alt', 'Describe the photo', 'A few words for people who cannot see it. Required with a photo.', { max: 200, value: d.photoAlt, onInput: function ( v ) { d.photoAlt = v; } } ) );
+		bodyEl.appendChild( pw );
+
+		/* private contact details: OFF unless asked for */
+		var cw = make( 'div', 'rv-wz-box' );
+		var lab = make( 'label', 'rv-wz-opt' );
+		var on = document.createElement( 'input' );
+		on.type = 'checkbox';
+		on.checked = d.contactOn;
+		on.id = 'rv-wz-contact-on';
+		lab.appendChild( on );
+		lab.appendChild( document.createTextNode( 'Leave private contact details' ) );
+		cw.appendChild( lab );
+		cw.appendChild( make( 'p', 'rv-wz-private', 'Off by default. Visitors never see them. Moderators can read them only if you tick the second box.' ) );
+		var fields = make( 'div' );
+		fields.hidden = ! d.contactOn;
+		[ [ 'name', 'Contact name', 'text', 'name' ], [ 'email', 'Email address', 'email', 'email' ], [ 'phone', 'Mobile number', 'tel', 'tel' ] ].forEach( function ( c ) {
+			fields.appendChild( field( c[ 0 ], c[ 1 ], c[ 0 ] === 'name' ? null : 'Give an email address or a mobile number.', { type: c[ 2 ], autocomplete: c[ 3 ], max: 150, value: d.contact[ c[ 0 ] ], onInput: function ( v ) { d.contact[ c[ 0 ] ] = v; } } ) );
+		} );
+		var sl = make( 'label', 'rv-wz-opt' );
+		var share = document.createElement( 'input' );
+		share.type = 'checkbox';
+		share.checked = d.contact.share;
+		share.addEventListener( 'change', function () { d.contact.share = share.checked; } );
+		sl.appendChild( share );
+		sl.appendChild( document.createTextNode( 'Share with moderators' ) );
+		fields.appendChild( sl );
+		cw.appendChild( fields );
+		on.addEventListener( 'change', function () {
+			d.contactOn = on.checked;
+			fields.hidden = ! on.checked;
+		} );
+		bodyEl.appendChild( cw );
+
+		/* hidden field only programs fill in */
+		var hp = make( 'div', 'rv-wz-hp' );
+		hp.setAttribute( 'aria-hidden', 'true' );
+		var hpi = document.createElement( 'input' );
+		hpi.type = 'text';
+		hpi.id = 'rv-wz-website';
+		hpi.tabIndex = -1;
+		hpi.setAttribute( 'autocomplete', 'off' );
+		hpi.setAttribute( 'aria-label', 'Leave this empty' );
+		hp.appendChild( hpi );
+		bodyEl.appendChild( hp );
+
+		nav( function () { render( 2 ); }, 'Preview', function () {
+			var errs = checkDetails();
+			if ( Object.keys( errs ).length ) {
+				showErrors( errs );
+				return;
+			}
+			render( 4 );
+		}, [ btn( 'Save draft', '', function () { save( false ); } ) ] );
+	}
+	function clean( s ) {
+		return String( s || '' ).replace( /\s+/g, ' ' ).trim();
+	}
+	function checkDetails() {
+		var e = {}, t = clean( d.title );
+		if ( t.length < 5 ) {
+			e.title = 'Give it a title of at least 5 characters.';
+		} else if ( t.length > 150 ) {
+			e.title = 'Keep the title to 150 characters or fewer.';
+		}
+		var b = String( d.description ).trim();
+		if ( b.length < 10 ) {
+			e.description = 'Tell us a little more (at least 10 characters).';
+		} else if ( b.length > 2000 ) {
+			e.description = 'Keep the description to 2000 characters or fewer.';
+		}
+		[ [ 'howNow', 'How it is done now' ], [ 'affected', 'Who is affected' ], [ 'timeCost', 'Time or cost' ], [ 'improvement', 'What should improve' ] ].forEach( function ( p ) {
+			if ( String( d[ p[ 0 ] ] ).length > 800 ) {
+				e[ p[ 0 ] ] = 'Keep "' + p[ 1 ] + '" to 800 characters or fewer.';
+			}
+		} );
+		if ( d.robotType && ! /^[a-z0-9]+(-[a-z0-9]+)*$/.test( clean( d.robotType ) ) ) {
+			e.robotType = 'That robot type is not valid. Use lowercase words with dashes.';
+		}
+		if ( d.photo ) {
+			var okType = /^image\/(jpeg|png)$/.test( d.photo.type ) || /\.(jpe?g|png)$/i.test( d.photo.name || '' );
+			if ( ! okType ) {
+				e.photo = 'Photos must be JPG or PNG.';
+			} else if ( d.photo.size > MAX_PHOTO ) {
+				e.photo = 'That photo is larger than 4 MB. Choose a smaller one.';
+			}
+			if ( ! clean( d.photoAlt ) ) {
+				e.alt = 'Describe the photo in a few words (for people who cannot see it).';
+			}
+		}
+		if ( d.contactOn ) {
+			if ( ! clean( d.contact.name ) ) {
+				e.name = 'Tell us who to contact.';
+			}
+			if ( ! clean( d.contact.email ) && ! clean( d.contact.phone ) ) {
+				e.email = 'Give an email address or a mobile number.';
+			} else if ( clean( d.contact.email ) && ! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test( clean( d.contact.email ) ) ) {
+				e.email = 'That email address does not look right.';
+			}
+		}
+		return e;
+	}
+	function row( dl, label, value ) {
+		if ( ! value ) {
+			return;
+		}
+		dl.appendChild( make( 'dt', null, label ) );
+		dl.appendChild( make( 'dd', null, value ) );
+	}
+	function stepPreview() {
+		heading( 'Check it before you send it', 'This is what the moderators will read. Nothing is published until they approve it.' );
+		var dl = make( 'dl', 'rv-wz-sum' );
+		row( dl, 'Sectors', d.sectors.map( sectorName ).join( ', ' ) );
+		row( dl, 'Type', typeLabel( d.type ) );
+		row( dl, 'Title', clean( d.title ) );
+		row( dl, 'Details', String( d.description ).trim() );
+		row( dl, 'How it is done now', String( d.howNow ).trim() );
+		row( dl, 'Who is affected', String( d.affected ).trim() );
+		row( dl, 'Time or cost', String( d.timeCost ).trim() );
+		row( dl, 'What should improve', String( d.improvement ).trim() );
+		row( dl, 'Your role', clean( d.role ) );
+		row( dl, 'Your district', clean( d.district ) );
+		row( dl, 'Robot type', clean( d.robotType ) );
+		row( dl, 'Photo', d.photo ? d.photo.name + ' (' + clean( d.photoAlt ) + ')' : '' );
+		row( dl, 'Private contact details', d.contactOn ? ( d.contact.share ? 'Saved privately; moderators may read them' : 'Saved privately; moderators cannot read them' ) : 'None left' );
+		bodyEl.appendChild( dl );
+		nav( function () { render( 3 ); }, 'Submit for review', function () { save( true ); }, [ btn( 'Save draft', '', function () { save( false ); } ) ] );
+	}
+	function stepDone() {
+		stepsEl.textContent = '';
+		heading( 'Thank you. It has been sent for review.', 'A moderator will read it. If something needs to change, you will be asked. Nothing appears on the site until it is approved.' );
+		nav( null, 'Contribute in another sector', function () {
+			d = { sectors: [], type: '', title: '', description: '', howNow: '', affected: '', timeCost: '', improvement: '', role: '', district: '', robotType: '', photo: null, photoAlt: '', photoSent: false, contactOn: false, contact: { name: '', email: '', phone: '', share: false }, contactSaved: false, id: null };
+			render( 1 );
+		} );
+	}
+
+	/* ---------- talking to the server ---------- */
+	function call( method, path, body, isForm ) {
+		var opts = { method: method, credentials: 'include', cache: 'no-store' };
+		if ( body !== undefined ) {
+			if ( isForm ) {
+				opts.body = body;
+			} else {
+				opts.headers = { 'Content-Type': 'application/json' };
+				opts.body = JSON.stringify( body );
+			}
+		}
+		return fetch( api + path, opts ).then( function ( r ) {
+			return r.json().catch( function () { return null; } ).then( function ( b ) {
+				return { status: r.status, ok: r.ok && b && b.success === true, body: b || {} };
+			} );
+		}, function () {
+			return { status: 0, ok: false, body: { message: 'We could not reach RoboValley. Please check your connection and try again.' } };
+		} );
+	}
+	function payload() {
+		var p = { sectors: d.sectors, type: d.type, title: clean( d.title ), description: String( d.description ).trim(), robotType: clean( d.robotType ), website: ( document.getElementById( 'rv-wz-website' ) || { value: '' } ).value };
+		[ 'howNow', 'affected', 'timeCost', 'improvement' ].forEach( function ( k ) { p[ k ] = String( d[ k ] ).trim(); } );
+		p.role = clean( d.role );
+		p.district = clean( d.district );
+		return p;
+	}
+	function stepOf( key ) {
+		if ( key === 'sectors' ) {
+			return 1;
+		}
+		return key === 'type' ? 2 : 3;
+	}
+	function fail( res ) {
+		busy = false;
+		paintBusy();
+		setStatus( '' );
+		var b = res.body || {};
+		if ( res.status === 401 ) {
+			signedIn = false;
+			render( 5 );
+			return;
+		}
+		if ( b.fieldErrors && Object.keys( b.fieldErrors ).length ) {
+			var first = Object.keys( b.fieldErrors )[ 0 ];
+			if ( stepOf( first ) !== step ) {
+				render( stepOf( first ) );
+			}
+			showErrors( b.fieldErrors, b.message );
+			return;
+		}
+		var msg = b.message || 'Something went wrong. Please try again.';
+		if ( res.status === 429 && b.retryAfter ) {
+			msg = 'Lots of people are sending contributions right now. Please try again in ' + b.retryAfter + ' seconds.';
+		} else if ( res.status === 503 ) {
+			msg = 'Contributions are not open yet. Please try again later.';
+		}
+		var e = {};
+		errorsEl.hidden = true;
+		clear( errorsEl );
+		errorsEl.appendChild( make( 'span', null, msg ) );
+		errorsEl.hidden = false;
+		errorsEl.scrollIntoView && errorsEl.scrollIntoView( { block: 'nearest' } );
+		void e;
+	}
+	function paintBusy() {
+		var bs = root.querySelectorAll( '.rv-wz-btn' ), i;
+		for ( i = 0; i < bs.length; i++ ) {
+			bs[ i ].disabled = busy;
+		}
+	}
+	function save( submit ) {
+		if ( busy ) {
+			return;
+		}
+		var errs = checkDetails();
+		if ( Object.keys( errs ).length ) {
+			render( 3 );
+			showErrors( errs );
+			return;
+		}
+		if ( submit && ( ! d.sectors.length || ! d.type ) ) {
+			render( d.sectors.length ? 2 : 1 );
+			showErrors( d.sectors.length ? { type: 'Choose what you want to contribute.' } : { sectors: 'Choose at least one sector.' } );
+			return;
+		}
+		clearErrors();
+		busy = true;
+		paintBusy();
+		setStatus( submit ? 'Sending…' : 'Saving your draft…' );
+		var first = d.id === null ? call( 'POST', '/api/contributions', payload() ) : call( 'PATCH', '/api/contributions/' + d.id, payload() );
+		first.then( function ( r ) {
+			if ( ! r.ok ) {
+				return fail( r );
+			}
+			if ( r.body.id === 0 ) { // the hidden field was filled in: nothing was stored, show the normal ending
+				busy = false;
+				return render( 6 );
+			}
+			d.id = r.body.id || d.id;
+			return photoThenContact( submit );
+		} );
+	}
+	function photoThenContact( submit ) {
+		function contact() {
+			var p;
+			if ( d.contactOn ) {
+				p = call( 'PUT', '/api/contributions/' + d.id + '/contact', { name: clean( d.contact.name ), email: clean( d.contact.email ), phone: clean( d.contact.phone ), shareWithModerators: !! d.contact.share } ).then( function ( r ) {
+					if ( r.ok ) {
+						d.contactSaved = true;
+					}
+					return r;
+				} );
+			} else if ( d.contactSaved ) {
+				p = call( 'DELETE', '/api/contributions/' + d.id + '/contact' ).then( function ( r ) {
+					if ( r.ok ) {
+						d.contactSaved = false;
+					}
+					return { ok: true };
+				} );
+			} else {
+				p = Promise.resolve( { ok: true } );
+			}
+			return p;
+		}
+		var photo;
+		if ( d.photo && ! d.photoSent ) {
+			var form = new FormData();
+			form.append( 'photo', d.photo );
+			form.append( 'alt', clean( d.photoAlt ) );
+			setStatus( 'Uploading the photo…' );
+			photo = call( 'POST', '/api/contributions/' + d.id + '/photos', form, true ).then( function ( r ) {
+				if ( r.ok ) {
+					d.photoSent = true;
+				}
+				return r;
+			} );
+		} else {
+			photo = Promise.resolve( { ok: true } );
+		}
+		return photo.then( function ( r ) {
+			if ( ! r.ok ) {
+				return fail( r );
+			}
+			return contact().then( function ( c ) {
+				if ( ! c.ok ) {
+					return fail( c );
+				}
+				if ( ! submit ) {
+					busy = false;
+					paintBusy();
+					setStatus( 'Your draft is saved. You can keep editing and send it when you are ready.' );
+					return null;
+				}
+				return call( 'POST', '/api/contributions/' + d.id + '/submit' ).then( function ( s ) {
+					if ( ! s.ok ) {
+						return fail( s );
+					}
+					busy = false;
+					render( 6 );
+					return null;
+				} );
+			} );
+		} );
+	}
+
+	/* ---------- starting: from the hub's event, or from ?sector= after signing in ---------- */
+	function loadSectors() {
+		if ( allSectors.length ) {
+			return Promise.resolve( true );
+		}
+		return fetch( api + '/api/contributions/sectors', { cache: 'no-store' } ).then( function ( r ) {
+			return r.json().then( function ( b ) {
+				if ( r.ok && b && b.success === true && Array.isArray( b.sectors ) ) {
+					allSectors = b.sectors.filter( function ( s ) { return s && typeof s.slug === 'string' && typeof s.name === 'string'; } );
+				}
+				return allSectors.length > 0;
+			} );
+		} ).catch( function () { return false; } );
+	}
+	function start( slugs ) {
+		if ( ! api || ! window.fetch ) {
+			return;
+		}
+		d.sectors = slugs.slice();
+		root.hidden = false;
+		clear( bodyEl );
+		setStatus( 'Getting things ready…' );
+		Promise.all( [ loadSectors(), fetch( api + '/api/auth/me', { credentials: 'include', cache: 'no-store' } ).then( function ( r ) { return r.json(); } ).catch( function () { return null; } ) ] ).then( function ( res ) {
+			if ( ! res[ 0 ] ) {
+				clear( bodyEl );
+				paintSteps();
+				stepsEl.textContent = '';
+				bodyEl.appendChild( make( 'p', 'rv-wz-note', 'The form could not be loaded. Please try again in a moment.' ) );
+				setStatus( '' );
+				return;
+			}
+			d.sectors = d.sectors.filter( function ( s ) { return allSectors.some( function ( a ) { return a.slug === s; } ); } );
+			signedIn = !! ( res[ 1 ] && res[ 1 ].role );
+			render( signedIn ? 1 : 5 );
+			root.scrollIntoView && root.scrollIntoView( { behavior: 'smooth', block: 'start' } );
+		} );
+	}
+	document.addEventListener( 'rv-contribute-pick', function ( ev ) {
+		ev.preventDefault();
+		start( ( ev.detail && ev.detail.sectors ) || [] );
+	} );
+	/* editing one of your own contributions: ?edit=<id> (from "Your contributions") */
+	function startEdit( id ) {
+		if ( ! api || ! window.fetch ) {
+			return;
+		}
+		root.hidden = false;
+		clear( bodyEl );
+		setStatus( 'Opening your contribution…' );
+		Promise.all( [ loadSectors(), fetch( api + '/api/auth/me', { credentials: 'include', cache: 'no-store' } ).then( function ( r ) { return r.json(); } ).catch( function () { return null; } ) ] ).then( function ( res ) {
+			signedIn = !! ( res[ 1 ] && res[ 1 ].role );
+			if ( ! res[ 0 ] || ! signedIn ) {
+				d.sectors = [];
+				return signedIn ? say( 'The form could not be loaded. Please try again in a moment.' ) : render( 5 );
+			}
+			return call( 'GET', '/api/contributions/' + id ).then( function ( r ) {
+				if ( ! r.ok || ! r.body.contribution ) {
+					return say( r.status === 404 ? 'We could not find that contribution. It may belong to another account.' : 'Your contribution could not be opened. Please try again.' );
+				}
+				var c = r.body.contribution;
+				if ( ! c.editable ) {
+					return say( 'This contribution was closed by a moderator, so it cannot be changed. You can start a new one.' );
+				}
+				d.id = c.id;
+				d.sectors = c.sectors.slice();
+				d.type = c.type;
+				[ 'title', 'description', 'howNow', 'affected', 'timeCost', 'improvement', 'role', 'district', 'robotType' ].forEach( function ( k ) {
+					d[ k ] = c[ k ] || '';
+				} );
+				d.photoSent = !! ( c.photos && c.photos.length );
+				if ( c.contact ) {
+					d.contactOn = true;
+					d.contactSaved = true;
+					d.contact = { name: c.contact.name || '', email: c.contact.email || '', phone: c.contact.phone || '', share: !! c.contact.shareWithModerators };
+				}
+				render( 3 );
+				if ( c.status === 'published' || c.status === 'unpublished' ) {
+					setStatus( 'Saving a change sends it back for review, and it is not shown on the site until it is approved again.' );
+				}
+				root.scrollIntoView && root.scrollIntoView( { behavior: 'smooth', block: 'start' } );
+				return null;
+			} );
+		} );
+	}
+	function say( msg ) {
+		clear( bodyEl );
+		stepsEl.textContent = '';
+		bodyEl.appendChild( make( 'p', 'rv-wz-note', msg ) );
+		setStatus( '' );
+	}
+	var ed = /[?&]edit=([1-9][0-9]{0,9})(?:&|$)/.exec( location.search );
+	var m = /[?&]sector=([a-z0-9,-]+)/.exec( location.search );
+	if ( ed ) {
+		startEdit( ed[ 1 ] );
+	} else if ( m ) {
+		start( m[ 1 ].split( ',' ).slice( 0, 20 ) );
+	}
+}() );
+</script>

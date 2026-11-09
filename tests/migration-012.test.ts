@@ -26,7 +26,7 @@ async function build() {
   const name = String(((await pg.query("select current_database() d")).rows[0] as any).d);
   for (const f of pickFiles()) await applyFile(runner(pg), name, read(f));
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('Asha','a@example.com','TC','x'),('Ravi','r@example.com','TC','x')");
-  await pg.exec("insert into sectors (slug,name) values ('agriculture-dairy','Agriculture & Dairy'),('education','Education'),('healthcare','Healthcare')");
+  await pg.exec("insert into sectors (slug,name) values ('education','Education'),('healthcare','Healthcare')"); // agriculture-dairy is already there (id 1): migration 016 adds it
   return { pg, name };
 }
 const draftSql = "insert into contributions (user_id,type,title,body) values (1,'problem','Shed cleaning by hand','Two workers clean the shed by hand.') returning id";
@@ -45,11 +45,11 @@ describe("migration 012", () => {
     expect(await count(pg, "select count(*) n from pg_trigger where tgname in ('contributions_needs_scope','contribution_scopes_keep_last')")).toBe(2);
   });
 
-  it("seeds nothing", async () => {
+  it("seeds nothing (the first sector comes from migration 016, not from 012)", async () => {
     const fresh = new PGlite();
     await fresh.exec(read("tests/helpers/baseSchema.sql"));
     const n = String(((await fresh.query("select current_database() d")).rows[0] as any).d);
-    for (const f of pickFiles()) await applyFile(runner(fresh), n, read(f));
+    for (const f of pickFiles().filter((x: string) => x.replace(/\\/g, "/").split("/").pop()!.slice(0, 3) <= "012")) await applyFile(runner(fresh), n, read(f)); // up to and including 012 only
     expect(await count(fresh, "select count(*) n from sectors")).toBe(0);
     expect(await count(fresh, "select count(*) n from contributions")).toBe(0);
     await fresh.close();
@@ -174,9 +174,10 @@ describe("migration 012", () => {
 describe("rollback 012", () => {
   it("removes exactly the new objects, keeps everything else, and the migration can be applied again", async () => {
     const { pg, name } = await build();
-    const before = (await tables(pg)).filter((t) => !NEW.includes(t) && !PHOTOS.includes(t));
-    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(); // 013 (photos) and 014 (contacts) depend on contributions: undo them first
+    const before = (await tables(pg)).filter((t) => !NEW.includes(t) && !PHOTOS.includes(t) && t !== "contribution_reviews");
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(); // 013 (photos), 014 (contacts) and 017 (reviews) depend on contributions: undo them first
     await pg.exec("ROLLBACK");
+    await applyFile(runner(pg), name, read("db/rollback/017_down.sql"));
     await applyFile(runner(pg), name, read("db/rollback/014_down.sql"));
     await applyFile(runner(pg), name, read("db/rollback/013_down.sql"));
     await applyFile(runner(pg), name, read(DOWN));
@@ -189,6 +190,7 @@ describe("rollback 012", () => {
     await applyFile(runner(pg), name, read(UP));
     await applyFile(runner(pg), name, read("db/migrations/013_contribution_photos.sql"));
     await applyFile(runner(pg), name, read("db/migrations/014_contribution_contacts.sql"));
+    await applyFile(runner(pg), name, read("db/migrations/017_review_statuses.sql"));
     expect(await tables(pg)).toContain("contributions");
     await pg.close();
   });

@@ -22,7 +22,8 @@ export const CONTRIBUTION_TYPES = [
 ] as const;
 export type ContributionType = (typeof CONTRIBUTION_TYPES)[number]["id"];
 
-export const CONTRIBUTION_STATUSES = ["draft", "pending_review", "changes_requested", "published"] as const;
+// The six stored statuses. "rejected" and "unpublished" need migration 017; before it nothing can be in them.
+export const CONTRIBUTION_STATUSES = ["draft", "pending_review", "changes_requested", "published", "rejected", "unpublished"] as const;
 export type ContributionStatus = (typeof CONTRIBUTION_STATUSES)[number];
 
 /** What a visitor sees for each stored status. */
@@ -31,14 +32,22 @@ export const STATUS_LABELS: Record<ContributionStatus, string> = {
   pending_review: "Pending review",
   changes_requested: "Changes requested",
   published: "Published",
+  rejected: "Not accepted",
+  unpublished: "Taken down",
 };
 
-/** Moves the application allows. The contributor submits (draft or changes_requested -> pending_review); a moderator decides. */
+/**
+ * Every move the application allows, whoever makes it (the owner's and the moderator's rules are in contributionApi.ts and
+ * contributionReview.ts). The owner submits (draft, changes_requested or unpublished -> pending_review) and edits a published item
+ * (-> pending_review); a moderator decides. rejected is final.
+ */
 export const STATUS_TRANSITIONS: Record<ContributionStatus, readonly ContributionStatus[]> = {
   draft: ["pending_review"],
-  pending_review: ["changes_requested", "published"],
+  pending_review: ["changes_requested", "published", "rejected"],
   changes_requested: ["pending_review"],
-  published: [],
+  published: ["unpublished", "pending_review"],
+  unpublished: ["published", "pending_review"],
+  rejected: [],
 };
 export const canTransition = (from: ContributionStatus, to: ContributionStatus) => STATUS_TRANSITIONS[from].includes(to);
 
