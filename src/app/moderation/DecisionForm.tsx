@@ -49,7 +49,7 @@ export default function DecisionForm({ id, actions, isAdmin = false, hasDuplicat
   if (actions.length === 0) return <p className="mod-note">No decision can be made on this contribution in its current state.</p>;
   return (
     <div className="mod-act">
-      <label htmlFor={`note-${id}`}>Note for the author (required to request changes, reject or unpublish)</label>
+      <label htmlFor={`note-${id}`}>Note for the author (required to request changes, reject, unpublish or remove, and as the reason for approving a possible duplicate)</label>
       <textarea id={`note-${id}`} ref={note} maxLength={1000} aria-invalid={noteErr ? "true" : undefined} aria-describedby={`note-${id}-err`} />
       <div id={`note-${id}-err`} className="mod-msg mod-msg--err" role="alert" hidden={!noteErr}>{noteErr}</div>
       {!isAdmin && <p className="mod-meta">Only an administrator can approve, publish, unpublish or remove. You can verify, ask for changes or reject.</p>}
