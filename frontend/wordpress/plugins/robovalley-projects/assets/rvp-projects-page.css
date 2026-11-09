@@ -847,6 +847,7 @@ a.rvp-tile:visited {
 		justify-content: center;
 	}
 	.rvp-search {
+		flex: 0 0 auto; /* in the stacked column the 340px row basis would become a 340px HEIGHT */
 		flex-direction: column;
 		border-radius: 22px;
 		padding: 8px;
