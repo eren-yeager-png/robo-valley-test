@@ -113,11 +113,43 @@
 		svg.appendChild( r );
 		return svg;
 	}
+	// Fallback pictures: a project without a featured image gets the illustration of its first technology. Only the file names
+	// below are ever used (looked up by slug, own properties only); any other technology gets the default. The folder comes from
+	// the page config and must be an http(s) address. Keep in step with rvp_page_illustration_files() in includes/page.php.
+	var RVP_ILLUS = {
+		'robotics': 'tech-robotics.svg',
+		'embedded-systems': 'tech-embedded-systems.svg',
+		'stem': 'tech-stem.svg',
+		'artificial-intelligence': 'tech-artificial-intelligence.svg',
+		'iot': 'tech-iot.svg',
+		'3d-printing': 'tech-3d-printing.svg',
+		'automation': 'tech-automation.svg',
+		'electronics': 'tech-electronics.svg',
+		'drone-technology': 'tech-drone-technology.svg',
+		'other-technologies': 'tech-other-technologies.svg'
+	};
+	var imgBase = ( typeof cfg.imgBase === 'string' && isHttpUrl( cfg.imgBase ) ) ? cfg.imgBase : '';
+	function illustrationEl( tech ) {
+		if ( ! imgBase ) { return placeholder(); }
+		var slug = tech && typeof tech.slug === 'string' ? tech.slug : '';
+		var file = Object.prototype.hasOwnProperty.call( RVP_ILLUS, slug ) ? RVP_ILLUS[ slug ] : 'tech-default.svg';
+		var i = document.createElement( 'img' );
+		i.className = 'rvp-card-img rvp-illus';
+		i.src = imgBase + file;
+		i.width = 320;
+		i.height = 200;
+		i.alt = tech && typeof tech.name === 'string' && tech.name ? tech.name + ' illustration' : 'Project illustration';
+		i.loading = 'lazy';
+		i.decoding = 'async';
+		return i;
+	}
 	function cardEl( p ) {
 		var card = el( 'article', 'rvp-card' );
 		card.setAttribute( 'data-id', String( p.id ) );
 		var media = el( 'div', 'rvp-card-media' );
-		media.appendChild( imageEl( p.thumbnail, 'rvp-card-img' ) || placeholder() );
+		var firstTech = ( p.technology || [] )[ 0 ];
+		media.appendChild( imageEl( p.thumbnail, 'rvp-card-img' ) || illustrationEl( firstTech ) ); // a real featured image always wins.
+		if ( firstTech && typeof firstTech.name === 'string' && firstTech.name ) { media.appendChild( el( 'span', 'rvp-card-chip', firstTech.name ) ); }
 		var body = el( 'div', 'rvp-card-body' );
 		var tags = el( 'div', 'rvp-card-tags' );
 		( p.technology || [] ).forEach( function ( t ) { tags.appendChild( el( 'span', 'rvp-chip rvp-chip-tech', t.name ) ); } );

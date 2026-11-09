@@ -106,6 +106,7 @@ function rvp_page_enqueue() {
 				'app'       => rvp_app_base(),
 				'perPage'   => RVP_PAGE_PER_PAGE,
 				'pageUrl'   => rvp_page_url(),
+				'imgBase'   => RVP_URL . 'assets/img/', // folder of the fallback illustrations (public static files).
 			)
 		) . ';',
 		'before'
@@ -148,9 +149,42 @@ function rvp_page_img_html( $img, $class ) {
 	);
 }
 
-/** A small neutral picture for projects without an image. */
-function rvp_page_placeholder_svg() {
-	return '<svg class="rvp-card-ph" viewBox="0 0 120 80" aria-hidden="true" focusable="false"><rect width="120" height="80" fill="#e3ede7"/><g fill="none" stroke="#17694f" stroke-width="2" stroke-linecap="round"><rect x="38" y="24" width="44" height="34" rx="6"/><path d="M60 24v-8M50 16h20M48 40h4M68 40h4M52 50h16"/></g></svg>';
+/**
+ * Fallback pictures: one small original illustration per technology (static files in assets/img/). Only the file names listed
+ * here are ever used, picked by technology slug; any other technology (for example one an admin adds later) gets the default.
+ * A real image (a project's featured image, a technology's own image) always wins: these are only used when there is none.
+ * Keep in step with RVP_ILLUS in assets/rvp-projects-page.js.
+ */
+function rvp_page_illustration_files() {
+	return array(
+		'robotics'                => 'tech-robotics.svg',
+		'embedded-systems'        => 'tech-embedded-systems.svg',
+		'stem'                    => 'tech-stem.svg',
+		'artificial-intelligence' => 'tech-artificial-intelligence.svg',
+		'iot'                     => 'tech-iot.svg',
+		'3d-printing'             => 'tech-3d-printing.svg',
+		'automation'              => 'tech-automation.svg',
+		'electronics'             => 'tech-electronics.svg',
+		'drone-technology'        => 'tech-drone-technology.svg',
+		'other-technologies'      => 'tech-other-technologies.svg',
+	);
+}
+
+/** The illustration file for a technology slug: from the whitelist above, or the neutral default. */
+function rvp_page_illustration_file( $slug ) {
+	$files = rvp_page_illustration_files();
+	return ( is_string( $slug ) && isset( $files[ $slug ] ) ) ? $files[ $slug ] : 'tech-default.svg';
+}
+
+/** The illustration as a normal lazy <img> (never inline markup). $name is the technology's name, if there is one. */
+function rvp_page_illustration_html( $slug, $name, $class ) {
+	$alt = '' !== (string) $name ? sprintf( __( '%s illustration', 'robovalley-projects' ), $name ) : __( 'Project illustration', 'robovalley-projects' );
+	return sprintf(
+		'<img class="%s rvp-illus" src="%s" width="320" height="200" alt="%s" loading="lazy" decoding="async">',
+		esc_attr( $class ),
+		esc_url( RVP_URL . 'assets/img/' . rvp_page_illustration_file( $slug ) ),
+		esc_attr( $alt )
+	);
 }
 
 function rvp_page_card_html( array $p ) {
@@ -165,7 +199,12 @@ function rvp_page_card_html( array $p ) {
 		$edu .= '<li>' . esc_html( $e['name'] ) . '</li>';
 	}
 	$diff = $p['difficulty'] ? '<span class="rvp-diff rvp-diff-' . esc_attr( $p['difficulty']['slug'] ) . '">' . esc_html( $p['difficulty']['label'] ) . '</span>' : '';
-	$media = rvp_page_img_html( $p['thumbnail'], 'rvp-card-img' );
+	$first = ! empty( $p['technology'][0] ) ? $p['technology'][0] : null;
+	$media = rvp_page_img_html( $p['thumbnail'], 'rvp-card-img' ); // a real featured image always wins.
+	if ( '' === $media ) {
+		$media = rvp_page_illustration_html( $first ? $first['slug'] : '', $first ? $first['name'] : '', 'rvp-card-img' );
+	}
+	$chip = $first ? '<span class="rvp-card-chip">' . esc_html( $first['name'] ) . '</span>' : '';
 	// The meta rows (difficulty, education levels). Keep in step with cardEl() in assets/rvp-projects-page.js.
 	$meta = '';
 	if ( $diff ) {
@@ -175,7 +214,7 @@ function rvp_page_card_html( array $p ) {
 		$meta .= '<div class="rvp-meta-row"><span class="rvp-meta-label">' . esc_html__( 'Levels', 'robovalley-projects' ) . '</span><ul class="rvp-levels" aria-label="' . esc_attr__( 'Education levels', 'robovalley-projects' ) . '">' . $edu . '</ul></div>';
 	}
 	return '<article class="rvp-card" data-id="' . $id . '">'
-		. '<div class="rvp-card-media">' . ( $media ? $media : rvp_page_placeholder_svg() ) . '</div>'
+		. '<div class="rvp-card-media">' . $media . $chip . '</div>'
 		. '<div class="rvp-card-body">'
 		. '<div class="rvp-card-tags">' . $tech . '</div>'
 		. '<h3 class="rvp-card-title">' . esc_html( $p['title'] ) . '</h3>'
@@ -257,7 +296,7 @@ function rvp_page_shortcode() {
 	foreach ( $techs as $t ) {
 		$img    = rvp_page_img_html( $t['image'], 'rvp-tile-img' );
 		$tiles .= '<a class="rvp-tile" href="#rvp-discover" data-tech="' . esc_attr( $t['slug'] ) . '">'
-			. '<span class="rvp-tile-media">' . ( $img ? $img : rvp_page_placeholder_svg() ) . '</span>'
+			. '<span class="rvp-tile-media">' . ( $img ? $img : rvp_page_illustration_html( $t['slug'], $t['name'], 'rvp-tile-img' ) ) . '</span>'
 			. '<span class="rvp-tile-name">' . esc_html( $t['name'] ) . '</span>'
 			. ( '' !== $t['description'] ? '<span class="rvp-tile-desc">' . esc_html( $t['description'] ) . '</span>' : '' )
 			. '<span class="rvp-tile-count">' . esc_html( sprintf( _n( '%d project', '%d projects', $t['count'], 'robovalley-projects' ), $t['count'] ) ) . '</span></a>';

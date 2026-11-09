@@ -631,6 +631,24 @@ a.rvp-tile:visited {
 	aspect-ratio: 16 / 10; /* reserves the space, so loading images cause no layout shift */
 	background: var(--rvp-tint);
 }
+/* Technology label on the picture (top-left). Text is the technology's name, set with textContent / esc_html. */
+.rvp-page .rvp-card-chip {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	z-index: 1;
+	max-width: calc(100% - 20px);
+	padding: 5px 10px;
+	border-radius: 999px;
+	background: rgba(18, 63, 51, 0.92);
+	color: #fff;
+	font: 700 0.72rem/1.1 var(--rvp-body);
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	box-shadow: 0 2px 6px rgba(18, 63, 51, 0.25);
+}
 .rvp-card-body {
 	display: flex;
 	flex-direction: column;
