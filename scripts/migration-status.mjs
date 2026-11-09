@@ -88,6 +88,11 @@ export const MIGRATIONS = [
   { id: "016", title: "first sector", feature: "The Agriculture & Dairy sector for the Contribute hub, and unique sector names", requires: ["012"], checks: [
     { kind: "index", name: "sectors_name_lower_uq" },
   ] },
+  { id: "017", title: "review statuses", feature: "Rejected and unpublished statuses and the moderators' append-only audit trail", requires: ["012"], checks: [
+    { kind: "table", table: "contribution_reviews" },
+    { kind: "constraint", name: "contribution_reviews_action_ck" },
+    { kind: "index", name: "contribution_reviews_item_idx" },
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */

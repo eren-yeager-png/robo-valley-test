@@ -174,9 +174,10 @@ describe("migration 012", () => {
 describe("rollback 012", () => {
   it("removes exactly the new objects, keeps everything else, and the migration can be applied again", async () => {
     const { pg, name } = await build();
-    const before = (await tables(pg)).filter((t) => !NEW.includes(t) && !PHOTOS.includes(t));
-    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(); // 013 (photos) and 014 (contacts) depend on contributions: undo them first
+    const before = (await tables(pg)).filter((t) => !NEW.includes(t) && !PHOTOS.includes(t) && t !== "contribution_reviews");
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(); // 013 (photos), 014 (contacts) and 017 (reviews) depend on contributions: undo them first
     await pg.exec("ROLLBACK");
+    await applyFile(runner(pg), name, read("db/rollback/017_down.sql"));
     await applyFile(runner(pg), name, read("db/rollback/014_down.sql"));
     await applyFile(runner(pg), name, read("db/rollback/013_down.sql"));
     await applyFile(runner(pg), name, read(DOWN));
@@ -189,6 +190,7 @@ describe("rollback 012", () => {
     await applyFile(runner(pg), name, read(UP));
     await applyFile(runner(pg), name, read("db/migrations/013_contribution_photos.sql"));
     await applyFile(runner(pg), name, read("db/migrations/014_contribution_contacts.sql"));
+    await applyFile(runner(pg), name, read("db/migrations/017_review_statuses.sql"));
     expect(await tables(pg)).toContain("contributions");
     await pg.close();
   });
