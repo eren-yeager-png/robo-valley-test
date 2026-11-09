@@ -79,6 +79,12 @@ export const MIGRATIONS = [
     { kind: "table", table: "contribution_contacts" },
     ...["contribution_contacts_name_ck", "contribution_contacts_email_ck", "contribution_contacts_phone_ck", "contribution_contacts_reach_ck"].map((name) => ({ kind: "constraint", name })),
   ] },
+  { id: "015", title: "moderator flag", feature: "Moderator flag on users (reads shared contact details) and its audit trail", requires: ["012"], checks: [
+    { kind: "column", table: "users", column: "is_moderator" },
+    { kind: "table", table: "moderator_audit" },
+    { kind: "constraint", name: "moderator_audit_not_self_ck" },
+    { kind: "index", name: "moderator_audit_target_idx" },
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */

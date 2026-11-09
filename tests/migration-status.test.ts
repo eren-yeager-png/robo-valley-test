@@ -29,7 +29,7 @@ describe("status probes", () => {
   it("covers exactly the migration files, in order", () => {
     const files = pickFiles().map((f) => f.split(/[\\/]/).pop()!.slice(0, 3));
     expect(MIGRATIONS.map((m) => m.id)).toEqual(files);
-    expect(files).toEqual(["001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013", "014"]);
+    expect(files).toEqual(["001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013", "014", "015"]);
   });
 
   it("reports every migration applied on a fully migrated database", async () => {

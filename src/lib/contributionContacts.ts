@@ -11,7 +11,6 @@ type Db = { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[]; r
 
 export type ContactInput = { name: string; email: string | null; phone: string | null; shareWithModerators: boolean };
 export type Contact = ContactInput;
-export type Viewer = { userId: number; isModerator: boolean };
 export type ContactResult = { ok: true; value: ContactInput } | { ok: false; errors: FieldErrors };
 
 /**
@@ -40,17 +39,18 @@ export function validateContact(raw: unknown): ContactResult {
 }
 
 /**
- * The one read query. $1 = contribution id, $2 = the viewer's user id, $3 = whether the viewer is a moderator.
+ * The one read query. $1 = contribution id, $2 = the viewer's user id. Whether the viewer is a moderator is read from the
+ * database (users.is_moderator, migration 015), never supplied by the caller.
  * A row comes back only for the owner, or for a moderator when share_with_moderators is true. Anyone else gets no row.
  */
 export const READ_CONTACT_SQL =
   "SELECT cc.contact_name, cc.email, cc.phone, cc.share_with_moderators " +
   "FROM contribution_contacts cc JOIN contributions c ON c.id = cc.contribution_id " +
-  "WHERE cc.contribution_id = $1 AND (c.user_id = $2 OR ($3::boolean AND cc.share_with_moderators))";
+  "WHERE cc.contribution_id = $1 AND (c.user_id = $2 OR (cc.share_with_moderators AND EXISTS (SELECT 1 FROM users m WHERE m.id = $2 AND m.is_moderator)))";
 
 /** The contact details this viewer may see, or null (no contact, or not allowed: the two look the same on purpose). */
-export async function readContact(db: Db, contributionId: number, viewer: Viewer): Promise<Contact | null> {
-  const { rows } = await db.query(READ_CONTACT_SQL, [contributionId, viewer.userId, viewer.isModerator === true]);
+export async function readContact(db: Db, contributionId: number, viewerUserId: number): Promise<Contact | null> {
+  const { rows } = await db.query(READ_CONTACT_SQL, [contributionId, viewerUserId]);
   const r = rows[0];
   return r ? { name: r.contact_name, email: r.email, phone: r.phone, shareWithModerators: r.share_with_moderators } : null;
 }
