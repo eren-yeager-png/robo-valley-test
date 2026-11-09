@@ -1,0 +1,202 @@
+<!-- rv-contribute widget 01 hub -->
+<div class="rv-hub" id="rv-hub" aria-live="polite" data-mine-url="/your-contributions/">
+	<h1 class="rv-hub-title">Contribute to RoboValley</h1>
+	<p class="rv-hub-lead">Pick one or more sectors, then share what you know. Everything you send is reviewed before it is published.</p>
+	<div class="rv-hub-me" id="rv-hub-me" hidden></div>
+	<div class="rv-hub-state" id="rv-hub-state"><p class="rv-hub-msg">Loading the sectors…</p></div>
+	<div class="rv-hub-grid" id="rv-hub-grid" role="group" aria-label="Sectors" hidden></div>
+	<div class="rv-hub-actions" id="rv-hub-actions" hidden>
+		<button type="button" class="rv-hub-btn rv-hub-btn--primary" id="rv-hub-go" disabled>Pick a sector to begin</button>
+		<p class="rv-hub-note" id="rv-hub-note" role="status" hidden></p>
+	</div>
+</div>
+<style>
+.rv-hub{--hub-brand:#17694f;--hub-dark:#123f33;--hub-fg:#15302a;--hub-muted:#56675f;--hub-line:#d6dfd9;--hub-tint:#e3ede7;--hub-amber-bg:#fbefd9;--hub-amber-ink:#5a3b06;max-width:1200px;margin:0 auto;padding:8px 20px 40px;font-family:'Mulish',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:var(--hub-fg)}
+.rv-hub *{box-sizing:border-box}
+.rv-hub-title{margin:6px 0;font-family:'Bricolage Grotesque','Mulish',system-ui,sans-serif;font-weight:800;font-size:clamp(28px,4.2vw,44px);line-height:1.1;color:var(--hub-dark)}
+.rv-hub-lead{margin:0 0 18px;max-width:760px;font-size:17px;color:var(--hub-muted)}
+.rv-hub-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.rv-hub-me{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:0 0 16px;padding:12px 16px;background:var(--hub-tint);border-radius:14px}
+.rv-hub-me[hidden]{display:none}
+.rv-hub-badge{display:inline-flex;align-items:center;min-height:28px;padding:0 12px;font-weight:800;font-size:13px;letter-spacing:.03em;color:#fff;background:var(--hub-brand);border-radius:999px}
+.rv-hub-me a{display:inline-flex;align-items:center;min-height:44px;font-weight:800;color:var(--hub-brand)}
+.rv-hub-grid[hidden],.rv-hub-actions[hidden],.rv-hub-state[hidden],.rv-hub-note[hidden]{display:none}
+.rv-hub-card{padding:20px;background:#fff;border:1.5px solid var(--hub-line);border-radius:18px;box-shadow:0 1px 2px rgba(21,48,42,.05)}
+.rv-hub-card.is-picked{border-color:var(--hub-brand);box-shadow:0 0 0 3px rgba(23,105,79,.18)}
+.rv-hub-name{margin:0 0 6px;font-family:'Bricolage Grotesque','Mulish',system-ui,sans-serif;font-weight:800;font-size:22px;color:var(--hub-dark)}
+.rv-hub-count{margin:0;font-family:'Bricolage Grotesque','Mulish',system-ui,sans-serif;font-weight:800;font-size:32px;line-height:1.1;color:var(--hub-brand)}
+.rv-hub-count--empty{font-size:22px}
+.rv-hub-sub{margin:2px 0 0;font-size:14px;color:var(--hub-muted)}
+.rv-hub-pick{display:inline-flex;align-items:center;gap:10px;min-height:44px;margin-top:12px;font-weight:700;cursor:pointer}
+.rv-hub-pick input{width:22px;height:22px;accent-color:var(--hub-brand)}
+.rv-hub-actions{margin-top:18px}
+.rv-hub-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;font:inherit;font-weight:800;color:var(--hub-brand);background:#fff;border:1.5px solid #b9cfc4;border-radius:12px;cursor:pointer}
+.rv-hub-btn:hover{background:var(--hub-tint);border-color:var(--hub-brand)}
+.rv-hub-btn--primary{color:#fff;background:var(--hub-brand);border-color:var(--hub-brand)}
+.rv-hub-btn--primary:hover{background:var(--hub-dark);border-color:var(--hub-dark)}
+.rv-hub-btn[disabled]{opacity:.5;cursor:not-allowed}
+.rv-hub :focus-visible{outline:3px solid #9AD3B5;outline-offset:2px}
+.rv-hub-note{margin:12px 0 0;padding:12px 16px;font-size:15px;color:var(--hub-amber-ink);background:var(--hub-amber-bg);border:1px solid #f0cf96;border-radius:14px}
+.rv-hub-state{padding:20px;background:var(--hub-tint);border-radius:18px}
+.rv-hub-state--error{color:var(--hub-amber-ink);background:var(--hub-amber-bg)}
+.rv-hub-msg{margin:0 0 8px}
+@media (max-width:640px){.rv-hub{padding:8px 14px 40px}}
+</style>
+<script>
+( function () {
+	var root = document.getElementById( 'rv-hub' );
+	if ( ! root || root.getAttribute( 'data-ready' ) ) {
+		return;
+	}
+	root.setAttribute( 'data-ready', '1' );
+	var api = ( window.RoboValleyApi && window.RoboValleyApi.base ) || '';
+	var state = document.getElementById( 'rv-hub-state' ), grid = document.getElementById( 'rv-hub-grid' ), actions = document.getElementById( 'rv-hub-actions' );
+	var go = document.getElementById( 'rv-hub-go' ), note = document.getElementById( 'rv-hub-note' );
+	var picked = [], sectors = [];
+
+	function make( tag, cls, text ) {
+		var n = document.createElement( tag );
+		if ( cls ) {
+			n.className = cls;
+		}
+		if ( text != null ) {
+			n.textContent = text;
+		}
+		return n;
+	}
+	function clear( n ) {
+		while ( n.firstChild ) {
+			n.removeChild( n.firstChild );
+		}
+	}
+	function showState( kind, msg, retry ) {
+		clear( state );
+		state.className = 'rv-hub-state' + ( kind === 'error' ? ' rv-hub-state--error' : '' );
+		state.appendChild( make( 'p', 'rv-hub-msg', msg ) );
+		if ( retry ) {
+			var b = make( 'button', 'rv-hub-btn', 'Try again' );
+			b.type = 'button';
+			b.addEventListener( 'click', load );
+			state.appendChild( b );
+		}
+		state.hidden = false;
+		grid.hidden = true;
+		actions.hidden = true;
+	}
+	function plural( n, one, many ) {
+		return n + ' ' + ( n === 1 ? one : many );
+	}
+	function paintButton() {
+		go.disabled = picked.length === 0;
+		go.textContent = picked.length ? 'Contribute in ' + plural( picked.length, 'sector', 'sectors' ) : 'Pick a sector to begin';
+	}
+	function render() {
+		clear( grid );
+		sectors.forEach( function ( s ) {
+			var on = picked.indexOf( s.slug ) >= 0;
+			var card = make( 'div', 'rv-hub-card' + ( on ? ' is-picked' : '' ) );
+			card.appendChild( make( 'h2', 'rv-hub-name', s.name ) );
+			if ( s.empty ) {
+				card.appendChild( make( 'p', 'rv-hub-count rv-hub-count--empty', 'Be the first to contribute' ) );
+			} else {
+				card.appendChild( make( 'p', 'rv-hub-count', String( s.contributions ) ) );
+				card.appendChild( make( 'p', 'rv-hub-sub', s.contributions === 1 ? 'published contribution' : 'published contributions' ) );
+				if ( s.contributors !== null && s.contributors !== undefined ) {
+					card.appendChild( make( 'p', 'rv-hub-sub', plural( s.contributors, 'contributor', 'contributors' ) ) );
+				}
+			}
+			var label = make( 'label', 'rv-hub-pick' );
+			var box = document.createElement( 'input' );
+			box.type = 'checkbox';
+			box.checked = on;
+			box.setAttribute( 'aria-label', 'Pick ' + s.name );
+			box.addEventListener( 'change', function () {
+				var i = picked.indexOf( s.slug );
+				if ( box.checked && i < 0 ) {
+					picked.push( s.slug );
+				} else if ( ! box.checked && i >= 0 ) {
+					picked.splice( i, 1 );
+				}
+				note.hidden = true;
+				card.className = 'rv-hub-card' + ( box.checked ? ' is-picked' : '' );
+				paintButton();
+			} );
+			label.appendChild( box );
+			label.appendChild( document.createTextNode( 'Pick this sector' ) );
+			card.appendChild( label );
+			grid.appendChild( card );
+		} );
+		state.hidden = true;
+		grid.hidden = false;
+		actions.hidden = false;
+		paintButton();
+	}
+	/** The hub only chooses sectors. The form that follows listens for this event; if nothing is listening yet, say so politely. */
+	go.addEventListener( 'click', function () {
+		if ( ! picked.length ) {
+			return;
+		}
+		var ev = new CustomEvent( 'rv-contribute-pick', { detail: { sectors: picked.slice() }, cancelable: true } );
+		document.dispatchEvent( ev );
+		if ( ! ev.defaultPrevented ) {
+			note.textContent = 'Sharing opens soon: the form is not on this page yet. Your sectors are noted.';
+			note.hidden = false;
+		}
+	} );
+	function load() {
+		if ( ! api || ! window.fetch ) {
+			showState( 'error', 'This page is not connected to RoboValley yet. Please try again later.', false );
+			return;
+		}
+		showState( 'info', 'Loading the sectors…', false );
+		fetch( api + '/api/contributions/sectors', { cache: 'no-store' } ).then( function ( r ) {
+			return r.json().catch( function () { return null; } ).then( function ( body ) {
+				if ( r.status === 429 ) {
+					var n = body && body.retryAfter ? body.retryAfter : 30;
+					throw { friendly: 'Lots of people are visiting right now. Please try again in ' + n + ' seconds.' };
+				}
+				if ( ! r.ok || ! body || body.success !== true || ! Array.isArray( body.sectors ) ) {
+					throw { friendly: 'The sectors are not available right now. Please try again.' };
+				}
+				return body.sectors;
+			} );
+		} ).then( function ( list ) {
+			sectors = list.filter( function ( s ) { return s && typeof s.slug === 'string' && typeof s.name === 'string'; } );
+			picked = picked.filter( function ( p ) { return sectors.some( function ( s ) { return s.slug === p; } ); } );
+			if ( ! sectors.length ) {
+				showState( 'info', 'There are no sectors to show yet. Please check back soon.', false );
+				return;
+			}
+			render();
+		} ).catch( function ( e ) {
+			showState( 'error', e && e.friendly ? e.friendly : 'The sectors could not be loaded. Please check your connection and try again.', true );
+		} );
+	}
+	/** Signed in? Then say so, show the Contributor badge (derived on the server) and link to "Your contributions". Silent for visitors. */
+	function loadMe() {
+		var me = document.getElementById( 'rv-hub-me' ), mineUrl = root.getAttribute( 'data-mine-url' ) || '/your-contributions/';
+		if ( ! api || ! window.fetch || ! me ) {
+			return;
+		}
+		fetch( api + '/api/auth/me', { credentials: 'include', cache: 'no-store' } ).then( function ( r ) { return r.json(); } ).then( function ( who ) {
+			if ( ! who || ! who.role ) {
+				return null;
+			}
+			return fetch( api + '/api/contributions/mine', { credentials: 'include', cache: 'no-store' } ).then( function ( r ) { return r.json().catch( function () { return null; } ); } ).then( function ( b ) {
+				clear( me );
+				me.appendChild( make( 'span', null, who.firstName ? 'Welcome back, ' + who.firstName + '.' : 'Welcome back.' ) );
+				if ( b && b.success === true && b.contributor ) {
+					me.appendChild( make( 'span', 'rv-hub-badge', 'Contributor' ) );
+				}
+				var a = make( 'a', null, 'Your contributions' + ( b && b.success === true && b.items && b.items.length ? ' (' + b.items.length + ')' : '' ) );
+				a.href = mineUrl;
+				me.appendChild( a );
+				me.hidden = false;
+				return null;
+			} );
+		} ).catch( function () { /* the hub works the same without it */ } );
+	}
+	load();
+	loadMe();
+}() );
+</script>
