@@ -74,7 +74,7 @@ describe("moderation page", () => {
   it("the decision form needs a note for the three decisions the author reads about, with a plain message", async () => {
     const { default: DecisionForm } = await import("../src/app/moderation/DecisionForm");
     const h = renderToStaticMarkup(<DecisionForm id={7} actions={["approve", "request_changes", "reject"]} />);
-    expect(h).toContain("required to request changes, reject or unpublish"); expect(h).toContain('role="alert"');
+    expect(h).toContain("required to request changes, reject, unpublish or remove"); expect(h).toContain('role="alert"');
     expect(renderToStaticMarkup(<DecisionForm id={7} actions={[]} />)).toContain("No decision can be made");
   });
 });
