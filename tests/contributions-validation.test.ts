@@ -11,8 +11,8 @@ describe("lists", () => {
     expect(CONTRIBUTION_TYPES).toHaveLength(14);
     expect(new Set(CONTRIBUTION_TYPES.map((t) => t.id)).size).toBe(14);
   });
-  it("labels the six statuses (rejected and unpublished need migration 017)", () => {
-    expect(Object.values(STATUS_LABELS)).toEqual(["Draft", "Pending review", "Changes requested", "Published", "Not accepted", "Taken down"]);
+  it("labels the seven statuses (rejected and unpublished need migration 017, removed needs 018)", () => {
+    expect(Object.values(STATUS_LABELS)).toEqual(["Draft", "Pending review", "Changes requested", "Published", "Not accepted", "Taken down", "Removed"]);
   });
 });
 

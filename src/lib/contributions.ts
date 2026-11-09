@@ -23,7 +23,7 @@ export const CONTRIBUTION_TYPES = [
 export type ContributionType = (typeof CONTRIBUTION_TYPES)[number]["id"];
 
 // The six stored statuses. "rejected" and "unpublished" need migration 017; before it nothing can be in them.
-export const CONTRIBUTION_STATUSES = ["draft", "pending_review", "changes_requested", "published", "rejected", "unpublished"] as const;
+export const CONTRIBUTION_STATUSES = ["draft", "pending_review", "changes_requested", "published", "rejected", "unpublished", "removed"] as const; // "removed" needs migration 018
 export type ContributionStatus = (typeof CONTRIBUTION_STATUSES)[number];
 
 /** What a visitor sees for each stored status. */
@@ -34,6 +34,7 @@ export const STATUS_LABELS: Record<ContributionStatus, string> = {
   published: "Published",
   rejected: "Not accepted",
   unpublished: "Taken down",
+  removed: "Removed",
 };
 
 /**
@@ -43,11 +44,12 @@ export const STATUS_LABELS: Record<ContributionStatus, string> = {
  */
 export const STATUS_TRANSITIONS: Record<ContributionStatus, readonly ContributionStatus[]> = {
   draft: ["pending_review"],
-  pending_review: ["changes_requested", "published", "rejected"],
+  pending_review: ["changes_requested", "published", "rejected", "removed"],
   changes_requested: ["pending_review"],
   published: ["unpublished", "pending_review"],
   unpublished: ["published", "pending_review"],
   rejected: [],
+  removed: [], // an administrator removed it as a duplicate or unsuitable (migration 018); final, like rejected
 };
 export const canTransition = (from: ContributionStatus, to: ContributionStatus) => STATUS_TRANSITIONS[from].includes(to);
 

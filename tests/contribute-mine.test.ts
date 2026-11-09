@@ -69,7 +69,7 @@ describe("what a list contains", () => {
     for (const s of ["draft", "pending_review", "changes_requested", "published", "unpublished", "rejected"]) await make(u, s);
     await make(u, "published");
     const x = await getMine();
-    expect(x.b.counts).toEqual({ draft: 1, pending_review: 1, changes_requested: 1, published: 2, unpublished: 1, rejected: 1 });
+    expect(x.b.counts).toEqual({ draft: 1, pending_review: 1, changes_requested: 1, published: 2, unpublished: 1, rejected: 1, removed: 0 }); // 'removed' arrives with migration 018
     expect(x.b.items).toHaveLength(7);
   });
   it("the moderator's note shows only for changes requested, rejected and unpublished, and is the LATEST note", async () => {

@@ -93,6 +93,11 @@ export const MIGRATIONS = [
     { kind: "constraint", name: "contribution_reviews_action_ck" },
     { kind: "index", name: "contribution_reviews_item_idx" },
   ] },
+  { id: "018", title: "duplicate safeguard", feature: "One live contribution per normalised title and sector; verify and remove review actions", requires: ["017"], checks: [
+    { kind: "table", table: "contribution_title_keys" },
+    { kind: "constraint", name: "contribution_title_keys_pkey" },
+    { kind: "index", name: "contribution_title_keys_item_idx" },
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */
