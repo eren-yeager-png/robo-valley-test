@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       RoboValley Projects
  * Description:       Projects catalogue for RoboValley: the "Project" content type, its technology / education / subject taxonomies and the admin fields. Public fields are served from WordPress; the members-only fields are stored here but never output publicly.
- * Version:           0.2.1
+ * Version:           0.2.2
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            RoboValley
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'RVP_VERSION', '0.2.1' );
+define( 'RVP_VERSION', '0.2.2' );
 define( 'RVP_FILE', __FILE__ );
 define( 'RVP_DIR', plugin_dir_path( __FILE__ ) );
 define( 'RVP_URL', plugin_dir_url( __FILE__ ) );
