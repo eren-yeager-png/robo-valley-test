@@ -1,0 +1,106 @@
+<div class="rv-c2" id="rv-c2">
+<div class="rv-c2-header">RoboValley · Member Portal</div>
+<div class="rv-c2-main">
+<p class="crumb">Member Portal / Contribute / Add Feature</p>
+<h1>Contribute to RoboValley</h1>
+<p>Suggest a feature, resource, or opportunity for the RoboValley Directory.</p>
+<p class="notice" id="rv-c2-unavailable" role="status" hidden>The contribution form is not available right now. Please try again later.</p>
+<aside id="guest" aria-labelledby="guest-title" hidden>
+  <h2 id="guest-title">Sign in to contribute</h2>
+  <p>Already registered? Sign in. New to RoboValley? Sign up to create your member profile.</p>
+  <button type="button" class="primary" id="sign-in">Sign In</button>
+  <button type="button" id="sign-up">Sign Up</button>
+</aside>
+<section id="member-area" hidden>
+  <p class="notice"><strong id="member-name"></strong> · Registered member <button type="button" id="sign-out">Sign Out</button></p>
+  <form id="contribute" novalidate>
+  <fieldset>
+    <legend>Contribution details</legend>
+    <label>Feature title <span aria-hidden="true">*</span><input name="title" maxlength="120" required placeholder="e.g. Weekend robotics club" aria-describedby="rv-c2-title-hint"></label>
+    <small class="count" id="rv-c2-title-hint">At least 5 characters.</small>
+    <p class="notice">Stakeholder category from your profile · <strong id="stakeholder"></strong></p>
+    <label>Brief description <span aria-hidden="true">*</span><textarea name="description" rows="3" maxlength="1200" required placeholder="What are you contributing and how could it help the community?" aria-describedby="rv-c2-description-hint"></textarea></label>
+    <small class="count" id="rv-c2-description-hint">At least 10 characters.</small>
+  </fieldset>
+  <fieldset class="links">
+    <legend>Directory categories <span aria-hidden="true">*</span></legend>
+    <p class="hint">Select all that apply. For each category, add up to five links, paste a remarks note, or do both.</p>
+    <div class="choices" id="choices">
+      <label><input type="checkbox" name="category" value="Projects">Projects</label>
+      <label><input type="checkbox" name="category" value="Services">Services</label>
+      <label><input type="checkbox" name="category" value="Events">Events</label>
+      <label><input type="checkbox" name="category" value="Robo Clubs">Robo Clubs</label>
+      <label><input type="checkbox" name="category" value="Labs &amp; Makerspaces">Labs &amp; Makerspaces</label>
+      <label><input type="checkbox" name="category" value="Training &amp; Workshops">Training &amp; Workshops</label>
+      <label><input type="checkbox" name="category" value="Not sure">Not sure</label>
+    </div>
+    <div id="category-details"></div>
+  </fieldset>
+  <fieldset class="links">
+    <legend>Sectors <span aria-hidden="true">*</span></legend>
+    <p class="hint">Select at least one sector, up to 20.</p>
+    <div class="choices" id="sector-choices"><small>Loading sectors…</small></div>
+  </fieldset>
+  <fieldset class="links">
+    <legend>Photos <small>· Optional</small></legend>
+    <p class="hint">Up to 3 photos, JPG or PNG, 4 MB each. Describe each photo for people who cannot see it.</p>
+    <div id="photos"></div>
+    <small class="count" id="photo-count" aria-live="polite">0 of 3 photos</small>
+    <label>Add a photo<input type="file" id="photo-file" accept=".jpg,.jpeg,.png,image/jpeg,image/png"></label>
+  </fieldset>
+  <fieldset class="links">
+    <legend>Contact details <small>· Optional, private</small></legend>
+    <p class="hint">Only you can see these. Moderators see them only if you tick the box. They are never shown publicly.</p>
+    <div class="grid">
+      <label>Name<input name="contactName" maxlength="150" autocomplete="name"></label>
+      <label>Email<input name="contactEmail" type="email" maxlength="254" autocomplete="email"></label>
+      <label>Mobile number<input name="contactPhone" type="tel" maxlength="16" autocomplete="tel"></label>
+    </div>
+    <div class="choices"><label><input type="checkbox" name="shareWithModerators">Share my contact details with moderators</label></div>
+  </fieldset>
+  <div class="rv-c2-trap" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div>
+  <div class="actions">
+    <p class="hint"><small>* Required fields</small></p>
+    <button class="primary" type="submit">Submit for Review</button>
+    <p id="message" class="notice" role="status" hidden></p>
+  </div>
+</form>
+<aside aria-labelledby="history-title">
+  <h2 id="history-title">My Contributions</h2>
+  <p id="empty">Your submissions will appear here.</p>
+  <ul id="history"></ul>
+</aside>
+</section>
+</div>
+<template id="category-template">
+  <fieldset class="category-details" hidden disabled>
+    <legend></legend>
+    <label>Remarks or pasted note <small>· Optional</small><textarea name="remarks" rows="3" placeholder="Paste a note or describe a relevant subcategory item."></textarea></label>
+    <div class="references"></div>
+    <small class="count" aria-live="polite">0 of 5 links</small>
+    <button type="button" class="add">+ Add reference link</button>
+  </fieldset>
+</template>
+<template id="reference-template">
+  <fieldset class="reference">
+    <legend>Additional reference</legend>
+    <div class="grid">
+      <label>Link type<select name="referenceType" required>
+        <option value="">Select type</option><option>Image</option><option>News article</option>
+        <option>LinkedIn</option><option>Subcategory item</option>
+        <option>Technical</option><option>Architectural</option><option>Functional</option><option>Website</option><option>Video</option><option>Document</option><option>Other</option>
+      </select></label>
+      <label>URL<input type="url" name="referenceUrl" required placeholder="https://…"></label>
+    </div>
+    <label>What does the link provide?<input name="referenceGist" required maxlength="180" placeholder="e.g. Photos of students assembling a robot"></label>
+    <button type="button" class="remove">Remove link</button>
+  </fieldset>
+</template>
+<template id="photo-template">
+  <fieldset class="reference">
+    <legend></legend>
+    <label>Describe this photo <span aria-hidden="true">*</span><input name="photoAlt" maxlength="200" required></label>
+    <button type="button" class="remove">Remove photo</button>
+  </fieldset>
+</template>
+</div>
