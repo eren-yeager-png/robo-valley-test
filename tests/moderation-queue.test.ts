@@ -11,10 +11,10 @@ vi.mock("../src/lib/currentUser", () => ({
   firstNameOf: () => "Someone",
 }));
 
-import * as queue from "../src/app/api/admin/moderation/queue/route";
-import * as detail from "../src/app/api/admin/moderation/[id]/route";
-import * as decision from "../src/app/api/admin/moderation/[id]/decision/route";
-import * as photo from "../src/app/api/admin/moderation/[id]/photos/[photoId]/route";
+import * as queue from "../src/app/api/review/queue/route";
+import * as detail from "../src/app/api/review/[id]/route";
+import * as decision from "../src/app/api/review/[id]/decision/route";
+import * as photo from "../src/app/api/review/[id]/photos/[photoId]/route";
 import * as mine from "../src/app/api/contributions/mine/route";
 import * as sectors from "../src/app/api/contributions/sectors/route";
 import { ACTIONS, checkDecision } from "../src/lib/contributionReview";
@@ -92,7 +92,7 @@ describe("the queue", () => {
     await q("UPDATE contributions SET submitted_at = now() - interval '2 days' WHERE id=$1", [older]);
     await make(a, "draft", { title: "Secret draft item" }); await make(a, "pending_review", { title: "Demo item", demo: true }); await make(a, "published", { title: "Already published" });
     await q("INSERT INTO contribution_contacts (contribution_id, contact_name, email, share_with_moderators) VALUES ($1,'Hidden Name','hidden@example.com',true)", [newer]);
-    const x = await call(queue.GET, "GET", "/api/admin/moderation/queue");
+    const x = await call(queue.GET, "GET", "/api/review/queue");
     expect(x.b.items.map((i: any) => i.title)).toEqual(["Older pending item", "Newer pending item"]);
     expect(JSON.stringify(x.b)).not.toMatch(/Hidden Name|hidden@example|milked|Secret draft|email|password/i);
     expect(x.r.headers.get("cache-control")).toBe("no-store");
@@ -100,8 +100,8 @@ describe("the queue", () => {
   it("?status= shows another group, and anything unknown (including drafts) falls back to pending", async () => {
     const a = await user("ST"); as(await user("admin"));
     await make(a, "published", { title: "A published one" }); await make(a, "pending_review", { title: "A pending one" }); await make(a, "draft", { title: "A draft one" });
-    expect((await call(queue.GET, "GET", "/api/admin/moderation/queue?status=published")).b.items.map((i: any) => i.title)).toEqual(["A published one"]);
-    for (const s of ["draft", "nonsense", "pending_review' OR 1=1 --", ""]) expect((await call(queue.GET, "GET", "/api/admin/moderation/queue?status=" + encodeURIComponent(s))).b.items.map((i: any) => i.title)).toEqual(["A pending one"]);
+    expect((await call(queue.GET, "GET", "/api/review/queue?status=published")).b.items.map((i: any) => i.title)).toEqual(["A published one"]);
+    for (const s of ["draft", "nonsense", "pending_review' OR 1=1 --", ""]) expect((await call(queue.GET, "GET", "/api/review/queue?status=" + encodeURIComponent(s))).b.items.map((i: any) => i.title)).toEqual(["A pending one"]);
   });
   it("answers 503 when the tables are missing and a plain 500 otherwise", async () => {
     as(await user("admin"));

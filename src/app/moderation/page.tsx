@@ -64,7 +64,7 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
                 {item.photoList.map((p) => (
                   <figure key={p.id}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`/api/admin/moderation/${item!.id}/photos/${p.id}`} alt={p.alt} />
+                    <img src={`/api/review/${item!.id}/photos/${p.id}`} alt={p.alt} />
                     <figcaption>{p.alt}</figcaption>
                   </figure>
                 ))}

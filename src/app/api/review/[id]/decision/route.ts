@@ -1,9 +1,9 @@
-import { preflight, withCors } from "../../../../../../lib/cors";
-import { json, readJson } from "../../../../../../lib/http";
-import { pool } from "../../../../../../lib/db";
-import { decide, type Fail } from "../../../../../../lib/contributionReview";
-import { guardReviewer } from "../../../../../../lib/reviewerGuard";
-import { parseId } from "../../../../../../lib/contributorGuard";
+import { preflight, withCors } from "../../../../../lib/cors";
+import { json, readJson } from "../../../../../lib/http";
+import { pool } from "../../../../../lib/db";
+import { decide, type Fail } from "../../../../../lib/contributionReview";
+import { guardReviewer } from "../../../../../lib/reviewerGuard";
+import { parseId } from "../../../../../lib/contributorGuard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const f = r as Fail;
     return withCors(req, json({ success: false, error: f.error, message: f.message, ...(f.fieldErrors ? { fieldErrors: f.fieldErrors } : {}) }, f.status), METHODS);
   } catch {
-    console.error("moderation decision failed: server error");
+    console.error("review decision failed: server error");
     return withCors(req, json({ success: false, error: "SERVER_ERROR", message: "Something went wrong. Nothing was changed. Please try again." }, 500), METHODS);
   }
 }

@@ -23,7 +23,7 @@ export default function DecisionForm({ id, actions }: { id: number; actions: str
     }
     setNoteErr(""); setMsg(null); setBusy(true);
     try {
-      const r = await fetch(`/api/admin/moderation/${id}/decision`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, note: text }) });
+      const r = await fetch(`/api/review/${id}/decision`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, note: text }) });
       const b = await r.json().catch(() => null);
       if (r.ok && b?.success) {
         setMsg({ kind: "ok", text: "Done. The decision is saved." });

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { preflight, withCors } from "../../../../../../../lib/cors";
-import { json } from "../../../../../../../lib/http";
-import { pool } from "../../../../../../../lib/db";
-import { guardReviewer } from "../../../../../../../lib/reviewerGuard";
-import { parseId } from "../../../../../../../lib/contributorGuard";
-import { getPhotoBytes } from "../../../../../../../lib/contributionPhotos";
+import { preflight, withCors } from "../../../../../../lib/cors";
+import { json } from "../../../../../../lib/http";
+import { pool } from "../../../../../../lib/db";
+import { guardReviewer } from "../../../../../../lib/reviewerGuard";
+import { parseId } from "../../../../../../lib/contributorGuard";
+import { getPhotoBytes } from "../../../../../../lib/contributionPhotos";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; pho
     } }), METHODS);
   } catch (e) {
     if ((e as { code?: string })?.code === "42P01") return withCors(req, json({ success: false, error: "NOT_SET_UP", message: "Reviewing is not set up yet." }, 503), METHODS);
-    console.error("moderation photo failed: server error");
+    console.error("review photo failed: server error");
     return withCors(req, json({ success: false, error: "SERVER_ERROR", message: "Something went wrong." }, 500), METHODS);
   }
 }
