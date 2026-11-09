@@ -186,7 +186,7 @@ describe("real data and reset", () => {
 describe("command line", () => {
   const run = (args: string[], env: Record<string, string | undefined> = {}) => {
     const r = spawnSync(process.execPath, [resolve("scripts/seed-sample-data.mjs"), ...args], {
-      encoding: "utf8", timeout: 30_000,
+      encoding: "utf8", timeout: 60_000, // each run starts a fresh node process (about 3 s idle, 10 s+ when the whole suite is running)
       env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, DATABASE_URL: TEST_DATABASE_URL, ...env } as unknown as NodeJS.ProcessEnv,
     });
     return { code: r.status, out: `${r.stdout}\n${r.stderr}` };
@@ -205,11 +205,11 @@ describe("command line", () => {
       expect(r.out).not.toMatch(/secret|ep-cool/);
     }
     expect(run(["--expect-db", "never_connects"], { NODE_ENV: "production" }).out).toMatch(/NODE_ENV is production/);
-  });
+  }, 90_000); // four process starts: the default 30 s is too tight when the whole suite runs at once
   it("needs --expect-db and rejects unknown options", () => {
     expect(run([]).out).toMatch(/Missing --expect-db/);
     expect(run(["--expect-db", "never_connects", "--wipe"]).out).toMatch(/Unknown option: --wipe/);
-  });
+  }, 90_000); // two process starts, same reason
   it("--apply against an unreachable local database fails with one clear line", () => {
     const r = run(["--expect-db", "never_connects", "--apply"]);
     expect(r.code).toBe(1);
