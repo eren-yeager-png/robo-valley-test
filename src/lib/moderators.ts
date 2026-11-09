@@ -39,3 +39,24 @@ export async function setModerator(pool: Pool, adminId: number, targetId: number
     client.release();
   }
 }
+
+export type Reviewer = { ok: true; userId: number; isAdmin: boolean; isModerator: boolean } | { ok: false };
+
+/**
+ * Who may review contributions: an administrator, or a user whose moderator flag is set (migration 015). Read from the database on
+ * every call. FAILS CLOSED: if the flag column does not exist yet (015 not applied) or anything else goes wrong, only a real
+ * administrator passes; nobody becomes a reviewer because of an error.
+ */
+export async function reviewerOf(db: Db, userId: number): Promise<Reviewer> {
+  if (!Number.isSafeInteger(userId) || userId <= 0) return { ok: false };
+  let row: { role?: string; is_moderator?: boolean } | undefined;
+  try {
+    row = (await db.query("SELECT role, is_moderator FROM users WHERE id = $1", [userId])).rows[0];
+  } catch (e) {
+    if ((e as { code?: string })?.code !== "42703") return { ok: false }; // anything but "column missing": no access
+    try { row = (await db.query("SELECT role FROM users WHERE id = $1", [userId])).rows[0]; } catch { return { ok: false }; }
+  }
+  if (!row) return { ok: false };
+  const isAdmin = row.role === "admin", isModerator = row.is_moderator === true;
+  return isAdmin || isModerator ? { ok: true, userId, isAdmin, isModerator } : { ok: false };
+}
