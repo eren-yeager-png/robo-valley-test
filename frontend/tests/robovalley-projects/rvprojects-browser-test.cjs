@@ -38,7 +38,7 @@ let pass = 0, fail = 0; const check = (n, ok, d) => { ok ? pass++ : fail++; cons
 	const waitReq = async (fn, ms = 40000) => { const end = Date.now() + ms; while (Date.now() < end) { if (reqs.some(fn)) return true; await sleep(150); } return false; };
 	await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
 	const hasHScroll = () => ev('document.documentElement.scrollWidth>document.documentElement.clientWidth+1');
-	const heroInfo = () => ev('JSON.stringify((function(){var h=document.querySelector(".rvp-hero-grid"),r=h.getBoundingClientRect(),c=getComputedStyle(h),w=document.querySelector(".rvp-section .rvp-wrap").getBoundingClientRect(),v=getComputedStyle(document.querySelector(".rvp-hero-visual")),a=document.querySelector(".rvp-hero-art").getBoundingClientRect(),q=document.getElementById("rvp-q").getBoundingClientRect();return {h:Math.round(r.height),w:Math.round(r.width),l:Math.round(r.left),wl:Math.round(w.left),ww:Math.round(w.width),radius:parseFloat(c.borderTopLeftRadius),bw:parseFloat(c.borderTopWidth),border:c.borderTopColor,bg:c.backgroundColor,artDisplay:v.display,artW:Math.round(a.width),over:document.documentElement.scrollWidth>innerWidth+1,full:r.width>=innerWidth-1,qIn:q.left>=0&&q.right<=innerWidth}})())').then(JSON.parse);
+	const heroInfo = () => ev('JSON.stringify((function(){var h=document.querySelector(".rvp-hero-grid"),r=h.getBoundingClientRect(),c=getComputedStyle(h),w=document.querySelector(".rvp-section .rvp-wrap").getBoundingClientRect(),v=getComputedStyle(document.querySelector(".rvp-hero-visual")),a=document.querySelector(".rvp-hero-art").getBoundingClientRect(),q=document.getElementById("rvp-q").getBoundingClientRect();return {h:Math.round(r.height),w:Math.round(r.width),l:Math.round(r.left),wl:Math.round(w.left),ww:Math.round(w.width),radius:parseFloat(c.borderTopLeftRadius),bw:parseFloat(c.borderTopWidth),border:c.borderTopColor,bg:c.backgroundColor,artDisplay:v.display,artW:Math.round(a.width),over:document.documentElement.scrollWidth>innerWidth+1,full:r.width>=innerWidth-1,qIn:q.left>=0&&q.right<=innerWidth,qH:Math.round(document.getElementById("rvp-hero-search").getBoundingClientRect().height)}})())').then(JSON.parse);
 
 	// ============ VISITOR, 1280 ============
 	await viewport(1280, 900); await send('Network.clearBrowserCookies');
@@ -172,6 +172,7 @@ let pass = 0, fail = 0; const check = (n, ok, d) => { ok ? pass++ : fail++; cons
 	const hero = await heroInfo();
 	check('hero at 1280: a contained card as wide as the page container, not full-bleed', !hero.full && Math.abs(hero.w - hero.ww) <= 1 && Math.abs(hero.l - hero.wl) <= 1, hero);
 	check('hero at 1280: about 360-420px tall (never above 480px)', hero.h >= 340 && hero.h <= 480, hero.h);
+	check('hero at 1280: the search box is one slim row (80px at most)', hero.qH > 30 && hero.qH <= 80, hero.qH);
 	check('hero at 1280: rounded (24px), 1px border in the page line colour, dark green kept', hero.radius >= 20 && hero.bw === 1 && hero.border === 'rgb(214, 223, 217)' && hero.bg === 'rgb(18, 63, 51)', hero);
 	check('hero at 1280: the robot illustration is still shown', hero.artDisplay !== 'none' && hero.artW > 100, hero);
 	const illus = JSON.parse(await ev('JSON.stringify([].map.call(document.querySelectorAll(".rvp-tile"),function(t){var i=t.querySelector("img");return {slug:t.getAttribute("data-tech"),src:i&&i.getAttribute("src"),cls:i&&i.className,alt:i&&i.alt,w:i&&i.getAttribute("width"),h:i&&i.getAttribute("height"),lazy:i&&i.loading}}))'));
@@ -215,7 +216,8 @@ let pass = 0, fail = 0; const check = (n, ok, d) => { ok ? pass++ : fail++; cons
 	check('390px: no horizontal scroll', (await hasHScroll()) === false); await shot('05-visitor-390-top');
 	const hero390 = await heroInfo();
 	check('hero at 390: the card stacks inside the screen with nothing overflowing, search box fully visible', !hero390.over && hero390.l >= 0 && hero390.l + hero390.w <= 390 && hero390.qIn && hero390.radius >= 16 && hero390.bw === 1, hero390);
-	check('hero at 390: the illustration is hidden or small (240px at most) and the card is no taller than 800px', (hero390.artDisplay === 'none' || hero390.artW <= 240) && hero390.h <= 800, hero390);
+	check('hero at 390: the illustration is hidden or small (240px at most) and the card is no taller than 620px', (hero390.artDisplay === 'none' || hero390.artW <= 240) && hero390.h <= 620, hero390);
+	check('hero at 390: the search box is only as tall as its content (input and button), not stretched', hero390.qH >= 80 && hero390.qH <= 150, hero390.qH);
 	await ev('document.getElementById("rvp-discover").scrollIntoView()'); await sleep(300); await shot('06-visitor-390-discover');
 	check('390px: filters are closed by default (off-screen), Filters button is shown', (await ev('document.getElementById("rvp-filters").getBoundingClientRect().right<=0||getComputedStyle(document.getElementById("rvp-filters")).visibility==="hidden"')) === true && (await ev('getComputedStyle(document.getElementById("rvp-filter-open")).display')) !== 'none');
 	await click('#rvp-filter-open'); await sleep(500);
