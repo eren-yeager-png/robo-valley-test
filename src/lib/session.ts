@@ -113,5 +113,13 @@ export function contributeReturnPath(env: NodeJS.ProcessEnv = process.env): stri
   return raw && /^\/[A-Za-z0-9/_-]*$/.test(raw) && !raw.includes("//") ? (raw.endsWith("/") ? raw : raw + "/") : "/contribute-now/";
 }
 
+/** "Your contributions", the third page "returnTo" may point at. CONTRIBUTE_MINE_PATH overrides the default. */
+export function mineReturnPath(env: NodeJS.ProcessEnv = process.env): string {
+  const raw = env.CONTRIBUTE_MINE_PATH?.trim();
+  return raw && /^\/[A-Za-z0-9/_-]*$/.test(raw) && !raw.includes("//") ? (raw.endsWith("/") ? raw : raw + "/") : "/your-contributions/";
+}
+
 export const resolveReturnTo = (raw: unknown, env: NodeJS.ProcessEnv = process.env): string | null =>
-  validateReturnTo(raw, siteUrl(env), projectsReturnPath(env)) ?? validateContributeReturn(raw, siteUrl(env), contributeReturnPath(env));
+  validateReturnTo(raw, siteUrl(env), projectsReturnPath(env)) ??
+  validateContributeReturn(raw, siteUrl(env), contributeReturnPath(env)) ??
+  validateContributeReturn(raw, siteUrl(env), mineReturnPath(env));

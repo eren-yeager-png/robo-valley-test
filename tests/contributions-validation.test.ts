@@ -11,13 +11,13 @@ describe("lists", () => {
     expect(CONTRIBUTION_TYPES).toHaveLength(14);
     expect(new Set(CONTRIBUTION_TYPES.map((t) => t.id)).size).toBe(14);
   });
-  it("labels the four statuses the hub shows", () => {
-    expect(Object.values(STATUS_LABELS)).toEqual(["Draft", "Pending review", "Changes requested", "Published"]);
+  it("labels the six statuses (rejected and unpublished need migration 017)", () => {
+    expect(Object.values(STATUS_LABELS)).toEqual(["Draft", "Pending review", "Changes requested", "Published", "Not accepted", "Taken down"]);
   });
 });
 
 describe("status moves", () => {
-  it("allows submit, request changes, resubmit and publish only", () => {
+  it("allows the moves of the status machine and nothing else", () => {
     expect(canTransition("draft", "pending_review")).toBe(true);
     expect(canTransition("pending_review", "changes_requested")).toBe(true);
     expect(canTransition("changes_requested", "pending_review")).toBe(true);
@@ -25,7 +25,15 @@ describe("status moves", () => {
     expect(canTransition("draft", "published")).toBe(false);
     expect(canTransition("changes_requested", "published")).toBe(false);
     expect(canTransition("published", "draft")).toBe(false);
-    expect(canTransition("published", "pending_review")).toBe(false);
+    expect(canTransition("published", "pending_review")).toBe(true); // the owner edits a published item: back to review
+    expect(canTransition("pending_review", "rejected")).toBe(true);
+    expect(canTransition("published", "unpublished")).toBe(true);
+    expect(canTransition("unpublished", "published")).toBe(true);
+    expect(canTransition("unpublished", "pending_review")).toBe(true);
+    expect(canTransition("rejected", "pending_review")).toBe(false); // rejected is final
+    expect(canTransition("rejected", "published")).toBe(false);
+    expect(canTransition("draft", "rejected")).toBe(false);
+    expect(canTransition("changes_requested", "rejected")).toBe(false);
   });
 });
 
@@ -99,13 +107,13 @@ describe("code and database use the same limits", () => {
     expect(sql).toContain(`robot_type   varchar(${L.slugMax})`);
     expect(sql).toContain(`slug        varchar(${L.slugMax})`);
   });
-  it("the 14 types and the 4 statuses", () => {
+  it("the 14 types and the first 4 statuses (migration 012; 017 widens the rule to all 6, see migration-017.test.ts)", () => {
     const list = (name: string) => {
       const at = sql.indexOf(name + " CHECK");
       const open = sql.indexOf("IN (", at) + 4;
       return sql.slice(open, sql.indexOf(")", open)).split(",").map((x) => x.trim().replace(/'/g, ""));
     };
     expect(list("contributions_type_ck")).toEqual(CONTRIBUTION_TYPES.map((t) => t.id));
-    expect(list("contributions_status_ck")).toEqual([...CONTRIBUTION_STATUSES]);
+    expect(list("contributions_status_ck")).toEqual(CONTRIBUTION_STATUSES.slice(0, 4));
   });
 });

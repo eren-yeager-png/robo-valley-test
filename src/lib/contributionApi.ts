@@ -65,7 +65,7 @@ export const OWNER_RULES: Record<ContributionStatus | "rejected" | "unpublished"
   changes_requested: { edit: "changes_requested", submit: true, deleteIt: false },
   pending_review: { edit: "pending_review", submit: false, deleteIt: false },
   published: { edit: "pending_review", submit: false, deleteIt: false }, // an edited published item goes back to review and leaves the public numbers
-  unpublished: { edit: "pending_review", submit: false, deleteIt: false }, // editing an unpublished item asks for review again
+  unpublished: { edit: "pending_review", submit: true, deleteIt: false }, // editing an unpublished item asks for review again
   rejected: { edit: null, submit: false, deleteIt: false }, // final: the author starts a new contribution instead
 };
 

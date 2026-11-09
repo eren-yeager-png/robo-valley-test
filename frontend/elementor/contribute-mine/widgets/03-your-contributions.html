@@ -1,0 +1,199 @@
+<!-- rv-contribute widget 03 your contributions -->
+<section class="rv-my" id="rv-my" data-contribute-url="/contribute-now/" aria-labelledby="rv-my-title">
+	<div class="rv-my-head">
+		<h1 class="rv-my-title" id="rv-my-title">Your contributions</h1>
+		<span class="rv-my-badge" id="rv-my-badge" hidden>Contributor</span>
+	</div>
+	<p class="rv-my-lead">Everything you have started or sent, and where it stands. Only you can see this page.</p>
+	<div class="rv-my-state" id="rv-my-state" role="status"><p class="rv-my-msg">Loading your contributions…</p></div>
+	<div class="rv-my-body" id="rv-my-body" hidden></div>
+</section>
+<style>
+.rv-my{--my-brand:#17694f;--my-dark:#123f33;--my-fg:#15302a;--my-muted:#56675f;--my-line:#d6dfd9;--my-tint:#e3ede7;--my-amber-bg:#fbefd9;--my-amber-ink:#5a3b06;max-width:900px;margin:0 auto;padding:8px 20px 40px;font-family:'Mulish',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:var(--my-fg)}
+.rv-my *{box-sizing:border-box}
+.rv-my [hidden]{display:none}
+.rv-my-head{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.rv-my-title{margin:6px 0;font-family:'Bricolage Grotesque','Mulish',system-ui,sans-serif;font-weight:800;font-size:clamp(28px,4.2vw,44px);line-height:1.1;color:var(--my-dark)}
+.rv-my-badge{display:inline-flex;align-items:center;min-height:32px;padding:0 14px;font-weight:800;font-size:14px;letter-spacing:.03em;color:#fff;background:var(--my-brand);border-radius:999px}
+.rv-my-lead{margin:0 0 18px;font-size:17px;color:var(--my-muted)}
+.rv-my-state{padding:20px;background:var(--my-tint);border-radius:18px}
+.rv-my-state--error{color:var(--my-amber-ink);background:var(--my-amber-bg)}
+.rv-my-msg{margin:0 0 10px}
+.rv-my-counts{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px;padding:0;list-style:none}
+.rv-my-counts li{padding:6px 12px;font-size:14px;font-weight:700;background:var(--my-tint);border-radius:999px}
+.rv-my-group{margin:0 0 22px}
+.rv-my-gh{margin:0 0 10px;font-family:'Bricolage Grotesque','Mulish',system-ui,sans-serif;font-weight:800;font-size:22px;color:var(--my-dark)}
+.rv-my-list{display:grid;gap:12px;margin:0;padding:0;list-style:none}
+.rv-my-item{padding:16px 18px;background:#fff;border:1.5px solid var(--my-line);border-radius:16px}
+.rv-my-it{margin:0 0 4px;font-weight:800;font-size:18px;overflow-wrap:anywhere}
+.rv-my-meta{margin:0;font-size:14px;color:var(--my-muted)}
+.rv-my-note{margin:10px 0 0;padding:10px 14px;font-size:15px;color:var(--my-amber-ink);background:var(--my-amber-bg);border:1px solid #f0cf96;border-radius:12px;overflow-wrap:anywhere}
+.rv-my-note strong{display:block;margin-bottom:2px}
+.rv-my-kind{margin:10px 0 0;font-size:15px}
+.rv-my-actions{margin-top:12px}
+.rv-my-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;font:inherit;font-weight:800;color:var(--my-brand);background:#fff;border:1.5px solid #b9cfc4;border-radius:12px;text-decoration:none;cursor:pointer}
+.rv-my-btn:hover{background:var(--my-tint);border-color:var(--my-brand)}
+.rv-my-btn--primary{color:#fff;background:var(--my-brand);border-color:var(--my-brand)}
+.rv-my-btn--primary:hover{background:var(--my-dark);border-color:var(--my-dark);color:#fff}
+.rv-my :focus-visible{outline:3px solid #9AD3B5;outline-offset:2px}
+@media (max-width:640px){.rv-my{padding:8px 14px 40px}.rv-my-btn{width:100%}}
+</style>
+<script>
+( function () {
+	var root = document.getElementById( 'rv-my' );
+	if ( ! root || root.getAttribute( 'data-ready' ) ) {
+		return;
+	}
+	root.setAttribute( 'data-ready', '1' );
+	var api = ( window.RoboValleyApi && window.RoboValleyApi.base ) || '';
+	var contributeUrl = root.getAttribute( 'data-contribute-url' ) || '/contribute-now/';
+	var state = document.getElementById( 'rv-my-state' ), body = document.getElementById( 'rv-my-body' ), badge = document.getElementById( 'rv-my-badge' );
+	var ORDER = [ 'draft', 'changes_requested', 'pending_review', 'published', 'unpublished', 'rejected' ];
+	var GROUP_TITLE = { draft: 'Drafts', changes_requested: 'Changes requested', pending_review: 'Pending review', published: 'Published', unpublished: 'Taken down', rejected: 'Not accepted' };
+	var EDIT_LABEL = { draft: 'Continue editing', changes_requested: 'Make the changes', published: 'Edit (goes back for review)', unpublished: 'Edit and send again', pending_review: 'Edit' };
+
+	function make( tag, cls, text ) {
+		var n = document.createElement( tag );
+		if ( cls ) {
+			n.className = cls;
+		}
+		if ( text != null ) {
+			n.textContent = text;
+		}
+		return n;
+	}
+	function clear( n ) {
+		while ( n.firstChild ) {
+			n.removeChild( n.firstChild );
+		}
+	}
+	function link( label, href, primary ) {
+		var a = make( 'a', 'rv-my-btn' + ( primary ? ' rv-my-btn--primary' : '' ), label );
+		a.href = href;
+		return a;
+	}
+	function showState( kind, msg, retry ) {
+		clear( state );
+		state.className = 'rv-my-state' + ( kind === 'error' ? ' rv-my-state--error' : '' );
+		state.appendChild( make( 'p', 'rv-my-msg', msg ) );
+		if ( retry ) {
+			var b = make( 'button', 'rv-my-btn', 'Try again' );
+			b.type = 'button';
+			b.addEventListener( 'click', load );
+			state.appendChild( b );
+		}
+		state.hidden = false;
+		body.hidden = true;
+		return state;
+	}
+	function when( iso ) {
+		var t = new Date( iso );
+		return isNaN( t.getTime() ) ? '' : t.toLocaleDateString( 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' } );
+	}
+	function itemCard( it ) {
+		var li = make( 'li', 'rv-my-item' );
+		li.appendChild( make( 'p', 'rv-my-it', it.title ) );
+		var names = ( it.sectors || [] ).map( function ( s ) { return s.name; } ).join( ', ' );
+		li.appendChild( make( 'p', 'rv-my-meta', [ it.typeLabel, names, 'Updated ' + when( it.updatedAt ) ].filter( Boolean ).join( ' · ' ) ) );
+		if ( it.status === 'rejected' ) {
+			li.appendChild( make( 'p', 'rv-my-kind', 'Thank you for taking the time to share this. It was not accepted this time. You are welcome to start a new contribution.' ) );
+		} else if ( it.status === 'unpublished' ) {
+			li.appendChild( make( 'p', 'rv-my-kind', 'This was taken off the site. You can change it and send it again.' ) );
+		} else if ( it.status === 'pending_review' ) {
+			li.appendChild( make( 'p', 'rv-my-kind', 'A moderator will read this soon.' ) );
+		}
+		if ( it.note ) {
+			var n = make( 'div', 'rv-my-note' );
+			n.appendChild( make( 'strong', null, 'Note from the moderator' ) );
+			n.appendChild( document.createTextNode( it.note ) );
+			li.appendChild( n );
+		}
+		if ( it.canEdit ) {
+			var act = make( 'div', 'rv-my-actions' );
+			var a = link( EDIT_LABEL[ it.status ] || 'Edit', contributeUrl + ( contributeUrl.indexOf( '?' ) < 0 ? '?' : '&' ) + 'edit=' + encodeURIComponent( it.id ) );
+			a.setAttribute( 'aria-label', ( EDIT_LABEL[ it.status ] || 'Edit' ) + ': ' + it.title );
+			act.appendChild( a );
+			li.appendChild( act );
+		}
+		return li;
+	}
+	function render( data ) {
+		clear( body );
+		badge.hidden = ! data.contributor;
+		if ( ! data.items.length ) {
+			showState( 'info', 'You have not started a contribution yet. Share what you know and it will appear here.', false ).appendChild( link( 'Contribute now', contributeUrl, true ) );
+			return;
+		}
+		var counts = make( 'ul', 'rv-my-counts' );
+		counts.setAttribute( 'aria-label', 'How many contributions in each state' );
+		ORDER.forEach( function ( s ) {
+			var n = data.counts && data.counts[ s ];
+			if ( n ) {
+				counts.appendChild( make( 'li', null, GROUP_TITLE[ s ] + ': ' + n ) );
+			}
+		} );
+		body.appendChild( counts );
+		ORDER.forEach( function ( s ) {
+			var items = data.items.filter( function ( it ) { return it.status === s; } );
+			if ( ! items.length ) {
+				return;
+			}
+			var g = make( 'section', 'rv-my-group' );
+			g.appendChild( make( 'h2', 'rv-my-gh', GROUP_TITLE[ s ] + ' (' + items.length + ')' ) );
+			var ul = make( 'ul', 'rv-my-list' );
+			items.forEach( function ( it ) {
+				ul.appendChild( itemCard( it ) );
+			} );
+			g.appendChild( ul );
+			body.appendChild( g );
+		} );
+		var more = make( 'div', 'rv-my-actions' );
+		more.appendChild( link( 'Pick another sector and contribute again', contributeUrl, true ) );
+		body.appendChild( more );
+		state.hidden = true;
+		body.hidden = false;
+	}
+	function friendly( r, b ) {
+		if ( r.status === 429 ) {
+			return 'Lots of people are visiting right now. Please try again in ' + ( b && b.retryAfter ? b.retryAfter : 30 ) + ' seconds.';
+		}
+		if ( r.status === 503 ) {
+			return 'Contributions are not open yet. Please check back soon.';
+		}
+		return 'Your contributions could not be loaded. Please try again.';
+	}
+	function load() {
+		if ( ! api || ! window.fetch ) {
+			showState( 'error', 'This page is not connected to RoboValley yet. Please try again later.', false );
+			return;
+		}
+		showState( 'info', 'Loading your contributions…', false );
+		fetch( api + '/api/auth/me', { credentials: 'include', cache: 'no-store' } ).then( function ( r ) { return r.json(); } ).then( function ( me ) {
+			if ( ! me || ! me.role ) {
+				var back = location.origin + location.pathname;
+				var s = showState( 'info', 'Please sign in to see your contributions.', false );
+				s.appendChild( link( 'Sign in', api + '/login?returnTo=' + encodeURIComponent( back ), true ) );
+				return null;
+			}
+			return fetch( api + '/api/contributions/mine', { credentials: 'include', cache: 'no-store' } ).then( function ( r ) {
+				return r.json().catch( function () { return null; } ).then( function ( b ) {
+					if ( r.status === 401 ) {
+						var s2 = showState( 'info', 'Please sign in to see your contributions.', false );
+						s2.appendChild( link( 'Sign in', api + '/login?returnTo=' + encodeURIComponent( location.origin + location.pathname ), true ) );
+						return null;
+					}
+					if ( ! r.ok || ! b || b.success !== true || ! Array.isArray( b.items ) ) {
+						showState( 'error', friendly( r, b ), r.status !== 503 );
+						return null;
+					}
+					render( b );
+					return null;
+				} );
+			} );
+		} ).catch( function () {
+			showState( 'error', 'Your contributions could not be loaded. Please check your connection and try again.', true );
+		} );
+	}
+	load();
+}() );
+</script>

@@ -32,10 +32,11 @@ beforeEach(() => { document.body.innerHTML = ""; });
 afterEach(() => { document.body.innerHTML = ""; });
 
 describe("sector cards", () => {
-  it("asks only the public counts address, once, and shows one card per sector", async () => {
+  it("asks the public counts address once and who is signed in once (nothing else for a visitor), and shows one card per sector", async () => {
     await mount();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(String(fetchMock.mock.calls[0][0])).toBe("https://app.example.test/api/contributions/sectors");
+    expect(String(fetchMock.mock.calls[1][0])).toBe("https://app.example.test/api/auth/me");
     expect(cards().map((c) => c.querySelector("h2")!.textContent)).toEqual(["Agriculture & Dairy", "Education", "Healthcare"]);
   });
 
@@ -179,7 +180,9 @@ describe("the page file", () => {
   });
   it("has no internal words, no storage and no cookies, and asks only for the sector counts", () => {
     expect(HTML).not.toMatch(/localStorage|sessionStorage|document\.cookie|navigator\.geolocation|XMLHttpRequest/);
-    expect(HTML.match(/fetch\(/g)).toHaveLength(1);
+    expect(HTML.match(/fetch\(/g)).toHaveLength(3);
     expect(HTML).toContain("/api/contributions/sectors");
+    expect(HTML).toContain("/api/auth/me");
+    expect(HTML).toContain("/api/contributions/mine");
   });
 });
