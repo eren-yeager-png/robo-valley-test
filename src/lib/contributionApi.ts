@@ -100,6 +100,9 @@ async function isDuplicate(db: Db, title: string, body: string, exceptId: number
   return rows.length > 0;
 }
 const DUPLICATE = () => fail(409, "DUPLICATE", "This looks the same as something that was already sent. If it is yours, find it under Your contributions.");
+/** Migration 018's safeguard: a live contribution with the same normalised title already exists in one of the chosen sectors. */
+const SAME_TITLE = () => fail(409, "DUPLICATE", "Something with the same title is already waiting or published in this sector. Please check it, or give yours a clearer title.", { title: "This title is already used in this sector." });
+const titleTaken = (e: unknown) => (e as { code?: string })?.code === "23505" && /contribution_title_keys/.test(String((e as { constraint?: string })?.constraint ?? (e as Error)?.message ?? ""));
 
 const notSet = (e: unknown): Fail | null => ((e as { code?: string })?.code === "42P01" || (e as { code?: string })?.code === "42703" ? fail(503, "NOT_SET_UP", "Contributions are not set up yet.") : null);
 
@@ -142,6 +145,7 @@ export async function saveOwn(pool: Pool, ownerId: number, raw: unknown, id?: nu
     return { ok: true, id: cid, status };
   } catch (e) {
     await client.query("ROLLBACK").catch(() => undefined);
+    if (titleTaken(e)) return SAME_TITLE();
     const s = notSet(e); if (s) return s;
     const d = contributionDbError(e); if (d) return fail(400, "VALIDATION_FAILED", VALIDATION, { [d.field]: d.message });
     throw e;
@@ -167,6 +171,7 @@ export async function submitOwn(pool: Pool, ownerId: number, id: number): Promis
     return { ok: true, id, status: "pending_review" };
   } catch (e) {
     await client.query("ROLLBACK").catch(() => undefined);
+    if (titleTaken(e)) return SAME_TITLE();
     const s = notSet(e); if (s) return s;
     const d = contributionDbError(e); if (d) return fail(400, "VALIDATION_FAILED", VALIDATION, { [d.field]: d.message });
     throw e;
