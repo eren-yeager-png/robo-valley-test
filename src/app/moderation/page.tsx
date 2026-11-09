@@ -17,7 +17,7 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
   let queue: QueueItem[] = [], item: ReviewItem | null = null, problem = "";
   try {
     queue = await listQueue(pool as never, status);
-    if (itemId) item = await getForReview(pool as never, me.userId, itemId);
+    if (itemId) item = await getForReview(pool as never, me.userId, itemId, me.isAdmin);
   } catch (e) {
     problem = (e as { code?: string })?.code === "42P01" ? "Reviewing is not set up on this database yet (migrations 012 to 014 and 017 are needed)." : "The list could not be loaded. Please try again.";
     console.error("moderation page: could not read the data");
