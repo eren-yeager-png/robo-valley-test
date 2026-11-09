@@ -34,15 +34,15 @@ describe("rejected (null)", () => {
 
 describe("with the Projects page and the site settings", () => {
   it("resolveReturnTo accepts both pages and nothing else", () => {
-    const env = { SITE_URL: "https://techytree.in/" } as NodeJS.ProcessEnv;
+    const env = { SITE_URL: "https://techytree.in/" } as unknown as NodeJS.ProcessEnv;
     expect(resolveReturnTo("/contribute-now/?sector=education", env)).toBe("https://techytree.in/contribute-now/?sector=education");
     expect(resolveReturnTo("/projects/", env)).toBe("https://techytree.in/projects/");
     expect(resolveReturnTo("https://evil.example/", env)).toBeNull();
   });
   it("CONTRIBUTE_RETURN_PATH changes the page, a bad value falls back to the default", () => {
-    expect(contributeReturnPath({ CONTRIBUTE_RETURN_PATH: "/share/" } as NodeJS.ProcessEnv)).toBe("/share/");
-    expect(contributeReturnPath({ CONTRIBUTE_RETURN_PATH: "//evil" } as NodeJS.ProcessEnv)).toBe("/contribute-now/");
-    expect(contributeReturnPath({} as NodeJS.ProcessEnv)).toBe("/contribute-now/");
-    expect(resolveReturnTo("/share/", { SITE_URL: SITE, CONTRIBUTE_RETURN_PATH: "/share/" } as NodeJS.ProcessEnv)).toBe("https://techytree.in/share/");
+    expect(contributeReturnPath({ CONTRIBUTE_RETURN_PATH: "/share/" } as unknown as NodeJS.ProcessEnv)).toBe("/share/");
+    expect(contributeReturnPath({ CONTRIBUTE_RETURN_PATH: "//evil" } as unknown as NodeJS.ProcessEnv)).toBe("/contribute-now/");
+    expect(contributeReturnPath({} as unknown as NodeJS.ProcessEnv)).toBe("/contribute-now/");
+    expect(resolveReturnTo("/share/", { SITE_URL: SITE, CONTRIBUTE_RETURN_PATH: "/share/" } as unknown as NodeJS.ProcessEnv)).toBe("https://techytree.in/share/");
   });
 });
