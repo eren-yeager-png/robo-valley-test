@@ -7,8 +7,8 @@ import { seedUser, testDb } from "./helpers";
 vi.mock("../src/lib/db", async () => { const c = await import("./helpers/currentPool"); return { get pool() { return c.getPool(); } }; });
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh() {} }), redirect: (to: string) => { throw new Error("REDIRECT:" + to); }, usePathname: () => "/moderation" }));
 vi.mock("next/font/google", () => ({ Bricolage_Grotesque: () => ({ variable: "f1" }), Mulish: () => ({ variable: "f2" }) }));
-const state: { viewer: number | null; guard: "ok" | "redirect" } = { viewer: null, guard: "ok" };
-vi.mock("../src/lib/reviewerPage", () => ({ requireReviewerPage: async () => { if (state.guard === "redirect") throw new Error("REDIRECT:/dashboard"); return { userId: state.viewer, email: "r@example.com", isAdmin: true }; } }));
+const state: { viewer: number | null; guard: "ok" | "redirect"; isAdmin: boolean } = { viewer: null, guard: "ok", isAdmin: true };
+vi.mock("../src/lib/reviewerPage", () => ({ requireReviewerPage: async () => { if (state.guard === "redirect") throw new Error("REDIRECT:/dashboard"); return { userId: state.viewer, email: "r@example.com", isAdmin: state.isAdmin }; } }));
 
 import Page from "../src/app/moderation/page";
 import Layout from "../src/app/moderation/layout";
@@ -24,7 +24,7 @@ async function make(userId: number, status: string, title: string, body = "A lon
   if (status !== "draft") await q("UPDATE contributions SET status=$2::varchar, submitted_at=now(), published_at=CASE WHEN $2::varchar='published' THEN now() END WHERE id=$1", [id, status]);
   return id;
 }
-beforeEach(async () => { vi.spyOn(console, "error").mockImplementation(() => undefined); state.guard = "ok"; });
+beforeEach(async () => { vi.spyOn(console, "error").mockImplementation(() => undefined); state.guard = "ok"; state.isAdmin = true; });
 afterEach(() => { vi.restoreAllMocks(); testDb().failOn(undefined); });
 
 describe("moderation page", () => {
@@ -74,7 +74,47 @@ describe("moderation page", () => {
   it("the decision form needs a note for the three decisions the author reads about, with a plain message", async () => {
     const { default: DecisionForm } = await import("../src/app/moderation/DecisionForm");
     const h = renderToStaticMarkup(<DecisionForm id={7} actions={["approve", "request_changes", "reject"]} />);
-    expect(h).toContain("required to request changes, reject or unpublish"); expect(h).toContain('role="alert"');
+    expect(h).toContain("required to request changes, reject, unpublish or remove"); expect(h).toContain('role="alert"');
     expect(renderToStaticMarkup(<DecisionForm id={7} actions={[]} />)).toContain("No decision can be made");
+  });
+});
+
+describe("duplicates and admin-only decisions on the page (PR C)", () => {
+  async function people() {
+    const admin = Number((await seedUser({ email: `ad${++seq}@example.com`, role: "admin", fullName: "Admin" })).id);
+    const mod = Number((await seedUser({ email: `md${++seq}@example.com`, role: "TC", fullName: "Mod" })).id); await q("UPDATE users SET is_moderator=true WHERE id=$1", [mod]);
+    const author = Number((await seedUser({ email: `au${++seq}@example.com`, role: "ST", fullName: "Author" })).id);
+    return { admin, mod, author };
+  }
+  it("an administrator sees the likely duplicate with a link, the confirm box, Remove and Mark as verified", async () => {
+    const { admin, author } = await people(); state.viewer = admin; state.isAdmin = true;
+    const a = await make(author, "published", "Solar powered milking robot");
+    const b = await make(author, "pending_review", "Solar-powered milking robots");
+    const h = await render({ item: String(b) });
+    expect(h).toContain("Possible duplicate already live in the same sector");
+    expect(h).toContain(`href="/moderation?status=published&amp;item=${a}"`);
+    expect(h).toMatch(/\d+% similar/);
+    expect(h).toContain("I checked the possible duplicate");
+    for (const t of ["Approve and publish", "Remove (duplicate or unsuitable)", "Mark as verified", "Request changes", "Reject"]) expect(h).toContain(t);
+    expect(h).not.toContain("Only an administrator can approve");
+  });
+  it("a moderator sees no Approve or Remove, a plain note that only an administrator can, and no confirm box", async () => {
+    const { mod, author } = await people(); state.viewer = mod; state.isAdmin = false;
+    await make(author, "published", "Solar powered milking robot");
+    const b = await make(author, "pending_review", "Solar-powered milking robots");
+    const h = await render({ item: String(b) });
+    expect(h).toContain("Possible duplicate already live in the same sector");
+    expect(h).toContain("Only an administrator can approve, publish, unpublish or remove.");
+    expect(h).not.toContain("Approve and publish"); expect(h).not.toContain("Remove (duplicate or unsuitable)"); expect(h).not.toContain("I checked the possible duplicate");
+    for (const t of ["Mark as verified", "Request changes", "Reject"]) expect(h).toContain(t);
+  });
+  it("a verified item says so, and the history names the decision", async () => {
+    const { admin, mod, author } = await people(); state.viewer = admin; state.isAdmin = true;
+    const id = await make(author, "pending_review", "Checked by a moderator");
+    await q("INSERT INTO contribution_reviews (contribution_id, reviewer_id, action) VALUES ($1,$2,'verify')", [id, mod]);
+    const h = await render({ item: String(id) });
+    expect(h).toContain("Pending review · Verified");
+    expect(h).toContain("<strong>Verified</strong>");
+    expect(h).not.toContain("Possible duplicate");
   });
 });

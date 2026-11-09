@@ -6,7 +6,7 @@ import DecisionForm from "./DecisionForm";
 
 type SP = { status?: string; item?: string };
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
-const ACTION_WORDS: Record<string, string> = { approve: "Approved", request_changes: "Changes requested", reject: "Rejected", unpublish: "Unpublished", republish: "Published again" };
+const ACTION_WORDS: Record<string, string> = { verify: "Verified", approve: "Approved", request_changes: "Changes requested", reject: "Rejected", remove: "Removed", unpublish: "Unpublished", republish: "Published again" };
 
 export default async function ModerationPage({ searchParams }: { searchParams?: Promise<SP> } = {}) {
   const me = await requireReviewerPage();
@@ -52,7 +52,18 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
         {item && (
           <article className="mod-card">
             <h2 id="mod-item-h">{item.title}</h2>
-            <p className="mod-meta">{item.statusLabel} · {item.typeLabel} · {item.sectors.join(", ")} · {item.authorLabel} · sent {when(item.submittedAt)}</p>
+            <p className="mod-meta">{item.statusLabel}{item.verified ? " · Verified" : ""} · {item.typeLabel} · {item.sectors.join(", ")} · {item.authorLabel} · sent {when(item.submittedAt)}</p>
+            {item.duplicates.length > 0 && (
+              <div className="mod-dup" role="note" aria-labelledby={`dup-${item.id}`}>
+                <strong id={`dup-${item.id}`}>Possible duplicate{item.duplicates.length === 1 ? "" : "s"} already live in the same sector</strong>
+                <ul>
+                  {item.duplicates.map((d) => (
+                    <li key={d.id}><a href={`/moderation?status=${d.status}&item=${d.id}`}>#{d.id} {d.title}</a> <span className="mod-meta">· {d.statusLabel} · {d.exact ? "same title" : `${Math.round(d.similarity * 100)}% similar`}</span></li>
+                  ))}
+                </ul>
+                <p className="mod-meta">Approving is blocked until an administrator confirms, with a reason, that this is not a duplicate. Or remove it as a duplicate.</p>
+              </div>
+            )}
             <dl className="mod-dl">
               <dt>Details</dt><dd>{item.description}</dd>
               {item.sections.map((s) => (<div key={s.label}><dt>{s.label}</dt><dd>{s.text}</dd></div>))}
@@ -88,7 +99,7 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
             )}
             {item.own
               ? <p className="mod-note">This is your own contribution, so another reviewer has to decide on it.</p>
-              : <DecisionForm id={item.id} actions={item.actions} />}
+              : <DecisionForm id={item.id} actions={item.actions} isAdmin={me.isAdmin} hasDuplicates={item.duplicates.length > 0} />}
           </article>
         )}
       </section>
