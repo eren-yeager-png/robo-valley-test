@@ -48,7 +48,7 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
       </section>
 
       <section aria-labelledby="mod-item-h">
-        {!item && <p className="mod-note" role="status">{itemId && !problem ? "We could not find that contribution." : "Choose a contribution on the left to read it."}</p>}
+        {!item && <p className="mod-note" role="status">{itemId && !problem ? "We could not find that contribution." : "Choose a contribution from the list to read it."}</p>}
         {item && (
           <article className="mod-card">
             <h2 id="mod-item-h">{item.title}</h2>

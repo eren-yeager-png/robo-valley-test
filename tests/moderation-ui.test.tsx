@@ -56,7 +56,7 @@ describe("moderation page", () => {
     const h = await render({ item: String(own) });
     expect(h).toContain("your own contribution"); expect(h).not.toContain("Approve and publish");
     expect(await render({ item: String(draft) })).toContain("We could not find that contribution.");
-    expect(await render({ item: "abc", status: "bogus" })).toContain("Choose a contribution on the left");
+    expect(await render({ item: "abc", status: "bogus" })).toContain("Choose a contribution from the list");
   });
   it("shows a plain message when the tables are missing, never details", async () => {
     state.viewer = 1;
