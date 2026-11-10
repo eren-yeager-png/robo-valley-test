@@ -206,3 +206,31 @@ describe("the WordPress side (static)", () => {
     expect(MARKUP).not.toMatch(/<script|<main|<header/);
   });
 });
+
+describe("?sector= preselects sectors (the Contribute to this sector link)", () => {
+  const ticked = () => Array.from(document.querySelectorAll<HTMLInputElement>('#sector-choices input[name="sector"]')).filter((i) => i.checked).map((i) => i.value);
+  const at = async (search: string) => { history.replaceState(null, "", "/contribution/" + search); await run(routes()); };
+  afterEach(() => history.replaceState(null, "", "/"));
+  it("ticks the named sector, or several, and nothing else", async () => {
+    await at("?sector=education"); expect(ticked()).toEqual(["education"]);
+    await at("?sector=agriculture-dairy,education"); expect(ticked()).toEqual(["agriculture-dairy", "education"]);
+  });
+  it("ignores unknown names, markup, too-long values and other parameters; ticks nothing without the parameter", async () => {
+    await at("?sector=nope"); expect(ticked()).toEqual([]);
+    await at("?sector=%3Cimg%20src=x%3E"); expect(ticked()).toEqual([]);
+    await at("?sector=Education"); expect(ticked()).toEqual([]);
+    await at("?other=education"); expect(ticked()).toEqual([]);
+    await at(""); expect(ticked()).toEqual([]);
+  });
+  it("the ticked sector is what is sent", async () => {
+    await at("?sector=education");
+    field("title").value = "Weekend robotics club"; field("description").value = "A free weekend club where students build simple robots.";
+    const p = q<HTMLInputElement>('#choices input[value="Projects"]'); p.checked = true; p.dispatchEvent(new Event("change"));
+    await submit();
+    const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions");
+    expect(create?.body.sectors).toEqual(["education"]);
+  });
+  it("the plugin version moved to 0.1.1 so browsers fetch the new script", () => {
+    expect(PHP).toMatch(/Version: 0\.1\.1/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.1'/);
+  });
+});

@@ -93,6 +93,22 @@
 				label.appendChild( document.createTextNode( sec.name ) );
 				sectorBox.appendChild( label );
 			} );
+			preselectSectors();
+		} );
+	}
+	/* "Contribute to this sector" links add ?sector=slug (or slug,slug): tick only sectors that really exist in the list, nothing else is read from the address */
+	function preselectSectors() {
+		var m = /[?&]sector=([a-z0-9,-]{1,700})(?:&|$)/.exec( location.search );
+		if ( ! m ) {
+			return;
+		}
+		m[ 1 ].split( ',' ).slice( 0, 20 ).forEach( function ( slug ) {
+			var boxes = sectorBox.querySelectorAll( 'input[name="sector"]' ), i;
+			for ( i = 0; i < boxes.length; i++ ) {
+				if ( boxes[ i ].value === slug ) {
+					boxes[ i ].checked = true;
+				}
+			}
 		} );
 	}
 

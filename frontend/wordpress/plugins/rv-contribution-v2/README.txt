@@ -1,4 +1,4 @@
-RoboValley Contribution (v2) - WordPress plugin, version 0.1.0
+RoboValley Contribution (v2) - WordPress plugin, version 0.1.1
 
 WHAT IT IS
 The new Contribute form for the Contribution and Contributor pages. It only shows the form and talks to the RoboValley app.
@@ -28,3 +28,8 @@ rv-contribution-v2.off. WordPress then ignores it and the pages show their old c
 
 SHORTCODE
 [rv_contribution_v2] shows the same form on any page, also only while RV_CONTRIBUTION_V2 is true.
+
+NEW IN 0.1.1
+  * A link such as /contribution/?sector=agriculture-dairy ticks that sector in the form (only sectors that really exist are ticked).
+  * Signing in from the form now brings the visitor back to the same page. The app accepts /contribution/ and /contributor/ for that by default;
+    if your page slugs are different, set CONTRIBUTION_PAGE_PATHS in the app's environment to the same paths (names only here, you type the values).
