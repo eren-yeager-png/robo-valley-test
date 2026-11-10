@@ -187,7 +187,7 @@ describe("sending: pending only, through the app", () => {
 describe("the WordPress side (static)", () => {
   it("the switch: only an explicit true turns it on; only the listed pages; the Contact page can never be switched", () => {
     expect(PHP).toContain("defined( 'RV_CONTRIBUTION_V2' ) && true === RV_CONTRIBUTION_V2");
-    expect(PHP).toContain("'contribution,contributor'");
+    expect(PHP).toContain("'contribute-now,contribution,contributor'"); // 0.1.2: the form page /contribute-now/ is the default and comes first
     expect(PHP).toContain("array( 'contact-us', 'contact' )");
     expect(PHP).toMatch(/add_filter\(\s*'the_content'[\s\S]*PHP_INT_MAX/);
     expect(PHP).toContain("if ( ! rv_c2_enabled() ) {\n\t\t\treturn '';"); // the shortcode also stays empty while off
@@ -230,7 +230,36 @@ describe("?sector= preselects sectors (the Contribute to this sector link)", () 
     const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions");
     expect(create?.body.sectors).toEqual(["education"]);
   });
-  it("the plugin version moved to 0.1.1 so browsers fetch the new script", () => {
-    expect(PHP).toMatch(/Version: 0\.1\.1/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.1'/);
+  it("the plugin version moved to 0.1.2 so browsers fetch the new script", () => {
+    expect(PHP).toMatch(/Version: 0\.1\.2/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.2'/);
+  });
+});
+
+describe("Contribute to this sector (0.1.2, static; run on a local WordPress too)", () => {
+  it("only on child pages of the Robots by Sector page, using the page slug as the sector", () => {
+    expect(PHP).toContain("'robots-by-sector'");
+    expect(PHP).toContain("RV_CONTRIBUTION_SECTOR_PARENT");
+    expect(PHP).toMatch(/\$parent->post_name !== \$parent_slug/);
+    expect(PHP).toContain("return sanitize_title( $page->post_name );");
+  });
+  it("shows only while the form is on, and only to administrators until RV_CONTRIBUTE_PUBLIC is true", () => {
+    expect(PHP).toContain("if ( ! rv_c2_enabled() || '' === rv_c2_sector_slug() ) {");
+    expect(PHP).toContain("( defined( 'RV_CONTRIBUTE_PUBLIC' ) && true === RV_CONTRIBUTE_PUBLIC ) || current_user_can( 'manage_options' )");
+  });
+  it("links to the first form page with ?sector=, escaped, with the reference wording and plus icon, once per page", () => {
+    expect(PHP).toContain("add_query_arg( 'sector', rv_c2_sector_slug(), home_url( '/' . ( $slugs ? $slugs[0] : 'contribute-now' ) . '/' ) )");
+    expect(PHP).toContain("esc_url( $url )");
+    expect(PHP).toContain("Contribute to this sector</a>");
+    expect(PHP).toContain('<path d="M12 5v14M5 12h14"></path>');
+    expect(PHP).toContain("false !== strpos( $content, 'rv-c2-sector-cta' )");
+  });
+  it("looks like the reference: outline button in #237A33, 44 px tall, radius 8, bold; with a hover and a visible focus ring", () => {
+    expect(PHP).toContain("border:1.5px solid #237A33;border-radius:8px;color:#237A33");
+    expect(PHP).toContain("min-height:44px");
+    expect(PHP).toContain(".rv-c2-sector-btn:hover{");
+    expect(PHP).toContain(".rv-c2-sector-btn:focus-visible{");
+  });
+  it("the form page ticks the sector from ?sector= (added in 0.1.1), only sectors that exist", () => {
+    expect(SCRIPT).toContain("function preselectSectors()");
   });
 });
