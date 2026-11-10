@@ -1,4 +1,4 @@
-RoboValley Contribution (v2) - WordPress plugin, version 0.1.2
+RoboValley Contribution (v2) - WordPress plugin, version 0.1.3
 
 WHAT IT IS
 The new Contribute form for the Contribution and Contributor pages. It only shows the form and talks to the RoboValley app.
@@ -44,3 +44,8 @@ NEW IN 0.1.2
   * "Contribute to this sector" on every Robots by Sector page: top right, next to the heading (moved there by a tiny script
     when the theme has a heading row; otherwise it sits at the top right of the content). It links to /contribute-now/?sector=<page slug>,
     which ticks that sector in the form. Shown only while RV_CONTRIBUTION_V2 is true; only to administrators until RV_CONTRIBUTE_PUBLIC is true.
+
+NEW IN 0.1.3
+  * Sign In and Sign Up keep the sector: a visitor who arrives from "Contribute to this sector" signed out comes back to
+    /contribute-now/?sector=<that sector> after signing in, with the sector still ticked. Only a ?sector= value the app accepts
+    is kept (plain slugs, up to 20, no repeats); anything else returns to the page without it.

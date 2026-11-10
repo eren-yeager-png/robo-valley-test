@@ -57,7 +57,15 @@
 		loadSectors();
 		renderHistory();
 	}
-	function back() { return location.origin + location.pathname; }
+	/* After signing in, come back to this page, keeping ?sector= only when the app would accept it (else the app sends people home) */
+	function back() {
+		var page = location.origin + location.pathname, m = /[?&]sector=([a-z0-9,-]{1,700})(?:&|$)/.exec( location.search ), s;
+		if ( ! m ) {
+			return page;
+		}
+		s = m[ 1 ].split( ',' );
+		return s.length <= 20 && s.every( function ( x, i ) { return x.length <= 60 && /^[a-z0-9]+(-[a-z0-9]+)*$/.test( x ) && s.indexOf( x ) === i; } ) ? page + '?sector=' + m[ 1 ] : page;
+	}
 	$( '#sign-in' ).addEventListener( 'click', function () { location.href = api + '/login?returnTo=' + encodeURIComponent( back() ); } );
 	$( '#sign-up' ).addEventListener( 'click', function () { location.href = api + '/join?returnTo=' + encodeURIComponent( back() ); } );
 	$( '#sign-out' ).addEventListener( 'click', function () {
