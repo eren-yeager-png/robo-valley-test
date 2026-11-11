@@ -4,7 +4,8 @@ import { QUEUE_STATUSES, getForReview, listQueue, type QueueItem, type ReviewIte
 import { STATUS_LABELS, type ContributionStatus } from "../../lib/contributions";
 import DecisionForm from "./DecisionForm";
 
-type SP = { status?: string; item?: string };
+type SP = { status?: string; item?: string; sector?: string; verified?: string };
+const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
 const ACTION_WORDS: Record<string, string> = { verify: "Verified", approve: "Approved", request_changes: "Changes requested", reject: "Rejected", remove: "Removed", unpublish: "Unpublished", republish: "Published again" };
 
@@ -13,10 +14,15 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
   const sp = (await searchParams) ?? {};
   const status = (QUEUE_STATUSES as readonly string[]).includes(sp.status ?? "") ? (sp.status as string) : "pending_review";
   const itemId = /^[1-9]\d{0,9}$/.test(sp.item ?? "") ? Number(sp.item) : null;
+  // Optional filters, set by the links on the admin sector-counts page: one sector (by slug) and/or only verified items.
+  const sector = sp.sector && sp.sector.length <= 60 && SLUG.test(sp.sector) ? sp.sector : null;
+  const verified = sp.verified === "1" ? true : sp.verified === "0" ? false : null;
+  const filterQs = (sector ? `&sector=${sector}` : "") + (verified === null ? "" : `&verified=${verified ? 1 : 0}`);
 
-  let queue: QueueItem[] = [], item: ReviewItem | null = null, problem = "";
+  let queue: QueueItem[] = [], item: ReviewItem | null = null, problem = "", sectorName = "";
   try {
-    queue = await listQueue(pool as never, status);
+    queue = await listQueue(pool as never, status, { sector, verified });
+    if (sector) sectorName = (await pool.query("SELECT name FROM sectors WHERE slug = $1", [sector])).rows[0]?.name ?? sector;
     if (itemId) item = await getForReview(pool as never, me.userId, itemId, me.isAdmin);
   } catch (e) {
     problem = (e as { code?: string })?.code === "42P01" ? "Reviewing is not set up on this database yet (migrations 012 to 014 and 017 are needed)." : "The list could not be loaded. Please try again.";
@@ -30,15 +36,16 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
         <p className="mod-lead">Contributions waiting for a decision, oldest first. Drafts are never shown.</p>
         <ul className="mod-tabs" aria-label="Show">
           {QUEUE_STATUSES.map((s) => (
-            <li key={s}><a href={`/moderation?status=${s}`} aria-current={s === status ? "page" : undefined}>{STATUS_LABELS[s as ContributionStatus]}</a></li>
+            <li key={s}><a href={`/moderation?status=${s}${filterQs}`} aria-current={s === status ? "page" : undefined}>{STATUS_LABELS[s as ContributionStatus]}</a></li>
           ))}
         </ul>
+        {(sector || verified !== null) && <p className="mod-note" role="status">Showing only: {[sector ? sectorName : "", verified === true ? "verified by a reviewer" : verified === false ? "not verified yet" : ""].filter(Boolean).join(", ")}. <a href={`/moderation?status=${status}`}>Show everything</a></p>}
         {problem && <p className="mod-note" role="alert">{problem}</p>}
         {!problem && queue.length === 0 && <p className="mod-note" role="status">Nothing here right now.</p>}
         <ul className="mod-list">
           {queue.map((q) => (
             <li key={q.id}>
-              <a href={`/moderation?status=${status}&item=${q.id}`} aria-current={q.id === itemId ? "true" : undefined}>
+              <a href={`/moderation?status=${status}${filterQs}&item=${q.id}`} aria-current={q.id === itemId ? "true" : undefined}>
                 <strong>{q.title}</strong>
                 <span className="mod-meta">{[q.typeLabel, q.sectors.join(", "), q.photos ? `${q.photos} photo${q.photos === 1 ? "" : "s"}` : "", when(q.submittedAt)].filter(Boolean).join(" · ")}</span>
               </a>
