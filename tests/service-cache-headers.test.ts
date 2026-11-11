@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedUser, testDb } from "./helpers";
+import { windowRoom } from "./helpers/rateWindow";
 import { createSessionToken } from "../src/lib/session";
 
 const m = vi.hoisted(() => ({ cookie: undefined as string | undefined }));
@@ -23,6 +24,7 @@ const req = (path: string, ip = "7.7.7.7", extra: Record<string, string> = {}) =
 const cc = (r: Response) => r.headers.get("Cache-Control") ?? "";
 
 beforeEach(async () => {
+  await windowRoom(); // these tests count real requests up to a limit: keep them inside one rate-limit window (see helpers/rateWindow.ts)
   vi.stubEnv("SESSION_SECRET", SECRET);
   for (const fn of ["log", "error", "warn", "info"] as const) vi.spyOn(console, fn).mockImplementation(() => {});
   await testDb().raw.exec("DELETE FROM api_rate_limits");

@@ -1,6 +1,7 @@
 // Find a Service rate limit, operations side: the kill switch (SERVICE_RATE_LIMIT_ENABLED) and the admin-only, aggregate-only self-check.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedUser, testDb } from "./helpers";
+import { windowRoom } from "./helpers/rateWindow";
 import { createSessionToken } from "../src/lib/session";
 
 const m = vi.hoisted(() => ({ cookie: undefined as string | undefined }));
@@ -20,6 +21,7 @@ const req = (path: string, ip: string) => new Request("http://localhost" + path,
 const T0 = Date.now();
 
 beforeEach(async () => {
+  await windowRoom(); // these tests count real requests up to a limit: keep them inside one rate-limit window (see helpers/rateWindow.ts)
   vi.stubEnv("SESSION_SECRET", SECRET);
   for (const fn of ["log", "error", "warn", "info"] as const) vi.spyOn(console, fn).mockImplementation(() => {});
   await testDb().raw.exec("DELETE FROM api_rate_limits");
