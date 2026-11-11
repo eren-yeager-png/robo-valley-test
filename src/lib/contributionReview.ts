@@ -13,12 +13,17 @@
 // Every decision is ONE transaction: the item row is locked, the rules are checked, the audit row is written (append only, migration
 // 017) and the status is changed. No audit row, no decision: if the audit table is missing the answer is 503 and nothing changes.
 // A reviewer can never decide on their own contribution. Drafts are never visible here.
+// Portal PR1 (migration 019): each item also carries its display status (New / In review / Replied ..., src/lib/reviewStatus.ts), the
+// replies to the contributor and the internal notes. Without 019 those lists are simply empty and pending items show as "New".
 import { readContact, type Contact } from "./contributionContacts";
 import { listPhotoMeta } from "./contributionPhotos";
 import { splitBody } from "./contributionApi";
 import { CONTRIBUTION_TYPES, STATUS_LABELS, type ContributionStatus } from "./contributions";
 import { hasControlChars } from "./validation";
 import { NEAR_DUPLICATE_SIMILARITY, normText, similarity } from "./spreadsheet/dedupe";
+import { displayStatus, portalLabel, roundFacts, type DisplayStatus } from "./reviewStatus";
+import { repliesForReview, type PortalEntry } from "./contributionReplies";
+import { notesForReview } from "./contributionNotes";
 
 type Db = { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }> };
 type Pool = Db & { connect: () => Promise<Db & { release: () => void }> };
@@ -60,7 +65,7 @@ const NOT_SET_UP = () => fail(503, "NOT_SET_UP", "Reviewing is not set up yet.")
 const NOT_FOUND = () => fail(404, "NOT_FOUND", "We could not find that contribution.");
 const code = (e: unknown) => (e as { code?: string })?.code;
 
-export type QueueItem = { id: number; title: string; type: string; typeLabel: string; status: ContributionStatus; statusLabel: string; sectors: string[]; submittedAt: string | null; photos: number };
+export type QueueItem = { id: number; title: string; type: string; typeLabel: string; status: ContributionStatus; statusLabel: string; display: DisplayStatus; displayLabel: string; sectors: string[]; submittedAt: string | null; photos: number };
 
 /** A page of the queue for one status (oldest first for the pending list, so nothing waits forever). Drafts are never listed. */
 export async function listQueue(db: Db, status: string): Promise<QueueItem[]> {
@@ -70,14 +75,18 @@ export async function listQueue(db: Db, status: string): Promise<QueueItem[]> {
     "COALESCE((SELECT json_agg(s.name ORDER BY s.sort_order, s.slug) FROM contribution_scopes cs JOIN sectors s ON s.id = cs.sector_id WHERE cs.contribution_id = c.id), '[]'::json) AS sectors, " +
     "(SELECT count(*)::int FROM contribution_photos p WHERE p.contribution_id = c.id) AS photos " +
     "FROM contributions c WHERE c.status = $1::varchar AND NOT c.is_demo ORDER BY " + (st === "pending_review" ? "c.submitted_at ASC, c.id ASC" : "c.updated_at DESC, c.id DESC") + " LIMIT 100", [st]);
-  return rows.map((r) => ({ id: Number(r.id), title: r.title, type: r.type, typeLabel: TYPE_LABEL.get(r.type) ?? "", status: r.status, statusLabel: STATUS_LABELS[r.status as ContributionStatus] ?? r.status, sectors: Array.isArray(r.sectors) ? r.sectors : [], submittedAt: r.submitted_at ? new Date(r.submitted_at).toISOString() : null, photos: Number(r.photos) }));
+  const facts = st === "pending_review" ? await roundFacts(db, rows.map((r) => Number(r.id))) : new Map();
+  return rows.map((r) => {
+    const display = displayStatus(r.status, facts.get(Number(r.id)));
+    return { id: Number(r.id), title: r.title, type: r.type, typeLabel: TYPE_LABEL.get(r.type) ?? "", status: r.status, statusLabel: STATUS_LABELS[r.status as ContributionStatus] ?? r.status, display, displayLabel: portalLabel(display), sectors: Array.isArray(r.sectors) ? r.sectors : [], submittedAt: r.submitted_at ? new Date(r.submitted_at).toISOString() : null, photos: Number(r.photos) };
+  });
 }
 
 export type History = { action: string; note: string | null; at: string; by: string };
 export type ReviewItem = QueueItem & {
   authorLabel: string; own: boolean; description: string; sections: { label: string; text: string }[]; role: string; district: string;
   photoList: { id: number; alt: string; mime: string }[]; contact: Contact | null; history: History[]; actions: Action[];
-  duplicates: Duplicate[]; verified: boolean;
+  duplicates: Duplicate[]; verified: boolean; replies: PortalEntry[]; notes: PortalEntry[];
 };
 
 /** One non-draft item to read. The contact details come back only through readContact: the author allowed reviewers AND the viewer is a flagged moderator. */
@@ -96,14 +105,16 @@ export async function getForReview(db: Db, viewerId: number, id: number, isAdmin
   const parts = splitBody(c.body);
   const labels: [keyof typeof parts, string][] = [["howNow", "How it is done now"], ["affected", "Who is affected"], ["timeCost", "Time or cost"], ["improvement", "What should improve"]];
   const own = Number(c.user_id) === viewerId;
+  const display = displayStatus(c.status, (await roundFacts(db, [Number(c.id)])).get(Number(c.id)));
+  const [replies, notes] = await Promise.all([repliesForReview(db, Number(c.id)), notesForReview(db, Number(c.id))]);
   return {
-    id: Number(c.id), title: c.title, type: c.type, typeLabel: TYPE_LABEL.get(c.type) ?? "", status: c.status, statusLabel: STATUS_LABELS[c.status as ContributionStatus] ?? c.status,
+    id: Number(c.id), title: c.title, type: c.type, typeLabel: TYPE_LABEL.get(c.type) ?? "", status: c.status, statusLabel: STATUS_LABELS[c.status as ContributionStatus] ?? c.status, display, displayLabel: portalLabel(display),
     sectors: sc.rows.map((r) => r.name), submittedAt: c.submitted_at ? new Date(c.submitted_at).toISOString() : null, photos: photos.length,
     authorLabel: `Member #${c.user_id}`, own, description: parts.description, sections: labels.filter(([k]) => parts[k]).map(([k, l]) => ({ label: l, text: parts[k] })),
     role: parts.role, district: parts.district, photoList: photos.map((p) => ({ id: p.id, alt: p.alt, mime: p.mime })), contact, history,
     actions: own ? [] : (Object.keys(ACTIONS) as Action[]).filter((a) => ACTIONS[a].from === c.status && (isAdmin || !ACTIONS[a].adminOnly)),
     duplicates: c.status === "pending_review" || c.status === "unpublished" ? await findDuplicates(db, Number(c.id), c.title).catch(() => []) : [],
-    verified: history.some((h) => h.action === "verify"),
+    verified: history.some((h) => h.action === "verify"), replies, notes,
   };
 }
 

@@ -48,6 +48,32 @@
 		guest.hidden = false;
 		memberArea.hidden = true;
 	}
+	/* Administrators and moderators review contributions and cannot send one (the app refuses with 403): a short note instead of the form */
+	function showReviewer() {
+		me = null;
+		guest.hidden = true;
+		memberArea.hidden = true;
+		var note = document.createElement( 'p' ), link = document.createElement( 'a' ), out = document.createElement( 'button' );
+		note.className = 'notice';
+		note.id = 'rv-c2-reviewer';
+		note.setAttribute( 'role', 'status' );
+		note.appendChild( document.createTextNode( 'You are signed in to RoboValley as an administrator or moderator. Reviewers do not send contributions: sign in with a member account to contribute, or review contributions in ' ) );
+		link.href = api + '/moderation';
+		link.textContent = 'Moderation';
+		note.appendChild( link );
+		note.appendChild( document.createTextNode( '. ' ) );
+		out.type = 'button';
+		out.textContent = 'Sign Out';
+		out.addEventListener( 'click', function () {
+			call( 'POST', '/api/auth/logout' ).then( function () {
+				note.parentNode.removeChild( note );
+				showGuest();
+				$( '#sign-in' ).focus();
+			} );
+		} );
+		note.appendChild( out );
+		guest.parentNode.insertBefore( note, guest );
+	}
 	function showMember( profile ) {
 		me = profile;
 		guest.hidden = true;
@@ -139,6 +165,13 @@
 					note.textContent = item.note;
 					row.appendChild( note );
 				}
+				/* replies from a moderator, whatever the status (0.1.4) */
+				( Array.isArray( item.replies ) ? item.replies : [] ).forEach( function ( reply ) {
+					var line = document.createElement( 'div' );
+					line.className = 'hint';
+					line.textContent = 'Reply from RoboValley: ' + String( reply && reply.message || '' );
+					row.appendChild( line );
+				} );
 				historyList.appendChild( row );
 			} );
 		} );
@@ -438,7 +471,9 @@
 		return;
 	}
 	call( 'GET', '/api/auth/me' ).then( function ( r ) {
-		if ( r.ok && r.body && r.body.role ) {
+		if ( r.ok && r.body && r.body.role && r.body.reviewer === true ) {
+			showReviewer();
+		} else if ( r.ok && r.body && r.body.role ) {
 			showMember( { firstName: r.body.firstName, role: r.body.role, stakeholder: r.body.stakeholder || '' } );
 		} else if ( r.status === 0 ) {
 			$( '#rv-c2-unavailable' ).hidden = false;

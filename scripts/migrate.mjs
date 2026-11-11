@@ -7,7 +7,9 @@
 //   * --expect-db <name> is REQUIRED and must equal the database name in DATABASE_URL, and again equal
 //     current_database() on the server. Each migration file repeats that check inside the database.
 //   * Without --apply it is a DRY RUN: it prints the target and the files, connects to nothing, changes nothing.
-//   * It never prints passwords, full URLs or host names.
+//   * It never prints passwords or full URLs. Of the host it prints only Neon's endpoint ID (e.g. ep-cool-darkness-123456): not a
+//     secret (it cannot connect without the password), and the only way to tell a staging branch from production, because
+//     both databases are called neondb. --expect-host <endpoint ID> makes the runner refuse any other server, even for a dry run.
 //
 // Usage (PowerShell, from the project folder):
 //   $env:DATABASE_URL = "<connection string for the TARGET database>"     # this window only
@@ -21,6 +23,7 @@
 //           --apply           actually execute (default is a dry run)
 //           --status          READ-ONLY: connect and report which migrations are applied / missing / partial (never applies anything)
 //           --force           with --apply: run a migration even though its objects already exist (normally skipped)
+//           --expect-host <endpoint ID>   refuse unless DATABASE_URL points to this Neon endpoint (shown in the Neon console)
 
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -57,6 +60,22 @@ export function dbNameFromUrl(url) {
 }
 
 /**
+ * Neon's endpoint ID from a connection string: the first part of the host name without "-pooler" (e.g. "ep-cool-darkness-123456").
+ * null for anything that is not a Neon address. Never returns the rest of the host, the user or the password.
+ * @param {string} url
+ * @returns {string | null}
+ */
+export function neonEndpointId(url) {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    const m = /^(ep-[a-z0-9]+(?:-[a-z0-9]+)*?)(?:-pooler)?\.(?:[a-z0-9-]+\.)*neon\.tech$/.exec(host);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Runs one SQL file after telling the database which database the operator confirmed.
  * `run` must provide: setExpected(name) and exec(sqlText). Used by the CLI (pg) and by the tests (PGlite).
  * If the file fails part-way (for example the database-name guard refuses), the open transaction is rolled back
@@ -87,13 +106,14 @@ export function hintFor(e) {
 }
 
 function parseArgs(argv) {
-  const a = { apply: false, status: false, force: false, expectDb: undefined, only: undefined, file: undefined };
+  const a = { apply: false, status: false, force: false, expectDb: undefined, expectHost: undefined, only: undefined, file: undefined };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
     if (t === "--status") a.status = true;
     else if (t === "--force") a.force = true;
     else if (t === "--apply") a.apply = true;
     else if (t === "--expect-db") a.expectDb = argv[++i];
+    else if (t === "--expect-host") a.expectHost = argv[++i];
     else if (t === "--only") a.only = argv[++i];
     else if (t === "--file") a.file = argv[++i];
     else throw new Error(`Unknown option: ${t}`);
@@ -118,11 +138,14 @@ async function main() {
 
   console.log("Target database name :", urlDb);
   console.log("Server location      :", isLocal ? "this computer (loopback)" : "remote server");
+  const endpoint = isLocal ? null : neonEndpointId(url);
+  if (!isLocal) console.log("Neon endpoint ID     :", endpoint ?? "(not a Neon address)");
   console.log("You confirmed        :", args.expectDb);
   if (!args.status) console.log("Files to run, in order:");
   for (const f of files) console.log("  -", f.replace(resolve(here, "..") + "\\", "").replace(resolve(here, "..") + "/", ""));
 
   if (urlDb !== args.expectDb) fail(`DATABASE_URL points to database "${urlDb}" but you confirmed "${args.expectDb}".`);
+  if (args.expectHost !== undefined && args.expectHost !== endpoint) fail(`DATABASE_URL points to Neon endpoint "${endpoint ?? "(not a Neon address)"}" but you confirmed "${args.expectHost}".`);
   if (!args.apply && !args.status) {
     console.log("\nDRY RUN: nothing was connected or changed. Add --apply to run these files.");
     console.log("To see which of them the database already has, run the same command with --status (read-only).");

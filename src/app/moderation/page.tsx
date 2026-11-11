@@ -3,6 +3,8 @@ import { requireReviewerPage } from "../../lib/reviewerPage";
 import { QUEUE_STATUSES, getForReview, listQueue, type QueueItem, type ReviewItem } from "../../lib/contributionReview";
 import { STATUS_LABELS, type ContributionStatus } from "../../lib/contributions";
 import DecisionForm from "./DecisionForm";
+import ReplyNoteForm from "./ReplyNoteForm";
+import { recordView } from "../../lib/contributionViews";
 
 type SP = { status?: string; item?: string };
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
@@ -17,7 +19,10 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
   let queue: QueueItem[] = [], item: ReviewItem | null = null, problem = "";
   try {
     queue = await listQueue(pool as never, status);
-    if (itemId) item = await getForReview(pool as never, me.userId, itemId, me.isAdmin);
+    if (itemId) {
+      await recordView(pool as never, me.userId, itemId); // opening an item marks it "In review" (never on your own item)
+      item = await getForReview(pool as never, me.userId, itemId, me.isAdmin);
+    }
   } catch (e) {
     problem = (e as { code?: string })?.code === "42P01" ? "Reviewing is not set up on this database yet (migrations 012 to 014 and 017 are needed)." : "The list could not be loaded. Please try again.";
     console.error("moderation page: could not read the data");
@@ -40,7 +45,7 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
             <li key={q.id}>
               <a href={`/moderation?status=${status}&item=${q.id}`} aria-current={q.id === itemId ? "true" : undefined}>
                 <strong>{q.title}</strong>
-                <span className="mod-meta">{[q.typeLabel, q.sectors.join(", "), q.photos ? `${q.photos} photo${q.photos === 1 ? "" : "s"}` : "", when(q.submittedAt)].filter(Boolean).join(" · ")}</span>
+                <span className="mod-meta">{[q.status === "pending_review" ? q.displayLabel : "", q.typeLabel, q.sectors.join(", "), q.photos ? `${q.photos} photo${q.photos === 1 ? "" : "s"}` : "", when(q.submittedAt)].filter(Boolean).join(" · ")}</span>
               </a>
             </li>
           ))}
@@ -52,7 +57,7 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
         {item && (
           <article className="mod-card">
             <h2 id="mod-item-h">{item.title}</h2>
-            <p className="mod-meta">{item.statusLabel}{item.verified ? " · Verified" : ""} · {item.typeLabel} · {item.sectors.join(", ")} · {item.authorLabel} · sent {when(item.submittedAt)}</p>
+            <p className="mod-meta">{item.displayLabel}{item.verified ? " · Verified" : ""} · {item.typeLabel} · {item.sectors.join(", ")} · {item.authorLabel} · sent {when(item.submittedAt)}</p>
             {item.duplicates.length > 0 && (
               <div className="mod-dup" role="note" aria-labelledby={`dup-${item.id}`}>
                 <strong id={`dup-${item.id}`}>Possible duplicate{item.duplicates.length === 1 ? "" : "s"} already live in the same sector</strong>
@@ -97,9 +102,25 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
                 {item.history.map((h, i) => (<li key={i}><strong>{ACTION_WORDS[h.action] ?? h.action}</strong> · {h.by} · {when(h.at)}{h.note ? <div>{h.note}</div> : null}</li>))}
               </ul>
             )}
+            <h3>Replies to the contributor</h3>
+            {item.replies.length === 0 ? <p className="mod-meta">None yet.</p> : (
+              <ul className="mod-history">
+                {item.replies.map((r, i) => (<li key={i}><strong>Reply</strong> · {r.by} · {when(r.at)}<div>{r.text}</div></li>))}
+              </ul>
+            )}
+            <h3>Internal notes (moderators only)</h3>
+            {item.notes.length === 0 ? <p className="mod-meta">None yet.</p> : (
+              <ul className="mod-history">
+                {item.notes.map((n, i) => (<li key={i}><strong>Note</strong> · {n.by} · {when(n.at)}<div>{n.text}</div></li>))}
+              </ul>
+            )}
             {item.own
               ? <p className="mod-note">This is your own contribution, so another reviewer has to decide on it.</p>
-              : <DecisionForm id={item.id} actions={item.actions} isAdmin={me.isAdmin} hasDuplicates={item.duplicates.length > 0} />}
+              : (<>
+                  <DecisionForm id={item.id} actions={item.actions} isAdmin={me.isAdmin} hasDuplicates={item.duplicates.length > 0} />
+                  <ReplyNoteForm id={item.id} kind="reply" />
+                  <ReplyNoteForm id={item.id} kind="note" />
+                </>)}
           </article>
         )}
       </section>

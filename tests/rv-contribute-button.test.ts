@@ -46,8 +46,10 @@ describe("Contribution button mu-plugin", () => {
     expect(php).toContain("position:sticky;right:0");
     expect(php).toContain(".rv-sector-bar .rv-contribute-btn{right:8px}");
   });
-  it("is admin-only until RV_CONTRIBUTE_PUBLIC, never on Contact Us, URL from RV_CONTRIBUTE_URL (default /contribute-now/)", () => {
-    expect(php).toContain("current_user_can( 'manage_options' )");
+  it("shows only once RV_CONTRIBUTE_PUBLIC is true and never to WordPress administrators (1.2.0), never on Contact Us, URL from RV_CONTRIBUTE_URL (default /contribute-now/)", () => {
+    expect(php).toContain("$show   = $public && ! current_user_can( 'manage_options' );");
+    expect(php).not.toContain("$public || current_user_can");
+    expect(php).toContain(" * Version: 1.2.0");
     expect(php).toContain("RV_CONTRIBUTE_PUBLIC");
     expect(php).toContain("array( 'contact-us', 'contact' )");
     expect(php).toContain("RV_CONTRIBUTE_URL");

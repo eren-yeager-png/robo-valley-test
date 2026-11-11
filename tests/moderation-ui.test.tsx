@@ -113,8 +113,37 @@ describe("duplicates and admin-only decisions on the page (PR C)", () => {
     const id = await make(author, "pending_review", "Checked by a moderator");
     await q("INSERT INTO contribution_reviews (contribution_id, reviewer_id, action) VALUES ($1,$2,'verify')", [id, mod]);
     const h = await render({ item: String(id) });
-    expect(h).toContain("Pending review · Verified");
+    expect(h).toContain("In review · Verified"); // opening it as a reviewer marks it In review (portal PR1)
     expect(h).toContain("<strong>Verified</strong>");
     expect(h).not.toContain("Possible duplicate");
+  });
+});
+
+describe("replies, internal notes and the display status on the page (portal PR1)", () => {
+  it("the queue labels a pending item New, opening it makes it In review, and the item shows replies, notes and both boxes", async () => {
+    const reviewer = Number((await seedUser({ email: `rv${++seq}@example.com`, role: "admin", fullName: "Ola Admin" })).id); state.viewer = reviewer;
+    const author = Number((await seedUser({ email: `au${++seq}@example.com`, role: "ST", fullName: "Author" })).id);
+    const id = await make(author, "pending_review", "Portal item for the page");
+    expect(await render()).toContain("New · ");
+    await q("INSERT INTO contribution_replies (contribution_id, author_id, message) VALUES ($1,$2,'Thanks, please add a photo.')", [id, reviewer]);
+    await q("INSERT INTO contribution_notes (contribution_id, author_id, note) VALUES ($1,$2,'Checked: the club is real.')", [id, reviewer]);
+    const h = await render({ item: String(id) });
+    expect(h).toContain("Replied · "); // a reply in this round beats In review
+    expect(h).toContain("Replies to the contributor");
+    expect(h).toContain("Thanks, please add a photo.");
+    expect(h).toContain("Internal notes (moderators only)");
+    expect(h).toContain("Checked: the club is real.");
+    expect(h).toContain("Ola"); expect(h).not.toContain("Ola Admin"); // first name only
+    expect(h).toContain("Reply to the contributor (they read it under My Contributions)");
+    expect(h).toContain("Internal note (moderators only, never shown to the contributor)");
+    expect(h).toContain(">Send reply</button>"); expect(h).toContain(">Save note</button>");
+    expect(Number(((await q("SELECT count(*)::int n FROM contribution_views WHERE contribution_id=$1 AND viewer_id=$2", [id, reviewer])).rows[0] as any).n)).toBe(1);
+  });
+  it("on your own item there are no reply or note boxes", async () => {
+    const reviewer = Number((await seedUser({ email: `rv${++seq}@example.com`, role: "admin", fullName: "Rev" })).id); state.viewer = reviewer;
+    const id = await make(reviewer, "pending_review", "My own portal item");
+    const h = await render({ item: String(id) });
+    expect(h).toContain("This is your own contribution");
+    expect(h).not.toContain(">Send reply</button>"); expect(h).not.toContain(">Save note</button>");
   });
 });
