@@ -180,5 +180,26 @@ describe("responsive stylesheet", () => {
     const landing = readFileSync("frontend/wordpress/plugins/robovalley-landing/assets/robovalley-home.css", "utf8");
     for (const token of ["--rh-brand: #17694f", "--rh-hero: #123f33", "--rh-bg: #f5f4ef", "--rh-tint: #e3ede7", "--rh-fg: #15302a", "--rh-line: #d6dfd9"]) expect(landing, token).toContain(token);
   });
+
+describe("the responsive drawer", () => {
+  const shell = () => <AdminShell email="boss@robovalley.com" landingUrl={LANDING} locked={false}>x</AdminShell>;
+  it("opens from the Menu button, closes on Escape, and closes by itself when the page changes", async () => {
+    const user = userEvent.setup();
+    const { container, rerender } = render(shell());
+    const adm = () => container.querySelector(".adm") as HTMLElement;
+    expect(adm().className).toBe("adm");
+    await user.click(screen.getByRole("button", { name: "Menu" }));
+    expect(adm().className).toBe("adm open");
+    await user.keyboard("{Escape}");
+    expect(adm().className).toBe("adm");
+    await user.click(screen.getByRole("button", { name: "Menu" }));
+    expect(adm().className).toBe("adm open");
+    h.path = "/admin/users"; // the visitor followed a link in the drawer
+    rerender(shell());
+    expect(adm().className).toBe("adm");
+    await user.click(screen.getByRole("button", { name: "Menu" })); // and it can be opened again on the new page
+    expect(adm().className).toBe("adm open");
+  });
+});
 });
 

@@ -94,7 +94,7 @@ export default function LoginForm({ returnTo }: { returnTo?: string } = {}) {
             <button type="submit" className="btn primary block" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
           </form>
 
-          <p className="alt">Don't have an account? <Link href={returnTo ? `/join?returnTo=${encodeURIComponent(returnTo)}` : "/join"}>Sign up</Link></p>
+          <p className="alt">Don&apos;t have an account? <Link href={returnTo ? `/join?returnTo=${encodeURIComponent(returnTo)}` : "/join"}>Sign up</Link></p>
         </div>
       </main>
     </div>

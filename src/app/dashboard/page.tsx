@@ -51,7 +51,7 @@ export default async function DashboardHome() {
             ))}
           </ul>
         ) : (
-          <div className="state"><p>You're all caught up. There is nothing waiting for you.</p></div>
+          <div className="state"><p>You&apos;re all caught up. There is nothing waiting for you.</p></div>
         )}
       </section>
 
@@ -99,7 +99,7 @@ export default async function DashboardHome() {
       <section className="dsec" aria-labelledby="act-h">
         <h2 id="act-h">Recent activity</h2>
         <ul className="tasks"><li><div><b>Account created</b><span>{fmtDate(a.createdAt)}</span></div></li></ul>
-        <p className="muted" style={{ fontSize: ".88rem" }}>A full activity feed needs an activity log, which doesn't exist yet.</p>
+        <p className="muted" style={{ fontSize: ".88rem" }}>A full activity feed needs an activity log, which doesn&apos;t exist yet.</p>
       </section>
 
       {sample && <SamplePreview sample={sample} roleLabel={dash.label} />}

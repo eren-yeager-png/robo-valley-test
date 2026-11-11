@@ -1,5 +1,6 @@
 // Small presentational pieces shared by dashboard pages. Synchronous and free of hooks, so they
 // work in Server Components.
+import Link from "next/link";
 import type { Section } from "../../lib/dashboardConfig";
 import LogoutButton from "./LogoutButton";
 import type { RoleSample } from "../../lib/dashboardSamples";
@@ -27,7 +28,7 @@ export function UnauthorizedState({ title = "You don't have access to this page"
       <span className="badge warn">Access denied</span>
       <h2>{title}</h2>
       <p>{body}</p>
-      {action === "signout" ? <LogoutButton /> : <a className="btn primary" href="/dashboard">Back to my dashboard</a>}
+      {action === "signout" ? <LogoutButton /> : <Link className="btn primary" href="/dashboard">Back to my dashboard</Link>}
     </section>
   );
 }

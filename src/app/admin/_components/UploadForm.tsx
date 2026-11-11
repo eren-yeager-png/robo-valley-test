@@ -31,7 +31,7 @@ function UploadReport({ report: r }: { report: Report }) {
       <ul>
         <li>Rows read: {r.rowsRead.toLocaleString("en-IN")}</li>
         <li>New unique schools added: {r.added.toLocaleString("en-IN")}</li>
-        <li>Duplicates skipped (the same school again): {r.duplicatesSkipped.toLocaleString("en-IN")}{r.rowsFilled > 0 && <> · {r.rowsFilled} filled a blank value in the kept row</>}{r.conflictRows > 0 && <> · {r.conflictRows} had different values (the first row's values were kept)</>}</li>
+        <li>Duplicates skipped (the same school again): {r.duplicatesSkipped.toLocaleString("en-IN")}{r.rowsFilled > 0 && <> · {r.rowsFilled} filled a blank value in the kept row</>}{r.conflictRows > 0 && <> · {r.conflictRows} had different values (the first row&apos;s values were kept)</>}</li>
         <li>Rows rejected (for example a bad PIN code or an empty name): {r.rejected.toLocaleString("en-IN")}</li>
         <li>Possible duplicates to review (not merged): {r.possibleDuplicates.toLocaleString("en-IN")}</li>
         {r.hiddenRowsRead > 0 && <li>{r.hiddenRowsRead.toLocaleString("en-IN")} rows are hidden in the spreadsheet (for example by a filter). They were read like every other row.</li>}
