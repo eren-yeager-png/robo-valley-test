@@ -4,6 +4,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { validateContributeReturn } from "../src/lib/contributeReturnTo";
 
 const DIR = join(__dirname, "..", "frontend", "wordpress", "plugins", "rv-contribution-v2");
 const MARKUP = readFileSync(join(DIR, "assets", "rv-contribution-v2.html"), "utf8");
@@ -26,7 +27,7 @@ const SECTORS = { success: true, sectors: [{ slug: "agriculture-dairy", name: "A
 function routes(extra: (c: Call) => Response | undefined = () => undefined, me: unknown = { role: "user", firstName: "Asha", stakeholder: "Teacher / lab in-charge" }) {
   return (c: Call) => extra(c) ?? (c.path === "/api/auth/me" ? reply(me) : c.path === "/api/contributions/sectors" ? reply(SECTORS) : c.path === "/api/contributions/mine" ? reply(MINE) : undefined);
 }
-async function run(r: (c: Call) => Response | undefined, base: string | null = BASE) {
+async function run(r: (c: Call) => Response | undefined, base: string | null = BASE, script = SCRIPT) {
   document.body.innerHTML = MARKUP;
   (window as any).RoboValleyApi = base === null ? undefined : { base };
   calls = [];
@@ -38,7 +39,7 @@ async function run(r: (c: Call) => Response | undefined, base: string | null = B
     calls.push(c);
     return r(c) ?? reply({ success: false }, 404);
   });
-  (0, eval)(SCRIPT);
+  (0, eval)(script);
   await flush();
 }
 function fillValid() {
@@ -187,7 +188,7 @@ describe("sending: pending only, through the app", () => {
 describe("the WordPress side (static)", () => {
   it("the switch: only an explicit true turns it on; only the listed pages; the Contact page can never be switched", () => {
     expect(PHP).toContain("defined( 'RV_CONTRIBUTION_V2' ) && true === RV_CONTRIBUTION_V2");
-    expect(PHP).toContain("'contribution,contributor'");
+    expect(PHP).toContain("'contribute-now,contribution,contributor'"); // 0.1.2: the form page /contribute-now/ is the default and comes first
     expect(PHP).toContain("array( 'contact-us', 'contact' )");
     expect(PHP).toMatch(/add_filter\(\s*'the_content'[\s\S]*PHP_INT_MAX/);
     expect(PHP).toContain("if ( ! rv_c2_enabled() ) {\n\t\t\treturn '';"); // the shortcode also stays empty while off
@@ -230,7 +231,74 @@ describe("?sector= preselects sectors (the Contribute to this sector link)", () 
     const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions");
     expect(create?.body.sectors).toEqual(["education"]);
   });
-  it("the plugin version moved to 0.1.1 so browsers fetch the new script", () => {
-    expect(PHP).toMatch(/Version: 0\.1\.1/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.1'/);
+  it("the plugin version moved to 0.1.3 so browsers fetch the new script", () => {
+    expect(PHP).toMatch(/Version: 0\.1\.3/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.3'/);
+  });
+});
+
+describe("Sign In and Sign Up keep the sector (0.1.3)", () => {
+  // jsdom cannot navigate, so this copy of the script records the address instead of going there (only these two lines differ)
+  const SPY = SCRIPT.replace(/location\.href = /g, "window.__rvNav = ");
+  const signedOut = { role: null, firstName: null, stakeholder: null };
+  const leave = async (search: string, button = "#sign-in") => {
+    history.replaceState(null, "", "/contribute-now/" + search);
+    await run(routes(undefined, signedOut), BASE, SPY);
+    q<HTMLButtonElement>(button).click();
+    const to = new URL((window as any).__rvNav);
+    expect(to.origin).toBe(BASE);
+    return { path: to.pathname, back: to.searchParams.get("returnTo") as string };
+  };
+  const page = () => `${location.origin}/contribute-now/`;
+  afterEach(() => { history.replaceState(null, "", "/"); delete (window as any).__rvNav; });
+  it("only the two sign-in navigations are swapped for the recorder", () => {
+    expect(SCRIPT.match(/location\.href = /g)).toHaveLength(2);
+  });
+  it("arriving from Contribute to this sector, signing in or up returns to the form with the same sector", async () => {
+    expect(await leave("?sector=agriculture-dairy")).toEqual({ path: "/login", back: page() + "?sector=agriculture-dairy" });
+    expect(await leave("?sector=agriculture-dairy,education", "#sign-up")).toEqual({ path: "/join", back: page() + "?sector=agriculture-dairy,education" });
+    expect((await leave("?sector=agriculture-dairy&utm=x")).back).toBe(page() + "?sector=agriculture-dairy"); // only the sector is carried
+  });
+  it("a value the app would refuse is dropped, so the visitor still comes back to the page (not the home page)", async () => {
+    const many = Array.from({ length: 21 }, (_, i) => "s" + i).join(",");
+    for (const bad of ["a,a", "-x", "a--b", "x,", "a".repeat(61), many]) {
+      expect(validateContributeReturn(page() + "?sector=" + bad, location.origin, "/contribute-now/"), bad).toBeNull();
+      expect((await leave("?sector=" + bad)).back, bad).toBe(page());
+    }
+    for (const none of ["", "?sector=Education", "?other=education"]) expect((await leave(none)).back, none).toBe(page());
+  });
+  it("every address the form sends back is one the app accepts unchanged", async () => {
+    for (const s of ["", "?sector=agriculture-dairy", "?sector=agriculture-dairy,education", "?sector=" + "a".repeat(60), "?sector=a,a"]) {
+      const { back } = await leave(s);
+      expect(validateContributeReturn(back, location.origin, "/contribute-now/"), s).toBe(back);
+    }
+  });
+});
+
+describe("Contribute to this sector (0.1.2, static; run on a local WordPress too)", () => {
+  it("only on child pages of the Robots by Sector page, using the page slug as the sector", () => {
+    expect(PHP).toContain("'robots-by-sector'");
+    expect(PHP).toContain("RV_CONTRIBUTION_SECTOR_PARENT");
+    expect(PHP).toMatch(/\$parent->post_name !== \$parent_slug/);
+    expect(PHP).toContain("return sanitize_title( $page->post_name );");
+  });
+  it("shows only while the form is on, and only to administrators until RV_CONTRIBUTE_PUBLIC is true", () => {
+    expect(PHP).toContain("if ( ! rv_c2_enabled() || '' === rv_c2_sector_slug() ) {");
+    expect(PHP).toContain("( defined( 'RV_CONTRIBUTE_PUBLIC' ) && true === RV_CONTRIBUTE_PUBLIC ) || current_user_can( 'manage_options' )");
+  });
+  it("links to the first form page with ?sector=, escaped, with the reference wording and plus icon, once per page", () => {
+    expect(PHP).toContain("add_query_arg( 'sector', rv_c2_sector_slug(), home_url( '/' . ( $slugs ? $slugs[0] : 'contribute-now' ) . '/' ) )");
+    expect(PHP).toContain("esc_url( $url )");
+    expect(PHP).toContain("Contribute to this sector</a>");
+    expect(PHP).toContain('<path d="M12 5v14M5 12h14"></path>');
+    expect(PHP).toContain("false !== strpos( $content, 'rv-c2-sector-cta' )");
+  });
+  it("looks like the reference: outline button in #237A33, 44 px tall, radius 8, bold; with a hover and a visible focus ring", () => {
+    expect(PHP).toContain("border:1.5px solid #237A33;border-radius:8px;color:#237A33");
+    expect(PHP).toContain("min-height:44px");
+    expect(PHP).toContain(".rv-c2-sector-btn:hover{");
+    expect(PHP).toContain(".rv-c2-sector-btn:focus-visible{");
+  });
+  it("the form page ticks the sector from ?sector= (added in 0.1.1), only sectors that exist", () => {
+    expect(SCRIPT).toContain("function preselectSectors()");
   });
 });
