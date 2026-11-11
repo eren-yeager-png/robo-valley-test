@@ -171,3 +171,42 @@ describe("visitor to published: the whole workflow", () => {
     expect(await publishedCount("agriculture-dairy")).toBe(0);
   });
 });
+
+describe("a contribution for several sectors", () => {
+  it("counts once in each chosen sector and in no other; a repeated sector counts once; an unknown sector is refused and nothing is stored", async () => {
+    await q("INSERT INTO sectors (slug, name, sort_order) VALUES ('education','Education',20), ('healthcare','Healthcare',30) ON CONFLICT DO NOTHING");
+    const author = await person("ST"), admin = await person("admin");
+    signInAs(author);
+
+    // an unknown sector is refused (and nothing is stored); so is no sector at the moment of submitting
+    const bad = await call(create.POST, "POST", "/api/contributions", { ...draft(), sectors: ["agriculture-dairy", "no-such-sector"] });
+    expect(bad.r.status).toBe(400);
+    expect(JSON.stringify(bad.b)).toMatch(/sector/i);
+    expect(Number(((await q("SELECT count(*) c FROM contributions")).rows[0] as any).c)).toBe(0);
+
+    // two sectors chosen, one of them listed twice: it is stored in each sector exactly once
+    const made = await call(create.POST, "POST", "/api/contributions", { ...draft(), sectors: ["agriculture-dairy", "education", "education"] });
+    expect(made.r.status).toBe(201);
+    const id = Number(made.b.id);
+    const stored = (await q("SELECT s.slug FROM contribution_scopes cs JOIN sectors s ON s.id = cs.sector_id WHERE cs.contribution_id = $1 ORDER BY s.slug", [id])).rows as { slug: string }[];
+    expect(stored.map((x) => x.slug)).toEqual(["agriculture-dairy", "education"]);
+    expect((await call(submit.POST, "POST", `/api/contributions/${id}/submit`, {}, id)).r.status).toBe(200);
+
+    // pending items count nowhere; after the administrator approves it, each chosen sector counts it once and the third stays at 0
+    signInAs(null);
+    for (const slug of ["agriculture-dairy", "education", "healthcare"]) expect(await publishedCount(slug)).toBe(0);
+    signInAs(admin, "admin");
+    expect((await call(decision.POST, "POST", `/api/review/${id}/decision`, { action: "approve" }, id)).r.status).toBe(200);
+    signInAs(null);
+    expect(await publishedCount("agriculture-dairy")).toBe(1);
+    expect(await publishedCount("education")).toBe(1);
+    expect(await publishedCount("healthcare")).toBe(0);
+
+    // unpublishing takes it out of every sector it was in
+    signInAs(admin, "admin");
+    expect((await call(decision.POST, "POST", `/api/review/${id}/decision`, { action: "unpublish", note: "Needs a correction." }, id)).r.status).toBe(200);
+    signInAs(null);
+    expect(await publishedCount("agriculture-dairy")).toBe(0);
+    expect(await publishedCount("education")).toBe(0);
+  });
+});
