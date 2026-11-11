@@ -131,7 +131,7 @@ export default function UploadForm({ categories, initialCategory, filesReady }: 
       )}
 
       {(mode === "dataset" || filesReady) && (
-        <form onSubmit={(e) => { e.preventDefault(); send(); }} noValidate>
+        <form method="post" onSubmit={(e) => { e.preventDefault(); send(); }} noValidate>
           {mode === "dataset" && (
             <div className="adm-filters">
               <label>Category
