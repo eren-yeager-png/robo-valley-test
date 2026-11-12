@@ -6,7 +6,7 @@ export default function DashboardError({ reset }: { error: Error & { digest?: st
     <section className="state block" role="alert">
       <span className="badge warn">Error</span>
       <h2>Something went wrong</h2>
-      <p>We couldn't show this page. Please try again.</p>
+      <p>We couldn&apos;t show this page. Please try again.</p>
       <button type="button" className="btn primary" onClick={reset}>Try again</button>
     </section>
   );

@@ -7,8 +7,10 @@ import {
   canSignIn,
   SESSION_COOKIE,
   SessionConfigError,
+  sessionRevoked,
   verifySessionToken,
 } from "../../../../lib/session";
+import { selectSessionUser } from "../../../../lib/currentUser";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,14 +76,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { rows } = await pool.query(
-      "SELECT full_name, role, email_verification FROM users WHERE id = $1",
-      [session.sub]
-    );
+    const user = await selectSessionUser(pool, "full_name, role, email_verification", session.sub);
 
-    const user = rows[0];
-
-    if (!user || !canSignIn(user.email_verification)) {
+    if (!user || !canSignIn(user.email_verification) || sessionRevoked(session, user.password_changed_at)) {
       return reply({ authenticated: false }, 401, origin);
     }
 

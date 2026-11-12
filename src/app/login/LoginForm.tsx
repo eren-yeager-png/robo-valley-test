@@ -67,7 +67,7 @@ export default function LoginForm({ returnTo }: { returnTo?: string } = {}) {
             <p className="muted" style={{ marginTop: 6 }}>Sign in to your RoboValley account to continue.</p>
           </div>
 
-          <form onSubmit={onSubmit} noValidate aria-busy={busy}>
+          <form method="post" onSubmit={onSubmit} noValidate aria-busy={busy}>
             <label className="f" htmlFor="login-email"><span className="req">Email address</span>
               <input ref={emailRef} id="login-email" type="email" name="email" autoComplete="username" inputMode="email" value={email} maxLength={254}
                 onChange={(e) => { setEmail(e.target.value); clear("email"); }} {...ea("email")} />
@@ -87,14 +87,14 @@ export default function LoginForm({ returnTo }: { returnTo?: string } = {}) {
 
             <div className="row">
               <label className="check"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Remember me on this device</label>
-              <span className="soon" aria-disabled="true">Forgot password?<small>Coming soon</small></span>
+              <Link className="forgot" href="/forgot-password">Forgot password?</Link>
             </div>
 
             <p className="err" role="alert">{formError}</p>
             <button type="submit" className="btn primary block" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
           </form>
 
-          <p className="alt">Don't have an account? <Link href={returnTo ? `/join?returnTo=${encodeURIComponent(returnTo)}` : "/join"}>Sign up</Link></p>
+          <p className="alt">Don&apos;t have an account? <Link href={returnTo ? `/join?returnTo=${encodeURIComponent(returnTo)}` : "/join"}>Sign up</Link></p>
         </div>
       </main>
     </div>

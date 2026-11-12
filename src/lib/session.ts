@@ -58,6 +58,23 @@ export function verifySessionToken(token: unknown, now = Date.now(), env: NodeJS
   }
 }
 
+/**
+ * True when this session must be refused because the person's password was changed (a reset) AFTER the session was issued.
+ * `passwordChangedAt` is users.password_changed_at, read in the same query that loads the user (so this costs nothing extra).
+ *   * no change on record (NULL, or the column does not exist yet)  -> never refused: nobody is signed out by deploying this
+ *   * a change on record and the cookie has no iat (an old cookie)   -> refused, because it cannot prove it is newer
+ *   * otherwise refused when iat is earlier than the whole second of the change (a session issued in the same second is kept, so signing
+ *     in right after a reset always works)
+ * An unreadable date fails closed. Pure: tests and both server checks (currentUser.ts, /api/auth/session) share it.
+ */
+export function sessionRevoked(session: { iat?: unknown }, passwordChangedAt: unknown): boolean {
+  if (passwordChangedAt === null || passwordChangedAt === undefined) return false;
+  const changedMs = passwordChangedAt instanceof Date ? passwordChangedAt.getTime() : new Date(String(passwordChangedAt)).getTime();
+  if (!Number.isFinite(changedMs)) return true;
+  if (typeof session.iat !== "number" || !Number.isFinite(session.iat)) return true;
+  return session.iat < Math.floor(changedMs / 1000);
+}
+
 /** HttpOnly always; Secure in production; SameSite=Lax. Omit maxAge for a browser-session cookie. */
 export function sessionCookieOptions(maxAgeSeconds?: number, env: NodeJS.ProcessEnv = process.env) {
   return {

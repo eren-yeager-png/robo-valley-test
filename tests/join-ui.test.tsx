@@ -331,4 +331,19 @@ describe("error and loading states", () => {
     expect(heading()).toBe("Your details");
     expect(within(document.body).getByDisplayValue("Asha Rao")).toBeTruthy();
   });
+
+  it("a wrong code clears the six boxes and puts the cursor back on the first one", async () => {
+    const user = setup();
+    await user.click(screen.getByLabelText(/^Student/));
+    await next(user, /^Continue$/);
+    await fillDetails(user);
+    await next(user, /Send code to my email/);
+    await waitFor(() => expect(heading()).toBe("Verify your email"));
+    const wrong = lastDevOtp === "000000" ? "111111" : "000000";
+    await verifyCode(user, wrong);
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    for (let i = 1; i <= 6; i++) expect((screen.getByLabelText("Digit " + i) as HTMLInputElement).value).toBe("");
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Digit 1")));
+    expect(heading()).toBe("Verify your email"); // still on the same step
+  });
 });

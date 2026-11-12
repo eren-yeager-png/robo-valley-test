@@ -17,9 +17,9 @@ const tables = async (pg: PGlite) =>
   (await pg.query("select table_name t from information_schema.tables where table_schema='public' order by 1")).rows.map((r: any) => r.t);
 
 describe("migration files", () => {
-  it("are 001 to 015, in order, and rollback is NOT in the migrations folder", () => {
+  it("are in order, with no number used twice, and rollback is NOT in the migrations folder", () => {
     const names = pickFiles().map((f) => f.split(/[\\/]/).pop());
-    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql", "005_service_datasets.sql", "006_pincode_locations.sql", "007_service_categories.sql", "008_login_events.sql", "009_upload_attachments.sql", "010_dedupe_uploads.sql", "011_api_rate_limits.sql", "012_contributions.sql", "013_contribution_photos.sql", "014_contribution_contacts.sql", "015_moderator_flag.sql", "016_sector_seed.sql", "017_review_statuses.sql", "018_contribution_dedupe.sql", "019_moderation_portal.sql"]);
+    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql", "005_service_datasets.sql", "006_pincode_locations.sql", "007_service_categories.sql", "008_login_events.sql", "009_upload_attachments.sql", "010_dedupe_uploads.sql", "011_api_rate_limits.sql", "012_contributions.sql", "013_contribution_photos.sql", "014_contribution_contacts.sql", "015_moderator_flag.sql", "016_sector_seed.sql", "017_review_statuses.sql", "018_contribution_dedupe.sql", "020_password_reset.sql"]);
     const nums = names.map((n) => Number(n!.slice(0, 3)));
     expect(nums).toEqual([...nums].sort((a, b) => a - b)); // ordered ...
     expect(new Set(nums).size).toBe(nums.length); // ... and no number used twice
@@ -101,7 +101,7 @@ describe("database-name guard (option B: fails closed)", () => {
     await pg.exec("ROLLBACK");
     expect(await tables(pg)).toEqual(expect.arrayContaining(["login_attempts", "otp_challenges"])); // nothing was dropped
     await applyFile(runner(pg), name, read("db/rollback/003_down.sql"));
-    expect(await tables(pg)).toEqual(["api_rate_limits", "contribution_categories", "contribution_category_links", "contribution_contacts", "contribution_notes", "contribution_photo_blobs", "contribution_photos", "contribution_replies", "contribution_reviews", "contribution_scopes", "contribution_title_keys", "contribution_views", "contribution_work_log", "contributions", "guardian_details", "login_events", "moderator_audit", "pincode_locations", "sectors", "service_dataset_rows", "service_datasets", "upload_attachment_blobs", "upload_attachments", "upload_audit_log", "users"]); // 003 tables gone, every other table untouched
+    expect(await tables(pg)).toEqual(["api_rate_limits", "contribution_contacts", "contribution_photo_blobs", "contribution_photos", "contribution_reviews", "contribution_scopes", "contribution_title_keys", "contributions", "guardian_details", "login_events", "moderator_audit", "password_reset_tokens", "pincode_locations", "sectors", "service_dataset_rows", "service_datasets", "upload_attachment_blobs", "upload_attachments", "upload_audit_log", "users"]); // 003 tables gone, every other table untouched
     expect(Number((await pg.query("select count(*)::int n from users")).rows[0]!["n" as never])).toBe(1); // data untouched
     await pg.close();
   });
@@ -133,6 +133,7 @@ describe("resulting schema", () => {
       ["mobile_verification", "character varying(10)", false, "'none'::character varying", ""], ["email_verification", "character varying(10)", false, "'none'::character varying", ""],
       ["must_change_password", "boolean", false, "false", ""], // added by migration 004
       ["is_moderator", "boolean", false, "false", ""], // added by migration 015
+      ["password_changed_at", "timestamp with time zone", true, null, ""], // added by migration 020
     ],
     guardian_details: [
       ["id", "bigint", false, null, "a"], ["user_id", "bigint", false, null, ""], ["guardian_name", "character varying(150)", false, null, ""],

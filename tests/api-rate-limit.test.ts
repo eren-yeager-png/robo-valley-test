@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { testDb } from "./helpers";
+import { windowRoom } from "./helpers/rateWindow";
 
 vi.mock("../src/lib/db", async () => { const c = await import("./helpers/currentPool"); return { get pool() { return c.getPool(); } }; });
 
@@ -18,6 +19,7 @@ const req = (path: string, ip: string, extra: Record<string, string> = {}) =>
   new Request("http://localhost" + path, { headers: { "x-forwarded-for": ip, ...extra } });
 
 beforeEach(async () => {
+  await windowRoom(); // these tests count real requests up to a limit: keep them inside one rate-limit window (see helpers/rateWindow.ts)
   await testDb().raw.exec("DELETE FROM api_rate_limits").catch(() => {});
   vi.stubEnv("SESSION_SECRET", SECRET);
   for (const fn of ["log", "error", "warn", "info"] as const) vi.spyOn(console, fn).mockImplementation(() => {});
