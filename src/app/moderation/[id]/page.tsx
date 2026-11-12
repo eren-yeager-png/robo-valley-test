@@ -6,6 +6,7 @@ import { recordView } from "../../../lib/contributionViews";
 import { STATUS_TONE } from "../../../lib/reviewStatus";
 import DecisionForm from "../DecisionForm";
 import ReplyNoteForm from "../ReplyNoteForm";
+import { logDbError } from "../../../lib/dbError";
 
 type SP = { from?: string; tab?: string; q?: string; cat?: string; sort?: string; verified?: string };
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
@@ -33,8 +34,7 @@ export default async function ContributionPage({ params, searchParams }: { param
         if (from) nav = await neighbours(pool as never, from, { tab: sp.from ? sp.tab : "all", q: sp.q, category: sp.cat, sort: sp.sort, verified: sp.from ? sp.verified : undefined }, id);
       }
     } catch (e) {
-      problem = (e as { code?: string })?.code === "42P01" ? "Reviewing is not set up on this database yet (migrations 012 to 019 are needed)." : "This contribution could not be loaded. Please try again.";
-      console.error("admin portal: could not read a contribution");
+      problem = logDbError("admin portal contribution", e) === "not_set_up" ? "Reviewing is not set up on this database yet (migrations 012 to 019 are needed)." : "This contribution could not be loaded. Please try again.";
     }
   }
   if (problem) return (<><p className="mod-crumb"><Link href="/moderation">Admin Portal / Contributions</Link></p><p className="mod-note" role="alert">{problem}</p></>);

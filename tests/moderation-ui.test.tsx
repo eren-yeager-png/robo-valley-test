@@ -72,12 +72,19 @@ describe("page 1: Contributions by Sector", () => {
     state.viewer = 1;
     await expect(overview({ item: "12" })).rejects.toThrow("REDIRECT:/moderation/12");
   });
+  it("with no contributions at all it says so (the numbers loaded, every sector at 0), not an error", async () => {
+    state.viewer = await person("admin", "Ola Admin");
+    const h = await overview();
+    expect(h).toContain("No contributions yet."); expect(h).not.toContain("could not be loaded");
+    expect(h).toContain("Contributors for Agriculture &amp; Dairy →");
+  });
   it("shows a plain message when the tables are missing, never details", async () => {
     state.viewer = 1;
     testDb().failOn((sql) => (/FROM contributions c WHERE c\.status NOT IN/.test(sql) ? Object.assign(new Error("x"), { code: "42P01" }) : undefined));
     expect(await overview()).toContain("Reviewing is not set up on this database yet");
     testDb().failOn((sql) => (/FROM contributions c WHERE c\.status NOT IN/.test(sql) ? new Error("password=hunter2") : undefined));
     const h = await overview(); expect(h).toContain("could not be loaded"); expect(h).not.toContain("hunter2");
+    expect(JSON.stringify((console.error as any).mock.calls)).not.toContain("hunter2"); // nor in the server log
   });
 });
 
