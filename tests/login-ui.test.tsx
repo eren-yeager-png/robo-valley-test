@@ -50,11 +50,11 @@ describe("login page UI", () => {
     expect((screen.getByRole("link", { name: "Sign up" }) as HTMLAnchorElement).getAttribute("href")).toBe("/join");
   });
 
-  it("'Forgot password?' is clearly unavailable, not a fake link", () => {
+  it("'Forgot password?' is a working link to the reset page (no more 'Coming soon')", () => {
     setup();
-    expect(screen.getByText(/Forgot password\?/).closest("[aria-disabled='true']")).toBeTruthy();
-    expect(screen.getByText("Coming soon")).toBeTruthy();
-    expect(screen.queryByRole("link", { name: /Forgot/ })).toBeNull();
+    expect((screen.getByRole("link", { name: "Forgot password?" }) as HTMLAnchorElement).getAttribute("href")).toBe("/forgot-password");
+    expect(screen.queryByText("Coming soon")).toBeNull();
+    expect(document.querySelector("[aria-disabled='true']")).toBeNull();
   });
 
   it("show/hide password toggles the field type and reports its state", async () => {
