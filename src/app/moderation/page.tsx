@@ -10,7 +10,7 @@ const ACTION_WORDS: Record<string, string> = { verify: "Verified", approve: "App
 
 /** Page 1 of the Admin Portal: every sector with its numbers, and a way into each sector's list. */
 export default async function ModerationPage({ searchParams }: { searchParams?: Promise<SP> } = {}) {
-  await requireReviewerPage();
+  const me = await requireReviewerPage();
   const sp = (await searchParams) ?? {};
   const status = (QUEUE_STATUSES as readonly string[]).includes(sp.status ?? "") ? (sp.status as string) : "pending_review";
   const itemId = /^[1-9]\d{0,9}$/.test(sp.item ?? "") ? Number(sp.item) : null;
