@@ -1,4 +1,4 @@
-RoboValley Contribution (v2) - WordPress plugin, version 0.1.5
+RoboValley Contribution (v2) - WordPress plugin, version 0.1.6
 
 WHAT IT IS
 The new Contribute form for the Contribution and Contributor pages. It only shows the form and talks to the RoboValley app.
@@ -69,3 +69,10 @@ NEW IN 0.1.5
     moderators' portal). The same text is still folded into the description, so nothing older breaks.
   * Needs the app with portal PR2. With an older app, the form works as 0.1.4 (the app ignores the extra data).
   * The form looks exactly the same (the HTML and CSS files are unchanged).
+
+NEW IN 0.1.6
+  * No Sign Out button on the Contribute page: the member banner shows only "<first name> - Registered member". The button is
+    taken out of the page on the server (it is not hidden with CSS). Signing out stays in the site header's account menu, on
+    every page. A signed-in administrator or moderator sees the reviewer note without a Sign Out button too.
+  * The [rv_contribution_v2] shortcode on any other page keeps the button; write [rv_contribution_v2 sign_out="no"] to drop it.
+  * The HTML and CSS files are unchanged; only the PHP (which removes the button) and the script (which copes without it) changed.

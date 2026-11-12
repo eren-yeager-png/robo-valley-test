@@ -28,8 +28,8 @@ const SECTORS = { success: true, sectors: [{ slug: "agriculture-dairy", name: "A
 function routes(extra: (c: Call) => Response | undefined = () => undefined, me: unknown = { role: "user", firstName: "Asha", stakeholder: "Teacher / lab in-charge" }) {
   return (c: Call) => extra(c) ?? (c.path === "/api/auth/me" ? reply(me) : c.path === "/api/contributions/sectors" ? reply(SECTORS) : c.path === "/api/contributions/mine" ? reply(MINE) : undefined);
 }
-async function run(r: (c: Call) => Response | undefined, base: string | null = BASE, script = SCRIPT) {
-  document.body.innerHTML = MARKUP;
+async function run(r: (c: Call) => Response | undefined, base: string | null = BASE, script = SCRIPT, markup = MARKUP) {
+  document.body.innerHTML = markup;
   (window as any).RoboValleyApi = base === null ? undefined : { base };
   calls = [];
   (window as any).fetch = vi.fn(async (u: string, o: any = {}) => {
@@ -232,8 +232,8 @@ describe("?sector= preselects sectors (the Contribute to this sector link)", () 
     const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions");
     expect(create?.body.sectors).toEqual(["education"]);
   });
-  it("the plugin version moved to 0.1.5 so browsers fetch the new script", () => {
-    expect(PHP).toMatch(/Version: 0\.1\.5/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.5'/);
+  it("the plugin version moved to 0.1.6 so browsers fetch the new script", () => {
+    expect(PHP).toMatch(/Version: 0\.1\.6/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.6'/);
   });
 });
 
@@ -313,9 +313,9 @@ describe("members contribute, administrators review (0.1.4)", () => {
   });
   it("WordPress administrators get a note with a Moderation link instead of the form, and no form script (static; also run in PHP)", () => {
     expect(PHP).toContain("function rv_c2_is_wp_admin() {\n\treturn function_exists( 'current_user_can' ) && current_user_can( 'manage_options' );");
-    expect(PHP).toContain("return rv_c2_is_wp_admin() ? rv_c2_admin_note() : rv_c2_markup();");
+    expect(PHP).toContain("return rv_c2_is_wp_admin() ? rv_c2_admin_note() : rv_c2_markup( false );");
     expect(PHP).toContain("if ( rv_c2_is_target_page() && ! rv_c2_is_wp_admin() ) {\n\t\t\trv_c2_enqueue();");
-    expect(PHP).toContain("if ( rv_c2_is_wp_admin() ) {\n\t\t\treturn rv_c2_admin_note();\n\t\t}\n\t\trv_c2_enqueue();");
+    expect(PHP).toContain("if ( rv_c2_is_wp_admin() ) {\n\t\t\treturn rv_c2_admin_note();\n\t\t}\n\t\t$atts = shortcode_atts(");
     expect(PHP).toContain("esc_url( $app . '/moderation' )");
     expect(PHP).toContain("esc_html( 'You are signed in to WordPress as an administrator, so the Contribute form is hidden here");
   });
@@ -459,5 +459,52 @@ describe("structured categories and Edit after changes are requested (0.1.5)", (
     await flush();
     expect(document.querySelector("#rv-c2-editing")).toBeNull();
     expect(q("#message").textContent).toBe("This contribution cannot be edited right now.");
+  });
+});
+
+describe("no Sign Out on the Contribute page (0.1.6)", () => {
+  const BUTTON = /const RV_C2_SIGN_OUT_BUTTON = '([^']+)';/.exec(PHP)![1];
+  // What the Contribute page serves: the same two replacements rv_c2_markup( false ) makes in PHP (also run in real PHP, see the PR)
+  const CONTRIBUTE_PAGE = MARKUP.replace(BUTTON, "").replace('<div class="rv-c2" id="rv-c2">', '<div class="rv-c2" id="rv-c2" data-sign-out="no">');
+  const ACCOUNT_JS = readFileSync(join(__dirname, "..", "frontend", "wordpress", "plugins", "robovalley-landing", "assets", "robovalley-account.js"), "utf8");
+
+  it("the PHP removes exactly the banner's button from the markup (it is in the file once), on the server, not with CSS", () => {
+    expect(BUTTON).toBe(' <button type="button" id="sign-out">Sign Out</button>');
+    expect(MARKUP.split(BUTTON).length).toBe(2); // exactly once, so a change to the HTML cannot silently leave it in
+    expect(MARKUP).toContain('<div class="rv-c2" id="rv-c2">');
+    expect(CONTRIBUTE_PAGE).not.toContain('id="sign-out"'); expect(CONTRIBUTE_PAGE).not.toContain("Sign Out");
+    expect(CONTRIBUTE_PAGE).toContain('<strong id="member-name"></strong> · Registered member</p>'); // the banner text stays
+    expect(PHP).toContain("$html = str_replace( RV_C2_SIGN_OUT_BUTTON, '', $html );");
+    expect(CSS).not.toMatch(/sign-out/); // not hidden with CSS
+  });
+  it("only the Contribute page drops it: the switched form pages pass false; the shortcode keeps it unless sign_out=\"no\"", () => {
+    expect(PHP).toContain("rv_c2_markup( false ); // the Contribute page: no Sign Out in the banner");
+    expect(PHP).toContain("shortcode_atts( array( 'sign_out' => 'yes' )");
+    expect(PHP).toContain("return rv_c2_markup( 'no' !== strtolower( trim( (string) $atts['sign_out'] ) ) );");
+    expect(PHP).toContain("function rv_c2_markup( $sign_out = true ) {"); // anything else gets the button, as before
+  });
+  it("a member on the Contribute page: the banner shows the name and 'Registered member', no Sign Out in the page; the form works as before", async () => {
+    await run(routes(), BASE, SCRIPT, CONTRIBUTE_PAGE);
+    expect(q("#member-area").hidden).toBe(false);
+    expect(q("#member-name").textContent).toBe("Asha");
+    expect(q("#member-name").parentElement!.textContent).toBe("Asha · Registered member");
+    expect(document.querySelector("#sign-out")).toBeNull();
+    expect(document.body.textContent).not.toContain("Sign Out");
+    expect(q("#sector-choices").querySelectorAll("input").length).toBe(2); // sectors still load
+    expect(q("#history").textContent).toContain("Waiting one");
+  });
+  it("a reviewer on the Contribute page gets the note and the Moderation link, without a Sign Out button", async () => {
+    await run(routes(undefined, { role: "admin", firstName: "Ola", stakeholder: null, reviewer: true }), BASE, SCRIPT, CONTRIBUTE_PAGE);
+    const note = q("#rv-c2-reviewer");
+    expect(note.querySelector("a")!.getAttribute("href")).toBe(BASE + "/moderation");
+    expect(note.querySelector("button")).toBeNull();
+    expect(document.body.textContent).not.toContain("Sign Out");
+  });
+  it("anywhere else the form keeps its Sign Out, and the site header's account menu has Sign out for every signed-in user", async () => {
+    await run(routes());
+    expect(q("#sign-out").textContent).toBe("Sign Out");
+    expect(ACCOUNT_JS).toContain("b.textContent = 'Sign out';");
+    expect(ACCOUNT_JS).toMatch(/any other signed-in user[^\n]*then "Sign out"/);
+    expect(ACCOUNT_JS).not.toMatch(/contribute/i); // the header does not treat the Contribute page differently
   });
 });

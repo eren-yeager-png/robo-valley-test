@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoboValley Contribution (v2)
  * Description: The new Contribute form for the Contribution and Contributor pages. It only renders the form and talks to the RoboValley app; it stores nothing in WordPress. Nothing changes until RV_CONTRIBUTION_V2 is set to true in wp-config.php.
- * Version: 0.1.5
+ * Version: 0.1.6
  * Requires PHP: 7.4
  * Author: RoboValley
  *
@@ -24,6 +24,9 @@
  *     RV_CONTRIBUTION_SECTOR_PARENT, default robots-by-sector) a button at the top right, next to the heading, links to the form
  *     page with that sector ticked (?sector=<the page's slug>). It shows only while RV_CONTRIBUTION_V2 and RV_CONTRIBUTE_PUBLIC are
  *     both true (the same rule as the Contribution button in the sector bar).
+ *   * Sign Out on the Contribute page (0.1.6): the form pages show the member banner WITHOUT its Sign Out button (the button is taken out
+ *     of the markup on the server, so it is not in the page at all). The site header's account menu keeps Sign out on every page.
+ *     The shortcode keeps the button unless it is written as [rv_contribution_v2 sign_out="no"].
  *   * Members contribute, administrators review (0.1.4): WordPress administrators never see the buttons, and on the form pages they
  *     see a short note with a link to the app's Moderation page instead of the form. Signed in to the app as an administrator or
  *     moderator, the form shows the same kind of note (the app refuses their submissions anyway). Display only: the app decides.
@@ -32,7 +35,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const RV_C2_VERSION = '0.1.5';
+const RV_C2_VERSION = '0.1.6';
 
 /** A WordPress administrator? They review contributions in the app, so the form and the buttons are hidden from them (display only). */
 function rv_c2_is_wp_admin() {
@@ -82,11 +85,25 @@ function rv_c2_admin_note() {
 		. $link . '</div>';
 }
 
-/** The form markup (static HTML from the plugin folder; no visitor data is ever put into it on the server). */
-function rv_c2_markup() {
+/** The member banner's Sign Out button, exactly as it is in assets/rv-contribution-v2.html (a test keeps the two in step). */
+const RV_C2_SIGN_OUT_BUTTON = ' <button type="button" id="sign-out">Sign Out</button>';
+
+/**
+ * The form markup (static HTML from the plugin folder; no visitor data is ever put into it on the server).
+ * $sign_out = false (the Contribute page itself): the banner's Sign Out button is removed, and the form is told so with
+ * data-sign-out="no" (then the reviewer note shows no Sign Out either). The header's account menu still has Sign out.
+ */
+function rv_c2_markup( $sign_out = true ) {
 	$file = __DIR__ . '/assets/rv-contribution-v2.html';
 	$html = is_readable( $file ) ? (string) file_get_contents( $file ) : '';
-	return '' === $html ? '' : $html;
+	if ( '' === $html ) {
+		return '';
+	}
+	if ( ! $sign_out ) {
+		$html = str_replace( RV_C2_SIGN_OUT_BUTTON, '', $html );
+		$html = str_replace( '<div class="rv-c2" id="rv-c2">', '<div class="rv-c2" id="rv-c2" data-sign-out="no">', $html );
+	}
+	return $html;
 }
 
 function rv_c2_enqueue() {
@@ -106,7 +123,7 @@ add_filter(
 		if ( ! rv_c2_is_target_page() || ! in_the_loop() || ! is_main_query() ) {
 			return $content;
 		}
-		return rv_c2_is_wp_admin() ? rv_c2_admin_note() : rv_c2_markup();
+		return rv_c2_is_wp_admin() ? rv_c2_admin_note() : rv_c2_markup( false ); // the Contribute page: no Sign Out in the banner
 	},
 	PHP_INT_MAX
 );
@@ -122,15 +139,16 @@ add_action(
 
 add_shortcode(
 	'rv_contribution_v2',
-	function () {
+	function ( $atts ) {
 		if ( ! rv_c2_enabled() ) {
 			return '';
 		}
 		if ( rv_c2_is_wp_admin() ) {
 			return rv_c2_admin_note();
 		}
+		$atts = shortcode_atts( array( 'sign_out' => 'yes' ), is_array( $atts ) ? $atts : array(), 'rv_contribution_v2' );
 		rv_c2_enqueue();
-		return rv_c2_markup();
+		return rv_c2_markup( 'no' !== strtolower( trim( (string) $atts['sign_out'] ) ) );
 	}
 );
 
