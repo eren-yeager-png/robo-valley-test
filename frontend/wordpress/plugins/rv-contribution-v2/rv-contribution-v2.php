@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoboValley Contribution (v2)
  * Description: The new Contribute form for the Contribution and Contributor pages. It only renders the form and talks to the RoboValley app; it stores nothing in WordPress. Nothing changes until RV_CONTRIBUTION_V2 is set to true in wp-config.php.
- * Version: 0.1.3
+ * Version: 0.1.5
  * Requires PHP: 7.4
  * Author: RoboValley
  *
@@ -22,14 +22,22 @@
  *   * Shortcode [rv_contribution_v2] shows the same form anywhere, also only while the switch is on.
  *   * "Contribute to this sector": on each Robots by Sector page (a child page of the page with the slug in
  *     RV_CONTRIBUTION_SECTOR_PARENT, default robots-by-sector) a button at the top right, next to the heading, links to the form
- *     page with that sector ticked (?sector=<the page's slug>). It shows only while RV_CONTRIBUTION_V2 is true, and only to
- *     administrators until RV_CONTRIBUTE_PUBLIC is also true (the same rule as the Contribution button in the sector bar).
+ *     page with that sector ticked (?sector=<the page's slug>). It shows only while RV_CONTRIBUTION_V2 and RV_CONTRIBUTE_PUBLIC are
+ *     both true (the same rule as the Contribution button in the sector bar).
+ *   * Members contribute, administrators review (0.1.4): WordPress administrators never see the buttons, and on the form pages they
+ *     see a short note with a link to the app's Moderation page instead of the form. Signed in to the app as an administrator or
+ *     moderator, the form shows the same kind of note (the app refuses their submissions anyway). Display only: the app decides.
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const RV_C2_VERSION = '0.1.3';
+const RV_C2_VERSION = '0.1.5';
+
+/** A WordPress administrator? They review contributions in the app, so the form and the buttons are hidden from them (display only). */
+function rv_c2_is_wp_admin() {
+	return function_exists( 'current_user_can' ) && current_user_can( 'manage_options' );
+}
 
 /** Is the switch on? Only an explicit true counts. */
 function rv_c2_enabled() {
@@ -65,6 +73,15 @@ function rv_c2_is_target_page() {
 	return ! empty( $slugs ) && is_page( $slugs );
 }
 
+/** What a WordPress administrator sees instead of the form: no form, a link to the app's Moderation page. */
+function rv_c2_admin_note() {
+	$app  = rv_c2_app_url();
+	$link = '' === $app ? '' : ' <a href="' . esc_url( $app . '/moderation' ) . '">Open Moderation</a>';
+	return '<div id="rv-c2-admin-note" style="border-left:4px solid #237A33;background:#F1F8F2;padding:12px 14px;border-radius:4px;margin:14px 0">'
+		. esc_html( 'You are signed in to WordPress as an administrator, so the Contribute form is hidden here: members contribute, administrators review. Contributions are reviewed in the RoboValley app.' )
+		. $link . '</div>';
+}
+
 /** The form markup (static HTML from the plugin folder; no visitor data is ever put into it on the server). */
 function rv_c2_markup() {
 	$file = __DIR__ . '/assets/rv-contribution-v2.html';
@@ -89,7 +106,7 @@ add_filter(
 		if ( ! rv_c2_is_target_page() || ! in_the_loop() || ! is_main_query() ) {
 			return $content;
 		}
-		return rv_c2_markup();
+		return rv_c2_is_wp_admin() ? rv_c2_admin_note() : rv_c2_markup();
 	},
 	PHP_INT_MAX
 );
@@ -97,7 +114,7 @@ add_filter(
 add_action(
 	'wp_enqueue_scripts',
 	function () {
-		if ( rv_c2_is_target_page() ) {
+		if ( rv_c2_is_target_page() && ! rv_c2_is_wp_admin() ) {
 			rv_c2_enqueue();
 		}
 	}
@@ -108,6 +125,9 @@ add_shortcode(
 	function () {
 		if ( ! rv_c2_enabled() ) {
 			return '';
+		}
+		if ( rv_c2_is_wp_admin() ) {
+			return rv_c2_admin_note();
 		}
 		rv_c2_enqueue();
 		return rv_c2_markup();
@@ -143,12 +163,12 @@ function rv_c2_sector_slug() {
 	return sanitize_title( $page->post_name );
 }
 
-/** Show the button? Only while the form is on, and only to administrators until RV_CONTRIBUTE_PUBLIC is true. */
+/** Show the button? Only while the form is on and RV_CONTRIBUTE_PUBLIC is true, and never to WordPress administrators (they review). */
 function rv_c2_sector_button_visible() {
 	if ( ! rv_c2_enabled() || '' === rv_c2_sector_slug() ) {
 		return false;
 	}
-	return ( defined( 'RV_CONTRIBUTE_PUBLIC' ) && true === RV_CONTRIBUTE_PUBLIC ) || current_user_can( 'manage_options' );
+	return defined( 'RV_CONTRIBUTE_PUBLIC' ) && true === RV_CONTRIBUTE_PUBLIC && ! rv_c2_is_wp_admin();
 }
 
 function rv_c2_sector_button_html() {

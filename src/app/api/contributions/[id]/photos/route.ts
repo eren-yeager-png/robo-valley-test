@@ -3,7 +3,7 @@ import { json } from "../../../../../lib/http";
 import { pool } from "../../../../../lib/db";
 import { addOwnPhoto, removeOwnPhoto } from "../../../../../lib/contributionApi";
 import { CONTRIBUTION_LIMITS } from "../../../../../lib/contributions";
-import { guardContributor, notFound, parseId, serverError } from "../../../../../lib/contributorGuard";
+import { guardContributorWrite, notFound, parseId, serverError } from "../../../../../lib/contributorGuard";
 import { answer } from "../../../../../lib/contributorRoute";
 
 export const runtime = "nodejs";
@@ -17,7 +17,7 @@ const tooBig = () => json({ success: false, error: "REQUEST_TOO_LARGE", message:
 
 /** ONE photo per request: multipart form with "photo" (the file) and "alt" (the description, required). */
 export async function POST(req: Request, ctx: Ctx) {
-  const g = await guardContributor(req, METHODS, "contribPhoto");
+  const g = await guardContributorWrite(req, METHODS, "contribPhoto");
   if ("res" in g) return g.res;
   const id = parseId((await ctx.params).id);
   if (id === null) return withCors(req, notFound(), METHODS);
@@ -36,7 +36,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
 /** Removes one of your photos: DELETE ?photoId=n */
 export async function DELETE(req: Request, ctx: Ctx) {
-  const g = await guardContributor(req, METHODS);
+  const g = await guardContributorWrite(req, METHODS);
   if ("res" in g) return g.res;
   const id = parseId((await ctx.params).id), photoId = parseId(new URL(req.url).searchParams.get("photoId") ?? "");
   if (id === null || photoId === null) return withCors(req, notFound(), METHODS);

@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL } from "./setup";
+import { neonEndpointId } from "../scripts/migrate.mjs";
 
 const run = (args: string[], env: Record<string, string | undefined> = {}) => {
   const r = spawnSync(process.execPath, [resolve("scripts/migrate.mjs"), ...args], {
@@ -68,5 +69,37 @@ describe("scripts/migrate.mjs (fails closed)", () => {
     const r = run(["--expect-db", "never_connects", "--bogus"]);
     expect(r.code).toBe(1);
     expect(r.out).toMatch(/Unknown option: --bogus/);
+  });
+});
+
+describe("telling a staging branch from production (portal PR1: both databases are called neondb)", () => {
+  // A made-up Neon address: a dry run never connects, so nothing is contacted.
+  const NEON = "postgresql://someone:pa55word@ep-test-staging-123456-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require";
+  it("prints only Neon's endpoint ID, never the rest of the host, the user or the password", () => {
+    const r = run(["--expect-db", "neondb", "--only", "019"], { DATABASE_URL: NEON });
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/Neon endpoint ID {5}: ep-test-staging-123456\s*$/m);
+    expect(r.out).toMatch(/DRY RUN: nothing was connected or changed/);
+    for (const secret of ["pa55word", "someone", "us-east-2", "neon.tech", "-pooler", "postgresql://"]) expect(r.out).not.toContain(secret);
+  });
+  it("--expect-host with the right endpoint goes on; with any other endpoint it refuses, even for a dry run", () => {
+    expect(run(["--expect-db", "neondb", "--expect-host", "ep-test-staging-123456", "--only", "019"], { DATABASE_URL: NEON }).code).toBe(0);
+    const wrong = run(["--expect-db", "neondb", "--expect-host", "ep-production-999999", "--only", "019"], { DATABASE_URL: NEON });
+    expect(wrong.code).toBe(1);
+    expect(wrong.out).toMatch(/points to Neon endpoint "ep-test-staging-123456" but you confirmed "ep-production-999999"/);
+    expect(wrong.out).toMatch(/Nothing was changed/);
+    expect(wrong.out).not.toMatch(/DRY RUN/);
+  });
+  it("--expect-host refuses a database that is not on Neon at all", () => {
+    const r = run(["--expect-db", "never_connects", "--expect-host", "ep-test-staging-123456", "--only", "003"]);
+    expect(r.code).toBe(1);
+    expect(r.out).toMatch(/not a Neon address/);
+  });
+  it("reads the endpoint ID from pooled and direct addresses, and nothing from look-alikes", () => {
+    expect(neonEndpointId("postgresql://u:p@ep-cool-darkness-123456-pooler.c-2.us-east-2.aws.neon.tech/neondb")).toBe("ep-cool-darkness-123456");
+    expect(neonEndpointId("postgresql://u:p@ep-cool-darkness-123456.us-east-2.aws.neon.tech/neondb")).toBe("ep-cool-darkness-123456");
+    expect(neonEndpointId("postgresql://u:p@ep-x-1.neon.tech.evil.example/neondb")).toBeNull();
+    expect(neonEndpointId("postgresql://u:p@db.example.com/neondb")).toBeNull();
+    expect(neonEndpointId("not a url")).toBeNull();
   });
 });

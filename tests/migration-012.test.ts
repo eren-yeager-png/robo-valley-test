@@ -175,9 +175,11 @@ describe("migration 012", () => {
 describe("rollback 012", () => {
   it("removes exactly the new objects, keeps everything else, and the migration can be applied again", async () => {
     const { pg, name } = await build();
-    const before = (await tables(pg)).filter((t) => !NEW.includes(t) && !PHOTOS.includes(t) && t !== "contribution_reviews");
+    const P019 = ["contribution_replies", "contribution_notes", "contribution_views", "contribution_categories", "contribution_category_links", "contribution_work_log"];
+    const before = (await tables(pg)).filter((t) => !NEW.includes(t) && !PHOTOS.includes(t) && t !== "contribution_reviews" && !P019.includes(t));
     await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(); // 013 (photos), 014 (contacts) and 017 (reviews) depend on contributions: undo them first
     await pg.exec("ROLLBACK");
+    await applyFile(runner(pg), name, read("db/rollback/019_down.sql")); // newest first
     await applyFile(runner(pg), name, read("db/rollback/018_down.sql"));
     await applyFile(runner(pg), name, read("db/rollback/017_down.sql"));
     await applyFile(runner(pg), name, read("db/rollback/014_down.sql"));

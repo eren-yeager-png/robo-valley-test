@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 // The WordPress plugin "RoboValley Contribution (v2)": the owner's form wired to the app API. The network is faked; nothing real is
 // contacted. The PHP side is checked statically here (the switch, the pages, no storage, no secrets) and was run on a local test site.
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -231,8 +232,8 @@ describe("?sector= preselects sectors (the Contribute to this sector link)", () 
     const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions");
     expect(create?.body.sectors).toEqual(["education"]);
   });
-  it("the plugin version moved to 0.1.3 so browsers fetch the new script", () => {
-    expect(PHP).toMatch(/Version: 0\.1\.3/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.3'/);
+  it("the plugin version moved to 0.1.5 so browsers fetch the new script", () => {
+    expect(PHP).toMatch(/Version: 0\.1\.5/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.5'/);
   });
 });
 
@@ -281,9 +282,10 @@ describe("Contribute to this sector (0.1.2, static; run on a local WordPress too
     expect(PHP).toMatch(/\$parent->post_name !== \$parent_slug/);
     expect(PHP).toContain("return sanitize_title( $page->post_name );");
   });
-  it("shows only while the form is on, and only to administrators until RV_CONTRIBUTE_PUBLIC is true", () => {
+  it("shows only while the form is on and RV_CONTRIBUTE_PUBLIC is true, and never to WordPress administrators (0.1.4)", () => {
     expect(PHP).toContain("if ( ! rv_c2_enabled() || '' === rv_c2_sector_slug() ) {");
-    expect(PHP).toContain("( defined( 'RV_CONTRIBUTE_PUBLIC' ) && true === RV_CONTRIBUTE_PUBLIC ) || current_user_can( 'manage_options' )");
+    expect(PHP).toContain("return defined( 'RV_CONTRIBUTE_PUBLIC' ) && true === RV_CONTRIBUTE_PUBLIC && ! rv_c2_is_wp_admin();");
+    expect(PHP).not.toContain("|| current_user_can( 'manage_options' )");
   });
   it("links to the first form page with ?sector=, escaped, with the reference wording and plus icon, once per page", () => {
     expect(PHP).toContain("add_query_arg( 'sector', rv_c2_sector_slug(), home_url( '/' . ( $slugs ? $slugs[0] : 'contribute-now' ) . '/' ) )");
@@ -300,5 +302,162 @@ describe("Contribute to this sector (0.1.2, static; run on a local WordPress too
   });
   it("the form page ticks the sector from ?sector= (added in 0.1.1), only sectors that exist", () => {
     expect(SCRIPT).toContain("function preselectSectors()");
+  });
+});
+
+describe("members contribute, administrators review (0.1.4)", () => {
+  const sha = (t: string) => createHash("sha256").update(t).digest("hex");
+  it("the member form's markup and styles are byte-for-byte the 0.1.3 files (only the script changed)", () => {
+    expect(sha(MARKUP)).toBe("26285aea36f400c70864cad144f67d0b2fdc9b1f1b7b93a33b73ece69cc2d046");
+    expect(sha(CSS)).toBe("1b897db635e89d8f004b6fd5c4bb5e466860aedda0e857a9cc133a3b996af11a");
+  });
+  it("WordPress administrators get a note with a Moderation link instead of the form, and no form script (static; also run in PHP)", () => {
+    expect(PHP).toContain("function rv_c2_is_wp_admin() {\n\treturn function_exists( 'current_user_can' ) && current_user_can( 'manage_options' );");
+    expect(PHP).toContain("return rv_c2_is_wp_admin() ? rv_c2_admin_note() : rv_c2_markup();");
+    expect(PHP).toContain("if ( rv_c2_is_target_page() && ! rv_c2_is_wp_admin() ) {\n\t\t\trv_c2_enqueue();");
+    expect(PHP).toContain("if ( rv_c2_is_wp_admin() ) {\n\t\t\treturn rv_c2_admin_note();\n\t\t}\n\t\trv_c2_enqueue();");
+    expect(PHP).toContain("esc_url( $app . '/moderation' )");
+    expect(PHP).toContain("esc_html( 'You are signed in to WordPress as an administrator, so the Contribute form is hidden here");
+  });
+  it("signed in to the app as a reviewer: a note with a Moderation link and Sign Out instead of the form; nothing else is asked", async () => {
+    await run(routes(undefined, { role: "admin", firstName: "Ola", stakeholder: null, reviewer: true }));
+    expect(q("#member-area").hidden).toBe(true);
+    expect(q("#guest").hidden).toBe(true);
+    const note = q("#rv-c2-reviewer");
+    expect(note.textContent).toContain("You are signed in to RoboValley as an administrator or moderator. Reviewers do not send contributions");
+    expect(note.querySelector("a")!.getAttribute("href")).toBe(BASE + "/moderation");
+    expect(calls.map((c) => c.path)).toEqual(["/api/auth/me"]); // no sectors, no My Contributions, no drafts
+    (note.querySelector("button") as HTMLButtonElement).click();
+    await flush();
+    expect(calls.at(-1)).toMatchObject({ path: "/api/auth/logout", method: "POST" });
+    expect(document.querySelector("#rv-c2-reviewer")).toBeNull();
+    expect(q("#guest").hidden).toBe(false);
+  });
+  it("a flagged moderator with a member profile is a reviewer too (the app says reviewer: true)", async () => {
+    await run(routes(undefined, { role: "user", firstName: "Mo", stakeholder: "Teacher / lab in-charge", reviewer: true }));
+    expect(q("#member-area").hidden).toBe(true);
+    expect(q("#rv-c2-reviewer")).not.toBeNull();
+  });
+  it("a member (reviewer: false) sees exactly the 0.1.3 form", async () => {
+    await run(routes(undefined, { role: "user", firstName: "Asha", stakeholder: "Teacher / lab in-charge", reviewer: false }));
+    expect(q("#member-area").hidden).toBe(false);
+    expect(document.querySelector("#rv-c2-reviewer")).toBeNull();
+    expect(q("#member-name").textContent).toBe("Asha");
+    expect(q("#history").textContent).toContain("Waiting one · Agriculture & Dairy · Pending review");
+    expect(document.querySelectorAll("#history .hint").length).toBe(1); // only the rejected item's reason, as before
+  });
+  it("My Contributions shows every reply under its item, whatever the status, and the app's 'Replied' label", async () => {
+    const withReplies = { ...MINE, items: [
+      { id: 7, title: "Waiting one", status: "pending_review", statusLabel: "Replied", sectors: [], note: null, replies: [{ message: "Thanks, could you add a photo?", at: "2026-11-11T10:00:00.000Z" }] },
+      { id: 8, title: "Live one", status: "published", statusLabel: "Published", sectors: [], note: null, replies: [{ message: "First reply", at: "2026-11-10T10:00:00.000Z" }, { message: "Second reply <b>not bold</b>", at: "2026-11-11T09:00:00.000Z" }] },
+      { id: 9, title: "Not this time", status: "rejected", statusLabel: "Not accepted", sectors: [], note: "This reads as an advert.", replies: [] },
+    ] };
+    await run(routes((c) => (c.path === "/api/contributions/mine" ? reply(withReplies) : undefined)));
+    const rows = Array.from(document.querySelectorAll("#history li"));
+    expect(rows[0]!.textContent).toContain("Waiting one · Replied");
+    expect(rows[0]!.textContent).toContain("Reply from RoboValley: Thanks, could you add a photo?");
+    expect(Array.from(rows[1]!.querySelectorAll(".hint")).map((h) => h.textContent)).toEqual(["Reply from RoboValley: First reply", "Reply from RoboValley: Second reply <b>not bold</b>"]);
+    expect(rows[1]!.querySelector("b")).toBeNull(); // text, never HTML
+    expect(Array.from(rows[2]!.querySelectorAll(".hint")).map((h) => h.textContent)).toEqual(["This reads as an advert."]);
+  });
+  it("if the app refuses a reviewer's submission (403), the form shows the app's message", async () => {
+    const msg = "Administrators and moderators review contributions. Please use a member account to contribute.";
+    await run(routes((c) => (c.path === "/api/contributions" && c.method === "POST" ? reply({ success: false, error: "REVIEWER_CANNOT_CONTRIBUTE", message: msg }, 403) : undefined)));
+    fillValid();
+    await submit();
+    expect(q("#message").textContent).toContain(msg);
+  });
+});
+
+describe("structured categories and Edit after changes are requested (0.1.5)", () => {
+  const SAVED = { success: true, contribution: {
+    id: 55, status: "changes_requested", title: "Solar milking robot", description: "A student team built a small solar milking unit.",
+    directory: [
+      { category: "Projects", remarks: "Tested for six weeks.", links: [{ type: "Website", url: "https://example.org/milker", gist: "The build log" }] },
+      { category: "Events", remarks: "", links: [] },
+    ],
+    sectors: ["education"], photos: [{ id: 901, position: 1, alt: "The milking unit", mime: "image/png" }],
+    contact: { name: "Asha", email: "asha@example.com", phone: null, shareWithModerators: true },
+  } };
+  const WITH_CHANGES = { ...MINE, items: [...MINE.items, { id: 55, title: "Solar milking robot", status: "changes_requested", statusLabel: "Changes requested", sectors: [], note: "Please add the district.", replies: [] }] };
+  const editRoutes = (extra: (c: Call) => Response | undefined = () => undefined) => routes((c) => extra(c) ?? (c.path === "/api/contributions/mine" ? reply(WITH_CHANGES) : c.path === "/api/contributions/55" && c.method === "GET" ? reply(SAVED) : undefined));
+  const openEdit = async () => {
+    await run(editRoutes((c) => (c.method === "PATCH" ? reply({ success: true, id: 55, status: "changes_requested" }) : c.path.startsWith("/api/contributions/55/photos") && c.method === "DELETE" ? reply({ success: true }) : c.path === "/api/contributions/55/contact" ? reply({ success: true }) : c.path === "/api/contributions/55/submit" ? reply({ success: true, id: 55, status: "pending_review" }) : undefined)));
+    const edit = Array.from(document.querySelectorAll<HTMLButtonElement>("#history button.rv-c2-edit"));
+    expect(edit).toHaveLength(1);
+    edit[0]!.click();
+    await flush();
+  };
+
+  it("the payload carries the categories, remarks and links as structured data, and the folded text as before", async () => {
+    await run(routes((c) => (c.path === "/api/contributions" && c.method === "POST" ? reply({ success: true, id: 41, status: "draft" }, 201) : c.path.endsWith("/submit") ? reply({ success: true, id: 41, status: "pending_review" }) : undefined)));
+    fillValid();
+    addLink("Website", "https://example.org/club", "Our club page");
+    (document.querySelector(".category-details:not([hidden]) [name=remarks]") as HTMLTextAreaElement).value = "  Open   on Saturdays ";
+    await submit();
+    const create = calls.find((c) => c.path === "/api/contributions" && c.method === "POST")!;
+    expect(create.body.directory).toEqual([{ category: "Projects", remarks: "Open on Saturdays", links: [{ type: "Website", url: "https://example.org/club", gist: "Our club page" }] }]);
+    expect(create.body.description).toContain("Directory categories: Projects");
+    expect(create.body.description).toContain("[Projects] Link 1 (Website): https://example.org/club - Our club page");
+  });
+  it("Edit appears only for an item with Changes requested", async () => {
+    await run(editRoutes());
+    const rows = Array.from(document.querySelectorAll("#history li"));
+    expect(rows.map((r) => !!r.querySelector("button.rv-c2-edit"))).toEqual([false, false, false, true]);
+    expect(rows[3]!.querySelector("button")!.getAttribute("aria-label")).toBe("Edit: Solar milking robot");
+  });
+  it("Edit fills the same form: title, your words, categories with remarks and links, sectors, the saved photo and the private contact", async () => {
+    await openEdit();
+    expect(calls.some((c) => c.path === "/api/contributions/55" && c.method === "GET")).toBe(true);
+    expect(field("title").value).toBe("Solar milking robot");
+    expect(field("description").value).toBe("A student team built a small solar milking unit.");
+    const checked = Array.from(document.querySelectorAll<HTMLInputElement>("#choices input")).filter((i) => i.checked).map((i) => i.value);
+    expect(checked).toEqual(["Projects", "Events"]);
+    const open = Array.from(document.querySelectorAll<HTMLFieldSetElement>(".category-details")).filter((p) => !p.hidden);
+    expect(open.map((p) => p.querySelector("legend")!.textContent)).toEqual(["Projects", "Events"]);
+    expect((open[0]!.querySelector("[name=remarks]") as HTMLTextAreaElement).value).toBe("Tested for six weeks.");
+    const row = open[0]!.querySelector(".references")!.firstElementChild!;
+    expect((row.querySelector("select") as HTMLSelectElement).value).toBe("Website");
+    expect((row.querySelector("[name=referenceUrl]") as HTMLInputElement).value).toBe("https://example.org/milker");
+    expect((row.querySelector("[name=referenceGist]") as HTMLInputElement).value).toBe("The build log");
+    expect(Array.from(document.querySelectorAll<HTMLInputElement>("#sector-choices input")).filter((i) => i.checked).map((i) => i.value)).toEqual(["education"]);
+    const photo = q("#photos").lastElementChild!;
+    expect(photo.querySelector("legend")!.textContent).toBe("Photo 1 · already saved");
+    expect((photo.querySelector("input") as HTMLInputElement).value).toBe("The milking unit");
+    expect((photo.querySelector("input") as HTMLInputElement).readOnly).toBe(true);
+    expect(q("#photo-count").textContent).toBe("1 of 3 photos");
+    expect(field("contactName").value).toBe("Asha"); expect(field("contactEmail").value).toBe("asha@example.com");
+    expect(field("shareWithModerators").checked).toBe(true);
+    expect(q("#rv-c2-editing").textContent).toContain("Editing “Solar milking robot”: make the changes the moderator asked for");
+  });
+  it("Submit for Review saves the change (PATCH with the structured data), removes a photo you took out, and sends it again", async () => {
+    await openEdit();
+    (q("#photos").lastElementChild!.querySelector(".remove") as HTMLButtonElement).click();
+    field("title").value = "Solar milking robot, Guntur";
+    await submit();
+    const patch = calls.find((c) => c.method === "PATCH")!;
+    expect(patch.path).toBe("/api/contributions/55");
+    expect(patch.body.title).toBe("Solar milking robot, Guntur");
+    expect(patch.body.sectors).toEqual(["education"]);
+    expect(patch.body.directory.map((d: any) => d.category)).toEqual(["Projects", "Events"]);
+    expect(patch.body.description.startsWith("A student team built a small solar milking unit.\n\nDirectory categories: Projects, Events")).toBe(true);
+    const after = calls.slice(calls.indexOf(patch) + 1).map((c) => `${c.method} ${c.path}`);
+    expect(after).toEqual(["DELETE /api/contributions/55/photos?photoId=901", "PUT /api/contributions/55/contact", "POST /api/contributions/55/submit", "GET /api/contributions/mine"]);
+    expect(calls.some((c) => c.method === "POST" && c.path === "/api/contributions")).toBe(false); // no new contribution
+    expect(document.querySelector("#rv-c2-editing")).toBeNull();
+    expect(q("#message").textContent).toContain("sent for review");
+  });
+  it("Cancel editing empties the form and leaves Edit; an item that is no longer waiting for changes is not opened", async () => {
+    await openEdit();
+    (q("#rv-c2-editing").querySelector("button") as HTMLButtonElement).click();
+    expect(document.querySelector("#rv-c2-editing")).toBeNull();
+    expect(field("title").value).toBe("");
+    expect(Array.from(document.querySelectorAll<HTMLInputElement>("#choices input")).some((i) => i.checked)).toBe(false);
+    expect(q("#photos").querySelectorAll("fieldset").length).toBe(0);
+    await run(routes((c) => (c.path === "/api/contributions/mine" ? reply(WITH_CHANGES) : c.path === "/api/contributions/55" ? reply({ success: true, contribution: { ...SAVED.contribution, status: "pending_review" } }) : undefined)));
+    (document.querySelector("#history button.rv-c2-edit") as HTMLButtonElement).click();
+    await flush();
+    expect(document.querySelector("#rv-c2-editing")).toBeNull();
+    expect(q("#message").textContent).toBe("This contribution cannot be edited right now.");
   });
 });

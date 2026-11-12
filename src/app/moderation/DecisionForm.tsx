@@ -3,11 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
-const LABEL: Record<string, string> = { verify: "Mark as verified", approve: "Approve and publish", request_changes: "Request changes", reject: "Reject", remove: "Remove (duplicate or unsuitable)", unpublish: "Unpublish", republish: "Publish again" };
+const LABEL: Record<string, string> = { verify: "Mark as verified", approve: "Approve & Publish", request_changes: "Request changes", reject: "Not accept", remove: "Remove (duplicate or unsuitable)", unpublish: "Unpublish", republish: "Publish again" };
+const DONE: Record<string, string> = { verify: "Marked as verified.", approve: "Published.", request_changes: "Changes requested.", reject: "Marked as not accepted.", remove: "Removed.", unpublish: "Unpublished.", republish: "Published again." };
 const NEEDS_NOTE = new Set(["request_changes", "reject", "unpublish", "remove"]);
 type Dup = { id: number; title: string; status: string; statusLabel: string };
 
-/** The decision buttons for one item. A note is required for the decisions the author reads about, and for removing. The server checks everything again. */
+/** The decision buttons for one item. A note is required for the decisions the author reads about (5 characters to not accept), and for removing. The server checks everything again. */
 export default function DecisionForm({ id, actions, isAdmin = false, hasDuplicates = false }: { id: number; actions: string[]; isAdmin?: boolean; hasDuplicates?: boolean }) {
   const router = useRouter();
   const note = useRef<HTMLTextAreaElement>(null);
@@ -20,6 +21,11 @@ export default function DecisionForm({ id, actions, isAdmin = false, hasDuplicat
   async function go(action: string) {
     const text = note.current?.value.trim() ?? "";
     const overriding = action === "approve" && confirmDup;
+    if (action === "reject" && text.length < 5) {
+      setNoteErr("Write the reason for not accepting (at least 5 characters). The contributor sees it under My Contributions.");
+      note.current?.focus();
+      return;
+    }
     if ((NEEDS_NOTE.has(action) || overriding) && text.length < 3) {
       setNoteErr(overriding ? "Write the reason it is not a duplicate (at least 3 characters)." : "Write a short note for the author (at least 3 characters).");
       note.current?.focus();
@@ -30,7 +36,7 @@ export default function DecisionForm({ id, actions, isAdmin = false, hasDuplicat
       const r = await fetch(`/api/review/${id}/decision`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, note: text, ...(overriding ? { confirmDuplicate: true } : {}) }) });
       const b = await r.json().catch(() => null);
       if (r.ok && b?.success) {
-        setMsg({ kind: "ok", text: "Done. The decision is saved." });
+        setMsg({ kind: "ok", text: DONE[action] ?? "Done. The decision is saved." });
         if (note.current) note.current.value = "";
         router.refresh();
       } else if (b?.error === "DUPLICATE_WARNING") {
@@ -49,10 +55,11 @@ export default function DecisionForm({ id, actions, isAdmin = false, hasDuplicat
   if (actions.length === 0) return <p className="mod-note">No decision can be made on this contribution in its current state.</p>;
   return (
     <div className="mod-act">
-      <label htmlFor={`note-${id}`}>Note for the author (required to request changes, reject, unpublish or remove, and as the reason for approving a possible duplicate)</label>
-      <textarea id={`note-${id}`} ref={note} maxLength={1000} aria-invalid={noteErr ? "true" : undefined} aria-describedby={`note-${id}-err`} />
+      <label htmlFor={`note-${id}`}>Note for the contributor: the reason for not accepting (at least 5 characters), or what to change; also needed to unpublish or remove</label>
+      <textarea id={`note-${id}`} ref={note} maxLength={1000} aria-invalid={noteErr ? "true" : undefined} aria-describedby={`note-${id}-hint note-${id}-err`} placeholder="e.g. This reads as an advert." />
+      <span id={`note-${id}-hint`} className="mod-meta">The contributor sees this under My Contributions.</span>
       <div id={`note-${id}-err`} className="mod-msg mod-msg--err" role="alert" hidden={!noteErr}>{noteErr}</div>
-      {!isAdmin && <p className="mod-meta">Only an administrator can approve, publish, unpublish or remove. You can verify, ask for changes or reject.</p>}
+      {!isAdmin && <p className="mod-meta">Only an administrator can approve, publish, unpublish or remove. You can verify, ask for changes or not accept.</p>}
       {isAdmin && (hasDuplicates || dups.length > 0) && actions.includes("approve") && (
         <label className="mod-check">
           <input type="checkbox" checked={confirmDup} onChange={(e) => setConfirmDup(e.target.checked)} />{" "}

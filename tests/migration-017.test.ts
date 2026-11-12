@@ -21,7 +21,8 @@ async function build(upTo017 = true) {
   const pg = new PGlite();
   await pg.exec(read("tests/helpers/baseSchema.sql"));
   const name = String(((await pg.query("select current_database() d")).rows[0] as any).d);
-  for (const f of pickFiles().filter((x: string) => upTo017 || !/01[78]_/.test(x))) await applyFile(runner(pg), name, read(f));
+  // up to 018 only: 019's work-log view reads contribution_reviews, so 019 needs 017 and is undone first (see tests/migration-019.test.ts)
+  for (const f of pickFiles().filter((x: string) => !/019_/.test(x) && (upTo017 || !/01[78]_/.test(x)))) await applyFile(runner(pg), name, read(f));
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('A','a@example.com','TC','x'),('B','b@example.com','TC','x')");
   await pg.exec("insert into sectors (slug,name) values ('education','Education') on conflict do nothing");
   return { pg, name };

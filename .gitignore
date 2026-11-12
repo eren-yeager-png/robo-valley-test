@@ -4,3 +4,11 @@
 node_modules/
 
 tsconfig.tsbuildinfo
+
+# Local scratch, preview and sample files: never committed. Any top-level folder starting with "_" (e.g. _pr1/ preview HTML,
+# _geonames_in/ downloaded data, _verify/), header dumps, downloaded archives and sample payloads.
+/_*/
+/_headers.txt
+/IN.zip
+/IN.txt
+*.sample.json

@@ -1,4 +1,4 @@
-// Server-only: sends the OTP email through Resend. RESEND_API_KEY is read here and nowhere else.
+// Server-only: sends the OTP email and the optional reply notice through Resend. RESEND_API_KEY is read here and nowhere else.
 // Never log the code, the API key, or the recipient address.
 
 import { Resend } from "resend";
@@ -97,3 +97,36 @@ export function sendPasswordChangedEmail(to: string, forgotUrl: string, env: Nod
   const html = shell(`<h2 style="color:#14284b">Your RoboValley password was changed</h2><p>You were signed out everywhere. If this was you, there is nothing more to do.</p><p>If it was <b>not</b> you, <a href="${forgotUrl}">reset your password again now</a>.</p>`);
   return sendTransactional(to, "Your RoboValley password was changed", text, html, env);
 }
+
+/** Notifies a contributor that a reviewer has replied. Does not include the reply text. */
+export function sendReplyNoticeEmail(
+  to: string,
+  contributionTitle: string,
+  env: NodeJS.ProcessEnv = process.env
+) {
+  const safeTitle = contributionTitle
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+  const text = `A reviewer has replied to your RoboValley contribution "${contributionTitle}".\n\nSign in to RoboValley and open My Contributions to read the reply.`;
+
+  const html = shell(
+    `<h2 style="color:#14284b">A reviewer has replied</h2>
+    <p>A reviewer has replied to your RoboValley contribution:</p>
+    <p><b>${safeTitle}</b></p>
+    <p>Sign in to RoboValley and open <b>My Contributions</b> to read the reply.</p>`
+  );
+
+  return sendTransactional(
+    to,
+    "A reviewer has replied to your RoboValley contribution",
+    text,
+    html,
+    env
+  );
+}
+
+

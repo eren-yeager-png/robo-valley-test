@@ -2,12 +2,13 @@
 /**
  * Plugin Name: RoboValley Contribution button
  * Description: Adds the "Contribution" button to the right end of the Robots by Sector / RoboValley Directory bar (rv-sector-bar 2.0.0). Does not edit that plugin.
- * Version: 1.1.0
+ * Version: 1.2.0
  *
  * Settings (optional, in wp-config.php):
  *   define( 'RV_CONTRIBUTE_URL', 'https://techytree.in/contribute-now/' ); // where the button goes (default: /contribute-now/ on this site)
- *   define( 'RV_CONTRIBUTE_PUBLIC', true );                           // show to everyone (default: only logged-in administrators)
- * The button is never shown on the Contact Us page. Filters: rv_contribute_button_url, rv_contribute_button_visible.
+ *   define( 'RV_CONTRIBUTE_PUBLIC', true );                           // show the button (default: hidden)
+ * Since 1.2.0 the button is never shown to WordPress administrators: members contribute, administrators review (in the app's
+ * Moderation page). Everyone else sees it once RV_CONTRIBUTE_PUBLIC is true. The button is never shown on the Contact Us page. Filters: rv_contribute_button_url, rv_contribute_button_visible.
  *
  * How it hooks in: rv-sector-bar prints its bar only through the [rv_sector_bar] shortcode, as
  * <nav class="rv-sector-bar" id="rv-sector-bar"> .rv-fixed (the two tabs), one .rv-group per tab, then </nav>.
@@ -27,7 +28,7 @@ function rv_contribute_visible() {
 		return false;
 	}
 	$public = defined( 'RV_CONTRIBUTE_PUBLIC' ) && RV_CONTRIBUTE_PUBLIC;
-	$show   = $public || current_user_can( 'manage_options' );
+	$show   = $public && ! current_user_can( 'manage_options' );
 	if ( $show && function_exists( 'is_page' ) && did_action( 'wp' ) && is_page( array( 'contact-us', 'contact' ) ) ) {
 		$show = false;
 	}

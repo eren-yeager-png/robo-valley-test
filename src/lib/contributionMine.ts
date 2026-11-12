@@ -1,7 +1,11 @@
-// "Your contributions": the signed-in person's own items, grouped by status, with the moderator's note where it matters.
+// "Your contributions": the signed-in person's own items, grouped by status, with the moderator's note where it matters and every
+// reply from a moderator (migration 019), whatever the status. Labels come from src/lib/reviewStatus.ts (members see "Pending review"
+// for New and In review, and "Replied" once a moderator has replied in the current review round). Internal notes are never read here.
 // Only the owner's rows (user_id = $1). Never returns the body text, photos' bytes or contact details: a list only needs titles.
 // The Contributor badge is DERIVED (at least one non-draft submission) and never stored, so it can never disagree with the data.
-import { CONTRIBUTION_TYPES, STATUS_LABELS, type ContributionStatus } from "./contributions";
+import { CONTRIBUTION_TYPES, type ContributionStatus } from "./contributions";
+import { displayStatus, memberLabel, roundFacts } from "./reviewStatus";
+import { repliesForItems, type MemberReply } from "./contributionReplies";
 import { OWNER_RULES } from "./contributionApi";
 
 type Db = { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }> };
@@ -14,7 +18,7 @@ const MAX_ITEMS = 200;
 
 export type MineItem = {
   id: number; title: string; type: string; typeLabel: string; status: ContributionStatus; statusLabel: string;
-  sectors: { slug: string; name: string }[]; note: string | null; canEdit: boolean; updatedAt: string;
+  sectors: { slug: string; name: string }[]; note: string | null; replies: MemberReply[]; canEdit: boolean; updatedAt: string;
 };
 export type Mine = { contributor: boolean; counts: Record<ContributionStatus, number>; items: MineItem[] };
 
@@ -39,12 +43,15 @@ export async function listMine(db: Db, userId: number): Promise<Mine> {
       if ((e as { code?: string })?.code !== "42P01") throw e; // migration 017 not applied: no notes yet
     }
   }
+  const allIds = rows.map((r) => Number(r.id));
+  const replies = await repliesForItems(db, allIds);
+  const facts = await roundFacts(db, rows.filter((r) => r.status === "pending_review").map((r) => Number(r.id)));
   const items: MineItem[] = rows.map((r) => {
     const status = r.status as ContributionStatus;
     if (status in counts) counts[status]++;
     return {
-      id: Number(r.id), title: r.title, type: r.type, typeLabel: TYPE_LABEL.get(r.type) ?? "", status, statusLabel: STATUS_LABELS[status] ?? status,
-      sectors: Array.isArray(r.sectors) ? r.sectors : [], note: NOTE_STATUSES.has(status) ? notes.get(Number(r.id)) ?? null : null,
+      id: Number(r.id), title: r.title, type: r.type, typeLabel: TYPE_LABEL.get(r.type) ?? "", status, statusLabel: memberLabel(displayStatus(status, facts.get(Number(r.id)))),
+      sectors: Array.isArray(r.sectors) ? r.sectors : [], note: NOTE_STATUSES.has(status) ? notes.get(Number(r.id)) ?? null : null, replies: replies.get(Number(r.id)) ?? [],
       // you may edit while it is a Draft or needs changes; editing a published or taken-down item sends it back to review, so it is allowed too
       canEdit: (OWNER_RULES[status]?.edit ?? null) !== null, updatedAt: new Date(r.updated_at).toISOString(),
     };

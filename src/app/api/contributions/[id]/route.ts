@@ -2,7 +2,7 @@ import { preflight, withCors } from "../../../../lib/cors";
 import { json, readJson } from "../../../../lib/http";
 import { pool } from "../../../../lib/db";
 import { deleteDraft, getOwn, saveOwn } from "../../../../lib/contributionApi";
-import { guardContributor, isBot, notFound, parseId, serverError } from "../../../../lib/contributorGuard";
+import { guardContributor, guardContributorWrite, isBot, notFound, parseId, serverError } from "../../../../lib/contributorGuard";
 import { answer } from "../../../../lib/contributorRoute";
 
 export const runtime = "nodejs";
@@ -23,7 +23,7 @@ export async function GET(req: Request, ctx: Ctx) {
 
 /** Saves a change. An edited published item goes back to Pending review (and leaves the public numbers). */
 export async function PATCH(req: Request, ctx: Ctx) {
-  const g = await guardContributor(req, METHODS);
+  const g = await guardContributorWrite(req, METHODS);
   if ("res" in g) return g.res;
   const id = parseId((await ctx.params).id);
   if (id === null) return withCors(req, notFound(), METHODS);
@@ -36,7 +36,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
 /** Only your own DRAFT can be deleted. */
 export async function DELETE(req: Request, ctx: Ctx) {
-  const g = await guardContributor(req, METHODS);
+  const g = await guardContributorWrite(req, METHODS);
   if ("res" in g) return g.res;
   const id = parseId((await ctx.params).id);
   if (id === null) return withCors(req, notFound(), METHODS);
