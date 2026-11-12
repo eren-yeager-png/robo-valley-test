@@ -44,7 +44,7 @@ export default function ProfileForm({ fields, initial, readonly }: {
   }
 
   return (
-    <form className="pform" onSubmit={onSubmit} noValidate aria-busy={busy}>
+    <form className="pform" method="post" onSubmit={onSubmit} noValidate aria-busy={busy}>
       <section className="dsec">
         <h2>Account</h2>
         <div className="grid">
