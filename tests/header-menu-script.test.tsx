@@ -207,6 +207,13 @@ describe("on techytree.in (one <script> tag from the app)", () => {
     expect(menus()).toHaveLength(2); // one in the desktop header, one in the phone header
   });
 
+  it("every rule in rv-header-menu.css is scoped under .rv-header-menu (it cannot restyle the theme or the app)", () => {
+    const css = readFileSync("public/rv-header-menu.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const selectors = [...css.matchAll(/([^{}]+)\{[^{}]*\}/g)].flatMap((m) => m[1].split(",")).map((s) => s.replace(/@media[^{]*$/, "").trim()).filter(Boolean);
+    expect(selectors.length).toBeGreaterThan(30);
+    expect(selectors.filter((s) => !s.replace(/^@media[^)]*\)\s*/, "").startsWith(".rv-header-menu"))).toEqual([]);
+  });
+
   it("every item comes from one list; 'Moderator dashboard' is there but switched off", () => {
     page(SITE_HTML); load();
     const list = (window as unknown as { RVHeaderMenu: { menu: { label: string; role: string; path: string; enabled: boolean }[] } }).RVHeaderMenu.menu;

@@ -23,7 +23,7 @@
 
 /* the icon button (signed in) and the Sign In link (signed out) */
 .rv-header-menu .rv-hm-toggle,
-.rv-header-menu .rv-hm-signin,
+.rv-header-menu a.rv-hm-signin,
 .rv-header-menu .rv-hm-placeholder {
   display: inline-flex;
   align-items: center;
@@ -48,11 +48,11 @@
 .rv-header-menu .rv-hm-toggle.show { box-shadow: 0 0 0 3px var(--rv-hm-ring); background: transparent; }
 .rv-header-menu .rv-hm-toggle:focus { outline: none; }
 .rv-header-menu .rv-hm-toggle:focus-visible,
-.rv-header-menu .rv-hm-signin:focus-visible { outline: 2px solid var(--rv-hm-text); outline-offset: 4px; }
+.rv-header-menu a.rv-hm-signin:focus-visible { outline: 2px solid var(--rv-hm-text); outline-offset: 4px; }
 .rv-header-menu .rv-hm-avatar { display: block; width: 40px; height: 40px; }
 
-.rv-header-menu .rv-hm-signin svg { display: block; }
-.rv-header-menu .rv-hm-signin {
+.rv-header-menu a.rv-hm-signin svg { display: block; }
+.rv-header-menu a.rv-hm-signin {
   width: 40px;
   height: 40px;
   min-width: 40px;
@@ -61,9 +61,10 @@
   background: #f1f1f1;
   border: 1px solid #d6d6d6;
 }
-.rv-header-menu .rv-hm-signin:hover,
-.rv-header-menu .rv-hm-signin:focus-visible { color: #111; background: #ebebeb; box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.12); }
+.rv-header-menu a.rv-hm-signin:hover,
+.rv-header-menu a.rv-hm-signin:focus-visible { color: #111; background: #ebebeb; box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.12); }
 
+/* Item rules carry .rv-hm-list so the host page's own link rules (e.g. ".rv .adm a" in the admin) cannot recolour them. */
 /* the dropdown (Bootstrap's dropdown adds .show) */
 .rv-header-menu .rv-hm-menu {
   display: none;
@@ -100,7 +101,7 @@
 .rv-header-menu .rv-hm-list li { margin: 0; padding: 0; list-style: none; }
 .rv-header-menu .rv-hm-list li::before,
 .rv-header-menu .rv-hm-list li::marker { content: none; }
-.rv-header-menu .rv-hm-item {
+.rv-header-menu .rv-hm-list .rv-hm-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -124,10 +125,10 @@
   cursor: pointer;
   white-space: nowrap;
 }
-.rv-header-menu .rv-hm-item:hover,
-.rv-header-menu .rv-hm-item:focus { color: var(--rv-hm-text); background: var(--rv-hm-hover); text-decoration: none; outline: none; }
-.rv-header-menu .rv-hm-item:focus-visible { outline: 2px solid #2f7d1f; outline-offset: -2px; }
-.rv-header-menu .rv-hm-item:disabled { cursor: progress; opacity: 0.75; }
+.rv-header-menu .rv-hm-list .rv-hm-item:hover,
+.rv-header-menu .rv-hm-list .rv-hm-item:focus { color: var(--rv-hm-text); background: var(--rv-hm-hover); text-decoration: none; outline: none; }
+.rv-header-menu .rv-hm-list .rv-hm-item:focus-visible { outline: 2px solid #2f7d1f; outline-offset: -2px; }
+.rv-header-menu .rv-hm-list .rv-hm-item:disabled { cursor: progress; opacity: 0.75; }
 .rv-header-menu .rv-hm-count {
   min-width: 30px;
   padding: 2px 9px;
@@ -140,9 +141,9 @@
   border-radius: 999px;
 }
 .rv-header-menu .rv-hm-divider { height: 1px; margin: 6px 18px; background: var(--rv-hm-line); }
-.rv-header-menu .rv-hm-signout,
-.rv-header-menu .rv-hm-signout:hover,
-.rv-header-menu .rv-hm-signout:focus { color: #b42318; }
+.rv-header-menu .rv-hm-list .rv-hm-signout,
+.rv-header-menu .rv-hm-list .rv-hm-signout:hover,
+.rv-header-menu .rv-hm-list .rv-hm-signout:focus { color: #b42318; }
 
 /* phones: the menu opens full width under the header (the script sets --rv-hm-top to the header's bottom edge) */
 @media (max-width: 640px) {
@@ -160,7 +161,7 @@
     border-right: 0;
     border-radius: 0 0 14px 14px;
   }
-  .rv-header-menu .rv-hm-item { padding: 14px 20px; }
+  .rv-header-menu .rv-hm-list .rv-hm-item { padding: 14px 20px; }
   .rv-header-menu .rv-hm-head { padding: 16px 20px; }
 }
 
@@ -170,5 +171,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .rv-header-menu .rv-hm-toggle,
-  .rv-header-menu .rv-hm-signin { transition: none; }
+  .rv-header-menu a.rv-hm-signin { transition: none; }
 }
