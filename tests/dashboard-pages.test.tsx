@@ -203,7 +203,8 @@ describe("data isolation", () => {
     for (const q of st.queries) {
       expect(q.params).toEqual(["7"]); // only the verified session user's id, nothing from the request
       expect(q.sql).toMatch(/WHERE (id|user_id) = \$1/);
-      expect(q.sql).not.toMatch(/password|otp|secret/i);
+      // password_changed_at is a timestamp (when a reset happened), not a secret: the session check reads it to refuse older sessions
+      expect(q.sql.replace(/\bpassword_changed_at\b/g, "")).not.toMatch(/password|otp|secret/i);
       expect(q.sql).not.toMatch(/guardian_mobile|guardian_email/); // guardian contact details are never loaded
     }
   });

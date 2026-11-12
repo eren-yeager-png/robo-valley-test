@@ -15,6 +15,18 @@ export const SERVICE_RATE_LIMITS = {
 } as const;
 export const RATE_WINDOW_SECONDS = 60;
 
+/**
+ * Password reset limits. Longer windows than the 60 s default, because the harm here is mail sent to a stranger or guessing attempts,
+ * not request volume: per visitor address, per e-mail address (counted by a keyed hash, like addresses), and for trying a reset link.
+ * They are NOT covered by the SERVICE_RATE_LIMIT_ENABLED kill switch (that switch is for the search); see lib/passwordReset.ts.
+ */
+export const RESET_LIMITS = {
+  resetIp: { limit: 5, windowSeconds: 15 * 60 }, // reset e-mails requested from one address
+  resetEmail: { limit: 3, windowSeconds: 60 * 60 }, // reset e-mails for one account (or non-account) address
+  resetTry: { limit: 10, windowSeconds: 15 * 60 }, // reset-link submissions from one address
+} as const;
+export type ResetScope = keyof typeof RESET_LIMITS;
+
 // Privacy: the address is never stored. The key holds a keyed hash (HMAC-SHA-256 with the server secret, truncated), so it cannot be
 // turned back into an address. Fail open: if the counter cannot be read or written, the request is allowed (a broken limiter must
 // never take the search down). Old rows are tidied opportunistically (serverless has no background job).
@@ -27,6 +39,7 @@ import type { Queryable } from "./otp";
 
 export type RateScope = keyof typeof SERVICE_RATE_LIMITS;
 export type RateDecision = { allowed: boolean; retryAfterSeconds: number };
+type AnyScope = RateScope | ResetScope;
 
 /** Hash of the caller's address, hex, 32 characters. Keyed with SESSION_SECRET when it is set (it always is in production). */
 export function hashAddress(ip: string, env: NodeJS.ProcessEnv = process.env): string {
@@ -50,14 +63,16 @@ RETURNING a.hits,
 
 /** Counts one request for this visitor and scope. `limit` defaults to SERVICE_RATE_LIMITS[scope]. Never throws. */
 export async function hitRateLimit(
-  ip: string, scope: RateScope, opts: { db?: Queryable; now?: number; limit?: number; env?: NodeJS.ProcessEnv } = {}
+  ip: string, scope: AnyScope, opts: { db?: Queryable; now?: number; limit?: number; windowSeconds?: number; env?: NodeJS.ProcessEnv } = {}
 ): Promise<RateDecision> {
-  const db = opts.db ?? pool, limit = opts.limit ?? SERVICE_RATE_LIMITS[scope];
+  const reset = scope in RESET_LIMITS ? RESET_LIMITS[scope as ResetScope] : null;
+  const db = opts.db ?? pool, limit = opts.limit ?? (reset ? reset.limit : SERVICE_RATE_LIMITS[scope as RateScope]);
+  const windowSeconds = opts.windowSeconds ?? (reset ? reset.windowSeconds : RATE_WINDOW_SECONDS);
   try {
-    const { rows } = await db.query(HIT_SQL, [`${scope}:${hashAddress(ip, opts.env)}`, nowParam(opts.now), RATE_WINDOW_SECONDS]);
+    const { rows } = await db.query(HIT_SQL, [`${scope}:${hashAddress(ip, opts.env)}`, nowParam(opts.now), windowSeconds]);
     const r = rows[0];
     if (!r || Number(r.hits) <= limit) return { allowed: true, retryAfterSeconds: 0 };
-    return { allowed: false, retryAfterSeconds: Math.max(1, Number(r.retry) || RATE_WINDOW_SECONDS) };
+    return { allowed: false, retryAfterSeconds: Math.max(1, Number(r.retry) || windowSeconds) };
   } catch {
     return { allowed: true, retryAfterSeconds: 0 }; // fail open
   }

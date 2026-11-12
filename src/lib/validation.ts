@@ -8,6 +8,15 @@ import {
 
 export type FieldErrors = Record<string, string>;
 
+/** The password rules, used by sign-up and by password reset so they can never drift apart. Returns the field errors (empty = fine). */
+export function validateNewPassword(password: unknown, confirmPassword: unknown): { password?: string; confirmPassword?: string } {
+  const p = typeof password === "string" ? password : "";
+  if (p.length < LIMITS.passwordMin) return { password: "Password must contain at least 8 characters." };
+  if (new TextEncoder().encode(p).length > LIMITS.passwordBytes) return { password: "Password is too long (max 72 bytes)." };
+  if (confirmPassword !== p) return { confirmPassword: "Passwords do not match." };
+  return {};
+}
+
 export const LIMITS = { body: 32 * 1024, name: 100, email: 254, district: 80, text: 150, passwordBytes: 72, passwordMin: 8 };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -109,9 +118,7 @@ export function validateSignup(raw: unknown): { ok: true; data: SignupInput } | 
   if (!email) errors.email = str(raw.email) ? "Enter a valid email address." : "Enter your email address.";
 
   const password = typeof raw.password === "string" ? raw.password : "";
-  if (password.length < LIMITS.passwordMin) errors.password = "Password must contain at least 8 characters.";
-  else if (new TextEncoder().encode(password).length > LIMITS.passwordBytes) errors.password = "Password is too long (max 72 bytes).";
-  else if (raw.confirmPassword !== password) errors.confirmPassword = "Passwords do not match.";
+  Object.assign(errors, validateNewPassword(raw.password, raw.confirmPassword));
 
   const district = str(raw.district);
   if (!district) errors.district = "Enter your district.";

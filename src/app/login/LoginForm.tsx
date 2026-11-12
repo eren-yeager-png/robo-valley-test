@@ -87,7 +87,7 @@ export default function LoginForm({ returnTo }: { returnTo?: string } = {}) {
 
             <div className="row">
               <label className="check"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Remember me on this device</label>
-              <span className="soon" aria-disabled="true">Forgot password?<small>Coming soon</small></span>
+              <Link className="forgot" href="/forgot-password">Forgot password?</Link>
             </div>
 
             <p className="err" role="alert">{formError}</p>

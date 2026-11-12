@@ -98,6 +98,12 @@ export const MIGRATIONS = [
     { kind: "constraint", name: "contribution_title_keys_pkey" },
     { kind: "index", name: "contribution_title_keys_item_idx" },
   ] },
+  { id: "020", title: "password reset", feature: "Forgot password: single-use reset links, and signing out other sessions after a reset", requires: [], checks: [
+    { kind: "table", table: "password_reset_tokens" },
+    { kind: "column", table: "users", column: "password_changed_at" },
+    { kind: "constraint", name: "password_reset_tokens_hash_uq" },
+    { kind: "index", name: "password_reset_tokens_user_idx" },
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */
