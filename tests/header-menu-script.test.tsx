@@ -15,12 +15,16 @@ const BOOTSTRAP_JS = readFileSync("public/vendor/bootstrap-5.3.3/bootstrap.bundl
 const APP = "https://app.techytree.in";
 const SITE_PAGE = "https://techytree.in/robots-by-sector/";
 
-// The live techytree.in header (Astra), trimmed: the old account corner in "HTML 1", the phone header's menu button, the Contribute banner.
+// The live techytree.in header (Astra), trimmed: the Contact button, the old account corner in "HTML 1" (which the site's CSS hides
+// below 1140 px), the phone header's menu button, the Contribute banner.
 const SITE_HTML = `
   <header id="masthead" class="site-header">
-    <div id="ast-desktop-header"><div class="ast-builder-layout-element ast-header-html-1"><div class="ast-builder-html-element">
-      <div class="rv-account-corner"><a href="${APP}/login" class="rv-account-link rv-login">Sign In</a></div>
-    </div></div></div>
+    <div id="ast-desktop-header"><div class="site-header-primary-section-right site-header-section">
+      <div class="ast-builder-layout-element site-header-focus-item ast-header-button-1"><a href="/contact-us/">contact us</a></div>
+      <div class="ast-builder-layout-element site-header-focus-item ast-header-html-1"><div class="ast-builder-html-element">
+        <div class="rv-account-corner"><a href="${APP}/login" class="rv-account-link rv-login">Sign In</a></div>
+      </div></div>
+    </div></div>
     <div id="ast-mobile-header"><div class="site-header-primary-section-right site-header-section ast-flex">
       <div class="ast-builder-layout-element site-header-focus-item" data-section="section-header-mobile-trigger"><button class="menu-toggle">Menu</button></div>
     </div></div>
@@ -73,14 +77,16 @@ describe("on techytree.in (one <script> tag from the app)", () => {
     page(SITE_HTML); load(); await drawn();
     expect(fetchMock).toHaveBeenCalledWith(`${APP}/api/auth/menu`, expect.objectContaining({ credentials: "include", cache: "no-store" }));
     expect(document.getElementById("rv-header-menu-css")?.getAttribute("href")).toBe(`${APP}/rv-header-menu.css`);
-    expect(document.getElementById("rv-header-menu-hide")?.textContent).toBe(".rv-account-corner{display:none!important}#rv-c2 #sign-out{display:none!important}");
+    expect(document.getElementById("rv-header-menu-hide")?.textContent).toBe(".rv-account-corner,.site-header a.rv-signin,.site-header .rv-acct,.site-header .rv-acct-adminwrap{display:none!important}#rv-c2 #sign-out{display:none!important}");
     expect(document.querySelector("#rv-c2 .notice")?.textContent).toContain("Asha · Registered member"); // the text stays
   });
 
-  it("puts the menu where the old corner was and in the phone header, just before its menu button", async () => {
+  it("puts the menu in the header row right after Astra's HTML 1 element (not inside it: the site hides it below 1140 px), and in the phone header before its menu button", async () => {
     page(SITE_HTML); load(); await drawn();
     expect(menus()).toHaveLength(2);
-    expect(document.querySelector(".rv-account-corner")?.previousElementSibling?.classList.contains("rv-header-menu")).toBe(true);
+    const html1 = document.querySelector(".ast-header-html-1")!;
+    expect(html1.nextElementSibling?.classList.contains("rv-header-menu--site")).toBe(true);
+    expect(html1.querySelector(".rv-header-menu")).toBeNull();
     const phone = document.querySelector("[data-section='section-header-mobile-trigger']")?.previousElementSibling;
     expect(phone?.classList.contains("rv-header-menu--phone")).toBe(true);
   });
@@ -200,6 +206,16 @@ describe("on techytree.in (one <script> tag from the app)", () => {
     expect(fetchMock).toHaveBeenLastCalledWith(`${APP}/api/auth/logout`, expect.objectContaining({ method: "POST", credentials: "include" }));
     await waitFor(() => expect(out.textContent).toBe("Sign out failed – try again"));
     expect(out.disabled).toBe(false);
+  });
+
+  it("a header that has a 'Sign In' link (robovalley-landing turns it into its own menu) instead of the corner: one menu after it, the old one hidden", async () => {
+    page(`<header id="masthead" class="site-header"><div class="site-header-section">
+      <div class="site-header-focus-item ast-header-html-1"><div class="ast-builder-html-element"><p><a class="rv-signin" href="${APP}/login">Sign In / Login</a></p></div></div>
+    </div></header>`);
+    load(); await drawn();
+    expect(menus()).toHaveLength(1);
+    expect(document.querySelector(".ast-header-html-1")?.nextElementSibling?.classList.contains("rv-header-menu--site")).toBe(true);
+    expect(document.getElementById("rv-header-menu-hide")?.textContent).toContain(".site-header .rv-acct,");
   });
 
   it("the tag added twice does the work once", async () => {

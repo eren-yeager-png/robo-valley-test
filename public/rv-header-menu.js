@@ -4,8 +4,9 @@
  * Styles: rv-header-menu.css, every rule scoped under .rv-header-menu.
  *
  * On techytree.in it needs one tag:  <script src="https://app.techytree.in/rv-header-menu.js" defer></script>
- *   It puts the icon where the theme's old account corner (.rv-account-corner) is, and in the phone header next to the menu button,
- *   hides that old corner and the Contribute page's own Sign Out button (#rv-c2 #sign-out): Sign Out lives in this menu.
+ *   It puts the icon in the header row right after the theme's old account control (.rv-account-corner in Astra's "HTML 1"
+ *   element, which the site hides below 1140 px), and in the phone header next to the menu button. It hides the old controls and
+ *   the Contribute page's own Sign Out button (#rv-c2 #sign-out): Sign Out lives in this menu.
  * On the app's pages it fills every <div data-rv-header-menu data-site="https://techytree.in/"></div>.
  *
  * Who is signed in, and their role, come from the app's server (GET /api/auth/menu, which re-reads the account): never from the page.
@@ -17,6 +18,11 @@
 
   var VERSION = "1.0.0";
   var BOOTSTRAP_FILE = "vendor/bootstrap-5.3.3/bootstrap.bundle.min.js";
+  // techytree.in only: the account controls this menu replaces (checked against the live header HTML on 12-11-2026: the Astra
+  // "HTML 1" element holds .rv-account-corner; robovalley-landing's script turns a header a.rv-signin into .rv-acct / .rv-acct-adminwrap).
+  var OLD_CONTROLS = ".rv-account-corner, .site-header a.rv-signin";
+  var HIDE_CSS = ".rv-account-corner,.site-header a.rv-signin,.site-header .rv-acct,.site-header .rv-acct-adminwrap{display:none!important}" +
+    "#rv-c2 #sign-out{display:none!important}";
 
   // The menu, in one list. role: who sees the item. base: "app" (the app) or "site" (techytree.in). count: the number from
   // /api/auth/menu shown next to it. enabled: false keeps an item ready but hidden; PR3 switches "Moderator dashboard" on here.
@@ -271,12 +277,16 @@
       roots.push(r);
     });
     if (!onApp) {
-      // techytree.in (Astra): where the old account corner is ...
-      Array.prototype.forEach.call(document.querySelectorAll(".rv-account-corner:not([data-rv-hm-done])"), function (old) {
+      // techytree.in (Astra): where the old account control is (the .rv-account-corner widget, or a "Sign In" link that
+      // robovalley-landing's account script turns into its own menu) ...
+      Array.prototype.forEach.call(document.querySelectorAll(OLD_CONTROLS + ":not([data-rv-hm-done])"), function (old) {
         old.setAttribute("data-rv-hm-done", "1");
+        // ... but outside Astra's "HTML 1" element: the site's CSS hides that element below 1140 px, the menu must stay visible
+        var item = old.closest(".ast-header-html-1, .site-header-focus-item");
+        if (item && item.parentNode && item.parentNode.querySelector(":scope > .rv-header-menu--site")) return; // one per header row
         var r = newRoot();
         r.classList.add("rv-header-menu--site");
-        old.parentNode.insertBefore(r, old);
+        if (item && item.parentNode) item.parentNode.insertBefore(r, item.nextSibling); else old.parentNode.insertBefore(r, old);
         roots.push(r);
       });
       // ... and the phone header, just before its menu button
@@ -295,8 +305,9 @@
     if (onApp || document.getElementById("rv-header-menu-hide")) return;
     var st = el("style");
     st.id = "rv-header-menu-hide";
-    // The theme's old account corner, and the Contribute page's own Sign Out button (the "<Name> · Registered member" text stays).
-    st.textContent = ".rv-account-corner{display:none!important}#rv-c2 #sign-out{display:none!important}";
+    // The theme's old account controls (the corner widget; a header "Sign In" link and the menu robovalley-landing builds from it),
+    // and the Contribute page's own Sign Out button (the "<Name> · Registered member" text stays).
+    st.textContent = HIDE_CSS;
     (document.head || document.documentElement).appendChild(st);
   }
   function addStylesheet() {
@@ -337,7 +348,7 @@
   function all() { return Array.prototype.slice.call(document.querySelectorAll(".rv-header-menu")); }
 
   // Only these, when added to the page later, need a menu (never this script's own menus).
-  var WATCH = "[data-rv-header-menu], .rv-account-corner, [data-section='section-header-mobile-trigger']";
+  var WATCH = "[data-rv-header-menu], " + OLD_CONTROLS + ", [data-section='section-header-mobile-trigger']";
   function needsMenu(records) {
     for (var i = 0; i < records.length; i++) {
       for (var j = 0; j < records[i].addedNodes.length; j++) {
