@@ -163,7 +163,7 @@ describe("every admin page guards itself, and charts load on demand", () => {
 
   it("every page.tsx calls requireAdminPage (layouts are not re-run between pages)", () => {
     const pages = files.filter((f) => f.endsWith("/page.tsx"));
-    expect(pages.length).toBe(9);
+    expect(pages.length).toBe(10); // Sector Counts was added; the new page calls requireAdminPage() like the rest
     for (const p of pages) expect(readFileSync(p, "utf8"), p).toContain("requireAdminPage()");
   });
 

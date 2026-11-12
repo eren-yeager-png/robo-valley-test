@@ -63,13 +63,18 @@ const code = (e: unknown) => (e as { code?: string })?.code;
 export type QueueItem = { id: number; title: string; type: string; typeLabel: string; status: ContributionStatus; statusLabel: string; sectors: string[]; submittedAt: string | null; photos: number };
 
 /** A page of the queue for one status (oldest first for the pending list, so nothing waits forever). Drafts are never listed. */
-export async function listQueue(db: Db, status: string): Promise<QueueItem[]> {
+export async function listQueue(db: Db, status: string, filter: { sector?: string | null; verified?: boolean | null } = {}): Promise<QueueItem[]> {
   const st = (QUEUE_STATUSES as readonly string[]).includes(status) ? status : "pending_review";
+  // Optional filters (used by the admin sector counts): one sector by slug, and/or only items a reviewer has verified (true) or has not verified yet (false). Values are parameters, never text in the SQL.
+  const params: unknown[] = [st];
+  let extra = "";
+  if (filter.sector) { params.push(filter.sector); extra += " AND EXISTS (SELECT 1 FROM contribution_scopes f JOIN sectors fs ON fs.id = f.sector_id WHERE f.contribution_id = c.id AND fs.slug = $" + params.length + "::varchar)"; }
+  if (filter.verified === true || filter.verified === false) extra += (filter.verified ? " AND EXISTS" : " AND NOT EXISTS") + " (SELECT 1 FROM contribution_reviews fr WHERE fr.contribution_id = c.id AND fr.action = 'verify')";
   const { rows } = await db.query(
     "SELECT c.id, c.title, c.type, c.status, c.submitted_at, " +
     "COALESCE((SELECT json_agg(s.name ORDER BY s.sort_order, s.slug) FROM contribution_scopes cs JOIN sectors s ON s.id = cs.sector_id WHERE cs.contribution_id = c.id), '[]'::json) AS sectors, " +
     "(SELECT count(*)::int FROM contribution_photos p WHERE p.contribution_id = c.id) AS photos " +
-    "FROM contributions c WHERE c.status = $1::varchar AND NOT c.is_demo ORDER BY " + (st === "pending_review" ? "c.submitted_at ASC, c.id ASC" : "c.updated_at DESC, c.id DESC") + " LIMIT 100", [st]);
+    "FROM contributions c WHERE c.status = $1::varchar AND NOT c.is_demo" + extra + " ORDER BY " + (st === "pending_review" ? "c.submitted_at ASC, c.id ASC" : "c.updated_at DESC, c.id DESC") + " LIMIT 100", params);
   return rows.map((r) => ({ id: Number(r.id), title: r.title, type: r.type, typeLabel: TYPE_LABEL.get(r.type) ?? "", status: r.status, statusLabel: STATUS_LABELS[r.status as ContributionStatus] ?? r.status, sectors: Array.isArray(r.sectors) ? r.sectors : [], submittedAt: r.submitted_at ? new Date(r.submitted_at).toISOString() : null, photos: Number(r.photos) }));
 }
 

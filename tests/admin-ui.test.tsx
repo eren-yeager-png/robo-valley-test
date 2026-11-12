@@ -43,10 +43,10 @@ beforeEach(async () => {
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe("admin layout and navigation", () => {
-  it("lists all nine sections as working links, with one profile button instead of an email and a sign-out button", async () => {
+  it("lists every admin section as a working link, with one profile button instead of an email and a sign-out button", async () => {
     signIn(admin.id);
     const h = await html(AdminLayout({ children: <p>PAGE BODY</p> }));
-    expect(ADMIN_NAV).toHaveLength(10);
+    expect(ADMIN_NAV).toHaveLength(11); // Sector Counts was added
     for (const n of ADMIN_NAV) { expect(h).toContain(`href="${n.href}"`); expect(h).toContain(n.label.replace("&", "&amp;")); }
     for (const label of ["Overview", "Manage Categories", "Manage Datasets", "Upload Files", "Upload History", "Login Activity", "Reports &amp; Analytics", "User Management", "Settings"]) expect(h).toContain(label);
     expect(h).toContain("RoboValley");
