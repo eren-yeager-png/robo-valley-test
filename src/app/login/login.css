@@ -15,6 +15,7 @@
 .rv .row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;font-size:.9rem}
 .rv .row .check{font-size:.9rem}
 .rv .soon{color:var(--muted);cursor:not-allowed}
+.rv .row .forgot{color:var(--teal);font-weight:600}
 .rv .soon small{font:600 .62rem var(--mono);text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--line);border-radius:999px;padding:1px 7px;margin-left:6px}
 .rv .btn.block{width:100%;padding:12px 20px}
 .rv .alt{text-align:center;font-size:.92rem;color:var(--muted)}

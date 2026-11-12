@@ -121,7 +121,7 @@ describe("settings page", () => {
     expect(h.toLowerCase()).toContain('autocomplete="current-password"');
     expect(h).toContain('id="profile"');
     expect(h).toContain('id="database-setup"');
-    expect((h.match(/>Applied</g) ?? []).length).toBe(19); // 001 to 019
+    expect((h.match(/>Applied</g) ?? []).length).toBe(19); // 001-018 and 020 (019 belongs to another open PR)
     expect(h).toContain("Everything is applied");
     expect(h).not.toContain("For the developer");
     expect(h).not.toMatch(/password_hash|SESSION_SECRET|DATABASE_URL/);
@@ -163,7 +163,7 @@ describe("every admin page guards itself, and charts load on demand", () => {
 
   it("every page.tsx calls requireAdminPage (layouts are not re-run between pages)", () => {
     const pages = files.filter((f) => f.endsWith("/page.tsx"));
-    expect(pages.length).toBe(9);
+    expect(pages.length).toBe(10); // Sector Counts was added; the new page calls requireAdminPage() like the rest
     for (const p of pages) expect(readFileSync(p, "utf8"), p).toContain("requireAdminPage()");
   });
 

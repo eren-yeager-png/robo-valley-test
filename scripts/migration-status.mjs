@@ -98,11 +98,11 @@ export const MIGRATIONS = [
     { kind: "constraint", name: "contribution_title_keys_pkey" },
     { kind: "index", name: "contribution_title_keys_item_idx" },
   ] },
-  { id: "019", title: "moderation portal", feature: "Replies to contributors, internal notes, who opened what, structured directory categories and the work log", requires: ["017"], checks: [
-    ...["contribution_replies", "contribution_notes", "contribution_views", "contribution_categories", "contribution_category_links", "contribution_work_log"].map((table) => ({ kind: "table", table })),
-    { kind: "column", table: "contributions", column: "review_round_at" },
-    ...["contribution_replies_message_ck", "contribution_notes_note_ck", "contribution_categories_category_ck", "contribution_category_links_type_ck"].map((name) => ({ kind: "constraint", name })),
-    ...["contribution_replies_item_idx", "contribution_notes_item_idx", "contribution_views_first_idx"].map((name) => ({ kind: "index", name })),
+  { id: "020", title: "password reset", feature: "Forgot password: single-use reset links, and signing out other sessions after a reset", requires: [], checks: [
+    { kind: "table", table: "password_reset_tokens" },
+    { kind: "column", table: "users", column: "password_changed_at" },
+    { kind: "constraint", name: "password_reset_tokens_hash_uq" },
+    { kind: "index", name: "password_reset_tokens_user_idx" },
   ] },
 ];
 

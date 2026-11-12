@@ -10,7 +10,9 @@ import ProfileMenu from "./ProfileMenu";
 export default function AdminShell({ email, landingUrl, locked, children }: { email: string; landingUrl: string; locked: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  useEffect(() => setOpen(false), [pathname]);
+  // Close the drawer when the page changes. (Adjusting state while rendering, not in an effect: same result without an extra render pass.)
+  const [shownPath, setShownPath] = useState(pathname);
+  if (shownPath !== pathname) { setShownPath(pathname); setOpen(false); }
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };

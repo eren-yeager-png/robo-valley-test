@@ -87,6 +87,13 @@
 .rv .adm-table tbody tr:hover{background:#fafaf6}
 .rv .adm-table tr:last-child td{border-bottom:0}
 .rv .adm-table td.cell-wrap{overflow-wrap:anywhere;min-width:160px}
+.rv .adm-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.rv .adm-table tbody th{text-align:left;font-weight:700;white-space:nowrap}
+.rv .adm-table tr.adm-total th,.rv .adm-table tr.adm-total td{background:var(--bg);font-weight:700}
+/* the sector counts table has nine columns: let the headings wrap and keep the cells snug so they fit beside the sidebar */
+.rv .adm-counts .adm-table thead th{white-space:normal;vertical-align:bottom;padding:11px 8px;line-height:1.25}
+.rv .adm-counts .adm-table th,.rv .adm-counts .adm-table td{padding:11px 8px}
+.rv .adm-counts .adm-table tbody th{white-space:normal;min-width:120px}
 .rv .adm-pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:.76rem;font-weight:700;background:var(--tint);color:var(--brand);white-space:nowrap}
 .rv .adm-pill.warn{background:var(--amber-soft);color:var(--amber-ink)}
 .rv .adm-pill.bad{background:var(--red-soft);color:var(--red)}

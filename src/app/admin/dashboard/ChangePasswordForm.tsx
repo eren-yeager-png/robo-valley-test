@@ -44,7 +44,7 @@ export default function ChangePasswordForm({ voluntary = false }: { voluntary?: 
         {voluntary ? <h2>Change your password</h2> : <h1>Choose a new password</h1>}
         {!voluntary && <p className="muted" style={{ marginTop: 6 }}>Your account was created with a temporary password. Set your own to continue.</p>}
       </div>
-      <form onSubmit={onSubmit} noValidate aria-busy={busy}>
+      <form method="post" onSubmit={onSubmit} noValidate aria-busy={busy}>
         <label className="f"><span className="req">Current password</span>
           <input type="password" name="current-password" autoComplete="current-password" value={current} maxLength={128} onChange={(e) => { setCurrent(e.target.value); setError(""); setSaved(false); }} />
         </label>
