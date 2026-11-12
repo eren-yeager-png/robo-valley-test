@@ -24,3 +24,18 @@
 .rv-c2 .choices{display:flex;flex-wrap:wrap;gap:8px 16px;margin-bottom:12px}.rv-c2 .choices label{display:flex;align-items:center;gap:6px;min-height:38px}.rv-c2 .choices input{width:auto;min-height:0;margin:0}.rv-c2 .category-details{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:14px}.rv-c2 .category-details legend{padding:0 5px}.rv-c2 .count{display:block;margin:6px 0}.rv-c2 button:disabled{opacity:.55;cursor:default}.rv-c2 [hidden]{display:none!important}
 /* the bot trap: invisible to people and screen readers, filled only by bots */
 .rv-c2 .rv-c2-trap{position:absolute!important;left:-9999px!important;width:1px;height:1px;overflow:hidden}
+/* 0.1.7: the sector picker (a button that opens a searchable list of checkboxes; the chosen sectors as removable chips) */
+.rv-c2 .sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.rv-c2 .picker{position:relative}
+.rv-c2 .picker-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;border-color:#a9c0b9;color:var(--ink);font-weight:600}
+.rv-c2 .picker-toggle::after{content:"";width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin:-4px 4px 0}
+.rv-c2 .picker-toggle[aria-expanded="true"]::after{transform:rotate(-135deg);margin-top:4px}
+.rv-c2 .picker-panel{margin-top:6px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.rv-c2 .picker-panel input[type=search]{margin:0 0 8px}
+.rv-c2 .picker-list{display:block;max-height:240px;overflow-y:auto;margin:0}
+.rv-c2 .picker-list label{display:flex;padding:2px 4px;border-radius:5px}
+.rv-c2 .picker-list label:hover{background:var(--pale)}
+.rv-c2 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.rv-c2 .chip{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 10px;border-radius:999px;background:var(--pale);border:1px solid var(--line);font-size:.92rem}
+.rv-c2 .chip-x{min-height:28px;min-width:28px;padding:0 6px;border:0;background:transparent;font-size:1.1rem;line-height:1}
+.rv-c2 button.link{min-height:0;padding:0 2px;border:0;background:none;text-decoration:underline;font-weight:650}
