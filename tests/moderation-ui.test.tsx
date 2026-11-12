@@ -62,25 +62,15 @@ describe("page 1: Contributions by Sector", () => {
     expect(h).not.toContain("A private draft");
     expect(h).not.toMatch(/@example\.com|Kumari|Rao/);
   });
-  it("shows an item with its text, decision buttons and a note box; contact only when allowed", async () => {
-    const reviewer = Number((await seedUser({ email: `rv${++seq}@example.com`, role: "TC", fullName: "Mod" })).id); await q("UPDATE users SET is_moderator=true WHERE id=$1", [reviewer]); state.viewer = reviewer;
-    const author = Number((await seedUser({ email: `au${++seq}@example.com`, role: "ST", fullName: "Author" })).id);
-    const a = await make(author, "pending_review", "Shared contact item"), b = await make(author, "pending_review", "Private contact item");
-    await q("INSERT INTO contribution_contacts (contribution_id, contact_name, email, share_with_moderators) VALUES ($1,'Asha Shared','asha@example.com',true),($2,'Bela Private','bela@example.com',false)", [a, b]);
-    const ha = await render({ item: String(a) });
-    expect(ha).toContain("A long enough description."); expect(ha).toContain("Farmer"); expect(ha).toContain("asha@example.com");
-    for (const w of ["Approve and publish", "Request changes", "Reject"]) expect(ha).toContain(w);
-    expect(ha).toContain("Note for the author");
-    const hb = await render({ item: String(b) });
-    expect(hb).not.toMatch(/Bela|bela@/); expect(hb).toContain("No contact details are available to you");
+  it("finds a sector by name and sorts by name; an unknown sort falls back; nothing found says so", async () => {
+    state.viewer = await person("admin", "Ola Admin");
+    const h = await overview({ q: "health", sort: "name" });
+    expect(h).toContain("Contributors for Healthcare"); expect(h).not.toContain("Contributors for Education");
+    expect(await overview({ q: "zzz", sort: "bogus" })).toContain("No sector matches “zzz”.");
   });
-  it("your own item has no decision buttons; a missing or draft item says so; bad ids are ignored", async () => {
-    const reviewer = Number((await seedUser({ email: `rv${++seq}@example.com`, role: "admin", fullName: "Rev" })).id); state.viewer = reviewer;
-    const own = await make(reviewer, "pending_review", "My own item title"), draft = await make(reviewer, "draft", "A private draft title");
-    const h = await render({ item: String(own) });
-    expect(h).toContain("your own contribution"); expect(h).not.toContain("Approve and publish");
-    expect(await render({ item: String(draft) })).toContain("We could not find that contribution.");
-    expect(await render({ item: "abc", status: "bogus" })).toContain("Choose a contribution from the list");
+  it("an older link /moderation?item=12 opens the new detail page", async () => {
+    state.viewer = 1;
+    await expect(overview({ item: "12" })).rejects.toThrow("REDIRECT:/moderation/12");
   });
   it("shows a plain message when the tables are missing, never details", async () => {
     state.viewer = 1;
@@ -128,6 +118,26 @@ describe("page 2: one sector's list", () => {
     expect(await sector("agriculture-dairy", { tab: "published", q: "asha" })).toContain("23 contributions");
     expect(await sector("agriculture-dairy", { tab: "published", cat: "Events" })).toContain("Nothing here yet.");
     expect(await sector("agriculture-dairy", { tab: "rejected" })).toContain("Nothing here yet.");
+  });
+  it("verified=1 / verified=0 (the admin Sector Counts links) show only pending items a reviewer has / has not verified, in the list, the CSV link and Previous / Next", async () => {
+    const admin = await person("admin", "Ola Admin"); state.viewer = admin;
+    const a = await person("ST", "Asha Rao");
+    const checked = await make(a, "pending_review", "Checked pending item"), unchecked = await make(a, "pending_review", "Unchecked pending item");
+    await make(a, "published", "Published, also verified earlier");
+    await q("INSERT INTO contribution_reviews (contribution_id, reviewer_id, action) VALUES ($1,$2,'verify')", [checked, admin]);
+    const yes = await sector("agriculture-dairy", { tab: "all", verified: "1" });
+    expect(yes).toContain("Checked pending item"); expect(yes).not.toContain("Unchecked pending item"); expect(yes).not.toContain("Published, also verified");
+    expect(yes).toContain("Showing only pending contributions a reviewer has verified.");
+    expect(yes).toContain('href="/moderation/sector/agriculture-dairy?tab=all"'); // "Show everything" drops the filter
+    expect(yes).toContain("verified=1"); // kept by the CSV link and the View form links
+    expect(yes).toContain('<input type="hidden" name="verified" value="1"/>'); // and by the search form
+    const no = await sector("agriculture-dairy", { tab: "all", verified: "0" });
+    expect(no).toContain("Unchecked pending item"); expect(no).not.toContain("Checked pending item");
+    expect(no).toContain("that nobody has verified yet");
+    expect(await sector("agriculture-dairy", { tab: "all", verified: "maybe" })).toContain("Published, also verified"); // anything else: no filter
+    const d = await detail(checked, { from: "agriculture-dairy", tab: "all", verified: "1" });
+    expect(d).toContain("1 of 1"); // Previous / Next stay inside the filtered list
+    expect(d).toContain('href="/moderation/sector/agriculture-dairy?tab=all&amp;verified=1"'); // and so does the way back
   });
   it("an unknown or malformed sector says so", async () => {
     state.viewer = 1;

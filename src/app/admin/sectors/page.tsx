@@ -7,16 +7,17 @@ import { DataTable, Notice, PageHeader } from "../_components/ui";
 
 export const metadata: Metadata = { title: "Sector counts | RoboValley admin", robots: { index: false, follow: false } };
 
-// Column heading, and where a number leads: the moderation list for that status (and sector). Drafts are private to their authors, so
-// they have no list; "Total" is just the row's sum.
+// Column heading, and where a number leads: that sector's list in the Admin Portal, on the matching tab (Submitted and Verified are
+// pending items a reviewer has not verified yet / has verified). Drafts are private to their authors, so they have no list; "Total" is
+// just the row's sum, and the rows that span sectors (sum, unique) are plain numbers because a list is always one sector's.
 const COLUMNS: { key: CountKey; label: string; qs: string | null }[] = [
   { key: "draft", label: "Draft", qs: null },
-  { key: "submitted", label: "Submitted", qs: "status=pending_review&verified=0" },
-  { key: "verified", label: "Verified", qs: "status=pending_review&verified=1" },
-  { key: "changesRequested", label: "Changes requested", qs: "status=changes_requested" },
-  { key: "published", label: "Approved / published", qs: "status=published" },
-  { key: "rejected", label: "Rejected", qs: "status=rejected" },
-  { key: "unpublished", label: "Unpublished", qs: "status=unpublished" },
+  { key: "submitted", label: "Submitted", qs: "tab=all&verified=0" },
+  { key: "verified", label: "Verified", qs: "tab=all&verified=1" },
+  { key: "changesRequested", label: "Changes requested", qs: "tab=changes_requested" },
+  { key: "published", label: "Approved / published", qs: "tab=published" },
+  { key: "rejected", label: "Rejected", qs: "tab=rejected" },
+  { key: "unpublished", label: "Unpublished", qs: "tab=unpublished" },
   { key: "total", label: "Total", qs: null },
 ];
 
@@ -25,7 +26,7 @@ function cells(c: Counts, slug: string | null, linked: boolean) {
     const v = c[col.key];
     return (
       <td key={col.key} className="num">
-        {linked && col.qs && v > 0 ? <Link href={`/moderation?${col.qs}${slug ? `&sector=${slug}` : ""}`}>{v.toLocaleString("en-IN")}</Link> : v.toLocaleString("en-IN")}
+        {linked && slug && col.qs && v > 0 ? <Link href={`/moderation/sector/${slug}?${col.qs}`}>{v.toLocaleString("en-IN")}</Link> : v.toLocaleString("en-IN")}
       </td>
     );
   });
@@ -52,12 +53,12 @@ export default async function SectorCountsPage() {
       </tr>
     )),
     <tr key="sum" className="adm-total"><th scope="row">Total of the sector rows</th>{cells(data.sum, null, false)}</tr>,
-    <tr key="unique" className="adm-total"><th scope="row">Unique contributions</th>{cells(data.unique, null, true)}</tr>,
+    <tr key="unique" className="adm-total"><th scope="row">Unique contributions</th>{cells(data.unique, null, false)}</tr>,
   ];
 
   return (
     <>
-      <PageHeader title="Contributions by sector" lead="How many contributions each sector holds in each state. Click a number to open that list in Moderation." />
+      <PageHeader title="Contributions by sector" lead="How many contributions each sector holds in each state. Click a number to open that sector's list in the Admin Portal." />
       <div className="adm-counts">
       <DataTable
         caption="Contributions per sector by status"
@@ -69,7 +70,7 @@ export default async function SectorCountsPage() {
       <div style={{ marginTop: 14 }}>
       <Notice kind="info" title="How to read the totals">
         A contribution can belong to several sectors, and it is counted once in each of them. So a contribution in two sectors adds 2 to
-        “Total of the sector rows” but only 1 to “Unique contributions”. The numbers in the Unique row open the same lists as the Moderation page&apos;s own tabs.
+        “Total of the sector rows” but only 1 to “Unique contributions”. A number in a sector&apos;s row opens that sector&apos;s list in the Admin Portal; the two total rows span sectors, so they are plain numbers.
         “Submitted” has not been verified yet; “Verified” has been checked by a reviewer and waits for an administrator to approve it.
         Drafts are private to their authors and are not listed.
         {data.withoutSector > 0 ? ` ${data.withoutSector} contribution${data.withoutSector === 1 ? " has" : "s have"} no sector yet and ${data.withoutSector === 1 ? "is" : "are"} in no row.` : ""}

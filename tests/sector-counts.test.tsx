@@ -202,16 +202,17 @@ describe("the page", () => {
     for (const col of ["Draft", "Submitted", "Verified", "Changes requested", "Approved / published", "Rejected", "Unpublished", "Total"]) expect(h).toContain(col);
     expect(h).toMatch(/1 contribution has no sector yet and is in no row/);
   });
-  it("links each non-zero count to the matching Moderation list; zeros, drafts and totals are plain numbers", async () => {
+  it("links each non-zero count to that sector's list in the Admin Portal; zeros, drafts and the two total rows are plain numbers", async () => {
     await seedAll(); signInAs(admin, "admin");
     const h = await html();
-    expect(h).toContain('href="/moderation?status=published&amp;sector=education"');
-    expect(h).toContain('href="/moderation?status=pending_review&amp;verified=1&amp;sector=agriculture-dairy"');
-    expect(h).toContain('href="/moderation?status=pending_review&amp;verified=0&amp;sector=education"');
-    expect(h).toContain('href="/moderation?status=rejected&amp;sector=education"');
-    expect(h).toContain('href="/moderation?status=unpublished"'); // the unique row has no sector
-    expect(h).not.toContain("status=rejected&amp;sector=agriculture-dairy"); // agriculture has no rejected item: just a 0
-    expect(h).not.toMatch(/href="\/moderation\?status=draft/);
+    expect(h).toContain('href="/moderation/sector/education?tab=published"');
+    expect(h).toContain('href="/moderation/sector/agriculture-dairy?tab=all&amp;verified=1"');
+    expect(h).toContain('href="/moderation/sector/education?tab=all&amp;verified=0"');
+    expect(h).toContain('href="/moderation/sector/education?tab=rejected"');
+    expect(h).not.toContain("/moderation/sector/agriculture-dairy?tab=rejected"); // agriculture has no rejected item: just a 0
+    expect(h).not.toMatch(/href="\/moderation\?/); // nothing points at the old single-page queue any more
+    const totals = h.slice(h.indexOf("Total of the sector rows"));
+    expect(totals).not.toContain("<a "); // the sum and unique rows span sectors: no links
   });
   it("is for administrators: a visitor is sent to sign in, a member to their dashboard, a moderator to their dashboard", async () => {
     await seedAll();

@@ -88,7 +88,11 @@ export async function listQueue(db: Db, status: string, filter: { sector?: strin
     "COALESCE((SELECT json_agg(s.name ORDER BY s.sort_order, s.slug) FROM contribution_scopes cs JOIN sectors s ON s.id = cs.sector_id WHERE cs.contribution_id = c.id), '[]'::json) AS sectors, " +
     "(SELECT count(*)::int FROM contribution_photos p WHERE p.contribution_id = c.id) AS photos " +
     "FROM contributions c WHERE c.status = $1::varchar AND NOT c.is_demo" + extra + " ORDER BY " + (st === "pending_review" ? "c.submitted_at ASC, c.id ASC" : "c.updated_at DESC, c.id DESC") + " LIMIT 100", params);
-  return rows.map((r) => ({ id: Number(r.id), title: r.title, type: r.type, typeLabel: TYPE_LABEL.get(r.type) ?? "", status: r.status, statusLabel: STATUS_LABELS[r.status as ContributionStatus] ?? r.status, sectors: Array.isArray(r.sectors) ? r.sectors : [], submittedAt: r.submitted_at ? new Date(r.submitted_at).toISOString() : null, photos: Number(r.photos) }));
+  const facts = st === "pending_review" ? await roundFacts(db, rows.map((r) => Number(r.id))) : new Map();
+  return rows.map((r) => {
+    const display = displayStatus(r.status, facts.get(Number(r.id)));
+    return { id: Number(r.id), title: r.title, type: r.type, typeLabel: TYPE_LABEL.get(r.type) ?? "", status: r.status, statusLabel: STATUS_LABELS[r.status as ContributionStatus] ?? r.status, display, displayLabel: portalLabel(display), sectors: Array.isArray(r.sectors) ? r.sectors : [], submittedAt: r.submitted_at ? new Date(r.submitted_at).toISOString() : null, photos: Number(r.photos) };
+  });
 }
 
 export type History = { action: string; note: string | null; at: string; by: string };
@@ -215,7 +219,8 @@ export type PortalTab = (typeof PORTAL_TABS)[number] | "all";
 export const PORTAL_TAB_LIST: readonly PortalTab[] = [...PORTAL_TABS, "all"];
 export const PAGE_SIZE = 20;
 export type PortalSort = "new" | "old";
-export type ListOptions = { tab?: string; q?: string; category?: string; sort?: string; page?: number };
+// verified: "1" = only pending items a reviewer has verified, "0" = only pending items not verified yet (the links on the admin Sector Counts page)
+export type ListOptions = { tab?: string; q?: string; category?: string; sort?: string; page?: number; verified?: string };
 
 export type SectorCard = { slug: string; name: string; contributions: number; contributors: number; pending: number; published: number; rejected: number };
 export type PortalTotals = { all: number; pending: number; published: number; rejected: number };
@@ -241,11 +246,11 @@ export type PortalRow = {
   submittedAt: string | null; status: ContributionStatus; display: DisplayStatus; displayLabel: string;
 };
 export type SectorList = {
-  sector: { slug: string; name: string }; tab: PortalTab; sort: PortalSort; q: string; category: string;
+  sector: { slug: string; name: string }; tab: PortalTab; sort: PortalSort; q: string; category: string; verified: boolean | null;
   counts: Record<PortalTab, number>; contributions: number; contributors: number;
   rows: PortalRow[]; page: number; pages: number; matching: number; categoriesUsed: string[];
 };
-type FullRow = PortalRow & { userId: number };
+type FullRow = PortalRow & { userId: number; verified: boolean };
 
 /** One sector's items with everything the list, the CSV and previous / next need. Needs migration 019. */
 async function sectorRows(db: Db, slug: string): Promise<{ sector: { slug: string; name: string }; rows: FullRow[] } | null> {
@@ -255,6 +260,7 @@ async function sectorRows(db: Db, slug: string): Promise<{ sector: { slug: strin
     "SELECT c.id, c.title, c.status, c.submitted_at, c.user_id, u.full_name, u.role AS user_role, " +
     `EXISTS (SELECT 1 FROM contribution_replies p WHERE p.contribution_id = c.id AND p.created_at >= ${ROUND_START_SQL}) AS replied, ` +
     `EXISTS (SELECT 1 FROM contribution_views v WHERE v.contribution_id = c.id AND v.last_viewed_at >= ${ROUND_START_SQL}) AS viewed, ` +
+    "EXISTS (SELECT 1 FROM contribution_reviews r WHERE r.contribution_id = c.id AND r.action = 'verify') AS verified, " +
     "COALESCE((SELECT json_agg(s2.name ORDER BY s2.sort_order, s2.slug) FROM contribution_scopes cs2 JOIN sectors s2 ON s2.id = cs2.sector_id WHERE cs2.contribution_id = c.id AND s2.slug <> $1), '[]'::json) AS also_in, " +
     "COALESCE((SELECT json_agg(cc.category ORDER BY cc.position) FROM contribution_categories cc WHERE cc.contribution_id = c.id), '[]'::json) AS categories " +
     "FROM contributions c JOIN contribution_scopes cs ON cs.contribution_id = c.id JOIN sectors s ON s.id = cs.sector_id AND s.slug = $1 " +
@@ -266,7 +272,7 @@ async function sectorRows(db: Db, slug: string): Promise<{ sector: { slug: strin
       return {
         id: Number(r.id), title: r.title, alsoIn: Array.isArray(r.also_in) ? r.also_in : [], contributor: contributorLabel(r.full_name), stakeholder: stakeholderLabel(r.user_role),
         categories: Array.isArray(r.categories) ? r.categories : [], submittedAt: r.submitted_at ? new Date(r.submitted_at).toISOString() : null,
-        status: r.status, display, displayLabel: portalLabel(display), userId: Number(r.user_id),
+        status: r.status, display, displayLabel: portalLabel(display), userId: Number(r.user_id), verified: r.verified === true,
       };
     }),
   };
@@ -278,12 +284,13 @@ const cleanOptions = (o: ListOptions) => ({
   category: typeof o.category === "string" ? o.category.trim().slice(0, 40) : "",
   sort: (o.sort === "old" ? "old" : "new") as PortalSort,
   page: Number.isSafeInteger(o.page) && (o.page as number) > 0 ? (o.page as number) : 1,
+  verified: o.verified === "1" ? true : o.verified === "0" ? false : null,
 });
 
 /** The tab, search, category filter and sort applied (no pages). */
 function applyOptions(rows: FullRow[], o: ReturnType<typeof cleanOptions>): FullRow[] {
   const q = o.q.toLowerCase();
-  const out = rows.filter((r) => (o.tab === "all" || r.display === o.tab) && (!o.category || r.categories.includes(o.category)) && (!q || `${r.title} ${r.contributor}`.toLowerCase().includes(q)));
+  const out = rows.filter((r) => (o.verified === null || (r.status === "pending_review" && r.verified === o.verified)) && (o.tab === "all" || r.display === o.tab) && (!o.category || r.categories.includes(o.category)) && (!q || `${r.title} ${r.contributor}`.toLowerCase().includes(q)));
   const time = (r: FullRow) => (r.submittedAt ? Date.parse(r.submittedAt) : 0);
   return out.sort((a, b) => (o.sort === "old" ? time(a) - time(b) || a.id - b.id : time(b) - time(a) || b.id - a.id));
 }
@@ -297,9 +304,9 @@ export async function sectorList(db: Db, slug: string, opts: ListOptions = {}): 
   const pages = Math.max(1, Math.ceil(matching.length / PAGE_SIZE));
   const page = Math.min(o.page, pages);
   return {
-    sector: data.sector, tab: o.tab, sort: o.sort, q: o.q, category: o.category, counts,
+    sector: data.sector, tab: o.tab, sort: o.sort, q: o.q, category: o.category, verified: o.verified, counts,
     contributions: data.rows.length, contributors: new Set(data.rows.map((r) => r.userId)).size,
-    rows: matching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(({ userId: _u, ...r }) => r), page, pages, matching: matching.length,
+    rows: matching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(({ userId: _u, verified: _v, ...r }) => r), page, pages, matching: matching.length,
     categoriesUsed: [...new Set(data.rows.flatMap((r) => r.categories))],
   };
 }
@@ -311,7 +318,7 @@ export async function neighbours(db: Db, slug: string, opts: ListOptions, id: nu
   // the open item stays in the list it was opened from, even though opening it moved it from New to In review
   const o = cleanOptions(opts), here = data.rows.find((r) => r.id === id);
   const list = applyOptions(data.rows, o);
-  if (here && !list.some((r) => r.id === id)) { list.push(here); list.splice(0, list.length, ...applyOptions(list, { ...o, tab: "all", q: "", category: "" })); }
+  if (here && !list.some((r) => r.id === id)) { list.push(here); list.splice(0, list.length, ...applyOptions(list, { ...o, tab: "all", q: "", category: "", verified: null })); }
   const i = list.findIndex((r) => r.id === id);
   if (i < 0) return { prev: null, next: null, position: 0, of: list.length };
   return { prev: list[i - 1]?.id ?? null, next: list[i + 1]?.id ?? null, position: i + 1, of: list.length };

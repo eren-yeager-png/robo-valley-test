@@ -80,6 +80,10 @@ describe("CSV export", () => {
     expect(await titles("sector=agriculture-dairy&tab=all&cat=Services")).toEqual(["Published one"]);
     expect(await titles("sector=agriculture-dairy&tab=all&q=pending")).toEqual(["Pending one"]);
     expect(await titles("sector=education&tab=all")).toEqual([]);
+    const [pending] = (await q("SELECT id FROM contributions WHERE title = 'Pending one'")).rows as { id: number }[];
+    await q("INSERT INTO contribution_reviews (contribution_id, reviewer_id, action) VALUES ($1,$2,'verify')", [pending.id, mod]);
+    expect(await titles("sector=agriculture-dairy&tab=all&verified=1")).toEqual(["Pending one"]); // the admin Sector Counts filter too
+    expect(await titles("sector=agriculture-dairy&tab=all&verified=0")).toEqual([]);
   });
   it("neutralises spreadsheet formulas and keeps quotes and commas inside one cell", async () => {
     expect(csvCell("=HYPERLINK(\"http://evil\")")).toBe('"\'=HYPERLINK(""http://evil"")"');

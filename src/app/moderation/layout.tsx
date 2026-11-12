@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Mulish } from "next/font/google";
 import { requireReviewerPage } from "../../lib/reviewerPage";
@@ -21,7 +22,7 @@ export default async function ModerationLayout({ children }: { children: React.R
           <span className="mod-logo">RoboValley · Admin Portal</span>
           <nav aria-label="Admin Portal">
             <span>Signed in as {me.isAdmin ? "an administrator" : "a moderator"}</span>
-            <a href="/moderation">Contributions</a>
+            <Link href="/moderation">Contributions</Link>
             {me.isAdmin && <a href="/admin/dashboard">Admin</a>}
             <a href={siteUrl()}>Back to the site</a>
           </nav>
