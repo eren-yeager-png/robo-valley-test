@@ -4,6 +4,7 @@ import { requireReviewerPage } from "../../../../lib/reviewerPage";
 import { PORTAL_TAB_LIST, sectorList, type PortalTab, type SectorList } from "../../../../lib/contributionReview";
 import { DISPLAY_LABELS, STATUS_TONE, type DisplayStatus } from "../../../../lib/reviewStatus";
 import { DIRECTORY_CATEGORIES } from "../../../../lib/directoryCategories";
+import { logDbError } from "../../../../lib/dbError";
 
 type SP = { tab?: string; q?: string; cat?: string; sort?: string; page?: string; verified?: string };
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
@@ -29,8 +30,7 @@ export default async function SectorPage({ params, searchParams }: { params: Pro
     try {
       list = await sectorList(pool as never, slug, { tab: sp.tab, q: sp.q, category: sp.cat, sort: sp.sort, page: /^[1-9]\d{0,4}$/.test(sp.page ?? "") ? Number(sp.page) : 1, verified: sp.verified });
     } catch (e) {
-      problem = (e as { code?: string })?.code === "42P01" ? "Reviewing is not set up on this database yet (migrations 012 to 019 are needed)." : "The list could not be loaded. Please try again.";
-      console.error("admin portal: could not read a sector list");
+      problem = logDbError("admin portal sector list", e) === "not_set_up" ? "Reviewing is not set up on this database yet (migrations 012 to 019 are needed)." : "The list could not be loaded. Please try again.";
     }
   }
   if (problem) return (<><p className="mod-crumb"><Link href="/moderation">Admin Portal / Contributions</Link></p><p className="mod-note" role="alert">{problem}</p></>);
