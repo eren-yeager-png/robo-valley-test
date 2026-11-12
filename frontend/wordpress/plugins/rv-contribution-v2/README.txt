@@ -1,4 +1,4 @@
-RoboValley Contribution (v2) - WordPress plugin, version 0.1.6
+RoboValley Contribution (v2) - WordPress plugin, version 0.1.7
 
 WHAT IT IS
 The new Contribute form for the Contribution and Contributor pages. It only shows the form and talks to the RoboValley app.
@@ -76,3 +76,17 @@ NEW IN 0.1.6
     every page. A signed-in administrator or moderator sees the reviewer note without a Sign Out button too.
   * The [rv_contribution_v2] shortcode on any other page keeps the button; write [rv_contribution_v2 sign_out="no"] to drop it.
   * The HTML and CSS files are unchanged; only the PHP (which removes the button) and the script (which copes without it) changed.
+
+NEW IN 0.1.7
+  * Sectors: a "Choose sectors" button opens a searchable list (type to filter; choose at least 1, at most 20). The chosen
+    sectors show as chips with a remove button. When the list loads but has no sectors, it says so ("No sectors are set up
+    yet") instead of "could not be loaded".
+  * Opened from a sector page ("Contribute to this sector", ?sector=<slug>): that sector is already chosen and the list is
+    replaced by one read-only line, "Sector · Agriculture & Dairy", like the stakeholder line, with a Change link that brings
+    the list back. A slug that is not a real sector is ignored: the normal list shows with nothing chosen. The app checks the
+    sectors again when the contribution is saved.
+  * Contact: the Name / Email / Mobile number fields are gone. One box instead, unticked by default: "Let moderators contact me
+    using my profile details". It is saved with the contribution (app migration 021). Moderators see the profile's contact only
+    when it is ticked; it is never shown publicly. Contact details sent with older versions stay in the app, unchanged.
+  * Needs the app with migration 021 for the box to be saved (with an older app the box is ignored: nothing is shared).
+  * The HTML and CSS changed (the sector list and the contact section).

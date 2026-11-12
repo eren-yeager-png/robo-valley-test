@@ -120,7 +120,7 @@ describe("who can read a contact", () => {
   it("the owner always can", async () => {
     for (const share of [false, true]) {
       const { pg, c } = await withContact(share);
-      expect(await readContact(db(pg), c, OWNER)).toEqual({ ...CONTACT, shareWithModerators: share });
+      expect(await readContact(db(pg), c, OWNER)).toEqual({ ...CONTACT, shareWithModerators: share, source: "form" }); // "form": typed into the (old) form
       await pg.close();
     }
   });
@@ -164,7 +164,7 @@ describe("who can read a contact", () => {
   it("saving again replaces the details (one row)", async () => {
     const { pg, c } = await withContact(false);
     await saveContact(db(pg), c, 1, { name: "Asha R", email: null, phone: "9123456780", shareWithModerators: true });
-    expect(await readContact(db(pg), c, OWNER)).toEqual({ name: "Asha R", email: null, phone: "9123456780", shareWithModerators: true });
+    expect(await readContact(db(pg), c, OWNER)).toEqual({ name: "Asha R", email: null, phone: "9123456780", shareWithModerators: true, source: "form" });
     expect(await count(pg, "select count(*) n from contribution_contacts")).toBe(1);
     await pg.close();
   });

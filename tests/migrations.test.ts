@@ -19,7 +19,7 @@ const tables = async (pg: PGlite) =>
 describe("migration files", () => {
   it("are in order, with no number used twice, and rollback is NOT in the migrations folder", () => {
     const names = pickFiles().map((f) => f.split(/[\\/]/).pop());
-    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql", "005_service_datasets.sql", "006_pincode_locations.sql", "007_service_categories.sql", "008_login_events.sql", "009_upload_attachments.sql", "010_dedupe_uploads.sql", "011_api_rate_limits.sql", "012_contributions.sql", "013_contribution_photos.sql", "014_contribution_contacts.sql", "015_moderator_flag.sql", "016_sector_seed.sql", "017_review_statuses.sql", "018_contribution_dedupe.sql", "019_moderation_portal.sql", "020_password_reset.sql"]);
+    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql", "005_service_datasets.sql", "006_pincode_locations.sql", "007_service_categories.sql", "008_login_events.sql", "009_upload_attachments.sql", "010_dedupe_uploads.sql", "011_api_rate_limits.sql", "012_contributions.sql", "013_contribution_photos.sql", "014_contribution_contacts.sql", "015_moderator_flag.sql", "016_sector_seed.sql", "017_review_statuses.sql", "018_contribution_dedupe.sql", "019_moderation_portal.sql", "020_password_reset.sql", "021_contact_share.sql"]);
     const nums = names.map((n) => Number(n!.slice(0, 3)));
     expect(nums).toEqual([...nums].sort((a, b) => a - b)); // ordered ...
     expect(new Set(nums).size).toBe(nums.length); // ... and no number used twice

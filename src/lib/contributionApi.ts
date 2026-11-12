@@ -7,7 +7,7 @@
 // the same transaction as the item, and your own item comes back with it (and the description without the folded copy) for Edit.
 import { createHash } from "node:crypto";
 import { addPhoto, detectPhotoMime, listPhotoMeta, validatePhoto, type PhotoMeta } from "./contributionPhotos";
-import { removeContact, readContact, saveContact, validateContact, type Contact } from "./contributionContacts";
+import { readShareChoice, removeContact, readContact, saveContact, saveShareChoice, shareChoiceOf, validateContact, type Contact } from "./contributionContacts";
 import { CONTRIBUTION_LIMITS, contributionDbError, validateContribution, type ContributionStatus } from "./contributions";
 import { stripPhotoMetadata } from "./photoClean";
 import { hasControlChars, type FieldErrors } from "./validation";
@@ -114,6 +114,7 @@ export async function saveOwn(pool: Pool, ownerId: number, raw: unknown, id?: nu
   const f = readFields(raw);
   const dir = readDirectory(typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>).directory : undefined);
   if (dir.present && !dir.ok) return fail(400, "VALIDATION_FAILED", VALIDATION, { directory: (dir as { message: string }).message });
+  const share = readShareChoice(raw); // item 3: "Let moderators contact me using my profile details" (absent = an older form: unchanged)
   const client = await pool.connect();
   try {
     const slugs = await activeSectorSlugs(client);
@@ -147,6 +148,7 @@ export async function saveOwn(pool: Pool, ownerId: number, raw: unknown, id?: nu
     for (const r of want.rows) await client.query("INSERT INTO contribution_scopes (contribution_id, sector_id) VALUES ($1,$2) ON CONFLICT DO NOTHING", [cid, r.id]);
     await client.query("DELETE FROM contribution_scopes WHERE contribution_id = $1 AND NOT (sector_id = ANY($2::int[]))", [cid, want.rows.map((r) => r.id)]);
     if (dir.present) await saveDirectory(client, cid, (dir as { value: DirectoryEntry[] }).value); // absent (an older form): the rows stay as they are
+    if (share !== undefined) await saveShareChoice(client, cid, ownerId, share);
     await client.query("COMMIT");
     return { ok: true, id: cid, status };
   } catch (e) {
@@ -193,11 +195,12 @@ export async function getOwn(db: Db, ownerId: number, id: number): Promise<Ok<{ 
     const scopes = await db.query("SELECT s.slug FROM contribution_scopes cs JOIN sectors s ON s.id = cs.sector_id WHERE cs.contribution_id = $1 ORDER BY s.slug", [id]);
     const photos: PhotoMeta[] = await listPhotoMeta(db, [id]).catch(() => []);
     const contact: Contact | null = await readContact(db, id, ownerId).catch(() => null);
+    const shareContact = await shareChoiceOf(db, id, ownerId).catch(() => false);
     const parts = splitBody(c.body);
     // for Edit: the structured categories (or, for an item saved before PR2, the ones in the folded text) and your own words without the fold
     const fold = splitFold(parts.description);
     const directory = (await directoryFor(db, [id])).get(id) ?? fold.entries ?? [];
-    return { ok: true, contribution: { id: Number(c.id), status: c.status, editable: OWNER_RULES[c.status as keyof typeof OWNER_RULES]?.edit !== null, type: c.type, robotType: c.robot_type ?? "", sectors: scopes.rows.map((r) => r.slug), title: c.title, ...parts, description: fold.entries ? fold.text : parts.description, directory, photos: photos.map((p) => ({ id: p.id, position: p.position, alt: p.alt, mime: p.mime })), contact } };
+    return { ok: true, contribution: { id: Number(c.id), status: c.status, editable: OWNER_RULES[c.status as keyof typeof OWNER_RULES]?.edit !== null, type: c.type, robotType: c.robot_type ?? "", sectors: scopes.rows.map((r) => r.slug), title: c.title, ...parts, description: fold.entries ? fold.text : parts.description, directory, photos: photos.map((p) => ({ id: p.id, position: p.position, alt: p.alt, mime: p.mime })), contact, shareContact } };
   } catch (e) { const s = notSet(e); if (s) return s; throw e; }
 }
 

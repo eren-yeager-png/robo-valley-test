@@ -107,12 +107,15 @@ export default async function ContributionPage({ params, searchParams }: { param
           <section className="mod-card" aria-labelledby="d-contact">
             <h2 id="d-contact">Contact details <span className="mod-small" style={{ display: "inline" }}>Private, never shown publicly</span></h2>
             {it.contact ? (
+              <>
+              <p className="mod-small">{it.contact.source === "profile" ? "From the contributor’s profile: they ticked “Let moderators contact me using my profile details”." : "Typed into the form by the contributor, who chose to share it with moderators."}</p>
               <dl>
                 <div className="mod-field"><dt>Name</dt><dd>{it.contact.name || "—"}</dd></div>
                 <div className="mod-field"><dt>Email</dt><dd>{it.contact.email ? <a href={`mailto:${it.contact.email}`}>{it.contact.email}</a> : "—"}</dd></div>
                 <div className="mod-field"><dt>Mobile</dt><dd>{it.contact.phone || "—"}</dd></div>
               </dl>
-            ) : <p className="mod-callout mod-callout--muted">No contact details are shown: the contributor did not share them with moderators, or you are not a moderator.</p>}
+              </>
+            ) : <p className="mod-callout mod-callout--muted">No contact details are shown: the contributor did not tick “Let moderators contact me”, or you are not a moderator.</p>}
           </section>
         </div>
 
