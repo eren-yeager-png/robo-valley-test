@@ -19,7 +19,7 @@ const tables = async (pg: PGlite) =>
 describe("migration files", () => {
   it("are in order, with no number used twice, and rollback is NOT in the migrations folder", () => {
     const names = pickFiles().map((f) => f.split(/[\\/]/).pop());
-    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql", "005_service_datasets.sql", "006_pincode_locations.sql", "007_service_categories.sql", "008_login_events.sql", "009_upload_attachments.sql", "010_dedupe_uploads.sql", "011_api_rate_limits.sql", "012_contributions.sql", "013_contribution_photos.sql", "014_contribution_contacts.sql", "015_moderator_flag.sql", "016_sector_seed.sql", "017_review_statuses.sql", "018_contribution_dedupe.sql", "020_password_reset.sql"]);
+    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql", "005_service_datasets.sql", "006_pincode_locations.sql", "007_service_categories.sql", "008_login_events.sql", "009_upload_attachments.sql", "010_dedupe_uploads.sql", "011_api_rate_limits.sql", "012_contributions.sql", "013_contribution_photos.sql", "014_contribution_contacts.sql", "015_moderator_flag.sql", "016_sector_seed.sql", "017_review_statuses.sql", "018_contribution_dedupe.sql", "019_moderation_portal.sql", "020_password_reset.sql"]);
     const nums = names.map((n) => Number(n!.slice(0, 3)));
     expect(nums).toEqual([...nums].sort((a, b) => a - b)); // ordered ...
     expect(new Set(nums).size).toBe(nums.length); // ... and no number used twice
@@ -101,7 +101,7 @@ describe("database-name guard (option B: fails closed)", () => {
     await pg.exec("ROLLBACK");
     expect(await tables(pg)).toEqual(expect.arrayContaining(["login_attempts", "otp_challenges"])); // nothing was dropped
     await applyFile(runner(pg), name, read("db/rollback/003_down.sql"));
-    expect(await tables(pg)).toEqual(["api_rate_limits", "contribution_contacts", "contribution_photo_blobs", "contribution_photos", "contribution_reviews", "contribution_scopes", "contribution_title_keys", "contributions", "guardian_details", "login_events", "moderator_audit", "password_reset_tokens", "pincode_locations", "sectors", "service_dataset_rows", "service_datasets", "upload_attachment_blobs", "upload_attachments", "upload_audit_log", "users"]); // 003 tables gone, every other table untouched
+    expect(await tables(pg)).toEqual(["api_rate_limits", "contribution_categories", "contribution_category_links", "contribution_contacts", "contribution_notes", "contribution_photo_blobs", "contribution_photos", "contribution_replies", "contribution_reviews", "contribution_scopes", "contribution_title_keys", "contribution_views", "contribution_work_log", "contributions", "guardian_details", "login_events", "moderator_audit", "password_reset_tokens", "pincode_locations", "sectors", "service_dataset_rows", "service_datasets", "upload_attachment_blobs", "upload_attachments", "upload_audit_log", "users"]); // 003 tables gone, every other table untouched
     expect(Number((await pg.query("select count(*)::int n from users")).rows[0]!["n" as never])).toBe(1); // data untouched
     await pg.close();
   });

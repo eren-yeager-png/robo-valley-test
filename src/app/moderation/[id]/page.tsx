@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { pool } from "../../../lib/db";
 import { requireReviewerPage } from "../../../lib/reviewerPage";
 import { getForReview, neighbours, type ReviewItem } from "../../../lib/contributionReview";
@@ -6,7 +7,7 @@ import { STATUS_TONE } from "../../../lib/reviewStatus";
 import DecisionForm from "../DecisionForm";
 import ReplyNoteForm from "../ReplyNoteForm";
 
-type SP = { from?: string; tab?: string; q?: string; cat?: string; sort?: string };
+type SP = { from?: string; tab?: string; q?: string; cat?: string; sort?: string; verified?: string };
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
 const isSlug = (s: unknown): s is string => typeof s === "string" && s.length <= 60 && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(s);
 const CALLOUT: Record<string, [string, string]> = {
@@ -29,25 +30,25 @@ export default async function ContributionPage({ params, searchParams }: { param
       item = await getForReview(pool as never, me.userId, id, me.isAdmin);
       if (item) {
         from = isSlug(sp.from) && item.sectorSlugs.includes(sp.from) ? sp.from : item.sectorSlugs[0] ?? "";
-        if (from) nav = await neighbours(pool as never, from, { tab: sp.from ? sp.tab : "all", q: sp.q, category: sp.cat, sort: sp.sort }, id);
+        if (from) nav = await neighbours(pool as never, from, { tab: sp.from ? sp.tab : "all", q: sp.q, category: sp.cat, sort: sp.sort, verified: sp.from ? sp.verified : undefined }, id);
       }
     } catch (e) {
       problem = (e as { code?: string })?.code === "42P01" ? "Reviewing is not set up on this database yet (migrations 012 to 019 are needed)." : "This contribution could not be loaded. Please try again.";
       console.error("admin portal: could not read a contribution");
     }
   }
-  if (problem) return (<><p className="mod-crumb"><a href="/moderation">Admin Portal / Contributions</a></p><p className="mod-note" role="alert">{problem}</p></>);
-  if (!item) return (<><p className="mod-crumb"><a href="/moderation">Admin Portal / Contributions</a></p><p className="mod-note" role="status">We could not find that contribution.</p></>);
+  if (problem) return (<><p className="mod-crumb"><Link href="/moderation">Admin Portal / Contributions</Link></p><p className="mod-note" role="alert">{problem}</p></>);
+  if (!item) return (<><p className="mod-crumb"><Link href="/moderation">Admin Portal / Contributions</Link></p><p className="mod-note" role="status">We could not find that contribution.</p></>);
   const it = item;
   const sectorName = it.sectors[it.sectorSlugs.indexOf(from)] ?? "";
-  const keep = new URLSearchParams({ ...(from ? { from } : {}), ...(sp.from && sp.tab ? { tab: sp.tab } : {}), ...(sp.q ? { q: sp.q } : {}), ...(sp.cat ? { cat: sp.cat } : {}), ...(sp.sort === "old" ? { sort: "old" } : {}) }).toString();
-  const back = from ? `/moderation/sector/${from}` + (sp.from ? "?" + new URLSearchParams({ ...(sp.tab ? { tab: sp.tab } : {}), ...(sp.q ? { q: sp.q } : {}), ...(sp.cat ? { cat: sp.cat } : {}), ...(sp.sort === "old" ? { sort: "old" } : {}) }).toString() : "") : "/moderation";
+  const keep = new URLSearchParams({ ...(from ? { from } : {}), ...(sp.from && sp.tab ? { tab: sp.tab } : {}), ...(sp.q ? { q: sp.q } : {}), ...(sp.cat ? { cat: sp.cat } : {}), ...(sp.sort === "old" ? { sort: "old" } : {}), ...(sp.from && (sp.verified === "0" || sp.verified === "1") ? { verified: sp.verified } : {}) }).toString();
+  const back = from ? `/moderation/sector/${from}` + (sp.from ? "?" + new URLSearchParams({ ...(sp.tab ? { tab: sp.tab } : {}), ...(sp.q ? { q: sp.q } : {}), ...(sp.cat ? { cat: sp.cat } : {}), ...(sp.sort === "old" ? { sort: "old" } : {}), ...(sp.from && (sp.verified === "0" || sp.verified === "1") ? { verified: sp.verified } : {}) }).toString() : "") : "/moderation";
   const tone = STATUS_TONE[it.display];
   const callout = CALLOUT[it.status];
 
   return (
     <>
-      <p className="mod-crumb"><a href="/moderation">Admin Portal / Contributions</a>{sectorName && <> / <a href={back}>{sectorName}</a></>} / #{it.id}</p>
+      <p className="mod-crumb"><Link href="/moderation">Admin Portal / Contributions</Link>{sectorName && <> / <a href={back}>{sectorName}</a></>} / #{it.id}</p>
       <h1>{it.title}</h1>
       <p className="mod-sub">Submitted by <b>{it.contributor}</b>{it.submittedAt ? ` · ${when(it.submittedAt)}` : ""} · <span className={"mod-pill" + (tone ? ` mod-pill--${tone}` : "")}>{it.displayLabel}</span>{it.verified ? " · Verified" : ""}</p>
       <div className="mod-detail">
