@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ADMIN_NAV, titleFor } from "./nav";
 import ProfileMenu from "./ProfileMenu";
+import HeaderMenuSlot from "../../_components/HeaderMenuSlot";
 
 /** Sidebar (a slide-in drawer on small screens) + top bar. `locked` hides the navigation until the password is changed. */
 export default function AdminShell({ email, landingUrl, locked, children }: { email: string; landingUrl: string; locked: boolean; children: React.ReactNode }) {
@@ -45,6 +46,7 @@ export default function AdminShell({ email, landingUrl, locked, children }: { em
           )}
           <span className="adm-logo">RoboValley Admin</span>
           <h2 className="adm-title">{locked ? "Change your password" : titleFor(pathname)}</h2>
+          <HeaderMenuSlot site={landingUrl} />
           <ProfileMenu email={email} landingUrl={landingUrl} />
         </header>
         <main className="adm-main">{children}</main>
