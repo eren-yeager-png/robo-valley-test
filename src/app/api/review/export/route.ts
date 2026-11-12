@@ -3,6 +3,7 @@ import { json } from "../../../../lib/http";
 import { pool } from "../../../../lib/db";
 import { exportCsv } from "../../../../lib/contributionReview";
 import { guardReviewer } from "../../../../lib/reviewerGuard";
+import { logDbError } from "../../../../lib/dbError";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,8 +26,7 @@ export async function GET(req: Request) {
     if (!out) return missing();
     return withCors(req, new Response(out.csv, { status: 200, headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${out.filename}"`, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } }), METHODS);
   } catch (e) {
-    if ((e as { code?: string })?.code === "42P01") return withCors(req, json({ success: false, error: "NOT_SET_UP", message: "Reviewing is not set up yet (migration 019 is needed)." }, 503), METHODS);
-    console.error("review export failed: server error");
+    if (logDbError("review export", e) === "not_set_up") return withCors(req, json({ success: false, error: "NOT_SET_UP", message: "Reviewing is not set up yet (migration 019 is needed)." }, 503), METHODS);
     return withCors(req, json({ success: false, error: "SERVER_ERROR", message: "Something went wrong. Please try again." }, 500), METHODS);
   }
 }

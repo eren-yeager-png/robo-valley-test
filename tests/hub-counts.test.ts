@@ -186,7 +186,18 @@ describe("failures are never cached", () => {
     const r = await GET(req());
     expect(r.status).toBe(500);
     expect(r.headers.get("Cache-Control")).toBe("no-store");
-    expect(JSON.stringify((console.error as any).mock.calls)).toBe(JSON.stringify([["hub counts failed: server error"]]));
+    expect(JSON.stringify((console.error as any).mock.calls)).toBe(JSON.stringify([["contribute sectors: database error 08006 (the database could not be reached)"]]));
+  });
+  it("the server log names a missing table or column (the usual cause on a new database), and a missing column is 503 too", async () => {
+    testDb().failOn((sql) => (/FROM sectors/.test(sql) ? Object.assign(new Error('relation "sectors" does not exist'), { code: "42P01" }) : undefined));
+    expect((await GET(req("7.7.7.8"))).status).toBe(503);
+    testDb().failOn((sql) => (/FROM sectors/.test(sql) ? Object.assign(new Error("column s.is_demo does not exist"), { code: "42703" }) : undefined));
+    const r = await GET(req("7.7.7.9"));
+    expect(r.status).toBe(503); expect((await r.json()).error).toBe("NOT_SET_UP");
+    expect((console.error as any).mock.calls.map((c: unknown[]) => c[0])).toEqual([
+      'contribute sectors: database error 42P01 (relation "sectors" does not exist)',
+      "contribute sectors: database error 42703 (column s.is_demo does not exist)",
+    ]);
   });
 });
 
