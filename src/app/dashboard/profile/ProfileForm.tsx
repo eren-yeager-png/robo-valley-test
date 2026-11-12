@@ -48,7 +48,7 @@ export default function ProfileForm({ fields, initial, readonly }: {
       <section className="dsec">
         <h2>Account</h2>
         <div className="grid">
-          <label className="f"><span>Email address</span><input className="ro" value={readonly.email} readOnly aria-readonly="true" /><small>Your email can't be changed here.</small></label>
+          <label className="f"><span>Email address</span><input className="ro" value={readonly.email} readOnly aria-readonly="true" /><small>Your email can&apos;t be changed here.</small></label>
           <label className="f"><span>Role</span><input className="ro" value={readonly.role} readOnly aria-readonly="true" /><small>More roles open after verification.</small></label>
           <label className="f"><span>Mobile number</span><input className="ro" value={readonly.mobile} readOnly aria-readonly="true" /></label>
           <label className="f"><span>Age group</span><input className="ro" value={readonly.age} readOnly aria-readonly="true" /></label>

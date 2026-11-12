@@ -277,7 +277,7 @@ export default function JoinFlow({ returnTo }: { returnTo?: string } = {}) {
             <div className="grid">
               <label className="f full"><span className="req">Full name</span><input autoComplete="name" value={f.fullName} onChange={(e) => set("fullName", e.target.value)} maxLength={100} {...ea("fullName")} />{Err("fullName")}</label>
               <label className="f"><span className="req">Mobile number</span><input inputMode="numeric" autoComplete="tel-national" maxLength={10} placeholder="10 digits" value={f.mobile} onChange={(e) => set("mobile", e.target.value.replace(/\D/g, ""))} {...ea("mobile")} /><small>For contact. It is not verified by code.</small>{Err("mobile")}</label>
-              <label className="f"><span className="req">Email address</span><input type="email" autoComplete="email" value={f.email} onChange={(e) => set("email", e.target.value)} maxLength={254} {...ea("email")} /><small>We'll email a code to verify it</small>{Err("email")}</label>
+              <label className="f"><span className="req">Email address</span><input type="email" autoComplete="email" value={f.email} onChange={(e) => set("email", e.target.value)} maxLength={254} {...ea("email")} /><small>We&apos;ll email a code to verify it</small>{Err("email")}</label>
               <label className="f"><span className="req">Password</span><input type="password" autoComplete="new-password" minLength={8} value={f.password} onChange={(e) => set("password", e.target.value)} {...ea("password")} /><small>Use at least 8 characters.</small>{Err("password")}</label>
               <label className="f"><span className="req">Confirm password</span><input type="password" autoComplete="new-password" minLength={8} value={f.confirmPassword} onChange={(e) => set("confirmPassword", e.target.value)} {...ea("confirmPassword")} />{Err("confirmPassword")}</label>
               <label className="f"><span className="req">District</span><input autoComplete="address-level2" value={f.district} onChange={(e) => set("district", e.target.value)} maxLength={80} {...ea("district")} />{Err("district")}</label>
@@ -311,12 +311,12 @@ export default function JoinFlow({ returnTo }: { returnTo?: string } = {}) {
         return (
           <>
             <h1 ref={headingRef} tabIndex={-1}>Your parent or guardian</h1>
-            <p className="muted">Because you are under 18, a parent or guardian must agree before your account opens. We'll email them a code.</p>
+            <p className="muted">Because you are under 18, a parent or guardian must agree before your account opens. We&apos;ll email them a code.</p>
             <div className="grid">
               <label className="f"><span className="req">Parent / guardian name</span><input value={f.gName} onChange={(e) => set("gName", e.target.value)} maxLength={100} {...ea("guardian.name")} />{Err("guardian.name")}</label>
               <label className="f"><span className="req">Relationship</span><select value={f.gRel} onChange={(e) => set("gRel", e.target.value)} {...ea("guardian.relationship")}><option value="">Choose</option>{GUARDIAN_RELATIONSHIPS.map((x) => <option key={x}>{x}</option>)}</select>{Err("guardian.relationship")}</label>
               <label className="f"><span className="req">Their mobile number</span><input inputMode="numeric" maxLength={10} placeholder="Must be different from yours" value={f.gMobile} onChange={(e) => set("gMobile", e.target.value.replace(/\D/g, ""))} {...ea("guardian.mobile")} />{Err("guardian.mobile")}</label>
-              <label className="f"><span className="req">Their email address</span><input type="email" autoComplete="off" maxLength={254} placeholder="Must be different from yours" value={f.gEmail} onChange={(e) => set("gEmail", e.target.value)} {...ea("guardian.email")} /><small>We'll email them the code</small>{Err("guardian.email")}</label>
+              <label className="f"><span className="req">Their email address</span><input type="email" autoComplete="off" maxLength={254} placeholder="Must be different from yours" value={f.gEmail} onChange={(e) => set("gEmail", e.target.value)} {...ea("guardian.email")} /><small>We&apos;ll email them the code</small>{Err("guardian.email")}</label>
             </div>
             <div className="box info">Until your parent agrees, you can browse projects but cannot chat, book mentors or join teams.</div>
             {Nav({ label: "Send code to parent", onClick: onNext })}
@@ -325,12 +325,12 @@ export default function JoinFlow({ returnTo }: { returnTo?: string } = {}) {
       case "pconsent":
         return (
           <>
-            <h1 ref={headingRef} tabIndex={-1}>Parent's consent</h1>
+            <h1 ref={headingRef} tabIndex={-1}>Parent&apos;s consent</h1>
             <p className="muted">Your parent or guardian needs to enter the code we emailed them.</p>
             <div className="box">Your child <b>{f.fullName || "[child's name]"}</b> wants to join the RoboValley Community as a student.</div>
-            <ul style={{ margin: 0, paddingLeft: 20 }} className="muted"><li>We collect: name, class, school, district, and projects your child uploads.</li><li>Contact with adults happens only through moderated channels.</li><li>You can see your child's activity and withdraw consent at any time.</li></ul>
+            <ul style={{ margin: 0, paddingLeft: 20 }} className="muted"><li>We collect: name, class, school, district, and projects your child uploads.</li><li>Contact with adults happens only through moderated channels.</li><li>You can see your child&apos;s activity and withdraw consent at any time.</li></ul>
             {isVerified("guardian", f.gEmail)
-              ? <><div className="box ok" role="status">✓ Parent's email address verified.</div>{Nav({ label: "Continue", onClick: next })}</>
+              ? <><div className="box ok" role="status">✓ Parent&apos;s email address verified.</div>{Nav({ label: "Continue", onClick: next })}</>
               : <>
                 <OtpEntry key={normalizeEmail(f.gEmail) ?? ""} variant="single" label={`Code sent to ${f.gEmail.trim()}`} info={otpInfo.guardian} onResend={() => run(async () => void (await sendOtp("guardian", f.gEmail)))}
                   onVerify={async (code) => {
@@ -389,7 +389,7 @@ export default function JoinFlow({ returnTo }: { returnTo?: string } = {}) {
           <>
             <h1 ref={headingRef} tabIndex={-1}>Welcome to the RoboValley Community, {(createdName || "maker").split(" ")[0]}!</h1>
             <p className="muted">Your account is ready as a <b>{roleName}</b>.</p>
-            {isMinor && <div className="box warn">Your parent's consent is still pending. Until it is confirmed you can browse projects but cannot chat, book mentors or join teams.</div>}
+            {isMinor && <div className="box warn">Your parent&apos;s consent is still pending. Until it is confirmed you can browse projects but cannot chat, book mentors or join teams.</div>}
             <div><div className="lbl" style={{ marginBottom: 6 }}>Your level</div><div className="levels"><span>L0 Visitor</span><span className="on">L1 Registered</span><span>L2 Verified</span><span>L3 Expertise assessed</span><span>L4 Trusted associate</span></div></div>
             <div className="welcome">
               <div><b>1 · Open your dashboard</b><span className="muted">See projects, events and people matched to you.</span></div>
@@ -432,6 +432,7 @@ export default function JoinFlow({ returnTo }: { returnTo?: string } = {}) {
         <div className="frame">
           <div className="page" aria-live="polite">
             <span className="lbl">Step {idx + 1} of {steps.length}</span>
+            {/* eslint-disable-next-line react-hooks/refs -- Page() is a render function, not a component, on purpose: a nested component would remount (and drop focus) on every keystroke. It only passes headingRef as a ref prop. */}
             {Page()}
           </div>
         </div>
@@ -453,7 +454,9 @@ function OtpEntry({ variant, info, onResend, onVerify, busy, error, back, before
   const code = digits.join("");
 
   // after a failed attempt, start fresh
-  useEffect(() => { if (error) { setDigits(["", "", "", "", "", ""]); refs.current[0]?.focus(); } }, [error]);
+  const [seenError, setSeenError] = useState(error);
+  if (error !== seenError) { setSeenError(error); if (error) setDigits(["", "", "", "", "", ""]); }
+  useEffect(() => { if (error) refs.current[0]?.focus(); }, [error]);
 
   const paste = (text: string) => {
     const d = text.replace(/\D/g, "").slice(0, 6).split("");
@@ -476,7 +479,7 @@ function OtpEntry({ variant, info, onResend, onVerify, busy, error, back, before
         </div>
       )}
       {info?.emailSent && !info.devOtp && (
-        <div className="box info" role="status">We've emailed you a 6-digit code. It can take a minute to arrive; check your spam folder too.</div>
+        <div className="box info" role="status">We&apos;ve emailed you a 6-digit code. It can take a minute to arrive; check your spam folder too.</div>
       )}
       {before}
       {variant === "boxes" ? (
@@ -495,7 +498,7 @@ function OtpEntry({ variant, info, onResend, onVerify, busy, error, back, before
         </label>
       )}
       <p className="muted" style={{ fontSize: ".85rem" }}>
-        Didn't get it? <button type="button" className="btn link" onClick={onResend} disabled={busy || left > 0}>Resend code</button>
+        Didn&apos;t get it? <button type="button" className="btn link" onClick={onResend} disabled={busy || left > 0}>Resend code</button>
         <span aria-live="polite">{left > 0 ? ` in ${left}s` : ""}</span>
       </p>
       <p className="err" role="alert">{error}</p>
