@@ -234,6 +234,12 @@ describe("the layout and the forms", () => {
     expect(h).not.toMatch(/Sign Out|sign-out|logout/i);
     for (const f of ["page.tsx", "DecisionForm.tsx", "ReplyNoteForm.tsx", "layout.tsx", "sector/[slug]/page.tsx", "[id]/page.tsx"]) expect(fs.readFileSync(path.join(__dirname, "../src/app/moderation", f), "utf8"), f).not.toMatch(/dangerouslySetInnerHTML|innerHTML/);
   });
+  it("a link styled as a primary button keeps white text (the sector cards' buttons): its rule beats \".mod a\"", () => {
+    const css = fs.readFileSync(path.join(__dirname, "../src/app/moderation/moderation.css"), "utf8");
+    expect(css).toContain(".mod a{color:var(--mod-brand)}");
+    expect(css).toContain(".mod .mod-btn--primary{color:#fff;");
+    expect(css).not.toMatch(/(^|\n|\})\.mod-btn--primary\{/); // never the weaker selector alone
+  });
   it("the decision form explains the note (5 characters to not accept) and has a plain alert; no actions means a plain message", async () => {
     const { default: DecisionForm } = await import("../src/app/moderation/DecisionForm");
     const h = renderToStaticMarkup(<DecisionForm id={7} actions={["approve", "request_changes", "reject"]} isAdmin />);

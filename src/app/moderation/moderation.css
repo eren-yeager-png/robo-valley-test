@@ -71,7 +71,8 @@
 .mod-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .mod-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:9px 14px;font:inherit;font-weight:700;font-size:13px;color:var(--mod-brand);background:#fff;border:1px solid var(--mod-brand);border-radius:6px;cursor:pointer;text-decoration:none}
 .mod-btn:hover{background:var(--mod-mint)}
-.mod-btn--primary{color:#fff;background:var(--mod-brand);border-color:var(--mod-brand)}.mod-btn--primary:hover{background:var(--mod-brand-2)}
+/* ".mod ." so a link styled as a primary button keeps white text (".mod a" would otherwise win) */
+.mod .mod-btn--primary{color:#fff;background:var(--mod-brand);border-color:var(--mod-brand)}.mod .mod-btn--primary:hover{color:#fff;background:var(--mod-brand-2)}
 .mod-btn--danger{color:var(--mod-err);border-color:var(--mod-err)}
 .mod-btn--small{min-height:36px;padding:6px 10px;font-size:12px}
 .mod-btn[disabled]{opacity:.5;cursor:not-allowed}
