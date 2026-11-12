@@ -185,7 +185,8 @@
 
   // Phones: the menu opens full width under the header (rv-header-menu.css uses --rv-hm-top below 641 px).
   function placeForPhone(root, menu) {
-    var bar = root.closest("header, .site-header, #ast-mobile-header, .main-header-bar, .adm-top, .dtop, .mod-bar") || root.parentNode;
+    // the whole header (Astra's phone header has two rows: the bar with this icon, then the sector bar), not just the row with the icon
+    var bar = root.closest("#ast-mobile-header, #masthead, .site-header, header, .adm-top, .dtop, .mod-bar") || root.parentNode;
     var r = bar && bar.getBoundingClientRect ? bar.getBoundingClientRect() : null;
     menu.style.setProperty("--rv-hm-top", Math.max(0, Math.round(r ? r.bottom : 56)) + "px");
   }
