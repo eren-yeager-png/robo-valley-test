@@ -76,7 +76,7 @@ export async function recentModeratorChanges(db: Db, limit = 10): Promise<Modera
   }
 }
 
-export type Reviewer = { ok: true; userId: number; isAdmin: boolean; isModerator: boolean } | { ok: false };
+export type Reviewer = { ok: true; userId: number; isAdmin: boolean; isModerator: boolean; mustChangePassword: boolean } | { ok: false };
 
 /**
  * Who may review contributions: an administrator, or a user whose moderator flag is set (migration 015). Read from the database on
@@ -85,14 +85,15 @@ export type Reviewer = { ok: true; userId: number; isAdmin: boolean; isModerator
  */
 export async function reviewerOf(db: Db, userId: number): Promise<Reviewer> {
   if (!Number.isSafeInteger(userId) || userId <= 0) return { ok: false };
-  let row: { role?: string; is_moderator?: boolean } | undefined;
+  let row: { role?: string; is_moderator?: boolean; must_change_password?: boolean } | undefined;
   try {
-    row = (await db.query("SELECT role, is_moderator FROM users WHERE id = $1", [userId])).rows[0];
+    row = (await db.query("SELECT role, is_moderator, must_change_password FROM users WHERE id = $1", [userId])).rows[0];
   } catch (e) {
     if ((e as { code?: string })?.code !== "42703") return { ok: false }; // anything but "column missing": no access
     try { row = (await db.query("SELECT role FROM users WHERE id = $1", [userId])).rows[0]; } catch { return { ok: false }; }
   }
   if (!row) return { ok: false };
   const isAdmin = row.role === "admin", isModerator = row.is_moderator === true;
-  return isAdmin || isModerator ? { ok: true, userId, isAdmin, isModerator } : { ok: false };
+  // must_change_password (migration 004): an account made by a seed script must set its own password before reviewing anything
+  return isAdmin || isModerator ? { ok: true, userId, isAdmin, isModerator, mustChangePassword: row.must_change_password === true } : { ok: false };
 }

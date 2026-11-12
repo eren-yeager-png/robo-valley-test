@@ -44,7 +44,9 @@ export default function LoginForm({ returnTo }: { returnTo?: string } = {}) {
       const data = await res.json().catch(() => ({}));
       if (data.success) {
         // Everyone (admins too) goes to the normal website. The server decides where; only http(s) or a local path is followed.
-        const to = returnTo ?? (typeof data.redirectTo === "string" && /^(https?:\/\/|\/(?!\/))/.test(data.redirectTo) ? data.redirectTo : "/");
+        // A reviewer who is not an administrator always goes to the Admin Portal (a path on this app); they review, they do not contribute.
+        const portal = data.reviewer === true && typeof data.redirectTo === "string" && /^\/(?!\/)/.test(data.redirectTo) ? data.redirectTo : null;
+        const to = portal ?? returnTo ?? (typeof data.redirectTo === "string" && /^(https?:\/\/|\/(?!\/))/.test(data.redirectTo) ? data.redirectTo : "/");
         hardNavigate(to);
         return;
       }
