@@ -46,7 +46,7 @@ Exit code `0` means every check passed, `1` means at least one failed (each fail
 | Failure | What it means | First thing to look at |
 |---|---|---|
 | a public page is not 200 | the site or the app is down, or a page was unpublished | the host's status page, the latest deploy |
-| sector counts: "no sectors" | the app cannot reach its database, or migrations are missing | `/api/db-test`, then the migration status (`node scripts/migration-status.mjs`, run by the owner with the production database address) |
+| sector counts: "no sectors" | the app cannot reach its database, or migrations are missing | `/api/db-test`, then the read-only migration status, run by the owner: `node --env-file=<file with the production DATABASE_URL> scripts/migrate.mjs --expect-db <database name> --status` |
 | `/api/db-test` shows extra fields | an old build is live (before the database name was removed) | which commit is deployed |
 | an admin URL is not a redirect | **serious**: a page that should require sign-in does not | stop and tell the developers at once |
 | a private API route is not 401/403 | **serious**: the route answered a stranger | stop and tell the developers at once |
