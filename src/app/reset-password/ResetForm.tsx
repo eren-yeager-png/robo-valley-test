@@ -33,8 +33,7 @@ export default function ResetForm() {
       readOnce.current = tokenFromHash(window.location.hash);
       if (window.location.hash) window.history.replaceState(null, "", window.location.pathname);
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the fragment can only be read in the browser, after the first render
-    setToken(readOnce.current);
+    setToken(readOnce.current); // the fragment can only be read in the browser, after the first render
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
