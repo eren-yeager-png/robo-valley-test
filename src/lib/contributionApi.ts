@@ -3,12 +3,15 @@
 // The wizard's extra fields (how it is done now, who is affected, time or cost, what should improve, role, district) are stored in the
 // body as titled sections, so the tables from migrations 012 to 014 are enough. Status rules (who may move an item where) are in
 // OWNER_RULES below and in the pull request description; the moderator's moves are in contributionReview.ts.
+// Portal PR2: the form also sends `directory` (structured categories, src/lib/directoryCategories.ts); it is checked here and saved in
+// the same transaction as the item, and your own item comes back with it (and the description without the folded copy) for Edit.
 import { createHash } from "node:crypto";
 import { addPhoto, detectPhotoMime, listPhotoMeta, validatePhoto, type PhotoMeta } from "./contributionPhotos";
 import { removeContact, readContact, saveContact, validateContact, type Contact } from "./contributionContacts";
 import { CONTRIBUTION_LIMITS, contributionDbError, validateContribution, type ContributionStatus } from "./contributions";
 import { stripPhotoMetadata } from "./photoClean";
 import { hasControlChars, type FieldErrors } from "./validation";
+import { directoryFor, readDirectory, saveDirectory, splitFold, type DirectoryEntry } from "./directoryCategories";
 
 type Db = { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[]; rowCount?: number | null }> };
 type Pool = Db & { connect: () => Promise<Db & { release: () => void }> };
@@ -109,6 +112,8 @@ const notSet = (e: unknown): Fail | null => ((e as { code?: string })?.code === 
 /** Creates a draft (id undefined) or saves a change to your own contribution. */
 export async function saveOwn(pool: Pool, ownerId: number, raw: unknown, id?: number): Promise<Ok<{ id: number; status: string }> | Fail> {
   const f = readFields(raw);
+  const dir = readDirectory(typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>).directory : undefined);
+  if (dir.present && !dir.ok) return fail(400, "VALIDATION_FAILED", VALIDATION, { directory: (dir as { message: string }).message });
   const client = await pool.connect();
   try {
     const slugs = await activeSectorSlugs(client);
@@ -141,6 +146,7 @@ export async function saveOwn(pool: Pool, ownerId: number, raw: unknown, id?: nu
     const want = await client.query("SELECT id, slug FROM sectors WHERE slug = ANY($1::text[])", [v.sectors]);
     for (const r of want.rows) await client.query("INSERT INTO contribution_scopes (contribution_id, sector_id) VALUES ($1,$2) ON CONFLICT DO NOTHING", [cid, r.id]);
     await client.query("DELETE FROM contribution_scopes WHERE contribution_id = $1 AND NOT (sector_id = ANY($2::int[]))", [cid, want.rows.map((r) => r.id)]);
+    if (dir.present) await saveDirectory(client, cid, (dir as { value: DirectoryEntry[] }).value); // absent (an older form): the rows stay as they are
     await client.query("COMMIT");
     return { ok: true, id: cid, status };
   } catch (e) {
@@ -188,7 +194,10 @@ export async function getOwn(db: Db, ownerId: number, id: number): Promise<Ok<{ 
     const photos: PhotoMeta[] = await listPhotoMeta(db, [id]).catch(() => []);
     const contact: Contact | null = await readContact(db, id, ownerId).catch(() => null);
     const parts = splitBody(c.body);
-    return { ok: true, contribution: { id: Number(c.id), status: c.status, editable: OWNER_RULES[c.status as keyof typeof OWNER_RULES]?.edit !== null, type: c.type, robotType: c.robot_type ?? "", sectors: scopes.rows.map((r) => r.slug), title: c.title, ...parts, photos: photos.map((p) => ({ id: p.id, position: p.position, alt: p.alt, mime: p.mime })), contact } };
+    // for Edit: the structured categories (or, for an item saved before PR2, the ones in the folded text) and your own words without the fold
+    const fold = splitFold(parts.description);
+    const directory = (await directoryFor(db, [id])).get(id) ?? fold.entries ?? [];
+    return { ok: true, contribution: { id: Number(c.id), status: c.status, editable: OWNER_RULES[c.status as keyof typeof OWNER_RULES]?.edit !== null, type: c.type, robotType: c.robot_type ?? "", sectors: scopes.rows.map((r) => r.slug), title: c.title, ...parts, description: fold.entries ? fold.text : parts.description, directory, photos: photos.map((p) => ({ id: p.id, position: p.position, alt: p.alt, mime: p.mime })), contact } };
   } catch (e) { const s = notSet(e); if (s) return s; throw e; }
 }
 

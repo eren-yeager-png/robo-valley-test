@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoboValley Contribution (v2)
  * Description: The new Contribute form for the Contribution and Contributor pages. It only renders the form and talks to the RoboValley app; it stores nothing in WordPress. Nothing changes until RV_CONTRIBUTION_V2 is set to true in wp-config.php.
- * Version: 0.1.4
+ * Version: 0.1.5
  * Requires PHP: 7.4
  * Author: RoboValley
  *
@@ -32,7 +32,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const RV_C2_VERSION = '0.1.4';
+const RV_C2_VERSION = '0.1.5';
 
 /** A WordPress administrator? They review contributions in the app, so the form and the buttons are hidden from them (display only). */
 function rv_c2_is_wp_admin() {

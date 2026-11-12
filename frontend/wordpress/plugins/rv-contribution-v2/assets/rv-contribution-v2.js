@@ -17,6 +17,7 @@
 	var L = { titleMin: 5, titleMax: 120, descMin: 10, descMax: 1200, folded: 2000, sectorsMax: 20, photosMax: 3, photoBytes: 4 * 1024 * 1024, altMax: 200, maxLinks: 5 };
 	var TYPE = 'resource'; // the form has no type field; contributions are sent as "Share a video or resource"
 	var me = null, draftId = null, busy = false, contactSaved = false, photos = [];
+	var removedPhotos = [], wantSectors = null; // 0.1.5 Edit: saved photos the member removed; the saved sectors to tick once the list is loaded
 
 	/* ---------- talking to the app ---------- */
 	function call( method, path, body, isForm ) {
@@ -128,6 +129,9 @@
 				sectorBox.appendChild( label );
 			} );
 			preselectSectors();
+			if ( wantSectors ) {
+				tickSectors( wantSectors );
+			}
 		} );
 	}
 	/* "Contribute to this sector" links add ?sector=slug (or slug,slug): tick only sectors that really exist in the list, nothing else is read from the address */
@@ -159,6 +163,17 @@
 				var sectors = ( item.sectors || [] ).map( function ( s ) { return s.name; } ).join( ', ' );
 				row.appendChild( document.createTextNode( item.title + ( sectors ? ' · ' + sectors : '' ) + ' · ' ) );
 				row.appendChild( status );
+				/* 0.1.5: an item a moderator sent back for changes can be edited in this same form, then sent again */
+				if ( item.status === 'changes_requested' ) {
+					var edit = document.createElement( 'button' );
+					edit.type = 'button';
+					edit.className = 'rv-c2-edit';
+					edit.textContent = 'Edit';
+					edit.setAttribute( 'aria-label', 'Edit: ' + item.title );
+					edit.addEventListener( 'click', function () { startEdit( item.id ); } );
+					row.appendChild( document.createTextNode( ' ' ) );
+					row.appendChild( edit );
+				}
 				if ( item.note && ( item.status === 'rejected' || item.status === 'removed' || item.status === 'changes_requested' ) ) {
 					var note = document.createElement( 'div' );
 					note.className = 'hint';
@@ -290,6 +305,18 @@
 		} );
 		return lines.join( '\n' );
 	}
+	/** 0.1.5: the same categories, remarks and links as structured data (the folded text above is still sent too). */
+	function directoryOf( selected ) {
+		return selected.map( function ( s ) {
+			return {
+				category: s.choice.value,
+				remarks: oneLine( s.panel.querySelector( '[name=remarks]' ).value ),
+				links: Array.prototype.map.call( s.links.children, function ( row ) {
+					return { type: row.querySelector( 'select' ).value, url: row.querySelector( '[name=referenceUrl]' ).value.trim(), gist: oneLine( row.querySelector( '[name=referenceGist]' ).value ) };
+				} ),
+			};
+		} );
+	}
 	function contactFilled() {
 		return !! ( form.elements.contactName.value.trim() || form.elements.contactEmail.value.trim() || form.elements.contactPhone.value.trim() );
 	}
@@ -391,7 +418,7 @@
 		}
 		busy = true;
 		form.querySelector( 'button[type=submit]' ).disabled = true;
-		var payload = { type: TYPE, sectors: selectedSectors(), title: form.elements.title.value.trim(), description: folded( selected ), robotType: '', role: me.stakeholder || '', district: '', website: form.elements.website.value };
+		var payload = { type: TYPE, sectors: selectedSectors(), title: form.elements.title.value.trim(), description: folded( selected ), directory: directoryOf( selected ), robotType: '', role: me.stakeholder || '', district: '', website: form.elements.website.value };
 		var first = draftId === null ? call( 'POST', '/api/contributions', payload ) : call( 'PATCH', '/api/contributions/' + draftId, payload );
 		first.then( function ( r ) {
 			if ( ! r.ok ) {
@@ -401,9 +428,21 @@
 				return done();
 			}
 			draftId = r.body.id || draftId;
-			return sendPhotos( 0 );
+			return removePhotos();
 		} );
 	} );
+	function removePhotos() {
+		if ( ! removedPhotos.length ) {
+			return sendPhotos( 0 );
+		}
+		return call( 'DELETE', '/api/contributions/' + draftId + '/photos?photoId=' + encodeURIComponent( removedPhotos[ 0 ] ) ).then( function ( r ) {
+			if ( ! r.ok && r.status !== 404 ) {
+				return fail( r );
+			}
+			removedPhotos.shift();
+			return removePhotos();
+		} );
+	}
 	function sendPhotos( i ) {
 		while ( i < photos.length && photos[ i ].sent ) {
 			i++;
@@ -462,6 +501,96 @@
 		photos.forEach( function ( ph ) { ph.row.remove(); } );
 		photos = [];
 		photoCount();
+		removedPhotos = [];
+		wantSectors = null;
+		var editing = root.querySelector( '#rv-c2-editing' );
+		if ( editing ) {
+			editing.parentNode.removeChild( editing );
+		}
+	}
+
+	/* ---------- 0.1.5: Edit an item that needs changes (the same form, filled in) ---------- */
+	function tickSectors( slugs ) {
+		var boxes = sectorBox.querySelectorAll( 'input[name="sector"]' );
+		wantSectors = slugs;
+		if ( ! boxes.length ) {
+			return; // the list is still loading: ticked when it arrives
+		}
+		Array.prototype.forEach.call( boxes, function ( b ) { b.checked = slugs.indexOf( b.value ) >= 0; } );
+		wantSectors = null;
+	}
+	function addSavedPhoto( p ) {
+		var row = root.querySelector( '#photo-template' ).content.firstElementChild.cloneNode( true );
+		var entry = { file: null, row: row, alt: row.querySelector( 'input' ), sent: true, savedId: p.id };
+		row.querySelector( 'legend' ).textContent = 'Photo ' + ( photos.length + 1 ) + ' · already saved';
+		entry.alt.value = p.alt || '';
+		entry.alt.readOnly = true; // a saved photo's description cannot change: remove it and add it again instead
+		row.querySelector( '.remove' ).addEventListener( 'click', function () {
+			removedPhotos.push( p.id );
+			photos.splice( photos.indexOf( entry ), 1 );
+			row.remove();
+			photoCount();
+			photoFile.focus();
+		} );
+		photos.push( entry );
+		photoBox.appendChild( row );
+	}
+	function startEdit( id ) {
+		if ( busy ) {
+			return;
+		}
+		say( '' );
+		call( 'GET', '/api/contributions/' + encodeURIComponent( id ) ).then( function ( r ) {
+			var c = r.ok && r.body ? r.body.contribution : null;
+			if ( ! c || c.status !== 'changes_requested' ) {
+				say( ( r.body && r.body.message ) || 'This contribution cannot be edited right now.' );
+				return;
+			}
+			resetContribution();
+			draftId = c.id;
+			form.elements.title.value = c.title || '';
+			form.elements.description.value = c.description || '';
+			( Array.isArray( c.directory ) ? c.directory : [] ).forEach( function ( d ) {
+				var p = panels.filter( function ( x ) { return x.choice.value === d.category; } )[ 0 ];
+				if ( ! p ) {
+					return;
+				}
+				p.choice.checked = true;
+				p.choice.dispatchEvent( new Event( 'change' ) );
+				p.panel.querySelector( '[name=remarks]' ).value = d.remarks || '';
+				( Array.isArray( d.links ) ? d.links : [] ).slice( 0, L.maxLinks ).forEach( function ( l ) {
+					p.panel.querySelector( '.add' ).click();
+					var row = p.links.lastElementChild;
+					row.querySelector( 'select' ).value = l.type || '';
+					row.querySelector( '[name=referenceUrl]' ).value = l.url || '';
+					row.querySelector( '[name=referenceGist]' ).value = l.gist || '';
+				} );
+			} );
+			tickSectors( Array.isArray( c.sectors ) ? c.sectors : [] );
+			( Array.isArray( c.photos ) ? c.photos : [] ).slice( 0, L.photosMax ).forEach( addSavedPhoto );
+			photoCount();
+			if ( c.contact ) {
+				form.elements.contactName.value = c.contact.name || '';
+				form.elements.contactEmail.value = c.contact.email || '';
+				form.elements.contactPhone.value = c.contact.phone || '';
+				form.elements.shareWithModerators.checked = !! c.contact.shareWithModerators;
+				contactSaved = true;
+			}
+			var note = document.createElement( 'p' ), cancel = document.createElement( 'button' );
+			note.className = 'notice';
+			note.id = 'rv-c2-editing';
+			note.setAttribute( 'role', 'status' );
+			note.appendChild( document.createTextNode( 'Editing “' + ( c.title || '' ) + '”: make the changes the moderator asked for, then press Submit for Review. ' ) );
+			cancel.type = 'button';
+			cancel.textContent = 'Cancel editing';
+			cancel.addEventListener( 'click', function () {
+				resetContribution();
+				say( '' );
+			} );
+			note.appendChild( cancel );
+			form.insertBefore( note, form.firstChild );
+			form.elements.title.focus();
+		} );
 	}
 
 	/* ---------- start ---------- */

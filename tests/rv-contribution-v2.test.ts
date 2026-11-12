@@ -232,8 +232,8 @@ describe("?sector= preselects sectors (the Contribute to this sector link)", () 
     const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions");
     expect(create?.body.sectors).toEqual(["education"]);
   });
-  it("the plugin version moved to 0.1.4 so browsers fetch the new script", () => {
-    expect(PHP).toMatch(/Version: 0\.1\.4/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.4'/);
+  it("the plugin version moved to 0.1.5 so browsers fetch the new script", () => {
+    expect(PHP).toMatch(/Version: 0\.1\.5/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.5'/);
   });
 });
 
@@ -366,5 +366,98 @@ describe("members contribute, administrators review (0.1.4)", () => {
     fillValid();
     await submit();
     expect(q("#message").textContent).toContain(msg);
+  });
+});
+
+describe("structured categories and Edit after changes are requested (0.1.5)", () => {
+  const SAVED = { success: true, contribution: {
+    id: 55, status: "changes_requested", title: "Solar milking robot", description: "A student team built a small solar milking unit.",
+    directory: [
+      { category: "Projects", remarks: "Tested for six weeks.", links: [{ type: "Website", url: "https://example.org/milker", gist: "The build log" }] },
+      { category: "Events", remarks: "", links: [] },
+    ],
+    sectors: ["education"], photos: [{ id: 901, position: 1, alt: "The milking unit", mime: "image/png" }],
+    contact: { name: "Asha", email: "asha@example.com", phone: null, shareWithModerators: true },
+  } };
+  const WITH_CHANGES = { ...MINE, items: [...MINE.items, { id: 55, title: "Solar milking robot", status: "changes_requested", statusLabel: "Changes requested", sectors: [], note: "Please add the district.", replies: [] }] };
+  const editRoutes = (extra: (c: Call) => Response | undefined = () => undefined) => routes((c) => extra(c) ?? (c.path === "/api/contributions/mine" ? reply(WITH_CHANGES) : c.path === "/api/contributions/55" && c.method === "GET" ? reply(SAVED) : undefined));
+  const openEdit = async () => {
+    await run(editRoutes((c) => (c.method === "PATCH" ? reply({ success: true, id: 55, status: "changes_requested" }) : c.path.startsWith("/api/contributions/55/photos") && c.method === "DELETE" ? reply({ success: true }) : c.path === "/api/contributions/55/contact" ? reply({ success: true }) : c.path === "/api/contributions/55/submit" ? reply({ success: true, id: 55, status: "pending_review" }) : undefined)));
+    const edit = Array.from(document.querySelectorAll<HTMLButtonElement>("#history button.rv-c2-edit"));
+    expect(edit).toHaveLength(1);
+    edit[0]!.click();
+    await flush();
+  };
+
+  it("the payload carries the categories, remarks and links as structured data, and the folded text as before", async () => {
+    await run(routes((c) => (c.path === "/api/contributions" && c.method === "POST" ? reply({ success: true, id: 41, status: "draft" }, 201) : c.path.endsWith("/submit") ? reply({ success: true, id: 41, status: "pending_review" }) : undefined)));
+    fillValid();
+    addLink("Website", "https://example.org/club", "Our club page");
+    (document.querySelector(".category-details:not([hidden]) [name=remarks]") as HTMLTextAreaElement).value = "  Open   on Saturdays ";
+    await submit();
+    const create = calls.find((c) => c.path === "/api/contributions" && c.method === "POST")!;
+    expect(create.body.directory).toEqual([{ category: "Projects", remarks: "Open on Saturdays", links: [{ type: "Website", url: "https://example.org/club", gist: "Our club page" }] }]);
+    expect(create.body.description).toContain("Directory categories: Projects");
+    expect(create.body.description).toContain("[Projects] Link 1 (Website): https://example.org/club - Our club page");
+  });
+  it("Edit appears only for an item with Changes requested", async () => {
+    await run(editRoutes());
+    const rows = Array.from(document.querySelectorAll("#history li"));
+    expect(rows.map((r) => !!r.querySelector("button.rv-c2-edit"))).toEqual([false, false, false, true]);
+    expect(rows[3]!.querySelector("button")!.getAttribute("aria-label")).toBe("Edit: Solar milking robot");
+  });
+  it("Edit fills the same form: title, your words, categories with remarks and links, sectors, the saved photo and the private contact", async () => {
+    await openEdit();
+    expect(calls.some((c) => c.path === "/api/contributions/55" && c.method === "GET")).toBe(true);
+    expect(field("title").value).toBe("Solar milking robot");
+    expect(field("description").value).toBe("A student team built a small solar milking unit.");
+    const checked = Array.from(document.querySelectorAll<HTMLInputElement>("#choices input")).filter((i) => i.checked).map((i) => i.value);
+    expect(checked).toEqual(["Projects", "Events"]);
+    const open = Array.from(document.querySelectorAll<HTMLFieldSetElement>(".category-details")).filter((p) => !p.hidden);
+    expect(open.map((p) => p.querySelector("legend")!.textContent)).toEqual(["Projects", "Events"]);
+    expect((open[0]!.querySelector("[name=remarks]") as HTMLTextAreaElement).value).toBe("Tested for six weeks.");
+    const row = open[0]!.querySelector(".references")!.firstElementChild!;
+    expect((row.querySelector("select") as HTMLSelectElement).value).toBe("Website");
+    expect((row.querySelector("[name=referenceUrl]") as HTMLInputElement).value).toBe("https://example.org/milker");
+    expect((row.querySelector("[name=referenceGist]") as HTMLInputElement).value).toBe("The build log");
+    expect(Array.from(document.querySelectorAll<HTMLInputElement>("#sector-choices input")).filter((i) => i.checked).map((i) => i.value)).toEqual(["education"]);
+    const photo = q("#photos").lastElementChild!;
+    expect(photo.querySelector("legend")!.textContent).toBe("Photo 1 · already saved");
+    expect((photo.querySelector("input") as HTMLInputElement).value).toBe("The milking unit");
+    expect((photo.querySelector("input") as HTMLInputElement).readOnly).toBe(true);
+    expect(q("#photo-count").textContent).toBe("1 of 3 photos");
+    expect(field("contactName").value).toBe("Asha"); expect(field("contactEmail").value).toBe("asha@example.com");
+    expect(field("shareWithModerators").checked).toBe(true);
+    expect(q("#rv-c2-editing").textContent).toContain("Editing “Solar milking robot”: make the changes the moderator asked for");
+  });
+  it("Submit for Review saves the change (PATCH with the structured data), removes a photo you took out, and sends it again", async () => {
+    await openEdit();
+    (q("#photos").lastElementChild!.querySelector(".remove") as HTMLButtonElement).click();
+    field("title").value = "Solar milking robot, Guntur";
+    await submit();
+    const patch = calls.find((c) => c.method === "PATCH")!;
+    expect(patch.path).toBe("/api/contributions/55");
+    expect(patch.body.title).toBe("Solar milking robot, Guntur");
+    expect(patch.body.sectors).toEqual(["education"]);
+    expect(patch.body.directory.map((d: any) => d.category)).toEqual(["Projects", "Events"]);
+    expect(patch.body.description.startsWith("A student team built a small solar milking unit.\n\nDirectory categories: Projects, Events")).toBe(true);
+    const after = calls.slice(calls.indexOf(patch) + 1).map((c) => `${c.method} ${c.path}`);
+    expect(after).toEqual(["DELETE /api/contributions/55/photos?photoId=901", "PUT /api/contributions/55/contact", "POST /api/contributions/55/submit", "GET /api/contributions/mine"]);
+    expect(calls.some((c) => c.method === "POST" && c.path === "/api/contributions")).toBe(false); // no new contribution
+    expect(document.querySelector("#rv-c2-editing")).toBeNull();
+    expect(q("#message").textContent).toContain("sent for review");
+  });
+  it("Cancel editing empties the form and leaves Edit; an item that is no longer waiting for changes is not opened", async () => {
+    await openEdit();
+    (q("#rv-c2-editing").querySelector("button") as HTMLButtonElement).click();
+    expect(document.querySelector("#rv-c2-editing")).toBeNull();
+    expect(field("title").value).toBe("");
+    expect(Array.from(document.querySelectorAll<HTMLInputElement>("#choices input")).some((i) => i.checked)).toBe(false);
+    expect(q("#photos").querySelectorAll("fieldset").length).toBe(0);
+    await run(routes((c) => (c.path === "/api/contributions/mine" ? reply(WITH_CHANGES) : c.path === "/api/contributions/55" ? reply({ success: true, contribution: { ...SAVED.contribution, status: "pending_review" } }) : undefined)));
+    (document.querySelector("#history button.rv-c2-edit") as HTMLButtonElement).click();
+    await flush();
+    expect(document.querySelector("#rv-c2-editing")).toBeNull();
+    expect(q("#message").textContent).toBe("This contribution cannot be edited right now.");
   });
 });
