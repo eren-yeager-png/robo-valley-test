@@ -87,10 +87,10 @@ export async function reviewerOf(db: Db, userId: number): Promise<Reviewer> {
   if (!Number.isSafeInteger(userId) || userId <= 0) return { ok: false };
   let row: { role?: string; is_moderator?: boolean; must_change_password?: boolean } | undefined;
   try {
-    row = (await db.query("SELECT role, is_moderator, must_change_password FROM users WHERE id = $1", [userId])).rows[0];
+    row = (await db.query("SELECT role, must_change_password, is_moderator FROM users WHERE id = $1", [userId])).rows[0];
   } catch (e) {
     if ((e as { code?: string })?.code !== "42703") return { ok: false }; // anything but "column missing": no access
-    try { row = (await db.query("SELECT role FROM users WHERE id = $1", [userId])).rows[0]; } catch { return { ok: false }; }
+    try { row = (await db.query("SELECT role, must_change_password FROM users WHERE id = $1", [userId])).rows[0]; } catch { return { ok: false }; }
   }
   if (!row) return { ok: false };
   const isAdmin = row.role === "admin", isModerator = row.is_moderator === true;
