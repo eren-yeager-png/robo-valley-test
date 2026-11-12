@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedUser, testDb } from "./helpers";
+import { windowRoom } from "./helpers/rateWindow";
 
 vi.mock("../src/lib/db", async () => { const c = await import("./helpers/currentPool"); return { get pool() { return c.getPool(); } }; });
 
@@ -34,6 +35,7 @@ async function make(userId: string, sectors: string[], status: string, opts: { d
 }
 
 beforeEach(async () => {
+  await windowRoom(); // these tests count real requests up to a limit: keep them inside one rate-limit window (see helpers/rateWindow.ts)
   vi.stubEnv("SESSION_SECRET", SECRET);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   await q("DELETE FROM api_rate_limits");
