@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 // The Forgot password and Choose a new password pages (the forms only; the routes have their own tests).
+import { StrictMode } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -101,6 +102,20 @@ describe("Choose a new password page", () => {
     render(<ResetForm />);
     await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/incomplete/));
     expect(screen.queryByLabelText("New password")).toBeNull();
+  });
+
+  it("works when React runs the mount effect twice (Strict Mode, as in development): the token is read once and kept", async () => {
+    window.history.replaceState(null, "", `/reset-password#token=${TOKEN}`);
+    const user = userEvent.setup();
+    render(<StrictMode><ResetForm /></StrictMode>);
+    await waitFor(() => expect(screen.getByLabelText("New password")).toBeTruthy());
+    expect(screen.queryByText(/incomplete/)).toBeNull();
+    expect(window.location.hash).toBe("");
+    answer = { status: 200, body: { success: true, message: "Your password was changed. Sign in with your new password." } };
+    await user.type(screen.getByLabelText("New password"), "brand new password");
+    await user.type(screen.getByLabelText(/Confirm new password/), "brand new password");
+    await user.click(screen.getByRole("button", { name: "Save new password" }));
+    await waitFor(() => expect(calls[0]?.body.token).toBe(TOKEN));
   });
 
   it("tokenFromHash takes only a plain token value", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import "../join/join.css";
 import "../login/login.css";
@@ -24,12 +24,17 @@ export default function ResetForm() {
   const [done, setDone] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Read the token from the fragment once, keep it in memory only, and remove it from the address bar and history straight away.
+  // Read the token from the fragment ONCE, keep it in memory only, and remove it from the address bar and history straight away.
+  // The ref makes a second run of this effect (React Strict Mode runs mount effects twice in development) reuse the token it already
+  // read, instead of reading the now-empty address and losing it.
+  const readOnce = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    const t = tokenFromHash(window.location.hash);
-    if (window.location.hash) window.history.replaceState(null, "", window.location.pathname);
+    if (readOnce.current === undefined) {
+      readOnce.current = tokenFromHash(window.location.hash);
+      if (window.location.hash) window.history.replaceState(null, "", window.location.pathname);
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the fragment can only be read in the browser, after the first render
-    setToken(t);
+    setToken(readOnce.current);
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
