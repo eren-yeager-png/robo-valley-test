@@ -1,16 +1,14 @@
+import { redirect } from "next/navigation";
 import { pool } from "../../lib/db";
 import { requireReviewerPage } from "../../lib/reviewerPage";
-import { QUEUE_STATUSES, getForReview, listQueue, type QueueItem, type ReviewItem } from "../../lib/contributionReview";
-import { STATUS_LABELS, type ContributionStatus } from "../../lib/contributions";
-import DecisionForm from "./DecisionForm";
-import ReplyNoteForm from "./ReplyNoteForm";
-import { recordView } from "../../lib/contributionViews";
+import { sectorOverview, type PortalTotals, type SectorCard } from "../../lib/contributionReview";
 
 type SP = { status?: string; item?: string; sector?: string; verified?: string };
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
 const ACTION_WORDS: Record<string, string> = { verify: "Verified", approve: "Approved", request_changes: "Changes requested", reject: "Rejected", remove: "Removed", unpublish: "Unpublished", republish: "Published again" };
 
+/** Page 1 of the Admin Portal: every sector with its numbers, and a way into each sector's list. */
 export default async function ModerationPage({ searchParams }: { searchParams?: Promise<SP> } = {}) {
   const me = await requireReviewerPage();
   const sp = (await searchParams) ?? {};
@@ -27,9 +25,12 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
     if (sector) sectorName = (await pool.query("SELECT name FROM sectors WHERE slug = $1", [sector])).rows[0]?.name ?? sector;
     if (itemId) item = await getForReview(pool as never, me.userId, itemId, me.isAdmin);
   } catch (e) {
-    problem = (e as { code?: string })?.code === "42P01" ? "Reviewing is not set up on this database yet (migrations 012 to 014 and 017 are needed)." : "The list could not be loaded. Please try again.";
-    console.error("moderation page: could not read the data");
+    problem = (e as { code?: string })?.code === "42P01" ? "Reviewing is not set up on this database yet (migrations 012 to 019 are needed)." : "The numbers could not be loaded. Please try again.";
+    console.error("admin portal: could not read the sectors");
   }
+  const shown = sectors
+    .filter((s) => !q || s.name.toLowerCase().includes(q.toLowerCase()))
+    .sort((a, b) => (sort === "name" ? a.name.localeCompare(b.name) : sort === "total" ? b.contributions - a.contributions || a.name.localeCompare(b.name) : b.pending - a.pending || a.name.localeCompare(b.name)));
 
   return (
     <main className="mod-main">

@@ -16,6 +16,11 @@ export const DISPLAY_LABELS: Record<DisplayStatus, string> = {
   rejected: "Not accepted", unpublished: "Unpublished", draft: "Draft", removed: "Removed",
 };
 
+/** The colour of each label's pill in the portal: amber while it waits, green when live, red when closed, grey when taken down. */
+export const STATUS_TONE: Record<DisplayStatus, "" | "amber" | "red" | "grey"> = {
+  new: "amber", in_review: "amber", replied: "amber", changes_requested: "amber", published: "", rejected: "red", removed: "red", unpublished: "grey", draft: "grey",
+};
+
 /** The portal's tabs, in order (drafts and removed items have none). */
 export const PORTAL_TABS: readonly DisplayStatus[] = ["new", "in_review", "replied", "changes_requested", "published", "rejected", "unpublished"];
 

@@ -1,4 +1,4 @@
-RoboValley Contribution (v2) - WordPress plugin, version 0.1.4
+RoboValley Contribution (v2) - WordPress plugin, version 0.1.5
 
 WHAT IT IS
 The new Contribute form for the Contribution and Contributor pages. It only shows the form and talks to the RoboValley app.
@@ -59,3 +59,13 @@ NEW IN 0.1.4
   * My Contributions shows every reply from a moderator under the item ("Reply from RoboValley: ..."), whatever the status, and
     the status reads "Replied" while a replied item is still waiting. Everything else in the member form is unchanged.
   * Needs the app with migration 019 for replies; without it the form works as before (no replies, nothing breaks).
+
+NEW IN 0.1.5
+  * Edit: in My Contributions, an item a moderator sent back ("Changes requested") has an Edit button. It opens this same form
+    filled in with the saved title, description, directory categories (with their remarks and links), sectors, photos and
+    private contact details. Make the changes and press Submit for Review: it goes back to the moderators as a new review.
+    A saved photo can be removed (its description cannot be changed; remove it and add it again). Other items have no Edit.
+  * The directory categories, remarks and links are also sent as structured data (the app stores them separately for the
+    moderators' portal). The same text is still folded into the description, so nothing older breaks.
+  * Needs the app with portal PR2. With an older app, the form works as 0.1.4 (the app ignores the extra data).
+  * The form looks exactly the same (the HTML and CSS files are unchanged).
