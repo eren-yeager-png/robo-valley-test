@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../lib/currentUser";
+import { pool } from "../../lib/db";
+import { reviewerLanding } from "../../lib/reviewerHome";
 import { destinationFor, resolveReturnTo } from "../../lib/session";
 import LoginForm from "./LoginForm";
 
@@ -29,6 +31,8 @@ export default async function LoginPage({ searchParams }: { searchParams?: Searc
   const returnTo = resolveReturnTo(typeof rawReturnTo === "string" ? rawReturnTo : undefined);
   const user = await getCurrentUser();
   if (user) {
+    const landing = await reviewerLanding(pool as never, Number(user.id), user.role); // a signed-in reviewer (not an administrator): the Admin Portal
+    if (landing) redirect(landing);
     const to = returnTo ?? destinationFor(user.role);
     if (!isThisHost(to, (await headers()).get("host"))) redirect(to);
   }

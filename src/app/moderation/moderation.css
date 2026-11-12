@@ -90,3 +90,5 @@
 @media (max-width:860px){.mod-grid{grid-template-columns:1fr 1fr}.mod-detail{grid-template-columns:1fr}.mod-side{position:static}.mod-stats{grid-template-columns:1fr 1fr}}
 @media (max-width:560px){.mod-grid{grid-template-columns:1fr}.mod-photos{grid-template-columns:1fr 1fr}.mod-toolbar input[type=search]{min-width:0;width:100%}.mod-toolbar .mod-end{margin-left:0}
   .mod-table thead{display:none}.mod-table,.mod-table tbody,.mod-table tr,.mod-table td{display:block}.mod-table tr{border-bottom:1px solid var(--mod-line);padding:8px 0}.mod-table td{border:0;padding:4px 6px}}
+/* item 4: the first-sign-in password form */
+.mod-act input.mod-input{display:block;width:100%;min-height:42px;padding:8px 10px;margin:0 0 10px;font:inherit;border:1px solid #c9d2cf;border-radius:6px;background:#fff}

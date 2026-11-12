@@ -10,6 +10,7 @@ import {
 } from "../../../../lib/session";
 import { LIMITS, normalizeEmail } from "../../../../lib/validation";
 import { BCRYPT_ROUNDS } from "../../../../lib/signup";
+import { reviewerLanding } from "../../../../lib/reviewerHome";
 
 export const runtime = "nodejs";
 
@@ -80,12 +81,14 @@ export async function POST(req: Request) {
 
     const remember = b.remember === true;
     const id = String(user.id);
+    const landing = await reviewerLanding(pool as never, Number(user.id), user.role); // item 4: reviewers (not administrators) land on the Admin Portal
     const { token, maxAgeSeconds } = createSessionToken({ id, role: user.role }, remember);
     const res = NextResponse.json(
       {
         success: true,
         user: { id, fullName: user.full_name, email: user.email, role: user.role }, // never the hash
-        redirectTo: destinationFor(user.role),
+        redirectTo: landing ?? destinationFor(user.role),
+        ...(landing ? { reviewer: true } : {}), // the sign-in form follows redirectTo then, even when the page asked to return somewhere
       },
       { status: 200, headers: { "Cache-Control": "no-store" } }
     );
