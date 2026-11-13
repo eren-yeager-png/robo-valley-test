@@ -15,7 +15,14 @@ import {
 } from "../../lib/contributionReview";
 import { STATUS_LABELS, type ContributionStatus } from "../../lib/contributions"; 
 
-type SP = { status?: string; item?: string; sector?: string; verified?: string };
+type SP = {
+  status?: string;
+  item?: string;
+  sector?: string;
+  verified?: string;
+  q?: string;
+  sort?: string;
+};
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
 const ACTION_WORDS: Record<string, string> = { verify: "Verified", approve: "Approved", request_changes: "Changes requested", reject: "Rejected", remove: "Removed", unpublish: "Unpublished", republish: "Published again" };
@@ -27,13 +34,20 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
   const status = (QUEUE_STATUSES as readonly string[]).includes(sp.status ?? "") ? (sp.status as string) : "pending_review";
   const itemId = /^[1-9]\d{0,9}$/.test(sp.item ?? "") ? Number(sp.item) : null;
   // Optional filters, set by the links on the admin sector-counts page: one sector (by slug) and/or only verified items.
-  const sector = sp.sector && sp.sector.length <= 60 && SLUG.test(sp.sector) ? sp.sector : null;
-  const verified = sp.verified === "1" ? true : sp.verified === "0" ? false : null;
+  const q = (sp.q ?? "").trim().slice(0, 80);
+  const sort = sp.sort === "name" || sp.sort === "total" ? sp.sort : "pending";
   const filterQs = (sector ? `&sector=${sector}` : "") + (verified === null ? "" : `&verified=${verified ? 1 : 0}`);
 
-  let queue: QueueItem[] = [], item: ReviewItem | null = null, problem = "", sectorName = "";
+ let queue: QueueItem[] = [];
+ let item: ReviewItem | null = null;
+let problem = "";
+ let sectorName = "";
+let sectors: SectorCard[] = [];
   try {
-    queue = await listQueue(pool as never, status, { sector, verified });
+  const overview = await sectorOverview(pool as never);
+  sectors = overview.sectors;
+
+  queue = await listQueue(pool as never, status, { sector, verified });
     if (sector) sectorName = (await pool.query("SELECT name FROM sectors WHERE slug = $1", [sector])).rows[0]?.name ?? sector;
     if (itemId) item = await getForReview(pool as never, me.userId, itemId, me.isAdmin);
   } catch (e) {
