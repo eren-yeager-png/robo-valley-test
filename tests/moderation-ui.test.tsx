@@ -67,20 +67,20 @@ describe("page 1: Contributions by Sector", () => {
     const author = Number((await seedUser({ email: `au${++seq}@example.com`, role: "ST", fullName: "Author" })).id);
     const a = await make(author, "pending_review", "Shared contact item"), b = await make(author, "pending_review", "Private contact item");
     await q("INSERT INTO contribution_contacts (contribution_id, contact_name, email, share_with_moderators) VALUES ($1,'Asha Shared','asha@example.com',true),($2,'Bela Private','bela@example.com',false)", [a, b]);
-    const ha = await render({ item: String(a) });
+    const ha = await overview({ item: String(a) });
     expect(ha).toContain("A long enough description."); expect(ha).toContain("Farmer"); expect(ha).toContain("asha@example.com");
     for (const w of ["Approve and publish", "Request changes", "Reject"]) expect(ha).toContain(w);
     expect(ha).toContain("Note for the author");
-    const hb = await render({ item: String(b) });
+    const hb = await overview({ item: String(b) });
     expect(hb).not.toMatch(/Bela|bela@/); expect(hb).toContain("No contact details are available to you");
   });
   it("your own item has no decision buttons; a missing or draft item says so; bad ids are ignored", async () => {
     const reviewer = Number((await seedUser({ email: `rv${++seq}@example.com`, role: "admin", fullName: "Rev" })).id); state.viewer = reviewer;
     const own = await make(reviewer, "pending_review", "My own item title"), draft = await make(reviewer, "draft", "A private draft title");
-    const h = await render({ item: String(own) });
+    const h = await overview({ item: String(own) });
     expect(h).toContain("your own contribution"); expect(h).not.toContain("Approve and publish");
-    expect(await render({ item: String(draft) })).toContain("We could not find that contribution.");
-    expect(await render({ item: "abc", status: "bogus" })).toContain("Choose a contribution from the list");
+    expect(await overview({ item: String(draft) })).toContain("We could not find that contribution.");
+    expect(await overview({ item: "abc", status: "bogus" })).toContain("Choose a contribution from the list");
   });
   it("shows a plain message when the tables are missing, never details", async () => {
     state.viewer = 1;
