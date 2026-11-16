@@ -124,7 +124,7 @@ describe("reading one item", () => {
     expect((await call(detail.GET, "GET", "/x", undefined, P(d))).r.status).toBe(404);
     expect((await call(detail.GET, "GET", "/x", undefined, P("abc"))).r.status).toBe(404);
   });
-  it("contact details only when the author allowed it AND the reviewer is a flagged moderator (an administrator without the flag sees none)", async () => {
+  it("contact details only when the author allowed it AND the viewer is a reviewer (a flagged moderator, or an administrator even without the flag)", async () => {
     const a = await user("ST"), mod = await user("TC", true), admin = await user("admin");
     const shared = await make(a, "pending_review"), priv = await make(a, "pending_review");
     await q("INSERT INTO contribution_contacts (contribution_id, contact_name, email, share_with_moderators) VALUES ($1,'Asha Shared','asha@example.com',true),($2,'Bela Private','bela@example.com',false)", [shared, priv]);
@@ -132,7 +132,7 @@ describe("reading one item", () => {
     expect((await call(detail.GET, "GET", "/x", undefined, P(shared))).b.item.contact).toMatchObject({ name: "Asha Shared", email: "asha@example.com" });
     expect((await call(detail.GET, "GET", "/x", undefined, P(priv))).b.item.contact).toBeNull();
     as(admin);
-    expect((await call(detail.GET, "GET", "/x", undefined, P(shared))).b.item.contact).toBeNull();
+    expect((await call(detail.GET, "GET", "/x", undefined, P(shared))).b.item.contact).toMatchObject({ name: "Asha Shared", email: "asha@example.com" });
     expect(JSON.stringify((await call(detail.GET, "GET", "/x", undefined, P(priv))).b)).not.toMatch(/Bela|bela@/);
   });
   it("your own item is shown but offers no decisions", async () => {

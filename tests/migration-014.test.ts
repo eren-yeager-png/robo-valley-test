@@ -120,7 +120,7 @@ describe("who can read a contact", () => {
   it("the owner always can", async () => {
     for (const share of [false, true]) {
       const { pg, c } = await withContact(share);
-      expect(await readContact(db(pg), c, OWNER)).toEqual({ ...CONTACT, shareWithModerators: share });
+      expect(await readContact(db(pg), c, OWNER)).toEqual({ ...CONTACT, shareWithModerators: share, source: "form" }); // "form": typed into the (old) form
       await pg.close();
     }
   });
@@ -164,7 +164,7 @@ describe("who can read a contact", () => {
   it("saving again replaces the details (one row)", async () => {
     const { pg, c } = await withContact(false);
     await saveContact(db(pg), c, 1, { name: "Asha R", email: null, phone: "9123456780", shareWithModerators: true });
-    expect(await readContact(db(pg), c, OWNER)).toEqual({ name: "Asha R", email: null, phone: "9123456780", shareWithModerators: true });
+    expect(await readContact(db(pg), c, OWNER)).toEqual({ name: "Asha R", email: null, phone: "9123456780", shareWithModerators: true, source: "form" });
     expect(await count(pg, "select count(*) n from contribution_contacts")).toBe(1);
     await pg.close();
   });
@@ -214,7 +214,7 @@ describe("the contact table stays private in the code", () => {
     expect(code).not.toMatch(/SELECT\s+\*|\.\*|RETURNING\s+\*/i);
     expect(code).not.toMatch(/console\.|logger|JSON\.stringify/);
     expect(READ_CONTACT_SQL).toMatch(/SELECT cc\.contact_name, cc\.email, cc\.phone, cc\.share_with_moderators FROM/);
-    expect(READ_CONTACT_SQL).toContain("c.user_id = $2 OR (cc.share_with_moderators AND EXISTS (SELECT 1 FROM users m WHERE m.id = $2 AND m.is_moderator))");
+    expect(READ_CONTACT_SQL).toContain("c.user_id = $2 OR (cc.share_with_moderators AND EXISTS (SELECT 1 FROM users m WHERE m.id = $2 AND (m.role = 'admin' OR m.is_moderator)))"); // owner, or a reviewer (16-11-2026: administrators too)
     expect(READ_CONTACT_SQL).not.toContain("$3"); // the caller supplies no moderator claim
   });
 

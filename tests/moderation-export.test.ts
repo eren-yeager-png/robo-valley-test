@@ -59,14 +59,15 @@ describe("CSV export", () => {
     expect(text).not.toMatch(/Bela|bela@|9999999999/);
     expect(text).not.toContain("Kumari"); // contributor shown as first name + initial only
   });
-  it("an administrator without the moderator flag gets no contact details at all (the same rule as the screen)", async () => {
+  it("an administrator without the moderator flag gets the shared contact too, and never an unshared one (the same rule as the screen)", async () => {
     const admin = await user("admin", "Ola Admin"), author = await user("ST", "Asha Rao");
-    const shared = await make(author, "pending_review", "Shared contact item");
-    await q("INSERT INTO contribution_contacts (contribution_id, contact_name, email, share_with_moderators) VALUES ($1,'Asha Shared','asha@example.com',true)", [shared]);
+    const shared = await make(author, "pending_review", "Shared contact item"), priv = await make(author, "pending_review", "Private contact item");
+    await q("INSERT INTO contribution_contacts (contribution_id, contact_name, email, share_with_moderators) VALUES ($1,'Asha Shared','asha@example.com',true),($2,'Bela Private','bela@example.com',false)", [shared, priv]);
     as(admin);
     const { r, text } = await get("sector=agriculture-dairy&tab=all");
     expect(r.status).toBe(200);
-    expect(text).not.toMatch(/Asha Shared|asha@example\.com/);
+    expect(text).toContain("asha@example.com");
+    expect(text).not.toMatch(/Bela Private|bela@example\.com/);
   });
   it("exports the same view as the screen: tab, search and category filter", async () => {
     const mod = await user("TC", "Ravi Mod", true), author = await user("ST", "Asha Rao");

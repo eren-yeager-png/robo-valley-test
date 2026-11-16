@@ -204,11 +204,12 @@ describe("contact details and moderators (the 014 read rule, now reading the fla
     expect(await readContact(db(pg), c, 3)).toMatchObject({ name: "Asha Rao", phone: "9876543210" });
     await pg.close();
   });
-  it("non-moderator (ordinary user): nothing, shared or not; an admin who is not a moderator: nothing", async () => {
+  it("non-moderator (ordinary user): nothing, shared or not; an admin without the flag: only what was shared (16-11-2026: admins see what moderators see)", async () => {
     for (const share of [false, true]) {
       const { pg, c } = await scene(share);
       expect(await readContact(db(pg), c, 4)).toBeNull();
-      expect(await readContact(db(pg), c, 1)).toBeNull(); // being an admin is not being a moderator
+      const admin = await readContact(db(pg), c, 1);
+      if (share) expect(admin).not.toBeNull(); else expect(admin).toBeNull(); // never more than a moderator: not shared = nothing
       await pg.close();
     }
   });

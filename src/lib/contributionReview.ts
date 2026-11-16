@@ -17,7 +17,7 @@
 // replies to the contributor and the internal notes. Without 019 those lists are simply empty and pending items show as "New".
 // Portal PR2: the sector overview, one sector's list (tabs, search, category filter, sort, pages of 20), the detail view's contributor,
 // structured categories and timeline, previous / next, and the CSV export. Contact details only ever come through readContact (the
-// author allowed it AND the viewer is a flagged moderator), also in the CSV.
+// author allowed it AND the viewer is a reviewer: an administrator or a flagged moderator), also in the CSV.
 import { readContact, type Contact } from "./contributionContacts";
 import { listPhotoMeta } from "./contributionPhotos";
 import { splitBody } from "./contributionApi";
@@ -104,7 +104,7 @@ export type ReviewItem = QueueItem & {
 };
 export type TimelineEntry = { at: string; text: string; detail: string | null };
 
-/** One non-draft item to read. The contact details come back only through readContact: the author allowed reviewers AND the viewer is a flagged moderator. */
+/** One non-draft item to read. The contact details come back only through readContact: the author allowed reviewers AND the viewer is a reviewer (administrator or flagged moderator). */
 export async function getForReview(db: Db, viewerId: number, id: number, isAdmin = false): Promise<ReviewItem | null> {
   const { rows } = await db.query("SELECT c.id, c.user_id, c.title, c.body, c.type, c.status, c.submitted_at, u.full_name, u.role AS user_role FROM contributions c LEFT JOIN users u ON u.id = c.user_id WHERE c.id = $1 AND c.status <> 'draft'", [id]);
   const c = rows[0];
@@ -334,7 +334,7 @@ export function csvCell(v: unknown): string {
 
 /**
  * The sector list as CSV (the same tab, search, filter and sort, every page, up to EXPORT_MAX_ROWS). Contact details come only from
- * readContact, the same privacy rule as the screen: empty unless the author shared them AND the viewer is a flagged moderator.
+ * readContact, the same privacy rule as the screen: empty unless the author shared them AND the viewer is a reviewer (administrator or flagged moderator).
  */
 export async function exportCsv(db: Db, viewerId: number, slug: string, opts: ListOptions): Promise<{ filename: string; csv: string; rows: number } | null> {
   const data = await sectorRows(db, slug);

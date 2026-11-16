@@ -110,6 +110,9 @@ export const MIGRATIONS = [
     { kind: "constraint", name: "password_reset_tokens_hash_uq" },
     { kind: "index", name: "password_reset_tokens_user_idx" },
   ] },
+  { id: "021", title: "contact through the profile", feature: "The Contribute form's \"Let moderators contact me using my profile details\" choice", requires: ["012"], checks: [
+    { kind: "column", table: "contributions", column: "share_contact_with_moderators" },
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */
