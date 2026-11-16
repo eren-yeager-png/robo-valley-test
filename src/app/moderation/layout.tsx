@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 // Administrators and moderators only. The page and every API behind it check again on their own. Sign Out is in the shared header
 // account menu (HeaderMenuSlot: the same menu as on techytree.in).
 export default async function ModerationLayout({ children }: { children: React.ReactNode }) {
-  const me = await requireReviewerPage();
+  const me = await requireReviewerPage({ passwordChange: true }); // each page runs the full guard itself (pages are not re-run with the layout)
   return (
     <div className={`mod ${display.variable} ${body.variable}`}>
       <header className="mod-bar">
@@ -23,8 +23,8 @@ export default async function ModerationLayout({ children }: { children: React.R
           <span className="mod-logo">RoboValley · Admin Portal</span>
           <nav aria-label="Admin Portal">
             <span>Signed in as {me.isAdmin ? "an administrator" : "a moderator"}</span>
-            <Link href="/moderation">Contributions</Link>
-            {me.isAdmin && <a href="/admin/dashboard">Admin</a>}
+            {!me.mustChangePassword && <Link href="/moderation">Contributions</Link>}
+            {me.isAdmin && !me.mustChangePassword && <a href="/admin/dashboard">Admin</a>}
             <a href={siteUrl()}>Back to the site</a>
             <HeaderMenuSlot site={siteUrl()} tone="dark" />
           </nav>

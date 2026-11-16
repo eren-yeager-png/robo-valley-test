@@ -10,7 +10,7 @@ import { clientIp } from "./projectsRateLimit";
 
 export type ReviewerGuarded = { res: Response } | { userId: number; isAdmin: boolean };
 
-export async function guardReviewer(req: Request, methods: string, scope: Extract<RateScope, "modUser" | "modDecision"> = "modUser"): Promise<ReviewerGuarded> {
+export async function guardReviewer(req: Request, methods: string, scope: Extract<RateScope, "modUser" | "modDecision"> = "modUser", opts: { passwordChange?: boolean } = {}): Promise<ReviewerGuarded> {
   const out = (r: Response) => ({ res: withCors(req, r, methods) });
   if (!originAllowed(req)) return out(json({ success: false, error: "FORBIDDEN", message: "Request blocked." }, 403));
   if (rateLimitEnabled()) {
@@ -21,6 +21,7 @@ export async function guardReviewer(req: Request, methods: string, scope: Extrac
   if (!user) return out(json({ success: false, error: "UNAUTHENTICATED", message: "Please sign in." }, 401));
   const r = await reviewerOf(pool as never, Number(user.id));
   if (!r.ok) return out(json({ success: false, error: "FORBIDDEN", message: "You do not have access to this." }, 403));
+  if (r.mustChangePassword && !opts.passwordChange) return out(json({ success: false, error: "PASSWORD_CHANGE_REQUIRED", message: "Please choose your own password first (Admin Portal)." }, 403));
   if (rateLimitEnabled()) {
     const d = await hitRateLimit(`rev:${r.userId}`, scope);
     if (!d.allowed) return out(rateLimitedResponse(d.retryAfterSeconds, "using this page"));
