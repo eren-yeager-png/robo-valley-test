@@ -165,6 +165,14 @@
   .rv-header-menu .rv-hm-head { padding: 16px 20px; }
 }
 
+/* a dark bar (the app's dark green moderation bar, data-tone="dark"): the dark avatars would melt into it, so the icon gets a white
+   edge (white on #123f37 is 11.7:1), a white hover ring and a white focus outline. The open menu itself stays white. */
+.rv-header-menu.rv-header-menu--on-dark .rv-hm-toggle .rv-hm-disc { stroke: #fff; stroke-width: 2.5px; }
+.rv-header-menu.rv-header-menu--on-dark .rv-hm-toggle:hover,
+.rv-header-menu.rv-header-menu--on-dark .rv-hm-toggle:focus-visible,
+.rv-header-menu.rv-header-menu--on-dark .rv-hm-toggle.show { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.55); }
+.rv-header-menu.rv-header-menu--on-dark .rv-hm-toggle:focus-visible { outline-color: #fff; }
+
 /* techytree.in: sit in the theme's header row like the old account corner did */
 .rv-header-menu.rv-header-menu--site { margin-left: 12px; }
 .rv-header-menu.rv-header-menu--phone { margin: 0 6px 0 0; }

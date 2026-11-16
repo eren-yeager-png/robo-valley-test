@@ -7,7 +7,8 @@
  *   It puts the icon in the header row right after the theme's old account control (.rv-account-corner in Astra's "HTML 1"
  *   element, which the site hides below 1140 px), and in the phone header next to the menu button. It hides the old controls and
  *   the Contribute page's own Sign Out button (#rv-c2 #sign-out): Sign Out lives in this menu.
- * On the app's pages it fills every <div data-rv-header-menu data-site="https://techytree.in/"></div>.
+ * On the app's pages it fills every <div data-rv-header-menu data-site="https://techytree.in/"></div>. A slot on a dark bar (the
+ *   moderation bar) also has data-tone="dark": the icon then gets a white edge, hover ring and focus outline, so it stays visible.
  *
  * Who is signed in, and their role, come from the app's server (GET /api/auth/menu, which re-reads the account): never from the page.
  * Hiding a link is not security: every admin and moderation page and API checks the role again on the server.
@@ -85,7 +86,7 @@
   function avatar(role, initial, size) {
     var s = svg("svg", { viewBox: "0 0 48 48", width: size, height: size, "aria-hidden": "true", focusable: "false", "class": "rv-hm-avatar" });
     var c = role === "admin" ? { cx: 22, cy: 22, r: 19, tx: 20.5, ty: 28.3, fs: 18 } : role === "moderator" ? { cx: 24, cy: 22, r: 20, tx: 22.4, ty: 28.6, fs: 19 } : { cx: 24, cy: 24, r: 22, tx: 24, ty: 31.3, fs: 21 };
-    s.appendChild(svg("circle", { cx: c.cx, cy: c.cy, r: c.r, fill: LOOK[role].color }));
+    s.appendChild(svg("circle", { cx: c.cx, cy: c.cy, r: c.r, fill: LOOK[role].color, "class": "rv-hm-disc" }));
     var t = svg("text", { x: c.tx, y: c.ty, "font-size": c.fs, "font-weight": "700", fill: "#fff", "text-anchor": "middle", "font-family": "system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" });
     t.textContent = initial || "?";
     s.appendChild(t);
@@ -273,6 +274,7 @@
     Array.prototype.forEach.call(document.querySelectorAll("[data-rv-header-menu]:not([data-rv-hm-done])"), function (slot) {
       slot.setAttribute("data-rv-hm-done", "1");
       var r = newRoot();
+      if (slot.getAttribute("data-tone") === "dark") r.classList.add("rv-header-menu--on-dark"); // e.g. the dark green moderation bar
       slot.appendChild(r);
       roots.push(r);
     });

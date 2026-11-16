@@ -26,7 +26,7 @@ export default async function ModerationLayout({ children }: { children: React.R
             <Link href="/moderation">Contributions</Link>
             {me.isAdmin && <a href="/admin/dashboard">Admin</a>}
             <a href={siteUrl()}>Back to the site</a>
-            <HeaderMenuSlot site={siteUrl()} />
+            <HeaderMenuSlot site={siteUrl()} tone="dark" />
           </nav>
         </div>
       </header>

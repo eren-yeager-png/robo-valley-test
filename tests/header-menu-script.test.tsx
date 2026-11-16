@@ -9,6 +9,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn(), push: vi.fn() }), usePathname: () => "/admin/dashboard" }));
 import AdminShell from "../src/app/admin/_components/AdminShell";
 import DashboardShell from "../src/app/dashboard/DashboardShell";
+import HeaderMenuSlot from "../src/app/_components/HeaderMenuSlot";
 
 const MENU_JS = readFileSync("public/rv-header-menu.js", "utf8");
 const BOOTSTRAP_JS = readFileSync("public/vendor/bootstrap-5.3.3/bootstrap.bundle.min.js", "utf8");
@@ -63,6 +64,12 @@ function load(src = `${APP}/rv-header-menu.js`) {
 const menus = () => Array.from(document.querySelectorAll<HTMLElement>(".rv-header-menu"));
 const items = (root: Element) => Array.from(root.querySelectorAll<HTMLElement>("[role=menuitem]"));
 const labels = (root: Element) => items(root).map((i) => i.querySelector(".rv-hm-label")?.textContent ?? i.textContent);
+// WCAG contrast ratio of two #rrggbb / #rgb colours
+const luminance = (hex: string) => {
+  const h = hex.length === 4 ? hex.slice(1).split("").map((c) => c + c).join("") : hex.slice(1);
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)).reduce((s, c, i) => s + c * [0.2126, 0.7152, 0.0722][i], 0);
+};
+const contrast = (a: string, b: string) => { const [hi, lo] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (hi + 0.05) / (lo + 0.05); };
 const drawn = () => waitFor(() => {
   expect(menus().length).toBeGreaterThan(0);
   expect(menus()[0].querySelector(".rv-hm-placeholder")).toBeNull();
@@ -269,5 +276,31 @@ describe("on the app's own pages", () => {
     const dash = render(<DashboardShell userName="Asha Rao" roleLabel="Student" items={[{ href: "/dashboard", label: "Home" }]} site="https://techytree.in/"><p>x</p></DashboardShell>);
     expect(dash.container.querySelector("header [data-rv-header-menu]")?.getAttribute("data-site")).toBe("https://techytree.in/");
     expect(dash.getByRole("button", { name: "Sign out" })).toBeTruthy(); // the existing sidebar Sign out
+    expect(dash.container.querySelector("header [data-rv-header-menu]")?.hasAttribute("data-tone")).toBe(false); // light bars: no dark mode
+  });
+
+  it("on the dark green moderation bar the icon gets a white edge, hover ring and focus outline (at least 3:1 against the bar)", async () => {
+    goTo(`${APP}/moderation`);
+    answerWith(ANSWERS.moderator);
+    page(`<header class="mod-bar"><nav><div data-rv-header-menu data-tone="dark"></div></nav></header><header class="adm-top"><div data-rv-header-menu></div></header>`);
+    load(); await drawn();
+    const [dark, light] = menus();
+    expect(dark.classList.contains("rv-header-menu--on-dark")).toBe(true);
+    expect(light.classList.contains("rv-header-menu--on-dark")).toBe(false);
+    expect(dark.querySelector(".rv-hm-toggle .rv-hm-disc")).not.toBeNull();
+    // the moderation bar's own colour (moderation.css) against the edge rv-header-menu.css gives the icon there
+    const bar = /--mod-dark:\s*(#[0-9a-f]{6})/i.exec(readFileSync("src/app/moderation/moderation.css", "utf8"))![1];
+    const css = readFileSync("public/rv-header-menu.css", "utf8");
+    const edge = /\.rv-header-menu--on-dark \.rv-hm-toggle \.rv-hm-disc\s*\{\s*stroke:\s*(#[0-9a-f]{3,6})/i.exec(css)![1];
+    expect(contrast("#1f4d3f", bar)).toBeLessThan(3); // the reason: the moderator's dark green alone melts into the bar
+    expect(contrast(edge, bar)).toBeGreaterThanOrEqual(3);
+    expect(css).toMatch(/--on-dark \.rv-hm-toggle:focus-visible\s*\{\s*outline-color:\s*#fff;/);
+  });
+
+  it("the moderation layout marks its slot dark", () => {
+    page("");
+    const slot = render(<HeaderMenuSlot site="https://techytree.in/" tone="dark" />);
+    expect(slot.container.querySelector("[data-rv-header-menu]")?.getAttribute("data-tone")).toBe("dark");
+    expect(readFileSync("src/app/moderation/layout.tsx", "utf8")).toContain(`<HeaderMenuSlot site={siteUrl()} tone="dark" />`);
   });
 });
