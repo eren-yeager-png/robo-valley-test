@@ -214,7 +214,7 @@ describe("the contact table stays private in the code", () => {
     expect(code).not.toMatch(/SELECT\s+\*|\.\*|RETURNING\s+\*/i);
     expect(code).not.toMatch(/console\.|logger|JSON\.stringify/);
     expect(READ_CONTACT_SQL).toMatch(/SELECT cc\.contact_name, cc\.email, cc\.phone, cc\.share_with_moderators FROM/);
-    expect(READ_CONTACT_SQL).toContain("c.user_id = $2 OR (cc.share_with_moderators AND EXISTS (SELECT 1 FROM users m WHERE m.id = $2 AND m.is_moderator))");
+    expect(READ_CONTACT_SQL).toContain("c.user_id = $2 OR (cc.share_with_moderators AND EXISTS (SELECT 1 FROM users m WHERE m.id = $2 AND (m.role = 'admin' OR m.is_moderator)))"); // owner, or a reviewer (16-11-2026: administrators too)
     expect(READ_CONTACT_SQL).not.toContain("$3"); // the caller supplies no moderator claim
   });
 

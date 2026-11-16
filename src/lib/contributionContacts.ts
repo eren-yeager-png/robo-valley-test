@@ -1,10 +1,12 @@
 // Private contact details of a contribution. This is the ONLY file that reads or writes contribution_contacts (migration 014) and
-// contributions.share_contact_with_moderators (migration 021), and the only one that reads a profile's contact for a moderator.
+// contributions.share_contact_with_moderators (migration 021), and the only one that reads a profile's contact for a reviewer.
+// A REVIEWER is an administrator (users.role 'admin') or a flagged moderator (users.is_moderator). Since 16-11-2026 (owner's decision)
+// administrators see everything a moderator sees, contact details included, even without the moderator flag.
 //   * Since item 3 the Contribute form asks for no contact details. It has ONE box, unticked by default: "Let moderators contact me
-//     using my profile details" (share_contact_with_moderators). Ticked, a flagged moderator sees the contributor's PROFILE name,
-//     email and mobile for that contribution (READ_PROFILE_CONTACT_SQL); nobody else ever does.
+//     using my profile details" (share_contact_with_moderators). Ticked, a reviewer sees the contributor's PROFILE name, email and
+//     mobile for that contribution (READ_PROFILE_CONTACT_SQL); nobody else ever does.
 //   * Details typed into the old form stay in contribution_contacts and keep their own rule: the contributor who owns the
-//     contribution, always; a moderator ONLY when the contributor ticked "share with moderators"; nobody else (READ_CONTACT_SQL).
+//     contribution, always; a reviewer ONLY when the contributor ticked "share with moderators"; nobody else (READ_CONTACT_SQL).
 //   * Both rules are in the SQL itself, not left to the caller.
 //   * Contact details never go into published output, counts or another person's "Your contributions": no other module
 //     may mention the table (a test scans src/ for that), and nothing here logs a value.
@@ -44,24 +46,26 @@ export function validateContact(raw: unknown): ContactResult {
   return { ok: true, value: { name, email, phone, shareWithModerators: o.shareWithModerators === true } };
 }
 
+/** "$2 is a reviewer": an administrator or a flagged moderator, read from the database on every query, never supplied by the caller. */
+export const VIEWER_IS_REVIEWER_SQL = "EXISTS (SELECT 1 FROM users m WHERE m.id = $2 AND (m.role = 'admin' OR m.is_moderator))";
+
 /**
- * The one read query. $1 = contribution id, $2 = the viewer's user id. Whether the viewer is a moderator is read from the
- * database (users.is_moderator, migration 015), never supplied by the caller.
- * A row comes back only for the owner, or for a moderator when share_with_moderators is true. Anyone else gets no row.
+ * The old form's details. $1 = contribution id, $2 = the viewer's user id.
+ * A row comes back only for the owner, or for a reviewer when share_with_moderators is true. Anyone else gets no row.
  */
 export const READ_CONTACT_SQL =
   "SELECT cc.contact_name, cc.email, cc.phone, cc.share_with_moderators " +
   "FROM contribution_contacts cc JOIN contributions c ON c.id = cc.contribution_id " +
-  "WHERE cc.contribution_id = $1 AND (c.user_id = $2 OR (cc.share_with_moderators AND EXISTS (SELECT 1 FROM users m WHERE m.id = $2 AND m.is_moderator)))";
+  "WHERE cc.contribution_id = $1 AND (c.user_id = $2 OR (cc.share_with_moderators AND " + VIEWER_IS_REVIEWER_SQL + "))";
 
 /**
- * The profile contact of the contributor, for a flagged moderator, ONLY when the contributor ticked "Let moderators contact me using
- * my profile details" on this contribution (migration 021). $1 = contribution id, $2 = the viewer's user id; whether the viewer is a
- * moderator is read from the database. Anyone else (the public, other members, an administrator without the flag) gets no row.
+ * The profile contact of the contributor, for a reviewer (administrator or flagged moderator), ONLY when the contributor ticked "Let
+ * moderators contact me using my profile details" on this contribution (migration 021). $1 = contribution id, $2 = the viewer's user
+ * id. Anyone else (the public, other members) gets no row.
  */
 export const READ_PROFILE_CONTACT_SQL =
   "SELECT u.full_name, u.email, u.mobile FROM contributions c JOIN users u ON u.id = c.user_id " +
-  "WHERE c.id = $1 AND c.share_contact_with_moderators AND c.user_id <> $2 AND EXISTS (SELECT 1 FROM users m WHERE m.id = $2 AND m.is_moderator)";
+  "WHERE c.id = $1 AND c.share_contact_with_moderators AND c.user_id <> $2 AND " + VIEWER_IS_REVIEWER_SQL;
 
 /** The contact details this viewer may see, or null (no contact, or not allowed: the two look the same on purpose). */
 export async function readContact(db: Db, contributionId: number, viewerUserId: number): Promise<Contact | null> {

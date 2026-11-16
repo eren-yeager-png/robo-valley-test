@@ -86,15 +86,17 @@ describe("who sees the profile contact", () => {
     expect(c).toEqual({ name: a.full_name, email: a.email, phone: "9876543210", shareWithModerators: true, source: "profile" });
     expect(await readContact(testDb().raw as never, no, mod)).toBeNull();
   });
-  it("nobody else: not an administrator without the flag, not another member, not a visitor (id 0); the author does not need it", async () => {
+  it("an administrator sees it too, even without the moderator flag (16-11-2026); nobody else: not another member, not a visitor (id 0)", async () => {
     const author = await user("ST", { mobile: "9876543210" }), admin = await user("admin"), other = await user("TC");
-    const id = await newItem(author, { shareContact: true });
-    for (const viewer of [admin, other, 0, author]) expect(await readContact(testDb().raw as never, id, viewer), String(viewer)).toBeNull();
+    const id = await newItem(author, { shareContact: true }), no = await newItem(author, { shareContact: false });
+    expect(await readContact(testDb().raw as never, id, admin)).toMatchObject({ phone: "9876543210", source: "profile" });
+    expect(await readContact(testDb().raw as never, no, admin)).toBeNull(); // not ticked: nothing, for administrators too
+    for (const viewer of [other, 0, author]) expect(await readContact(testDb().raw as never, id, viewer), String(viewer)).toBeNull();
   });
-  it("the rule is in the SQL: the box, a different person, and a moderator flag read from the database", () => {
+  it("the rule is in the SQL: the box, a different person, and the viewer's role or moderator flag read from the database", () => {
     expect(READ_PROFILE_CONTACT_SQL).toContain("c.share_contact_with_moderators");
     expect(READ_PROFILE_CONTACT_SQL).toContain("c.user_id <> $2");
-    expect(READ_PROFILE_CONTACT_SQL).toContain("EXISTS (SELECT 1 FROM users m WHERE m.id = $2 AND m.is_moderator)");
+    expect(READ_PROFILE_CONTACT_SQL).toContain("EXISTS (SELECT 1 FROM users m WHERE m.id = $2 AND (m.role = 'admin' OR m.is_moderator))");
     expect(READ_PROFILE_CONTACT_SQL).not.toMatch(/password|profile ->|district/);
   });
   it("details from the old form are kept and keep their own rule (shown as typed into the form); the box wins when both exist", async () => {
@@ -106,15 +108,15 @@ describe("who sees the profile contact", () => {
     await q("UPDATE contributions SET share_contact_with_moderators = true WHERE id = $1", [old]);
     expect(await readContact(testDb().raw as never, old, mod)).toMatchObject({ source: "profile" });
   });
-  it("the moderator's page and CSV show it (and say where it came from); an administrator without the flag gets neither", async () => {
+  it("the moderator's and the administrator's page and CSV show it (and say where it came from)", async () => {
     const author = await user("ST", { mobile: "9123456780" }), mod = await user("TC", { moderator: true }), admin = await user("admin");
     const id = await newItem(author, { shareContact: true });
     const item = await getForReview(testDb().raw as never, mod, id, false);
     expect(item!.contact).toMatchObject({ phone: "9123456780", source: "profile" });
-    expect((await getForReview(testDb().raw as never, admin, id, true))!.contact).toBeNull();
+    expect((await getForReview(testDb().raw as never, admin, id, true))!.contact).toMatchObject({ phone: "9123456780", source: "profile" });
     const csv = (await exportCsv(testDb().raw as never, mod, "agriculture-dairy", { tab: "all" }))!.csv;
     expect(csv).toContain("9123456780");
-    expect((await exportCsv(testDb().raw as never, admin, "agriculture-dairy", { tab: "all" }))!.csv).not.toContain("9123456780");
+    expect((await exportCsv(testDb().raw as never, admin, "agriculture-dairy", { tab: "all" }))!.csv).toContain("9123456780");
   });
   it("before migration 021, only the old form's details can show (no error)", async () => {
     const author = await user("ST"), mod = await user("TC", { moderator: true });

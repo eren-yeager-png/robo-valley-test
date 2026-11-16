@@ -115,7 +115,7 @@ export default async function ContributionPage({ params, searchParams }: { param
                 <div className="mod-field"><dt>Mobile</dt><dd>{it.contact.phone || "—"}</dd></div>
               </dl>
               </>
-            ) : <p className="mod-callout mod-callout--muted">No contact details are shown: the contributor did not tick “Let moderators contact me”, or you are not a moderator.</p>}
+            ) : <p className="mod-callout mod-callout--muted">No contact details are shown: the contributor did not tick “Let moderators contact me”.</p>}
           </section>
         </div>
 

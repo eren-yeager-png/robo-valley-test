@@ -9,8 +9,8 @@
 --
 -- WHAT IT IS. The Contribute form no longer asks for a name, email and mobile number. It has ONE checkbox instead, unticked by
 -- default: "Let moderators contact me using my profile details". This column stores that choice, per contribution.
---   * true  = a flagged moderator (users.is_moderator) may see the contributor's PROFILE contact (name, email, mobile) for THIS
---             contribution. The rule is in the read query itself (src/lib/contributionContacts.ts), never left to the caller.
+--   * true  = a reviewer (an administrator, or a flagged moderator: users.is_moderator) may see the contributor's PROFILE contact
+--             (name, email, mobile) for THIS contribution. The rule is in the read query itself (src/lib/contributionContacts.ts).
 --   * false = nobody but the contributor sees any contact. It is never shown publicly, counted or exported to anyone else.
 -- Contact details typed into the old form (the table from migration 014) are KEPT and still follow their own
 -- "share with moderators" box; the new form simply stops collecting them.
