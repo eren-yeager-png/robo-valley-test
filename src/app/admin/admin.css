@@ -40,21 +40,6 @@
 .rv .adm-burger{display:none;width:44px;height:44px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font-size:1.2rem;cursor:pointer}
 .rv .adm-scrim{display:none}
 
-/* profile button + menu */
-.rv .adm-profile{position:relative;flex:none}
-.rv .adm-profile-btn{display:flex;align-items:center;gap:8px;min-height:44px;padding:5px 12px 5px 6px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--fg);font:700 .92rem var(--font);cursor:pointer}
-.rv .adm-profile-btn:hover,.rv .adm-profile-btn[aria-expanded="true"]{border-color:var(--brand);background:var(--tint)}
-.rv .adm-avatar{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff}
-.rv .adm-caret{transition:transform .15s;color:var(--muted)}
-.rv .adm-profile-btn[aria-expanded="true"] .adm-caret{transform:rotate(180deg)}
-.rv .adm-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:30;min-width:260px;max-width:calc(100vw - 24px);padding:6px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:0 12px 32px rgba(21,48,42,.18)}
-.rv .adm-menu-who{padding:8px 12px 10px;margin-bottom:4px;border-bottom:1px solid var(--line);font-size:.78rem;color:var(--muted)}
-.rv .adm-menu-who strong{display:block;color:var(--fg);font-size:.88rem;overflow-wrap:anywhere}
-.rv .adm-menu a,.rv .adm-menu button{display:flex;align-items:center;width:100%;min-height:44px;padding:9px 12px;border:0;border-radius:10px;background:none;color:var(--fg);font:600 .94rem var(--font);text-align:left;text-decoration:none;cursor:pointer}
-.rv .adm-menu a:hover,.rv .adm-menu button:hover,.rv .adm-menu a:focus-visible,.rv .adm-menu button:focus-visible{background:var(--tint);color:var(--hero)}
-.rv .adm-menu button:last-child{color:var(--red)}
-.rv .adm-menu button:disabled{opacity:.6;cursor:wait}
-
 /* content */
 .rv .adm-main{flex:1;padding:clamp(16px,3vw,32px);max-width:1200px;width:100%;margin:0 auto}
 .rv .adm-head h1{margin:0 0 4px;font-size:1.65rem;font-weight:800}
@@ -117,7 +102,7 @@
 .rv .adm-skel .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}.rv .adm-skel .box{height:96px}
 @keyframes adm-sh{to{background-position:-200% 0}}
 .rv .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-@media (prefers-reduced-motion:reduce){.rv .adm-skel .bar,.rv .adm-skel .box{animation:none}.rv .adm-progress>i,.rv .adm-side,.rv .adm-caret{transition:none}}
+@media (prefers-reduced-motion:reduce){.rv .adm-skel .bar,.rv .adm-skel .box{animation:none}.rv .adm-progress>i,.rv .adm-side{transition:none}}
 
 /* Tablet and phone: the sidebar becomes a drawer opened from the menu button. */
 @media (max-width:900px){
@@ -130,8 +115,6 @@
 }
 @media (max-width:600px){
   .rv .adm-logo{display:none}
-  .rv .adm-profile-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap} /* still the button's accessible name */
-  .rv .adm-profile-btn{padding-right:10px}
   .rv .adm-head h1{font-size:1.4rem}
   .rv .adm-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
   .rv .adm-grid.two{grid-template-columns:minmax(0,1fr)}

@@ -24,6 +24,8 @@ import AdminLayout from "../src/app/admin/layout";
 import AdminDashboard from "../src/app/admin/dashboard/page";
 import UsersPage from "../src/app/admin/users/page";
 import { ADMIN_NAV, titleFor } from "../src/app/admin/_components/nav";
+import { GET as menuRoute } from "../src/app/api/auth/menu/route";
+import { NextRequest } from "next/server";
 
 const SECRET = "unit-test-secret-unit-test-secret-1234";
 const signIn = (id: string, role = "admin") => { m.cookie = createSessionToken({ id, role }, false, Date.now(), { SESSION_SECRET: SECRET } as never).token; };
@@ -43,7 +45,7 @@ beforeEach(async () => {
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe("admin layout and navigation", () => {
-  it("lists every admin section as a working link, with one profile button instead of an email and a sign-out button", async () => {
+  it("lists every admin section as a working link; the header account menu slot (the avatar) is the only account control: no green Admin button, no email, no sign-out button", async () => {
     signIn(admin.id);
     const h = await html(AdminLayout({ children: <p>PAGE BODY</p> }));
     expect(ADMIN_NAV).toHaveLength(11); // Sector Counts was added
@@ -51,11 +53,10 @@ describe("admin layout and navigation", () => {
     for (const label of ["Overview", "Manage Categories", "Manage Datasets", "Upload Files", "Upload History", "Login Activity", "Reports &amp; Analytics", "User Management", "Settings"]) expect(h).toContain(label);
     expect(h).toContain("RoboValley");
     expect(h).toContain("RoboValley Admin");
-    expect(h).toContain('aria-haspopup="menu"');
-    expect(h).toContain('aria-expanded="false"');
-    expect(h).toContain("Admin</span>"); // the profile button label
-    expect(h).not.toContain("boss@robovalley.com"); // the address is only inside the opened menu
-    expect(h).not.toMatch(/Sign out|Sign Out/); // no standalone sign-out button; it lives in the menu
+    expect(h.match(/data-rv-header-menu=""/g)).toHaveLength(1); // filled by public/rv-header-menu.js after the page loads
+    expect(h).not.toMatch(/adm-profile|adm-avatar|adm-menu|aria-haspopup="menu"/); // the old green "Admin" profile button
+    expect(h).not.toContain("boss@robovalley.com");
+    expect(h).not.toMatch(/Sign out|Sign Out/); // no standalone sign-out button; it lives in the avatar menu
     expect(h).toContain("PAGE BODY");
     expect(h).toContain('aria-current="page"');
   });
@@ -88,6 +89,21 @@ describe("admin layout and navigation", () => {
     expect(h).toContain("Choose a new password");
     expect(h).not.toContain("PAGE BODY");
     expect(h).not.toContain('href="/admin/users"');
+  });
+
+  it("during a forced password change the avatar menu is still there and knows the administrator, so its Sign Out is available", async () => {
+    await testDb().raw.query("update users set must_change_password = true where id = $1", [admin.id]);
+    signIn(admin.id);
+    const h = await html(AdminLayout({ children: <p>PAGE BODY</p> }));
+    expect(h).toContain("Choose a new password");
+    expect(h).toContain("Change your password"); // the top bar title
+    expect(h.match(/data-rv-header-menu=""/g)).toHaveLength(1); // the avatar slot is in the locked top bar
+    expect(h).not.toMatch(/adm-profile|aria-haspopup="menu"/); // and the old green button is not
+    // what the avatar menu asks for, with the same cookie and the real "who is signed in" check: the administrator, so it draws
+    // the admin menu, which always ends with Sign Out (public/rv-header-menu.js; drawn and clicked in header-menu-script.test.tsx)
+    const res = await menuRoute(new NextRequest("http://app.example.test/api/auth/menu", { headers: { host: "app.example.test" } }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ authenticated: true, role: "admin", firstName: "The" });
   });
 });
 

@@ -22,7 +22,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const admin = await requireAdminPage();
   return (
     <div className={`rv ${display.variable} ${body.variable}`}>
-      <AdminShell email={admin.email} landingUrl={siteUrl()} locked={admin.mustChangePassword}>
+      <AdminShell landingUrl={siteUrl()} locked={admin.mustChangePassword}>
         {admin.mustChangePassword ? <ChangePasswordForm /> : children}
       </AdminShell>
     </div>

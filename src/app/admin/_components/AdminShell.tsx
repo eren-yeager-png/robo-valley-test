@@ -4,11 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ADMIN_NAV, titleFor } from "./nav";
-import ProfileMenu from "./ProfileMenu";
 import HeaderMenuSlot from "../../_components/HeaderMenuSlot";
 
-/** Sidebar (a slide-in drawer on small screens) + top bar. `locked` hides the navigation until the password is changed. */
-export default function AdminShell({ email, landingUrl, locked, children }: { email: string; landingUrl: string; locked: boolean; children: React.ReactNode }) {
+/**
+ * Sidebar (a slide-in drawer on small screens) + top bar. `locked` hides the navigation until the password is changed.
+ * The only account control is the shared header account menu (the avatar, public/rv-header-menu.js), with Sign Out at the end.
+ * It stays in the top bar while a password change is forced, so Sign Out is always there.
+ */
+export default function AdminShell({ landingUrl, locked, children }: { landingUrl: string; locked: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   // Close the drawer when the page changes. (Adjusting state while rendering, not in an effect: same result without an extra render pass.)
@@ -47,7 +50,6 @@ export default function AdminShell({ email, landingUrl, locked, children }: { em
           <span className="adm-logo">RoboValley Admin</span>
           <h2 className="adm-title">{locked ? "Change your password" : titleFor(pathname)}</h2>
           <HeaderMenuSlot site={landingUrl} />
-          <ProfileMenu email={email} landingUrl={landingUrl} />
         </header>
         <main className="adm-main">{children}</main>
       </div>
