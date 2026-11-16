@@ -115,17 +115,20 @@ describe("the owner's form: limits and messages", () => {
     const panel = addLink("Website", "ftp://nope", "Club page");
     await submit(); expect((panel.querySelector("[name=referenceUrl]") as HTMLInputElement).validationMessage).toBe("Enter a link beginning with https:// or http://.");
     (panel.querySelector("[name=referenceUrl]") as HTMLInputElement).value = "https://example.org/club"; await submit();
-    expect(q<HTMLInputElement>("#sector-choices input").validationMessage).toBe("Choose at least one sector.");
+    expect(q<HTMLInputElement>("#sector-search").validationMessage).toBe("Choose at least one sector.");
+    expect(q("#sector-panel").hidden).toBe(false); // the list opens so the message is next to the sectors
     q<HTMLInputElement>('#sector-choices input[value="education"]').checked = true;
     (panel.querySelector("[name=remarks]") as HTMLTextAreaElement).value = "x".repeat(1990); await submit();
     expect(field("description").validationMessage).toMatch(/too long together \(2000 characters at most\)/);
     expect(calls.filter((c) => c.method !== "GET")).toEqual([]);
   });
-  it("contact details: a name and an email or phone are needed once anything is typed; sharing is off by default", async () => {
-    await run(routes()); fillValid();
-    expect(field("shareWithModerators").checked).toBe(false);
-    field("contactEmail").value = "a@example.invalid"; await submit(); expect(field("contactName").validationMessage).toBe("Tell us who to contact.");
-    field("contactEmail").value = ""; field("contactName").value = "Asha Rao"; await submit(); expect(field("contactEmail").validationMessage).toBe("Give an email address or a mobile number.");
+  it("contact (0.1.7): no name, email or mobile fields and no 'Only you can see these' text; one box, unticked by default", async () => {
+    await run(routes());
+    for (const n of ["contactName", "contactEmail", "contactPhone", "shareWithModerators"]) expect(field(n), n).toBeUndefined();
+    expect(MARKUP).not.toContain("Only you can see these"); expect(MARKUP).not.toContain("Optional, private");
+    expect(field("shareContact").type).toBe("checkbox");
+    expect(field("shareContact").checked).toBe(false);
+    expect(field("shareContact").parentElement!.textContent).toBe("Let moderators contact me using my profile details");
   });
 });
 
@@ -143,25 +146,23 @@ describe("photos: up to 3, JPG or PNG from the bytes, 4 MB, described", () => {
 });
 
 describe("sending: pending only, through the app", () => {
-  it("creates the draft, uploads the photo, saves the contact, submits; the categories and links are folded into the description; then thanks and refreshes", async () => {
+  it("creates the draft (with the contact box), uploads the photo, submits; the categories and links are folded into the description; then thanks and refreshes", async () => {
     await run(routes((c) => c.method === "POST" && c.path === "/api/contributions" ? reply({ success: true, id: 42, status: "draft" }, 201)
       : c.path === "/api/contributions/42/photos" ? reply({ success: true, photo: { id: 1 } }, 201)
-      : c.path === "/api/contributions/42/contact" ? reply({ success: true })
       : c.path === "/api/contributions/42/submit" ? reply({ success: true, id: 42, status: "pending_review" }) : undefined));
     fillValid();
     const panel = addLink("Website", "https://example.org/club", "Club page with photos");
     (panel.querySelector("[name=remarks]") as HTMLTextAreaElement).value = "Runs on\nSaturdays";
     await choosePhoto(PNG, "club.png");
     (document.querySelector("#photos [name=photoAlt]") as HTMLInputElement).value = "Students building a robot";
-    field("contactName").value = "Asha Rao"; field("contactEmail").value = "asha@example.invalid"; field("shareWithModerators").checked = true;
+    field("shareContact").checked = true;
     await submit();
     expect(calls.filter((c) => c.method !== "GET").map((c) => `${c.method} ${c.path}`)).toEqual([
-      "POST /api/contributions", "POST /api/contributions/42/photos", "PUT /api/contributions/42/contact", "POST /api/contributions/42/submit"]);
+      "POST /api/contributions", "POST /api/contributions/42/photos", "POST /api/contributions/42/submit"]); // no contact call any more
     const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions")!.body;
-    expect(create).toMatchObject({ type: "resource", sectors: ["education"], title: "Weekend robotics club", role: "Teacher / lab in-charge", district: "", website: "" });
+    expect(create).toMatchObject({ type: "resource", sectors: ["education"], title: "Weekend robotics club", role: "Teacher / lab in-charge", district: "", website: "", shareContact: true });
     expect(create.description).toBe("A free weekend club where students build simple robots.\n\nDirectory categories: Projects\n[Projects] Remarks: Runs on Saturdays\n[Projects] Link 1 (Website): https://example.org/club - Club page with photos");
     expect(calls.find((c) => c.path.endsWith("/photos"))!.body.alt).toBe("Students building a robot");
-    expect(calls.find((c) => c.path.endsWith("/contact"))!.body).toEqual({ name: "Asha Rao", email: "asha@example.invalid", phone: "", shareWithModerators: true });
     expect(q("#message").textContent).toMatch(/sent for review\. It stays pending and is not public until it is approved/);
     expect(field("title").value).toBe(""); expect(q("#photo-count").textContent).toBe("0 of 3 photos");
     expect(calls.filter((c) => c.path === "/api/contributions/mine").length).toBe(2); // refreshed after sending
@@ -232,8 +233,8 @@ describe("?sector= preselects sectors (the Contribute to this sector link)", () 
     const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions");
     expect(create?.body.sectors).toEqual(["education"]);
   });
-  it("the plugin version moved to 0.1.6 so browsers fetch the new script", () => {
-    expect(PHP).toMatch(/Version: 0\.1\.6/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.6'/);
+  it("the plugin version moved to 0.1.7 so browsers fetch the new script", () => {
+    expect(PHP).toMatch(/Version: 0\.1\.7/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.7'/);
   });
 });
 
@@ -307,9 +308,9 @@ describe("Contribute to this sector (0.1.2, static; run on a local WordPress too
 
 describe("members contribute, administrators review (0.1.4)", () => {
   const sha = (t: string) => createHash("sha256").update(t).digest("hex");
-  it("the member form's markup and styles are byte-for-byte the 0.1.3 files (only the script changed)", () => {
-    expect(sha(MARKUP)).toBe("26285aea36f400c70864cad144f67d0b2fdc9b1f1b7b93a33b73ece69cc2d046");
-    expect(sha(CSS)).toBe("1b897db635e89d8f004b6fd5c4bb5e466860aedda0e857a9cc133a3b996af11a");
+  it("the member form's markup and styles are pinned (0.1.7: only the sector list and the contact section changed, as asked)", () => {
+    expect(sha(MARKUP.replace(/\r\n/g, "\n"))).toBe("26844a10ae66230ee07687fa71e6a46010e9e04282f5310ea00d6f339b76dd70");
+    expect(sha(CSS.replace(/\r\n/g, "\n"))).toBe("c1f11db64b408f6755b49c2392c5cd625654592eaa1442e786b0ac396306c0bd");
   });
   it("WordPress administrators get a note with a Moderation link instead of the form, and no form script (static; also run in PHP)", () => {
     expect(PHP).toContain("function rv_c2_is_wp_admin() {\n\treturn function_exists( 'current_user_can' ) && current_user_can( 'manage_options' );");
@@ -377,7 +378,8 @@ describe("structured categories and Edit after changes are requested (0.1.5)", (
       { category: "Events", remarks: "", links: [] },
     ],
     sectors: ["education"], photos: [{ id: 901, position: 1, alt: "The milking unit", mime: "image/png" }],
-    contact: { name: "Asha", email: "asha@example.com", phone: null, shareWithModerators: true },
+    contact: { name: "Asha", email: "asha@example.com", phone: null, shareWithModerators: true, source: "form" }, // typed into an older form: kept, not shown
+    shareContact: true,
   } };
   const WITH_CHANGES = { ...MINE, items: [...MINE.items, { id: 55, title: "Solar milking robot", status: "changes_requested", statusLabel: "Changes requested", sectors: [], note: "Please add the district.", replies: [] }] };
   const editRoutes = (extra: (c: Call) => Response | undefined = () => undefined) => routes((c) => extra(c) ?? (c.path === "/api/contributions/mine" ? reply(WITH_CHANGES) : c.path === "/api/contributions/55" && c.method === "GET" ? reply(SAVED) : undefined));
@@ -406,7 +408,7 @@ describe("structured categories and Edit after changes are requested (0.1.5)", (
     expect(rows.map((r) => !!r.querySelector("button.rv-c2-edit"))).toEqual([false, false, false, true]);
     expect(rows[3]!.querySelector("button")!.getAttribute("aria-label")).toBe("Edit: Solar milking robot");
   });
-  it("Edit fills the same form: title, your words, categories with remarks and links, sectors, the saved photo and the private contact", async () => {
+  it("Edit fills the same form: title, your words, categories with remarks and links, sectors (in the list), the saved photo and the contact box", async () => {
     await openEdit();
     expect(calls.some((c) => c.path === "/api/contributions/55" && c.method === "GET")).toBe(true);
     expect(field("title").value).toBe("Solar milking robot");
@@ -426,8 +428,9 @@ describe("structured categories and Edit after changes are requested (0.1.5)", (
     expect((photo.querySelector("input") as HTMLInputElement).value).toBe("The milking unit");
     expect((photo.querySelector("input") as HTMLInputElement).readOnly).toBe(true);
     expect(q("#photo-count").textContent).toBe("1 of 3 photos");
-    expect(field("contactName").value).toBe("Asha"); expect(field("contactEmail").value).toBe("asha@example.com");
-    expect(field("shareWithModerators").checked).toBe(true);
+    expect(field("shareContact").checked).toBe(true);
+    expect(q("#sector-picker").hidden).toBe(false); expect(q("#sector-fixed").hidden).toBe(true);
+    expect(q("#sector-chips").textContent).toBe("Education×");
     expect(q("#rv-c2-editing").textContent).toContain("Editing “Solar milking robot”: make the changes the moderator asked for");
   });
   it("Submit for Review saves the change (PATCH with the structured data), removes a photo you took out, and sends it again", async () => {
@@ -442,7 +445,8 @@ describe("structured categories and Edit after changes are requested (0.1.5)", (
     expect(patch.body.directory.map((d: any) => d.category)).toEqual(["Projects", "Events"]);
     expect(patch.body.description.startsWith("A student team built a small solar milking unit.\n\nDirectory categories: Projects, Events")).toBe(true);
     const after = calls.slice(calls.indexOf(patch) + 1).map((c) => `${c.method} ${c.path}`);
-    expect(after).toEqual(["DELETE /api/contributions/55/photos?photoId=901", "PUT /api/contributions/55/contact", "POST /api/contributions/55/submit", "GET /api/contributions/mine"]);
+    expect(after).toEqual(["DELETE /api/contributions/55/photos?photoId=901", "POST /api/contributions/55/submit", "GET /api/contributions/mine"]);
+    expect(patch.body.shareContact).toBe(true);
     expect(calls.some((c) => c.method === "POST" && c.path === "/api/contributions")).toBe(false); // no new contribution
     expect(document.querySelector("#rv-c2-editing")).toBeNull();
     expect(q("#message").textContent).toContain("sent for review");
@@ -506,5 +510,99 @@ describe("no Sign Out on the Contribute page (0.1.6)", () => {
     expect(ACCOUNT_JS).toContain("b.textContent = 'Sign out';");
     expect(ACCOUNT_JS).toMatch(/any other signed-in user[^\n]*then "Sign out"/);
     expect(ACCOUNT_JS).not.toMatch(/contribute/i); // the header does not treat the Contribute page differently
+  });
+});
+
+describe("sectors: a searchable list, and the sector already set from a sector page (0.1.7)", () => {
+  const SIX = { success: true, sectors: [["agriculture-dairy", "Agriculture & Dairy"], ["education", "Education"], ["healthcare", "Healthcare"], ["manufacturing", "Manufacturing"], ["logistics", "Logistics"], ["energy", "Energy"]].map(([slug, name]) => ({ slug, name })) };
+  const many = (n: number) => ({ success: true, sectors: Array.from({ length: n }, (_, i) => ({ slug: `sector-${i + 1}`, name: `Sector ${i + 1}` })) });
+  const at = async (search: string, sectors: unknown = SIX, extra: (c: Call) => Response | undefined = () => undefined, status = 200) => {
+    history.replaceState(null, "", "/contribute-now/" + search);
+    await run(routes((c) => extra(c) ?? (c.path === "/api/contributions/sectors" ? reply(sectors, status) : undefined)));
+  };
+  afterEach(() => history.replaceState(null, "", "/"));
+  const box = (slug: string) => q<HTMLInputElement>(`#sector-choices input[value="${slug}"]`);
+  const tick = (slug: string) => { box(slug).checked = true; box(slug).dispatchEvent(new Event("change")); };
+  const visible = () => Array.from(document.querySelectorAll<HTMLLabelElement>("#sector-choices label")).filter((l) => !l.hidden).map((l) => l.textContent);
+
+  it("opened directly: the list (a button that opens it), nothing chosen, no fixed line", async () => {
+    await at("");
+    expect(q("#sector-fixed").hidden).toBe(true); expect(q("#sector-picker").hidden).toBe(false);
+    const toggle = q<HTMLButtonElement>("#sector-toggle");
+    expect(toggle.textContent).toBe("Choose sectors"); expect(toggle.disabled).toBe(false); expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(q("#sector-panel").hidden).toBe(true);
+    toggle.click();
+    expect(q("#sector-panel").hidden).toBe(false); expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(q("#sector-search"));
+    expect(visible().length).toBe(6);
+  });
+  it("typing filters the list; no match says so; Enter in the search box never sends the form; Escape closes the list", async () => {
+    await at("");
+    q<HTMLButtonElement>("#sector-toggle").click();
+    const search = q<HTMLInputElement>("#sector-search");
+    search.value = "edu"; search.dispatchEvent(new Event("input"));
+    expect(visible()).toEqual(["Education"]);
+    search.value = "zzz"; search.dispatchEvent(new Event("input"));
+    expect(visible()).toEqual([]); expect(q("#sector-none").hidden).toBe(false);
+    const enter = new KeyboardEvent("keydown", { key: "Enter", cancelable: true }); search.dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(true);
+    search.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(q("#sector-panel").hidden).toBe(true); expect(document.activeElement).toBe(q("#sector-toggle"));
+  });
+  it("chosen sectors show as chips that can be removed; the button counts them", async () => {
+    await at("");
+    tick("education"); tick("energy");
+    expect(q("#sector-toggle").textContent).toBe("2 sectors chosen");
+    const chips = Array.from(document.querySelectorAll("#sector-chips .chip"));
+    expect(chips.map((c) => c.firstChild!.textContent)).toEqual(["Education", "Energy"]);
+    expect(chips[0]!.querySelector("button")!.getAttribute("aria-label")).toBe("Remove Education");
+    (chips[0]!.querySelector("button") as HTMLButtonElement).click();
+    expect(box("education").checked).toBe(false); expect(q("#sector-toggle").textContent).toBe("1 sector chosen");
+  });
+  it("at most 20: after the 20th the other sectors cannot be ticked; at least 1 is still required", async () => {
+    await at("", many(22));
+    for (let i = 1; i <= 20; i++) tick(`sector-${i}`);
+    expect(box("sector-21").disabled).toBe(true); expect(box("sector-1").disabled).toBe(false);
+    (document.querySelector("#sector-chips .chip button") as HTMLButtonElement).click();
+    expect(box("sector-21").disabled).toBe(false);
+  });
+  it("from a sector page (?sector=agriculture-dairy): already chosen, shown as 'Sector · Agriculture & Dairy' with Change, and no list", async () => {
+    await at("?sector=agriculture-dairy");
+    expect(q("#sector-fixed").hidden).toBe(false);
+    expect(q("#sector-fixed").textContent).toBe("Sector · Agriculture & Dairy Change");
+    expect(q("#sector-picker").hidden).toBe(true);
+    expect(box("agriculture-dairy").checked).toBe(true);
+    expect(q("#sector-fixed").className).toBe(q("#stakeholder").parentElement!.className); // the same look as the stakeholder line
+  });
+  it("Change brings the list back with the sector still chosen", async () => {
+    await at("?sector=agriculture-dairy");
+    q<HTMLButtonElement>("#sector-change").click();
+    expect(q("#sector-fixed").hidden).toBe(true); expect(q("#sector-picker").hidden).toBe(false);
+    expect(q("#sector-panel").hidden).toBe(false);
+    expect(box("agriculture-dairy").checked).toBe(true);
+    tick("education");
+    expect(q("#sector-toggle").textContent).toBe("2 sectors chosen");
+  });
+  it("a slug that is not a sector falls back to the normal list with nothing chosen", async () => {
+    await at("?sector=not-a-sector");
+    expect(q("#sector-fixed").hidden).toBe(true); expect(q("#sector-picker").hidden).toBe(false);
+    expect(Array.from(document.querySelectorAll<HTMLInputElement>("#sector-choices input")).some((i) => i.checked)).toBe(false);
+  });
+  it("the preset sector is sent; after sending, the page is ready again for the same sector", async () => {
+    await at("?sector=agriculture-dairy", SIX, (c) => c.method === "POST" && c.path === "/api/contributions" ? reply({ success: true, id: 42, status: "draft" }, 201) : c.path === "/api/contributions/42/submit" ? reply({ success: true, id: 42, status: "pending_review" }) : undefined);
+    field("title").value = "Weekend robotics club"; field("description").value = "A free weekend club where students build simple robots.";
+    const p = q<HTMLInputElement>('#choices input[value="Projects"]'); p.checked = true; p.dispatchEvent(new Event("change"));
+    await submit();
+    expect(calls.find((c) => c.method === "POST" && c.path === "/api/contributions")!.body.sectors).toEqual(["agriculture-dairy"]);
+    expect(q("#message").textContent).toContain("sent for review");
+    expect(q("#sector-fixed").hidden).toBe(false); expect(box("agriculture-dairy").checked).toBe(true);
+  });
+  it("an answer with no sectors says none are set up; no answer says they could not be loaded (both keep the list closed)", async () => {
+    await at("", { success: true, sectors: [] });
+    expect(q("#sector-status").textContent).toBe("No sectors are set up yet. Please try again later.");
+    expect(q<HTMLButtonElement>("#sector-toggle").disabled).toBe(true);
+    await at("", { success: false, error: "NOT_SET_UP" }, undefined, 503);
+    expect(q<HTMLButtonElement>("#sector-toggle").disabled).toBe(true);
+    expect(q("#sector-status").textContent).toBe("Sectors could not be loaded. Please reload the page.");
   });
 });

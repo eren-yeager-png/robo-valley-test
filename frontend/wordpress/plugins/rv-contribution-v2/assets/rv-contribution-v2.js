@@ -12,11 +12,14 @@
 	function $( s ) { return root.querySelector( s ); }
 	var form = $( '#contribute' ), details = $( '#category-details' ), historyList = $( '#history' ), message = $( '#message' );
 	var guest = $( '#guest' ), memberArea = $( '#member-area' ), sectorBox = $( '#sector-choices' ), photoBox = $( '#photos' ), photoFile = $( '#photo-file' );
+	// 0.1.7: the sector picker, and the "Sector · <name>" line shown when the page was opened from a sector's "Contribute to this sector"
+	var sectorField = $( '#sector-field' ), sectorPicker = $( '#sector-picker' ), sectorFixed = $( '#sector-fixed' ), sectorToggle = $( '#sector-toggle' );
+	var sectorPanel = $( '#sector-panel' ), sectorSearch = $( '#sector-search' ), sectorChips = $( '#sector-chips' ), sectorStatus = $( '#sector-status' ), sectorNone = $( '#sector-none' );
 	var choices = Array.prototype.slice.call( root.querySelectorAll( '#choices input' ) );
 	// The limits: the owner's form is stricter for title and description (120 and 1,200); the server's minimums are 5 and 10.
 	var L = { titleMin: 5, titleMax: 120, descMin: 10, descMax: 1200, folded: 2000, sectorsMax: 20, photosMax: 3, photoBytes: 4 * 1024 * 1024, altMax: 200, maxLinks: 5 };
 	var TYPE = 'resource'; // the form has no type field; contributions are sent as "Share a video or resource"
-	var me = null, draftId = null, busy = false, contactSaved = false, photos = [];
+	var me = null, draftId = null, busy = false, photos = [];
 	var removedPhotos = [], wantSectors = null; // 0.1.5 Edit: saved photos the member removed; the saved sectors to tick once the list is loaded
 	var signOutHere = root.getAttribute( 'data-sign-out' ) !== 'no'; // 0.1.6: the Contribute page has no Sign Out (the header menu has it)
 
@@ -119,18 +122,22 @@
 		call( 'GET', '/api/contributions/sectors' ).then( function ( r ) {
 			var list = r.ok && Array.isArray( r.body.sectors ) ? r.body.sectors : [];
 			sectorBox.textContent = '';
-			if ( ! list.length ) {
-				var s = document.createElement( 'small' );
-				s.textContent = 'Sectors could not be loaded. Please reload the page.';
-				sectorBox.appendChild( s );
+			if ( ! list.length ) { // an answer with no sectors is not the same as no answer
+				sectorStatus.textContent = r.ok ? 'No sectors are set up yet. Please try again later.' : 'Sectors could not be loaded. Please reload the page.';
+				sectorStatus.hidden = false;
+				sectorToggle.disabled = true;
 				return;
 			}
 			sectorBox.setAttribute( 'data-loaded', '1' );
+			sectorStatus.hidden = true;
+			sectorToggle.disabled = false;
 			list.forEach( function ( sec ) {
 				var label = document.createElement( 'label' ), input = document.createElement( 'input' );
 				input.type = 'checkbox';
 				input.name = 'sector';
 				input.value = sec.slug;
+				input.setAttribute( 'data-name', sec.name );
+				input.addEventListener( 'change', sectorsChanged );
 				label.appendChild( input );
 				label.appendChild( document.createTextNode( sec.name ) );
 				sectorBox.appendChild( label );
@@ -139,22 +146,103 @@
 			if ( wantSectors ) {
 				tickSectors( wantSectors );
 			}
+			sectorsChanged();
 		} );
 	}
-	/* "Contribute to this sector" links add ?sector=slug (or slug,slug): tick only sectors that really exist in the list, nothing else is read from the address */
+	/* The picker: a button opens a searchable list; the chosen sectors show as chips with a remove button; at 20 the rest are disabled */
+	function openPanel( open ) {
+		sectorPanel.hidden = ! open;
+		sectorToggle.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+		if ( open ) {
+			sectorSearch.focus();
+		}
+	}
+	function showPicker() {
+		sectorFixed.hidden = true;
+		sectorPicker.hidden = false;
+	}
+	function sectorBoxes() {
+		return Array.prototype.slice.call( sectorBox.querySelectorAll( 'input[name="sector"]' ) );
+	}
+	function sectorsChanged() {
+		var boxes = sectorBoxes(), on = boxes.filter( function ( b ) { return b.checked; } );
+		sectorChips.textContent = '';
+		on.forEach( function ( b ) {
+			var chip = document.createElement( 'span' ), x = document.createElement( 'button' ), name = b.getAttribute( 'data-name' ) || b.value;
+			chip.className = 'chip';
+			chip.appendChild( document.createTextNode( name ) );
+			x.type = 'button';
+			x.className = 'chip-x';
+			x.textContent = '×';
+			x.setAttribute( 'aria-label', 'Remove ' + name );
+			x.addEventListener( 'click', function () {
+				b.checked = false;
+				sectorsChanged();
+				sectorToggle.focus();
+			} );
+			chip.appendChild( x );
+			sectorChips.appendChild( chip );
+		} );
+		sectorToggle.textContent = on.length ? on.length + ( on.length === 1 ? ' sector chosen' : ' sectors chosen' ) : 'Choose sectors';
+		boxes.forEach( function ( b ) { b.disabled = ! b.checked && on.length >= L.sectorsMax; } );
+		sectorSearch.setCustomValidity( '' );
+	}
+	function filterSectors() {
+		var t = sectorSearch.value.trim().toLowerCase(), shown = 0;
+		Array.prototype.forEach.call( sectorBox.querySelectorAll( 'label' ), function ( l ) {
+			var hit = ! t || l.textContent.toLowerCase().indexOf( t ) >= 0;
+			l.hidden = ! hit;
+			shown += hit ? 1 : 0;
+		} );
+		sectorNone.hidden = shown > 0;
+		sectorSearch.setCustomValidity( '' );
+	}
+	sectorToggle.addEventListener( 'click', function () { openPanel( sectorPanel.hidden ); } );
+	sectorSearch.addEventListener( 'input', filterSectors );
+	sectorSearch.addEventListener( 'keydown', function ( e ) {
+		if ( e.key === 'Enter' ) {
+			e.preventDefault(); // Enter in the search box never sends the form
+		} else if ( e.key === 'Escape' ) {
+			openPanel( false );
+			sectorToggle.focus();
+		}
+	} );
+	document.addEventListener( 'click', function ( e ) {
+		if ( ! sectorPanel.hidden && document.contains( e.target ) && ! sectorField.contains( e.target ) ) { // a click outside closes the list (a removed chip is not outside)
+			openPanel( false );
+		}
+	} );
+	$( '#sector-change' ).addEventListener( 'click', function () {
+		showPicker();
+		openPanel( true );
+	} );
+	function sectorInvalid( text ) {
+		showPicker();
+		openPanel( true );
+		return invalid( sectorSearch, text );
+	}
+	/* "Contribute to this sector" links add ?sector=slug (or slug,slug): tick only sectors that really exist in the app's list (the app
+	   checks them again when the contribution is saved). Then the picker is replaced by one read-only line, "Sector · <name>", with a
+	   Change link that brings the picker back. A value that matches no sector leaves the normal picker with nothing chosen. */
 	function preselectSectors() {
-		var m = /[?&]sector=([a-z0-9,-]{1,700})(?:&|$)/.exec( location.search );
-		if ( ! m ) {
+		var m = /[?&]sector=([a-z0-9,-]{1,700})(?:&|$)/.exec( location.search ), ticked = [];
+		if ( m ) {
+			m[ 1 ].split( ',' ).slice( 0, 20 ).forEach( function ( slug ) {
+				sectorBoxes().forEach( function ( b ) {
+					if ( b.value === slug && ! b.checked ) {
+						b.checked = true;
+						ticked.push( b );
+					}
+				} );
+			} );
+		}
+		if ( ! ticked.length ) {
+			showPicker();
 			return;
 		}
-		m[ 1 ].split( ',' ).slice( 0, 20 ).forEach( function ( slug ) {
-			var boxes = sectorBox.querySelectorAll( 'input[name="sector"]' ), i;
-			for ( i = 0; i < boxes.length; i++ ) {
-				if ( boxes[ i ].value === slug ) {
-					boxes[ i ].checked = true;
-				}
-			}
-		} );
+		$( '#sector-fixed-names' ).textContent = ticked.map( function ( b ) { return b.getAttribute( 'data-name' ) || b.value; } ).join( ', ' );
+		sectorFixed.hidden = false;
+		sectorPicker.hidden = true;
 	}
 
 	/* ---------- My Contributions (from the app) ---------- */
@@ -324,9 +412,6 @@
 			};
 		} );
 	}
-	function contactFilled() {
-		return !! ( form.elements.contactName.value.trim() || form.elements.contactEmail.value.trim() || form.elements.contactPhone.value.trim() );
-	}
 	function check() {
 		var title = form.elements.title, desc = form.elements.description;
 		if ( title.value.trim().length < L.titleMin ) {
@@ -353,12 +438,12 @@
 				return invalid( gist, 'Please complete this field.' );
 			}
 		}
-		var sectors = selectedSectors(), firstSector = root.querySelector( '#sector-choices input' );
+		var sectors = selectedSectors();
 		if ( ! sectors.length ) {
-			return firstSector ? invalid( firstSector, 'Choose at least one sector.' ) : ( say( 'Sectors could not be loaded. Please reload the page.' ), false );
+			return sectorBox.getAttribute( 'data-loaded' ) ? sectorInvalid( 'Choose at least one sector.' ) : ( say( sectorStatus.textContent || 'Sectors could not be loaded. Please reload the page.' ), false );
 		}
 		if ( sectors.length > L.sectorsMax ) {
-			return invalid( firstSector, 'Too many sectors chosen.' );
+			return sectorInvalid( 'Too many sectors chosen (20 at most).' );
 		}
 		for ( var p = 0; p < photos.length; p++ ) {
 			if ( ! photos[ p ].alt.value.trim() ) {
@@ -368,17 +453,9 @@
 		if ( folded( selected ).length > L.folded ) {
 			return invalid( desc, 'Your description, remarks and links are too long together (2000 characters at most). Please shorten them.' );
 		}
-		if ( contactFilled() ) {
-			if ( ! form.elements.contactName.value.trim() ) {
-				return invalid( form.elements.contactName, 'Tell us who to contact.' );
-			}
-			if ( ! form.elements.contactEmail.value.trim() && ! form.elements.contactPhone.value.trim() ) {
-				return invalid( form.elements.contactEmail, 'Give an email address or a mobile number.' );
-			}
-		}
 		return selected;
 	}
-	var FIELD = { title: 'title', description: 'description', name: 'contactName', email: 'contactEmail', phone: 'contactPhone' };
+	var FIELD = { title: 'title', description: 'description' };
 	function fail( res ) {
 		busy = false;
 		form.querySelector( 'button[type=submit]' ).disabled = false;
@@ -395,7 +472,9 @@
 			if ( FIELD[ k ] ) {
 				el = form.elements[ FIELD[ k ] ];
 			} else if ( k === 'sectors' ) {
-				el = root.querySelector( '#sector-choices input' );
+				showPicker();
+				openPanel( true );
+				el = sectorSearch;
 			} else if ( k === 'alt' || k === 'photo' ) {
 				el = photoFile;
 			}
@@ -425,7 +504,7 @@
 		}
 		busy = true;
 		form.querySelector( 'button[type=submit]' ).disabled = true;
-		var payload = { type: TYPE, sectors: selectedSectors(), title: form.elements.title.value.trim(), description: folded( selected ), directory: directoryOf( selected ), robotType: '', role: me.stakeholder || '', district: '', website: form.elements.website.value };
+		var payload = { type: TYPE, sectors: selectedSectors(), title: form.elements.title.value.trim(), description: folded( selected ), directory: directoryOf( selected ), shareContact: !! form.elements.shareContact.checked, robotType: '', role: me.stakeholder || '', district: '', website: form.elements.website.value };
 		var first = draftId === null ? call( 'POST', '/api/contributions', payload ) : call( 'PATCH', '/api/contributions/' + draftId, payload );
 		first.then( function ( r ) {
 			if ( ! r.ok ) {
@@ -455,7 +534,7 @@
 			i++;
 		}
 		if ( i >= photos.length ) {
-			return sendContact();
+			return submitIt();
 		}
 		var data = new FormData();
 		data.append( 'photo', photos[ i ].file );
@@ -469,23 +548,11 @@
 			return sendPhotos( i + 1 );
 		} );
 	}
-	function sendContact() {
-		var p;
-		if ( contactFilled() ) {
-			p = call( 'PUT', '/api/contributions/' + draftId + '/contact', { name: oneLine( form.elements.contactName.value ), email: form.elements.contactEmail.value.trim(), phone: form.elements.contactPhone.value.trim(), shareWithModerators: !! form.elements.shareWithModerators.checked } );
-		} else if ( contactSaved ) {
-			p = call( 'DELETE', '/api/contributions/' + draftId + '/contact' ).then( function () { return { ok: true }; } );
-		} else {
-			p = Promise.resolve( { ok: true } );
-		}
-		return p.then( function ( r ) {
-			if ( ! r.ok ) {
-				return fail( r );
-			}
-			contactSaved = contactFilled();
-			return call( 'POST', '/api/contributions/' + draftId + '/submit' ).then( function ( s ) {
-				return s.ok ? done() : fail( s );
-			} );
+	/* 0.1.7: no contact details are sent any more (the box "Let moderators contact me using my profile details" travels with the
+	   contribution itself); details saved by an older form stay as they were */
+	function submitIt() {
+		return call( 'POST', '/api/contributions/' + draftId + '/submit' ).then( function ( s ) {
+			return s.ok ? done() : fail( s );
 		} );
 	}
 	function done() {
@@ -497,7 +564,6 @@
 	function resetContribution() {
 		form.reset();
 		draftId = null;
-		contactSaved = false;
 		form.querySelector( 'button[type=submit]' ).disabled = false;
 		Array.prototype.forEach.call( form.elements, function ( field ) { if ( field.setCustomValidity ) { field.setCustomValidity( '' ); } } );
 		panels.forEach( function ( p ) {
@@ -510,6 +576,12 @@
 		photoCount();
 		removedPhotos = [];
 		wantSectors = null;
+		openPanel( false );
+		filterSectors();
+		if ( sectorBox.getAttribute( 'data-loaded' ) ) {
+			preselectSectors(); // back to the sector the page was opened for, if any
+		}
+		sectorsChanged();
 		var editing = root.querySelector( '#rv-c2-editing' );
 		if ( editing ) {
 			editing.parentNode.removeChild( editing );
@@ -525,6 +597,8 @@
 		}
 		Array.prototype.forEach.call( boxes, function ( b ) { b.checked = slugs.indexOf( b.value ) >= 0; } );
 		wantSectors = null;
+		showPicker(); // Edit shows the saved sectors in the picker, never the fixed line
+		sectorsChanged();
 	}
 	function addSavedPhoto( p ) {
 		var row = root.querySelector( '#photo-template' ).content.firstElementChild.cloneNode( true );
@@ -576,13 +650,7 @@
 			tickSectors( Array.isArray( c.sectors ) ? c.sectors : [] );
 			( Array.isArray( c.photos ) ? c.photos : [] ).slice( 0, L.photosMax ).forEach( addSavedPhoto );
 			photoCount();
-			if ( c.contact ) {
-				form.elements.contactName.value = c.contact.name || '';
-				form.elements.contactEmail.value = c.contact.email || '';
-				form.elements.contactPhone.value = c.contact.phone || '';
-				form.elements.shareWithModerators.checked = !! c.contact.shareWithModerators;
-				contactSaved = true;
-			}
+			form.elements.shareContact.checked = c.shareContact === true;
 			var note = document.createElement( 'p' ), cancel = document.createElement( 'button' );
 			note.className = 'notice';
 			note.id = 'rv-c2-editing';
