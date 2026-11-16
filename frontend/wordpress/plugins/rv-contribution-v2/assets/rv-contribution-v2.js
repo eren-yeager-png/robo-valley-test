@@ -18,6 +18,7 @@
 	var TYPE = 'resource'; // the form has no type field; contributions are sent as "Share a video or resource"
 	var me = null, draftId = null, busy = false, contactSaved = false, photos = [];
 	var removedPhotos = [], wantSectors = null; // 0.1.5 Edit: saved photos the member removed; the saved sectors to tick once the list is loaded
+	var signOutHere = root.getAttribute( 'data-sign-out' ) !== 'no'; // 0.1.6: the Contribute page has no Sign Out (the header menu has it)
 
 	/* ---------- talking to the app ---------- */
 	function call( method, path, body, isForm ) {
@@ -63,6 +64,10 @@
 		link.textContent = 'Moderation';
 		note.appendChild( link );
 		note.appendChild( document.createTextNode( '. ' ) );
+		if ( ! signOutHere ) {
+			guest.parentNode.insertBefore( note, guest );
+			return;
+		}
 		out.type = 'button';
 		out.textContent = 'Sign Out';
 		out.addEventListener( 'click', function () {
@@ -95,14 +100,16 @@
 	}
 	$( '#sign-in' ).addEventListener( 'click', function () { location.href = api + '/login?returnTo=' + encodeURIComponent( back() ); } );
 	$( '#sign-up' ).addEventListener( 'click', function () { location.href = api + '/join?returnTo=' + encodeURIComponent( back() ); } );
-	$( '#sign-out' ).addEventListener( 'click', function () {
-		call( 'POST', '/api/auth/logout' ).then( function () {
-			resetContribution();
-			say( '' );
-			showGuest();
-			$( '#sign-in' ).focus();
+	if ( $( '#sign-out' ) ) { // not on the Contribute page (0.1.6)
+		$( '#sign-out' ).addEventListener( 'click', function () {
+			call( 'POST', '/api/auth/logout' ).then( function () {
+				resetContribution();
+				say( '' );
+				showGuest();
+				$( '#sign-in' ).focus();
+			} );
 		} );
-	} );
+	}
 
 	/* ---------- sectors (from the app) ---------- */
 	function loadSectors() {
