@@ -107,6 +107,35 @@ const DUPLICATE = () => fail(409, "DUPLICATE", "This looks the same as something
 const SAME_TITLE = () => fail(409, "DUPLICATE", "Something with the same title is already waiting or published in this sector. Please check it, or give yours a clearer title.", { title: "This title is already used in this sector." });
 const titleTaken = (e: unknown) => (e as { code?: string })?.code === "23505" && /contribution_title_keys/.test(String((e as { constraint?: string })?.constraint ?? (e as Error)?.message ?? ""));
 
+/**
+ * Where the contribution was started (migration 022): true only when the form was opened from a sector page ("Contribute to this
+ * sector") and said so with exactly true. Read only when the contribution is created; an edit never changes it.
+ */
+export function readFromSectorPage(raw: unknown): boolean {
+  return typeof raw === "object" && raw !== null && !Array.isArray(raw) && (raw as Record<string, unknown>).fromSectorPage === true;
+}
+/** Marks a just-created contribution as started from a sector page. Before migration 022 the column is missing: nothing is saved. */
+async function saveFromSectorPage(db: Db, id: number, ownerId: number): Promise<void> {
+  await db.query("SAVEPOINT rv_origin");
+  try {
+    await db.query("UPDATE contributions SET from_sector_page = true WHERE id = $1 AND user_id = $2", [id, ownerId]);
+    await db.query("RELEASE SAVEPOINT rv_origin");
+  } catch (e) {
+    await db.query("ROLLBACK TO SAVEPOINT rv_origin");
+    if ((e as { code?: string })?.code !== "42703") throw e;
+  }
+}
+/** For Edit: true when the owner started this contribution from a sector page (false before migration 022). */
+async function fromSectorPageOf(db: Db, id: number, ownerId: number): Promise<boolean> {
+  try {
+    const { rows } = await db.query("SELECT from_sector_page AS f FROM contributions WHERE id = $1 AND user_id = $2", [id, ownerId]);
+    return rows[0]?.f === true;
+  } catch (e) {
+    if ((e as { code?: string })?.code === "42703") return false;
+    throw e;
+  }
+}
+
 const notSet = (e: unknown): Fail | null => ((e as { code?: string })?.code === "42P01" || (e as { code?: string })?.code === "42703" ? fail(503, "NOT_SET_UP", "Contributions are not set up yet.") : null);
 
 /** Creates a draft (id undefined) or saves a change to your own contribution. */
@@ -136,6 +165,7 @@ export async function saveOwn(pool: Pool, ownerId: number, raw: unknown, id?: nu
     if (id === undefined) {
       const ins = await client.query("INSERT INTO contributions (user_id, type, robot_type, title, body) VALUES ($1,$2,$3,$4,$5) RETURNING id", [ownerId, v.type, v.robotType, v.title, v.body]);
       cid = Number(ins.rows[0].id);
+      if (readFromSectorPage(raw)) await saveFromSectorPage(client, cid, ownerId); // once, at creation
     } else {
       const backToReview = status === "pending_review" && cur!.status !== "pending_review";
       await client.query(
@@ -196,11 +226,12 @@ export async function getOwn(db: Db, ownerId: number, id: number): Promise<Ok<{ 
     const photos: PhotoMeta[] = await listPhotoMeta(db, [id]).catch(() => []);
     const contact: Contact | null = await readContact(db, id, ownerId).catch(() => null);
     const shareContact = await shareChoiceOf(db, id, ownerId).catch(() => false);
+    const fromSectorPage = await fromSectorPageOf(db, id, ownerId).catch(() => false);
     const parts = splitBody(c.body);
     // for Edit: the structured categories (or, for an item saved before PR2, the ones in the folded text) and your own words without the fold
     const fold = splitFold(parts.description);
     const directory = (await directoryFor(db, [id])).get(id) ?? fold.entries ?? [];
-    return { ok: true, contribution: { id: Number(c.id), status: c.status, editable: OWNER_RULES[c.status as keyof typeof OWNER_RULES]?.edit !== null, type: c.type, robotType: c.robot_type ?? "", sectors: scopes.rows.map((r) => r.slug), title: c.title, ...parts, description: fold.entries ? fold.text : parts.description, directory, photos: photos.map((p) => ({ id: p.id, position: p.position, alt: p.alt, mime: p.mime })), contact, shareContact } };
+    return { ok: true, contribution: { id: Number(c.id), status: c.status, editable: OWNER_RULES[c.status as keyof typeof OWNER_RULES]?.edit !== null, type: c.type, robotType: c.robot_type ?? "", sectors: scopes.rows.map((r) => r.slug), title: c.title, ...parts, description: fold.entries ? fold.text : parts.description, directory, photos: photos.map((p) => ({ id: p.id, position: p.position, alt: p.alt, mime: p.mime })), contact, shareContact, fromSectorPage } };
   } catch (e) { const s = notSet(e); if (s) return s; throw e; }
 }
 

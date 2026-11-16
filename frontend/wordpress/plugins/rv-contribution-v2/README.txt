@@ -1,4 +1,4 @@
-RoboValley Contribution (v2) - WordPress plugin, version 0.1.8
+RoboValley Contribution (v2) - WordPress plugin, version 0.1.9
 
 WHAT IT IS
 The new Contribute form for the Contribution and Contributor pages. It only shows the form and talks to the RoboValley app.
@@ -97,3 +97,11 @@ NEW IN 0.1.8
   * The sector list (search, up to 20) appears only on the general Contribute page, when no sector was given.
   * Edit (Changes requested) still shows the saved sectors in the list, wherever it is opened, so the member can fix them.
   * Contact box wording unchanged; on the app side administrators now see a shared contact too (app change, not the plugin).
+
+NEW IN 0.1.9
+  * Edit (Changes requested) looks the way the contribution was started, wherever Edit is opened: started from a sector page, its
+    saved sector as fixed text with no list; started from the general Contribute page, the list. A new contribution tells the app
+    where it was started (fromSectorPage) and the app remembers it (app migration 022); an edit never changes it.
+  * Where the origin was never recorded, Edit shows the list: contributions sent before 0.1.9, and every contribution while the
+    app does not have migration 022 yet. A saved sector that is no longer offered also shows the list, so the member can choose again.
+  * The HTML and CSS are unchanged; only the script changed.

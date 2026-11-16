@@ -233,8 +233,8 @@ describe("?sector= preselects sectors (the Contribute to this sector link)", () 
     const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions");
     expect(create?.body.sectors).toEqual(["education"]);
   });
-  it("the plugin version moved to 0.1.8 so browsers fetch the new script", () => {
-    expect(PHP).toMatch(/Version: 0\.1\.8/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.8'/);
+  it("the plugin version moved to 0.1.9 so browsers fetch the new script", () => {
+    expect(PHP).toMatch(/Version: 0\.1\.9/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.9'/);
   });
 });
 
@@ -401,6 +401,7 @@ describe("structured categories and Edit after changes are requested (0.1.5)", (
     expect(create.body.directory).toEqual([{ category: "Projects", remarks: "Open on Saturdays", links: [{ type: "Website", url: "https://example.org/club", gist: "Our club page" }] }]);
     expect(create.body.description).toContain("Directory categories: Projects");
     expect(create.body.description).toContain("[Projects] Link 1 (Website): https://example.org/club - Our club page");
+    expect(create.body.fromSectorPage).toBe(false); // the general Contribute page
   });
   it("Edit appears only for an item with Changes requested", async () => {
     await run(editRoutes());
@@ -451,14 +452,66 @@ describe("structured categories and Edit after changes are requested (0.1.5)", (
     expect(document.querySelector("#rv-c2-editing")).toBeNull();
     expect(q("#message").textContent).toContain("sent for review");
   });
-  it("Edit opened on a sector page still shows the saved sectors in the list (to fix what was asked); Cancel goes back to the fixed sector", async () => {
+  it("Edit of an item started on the general page shows the list, even when Edit is opened on a sector page; Cancel goes back to the page's fixed sector", async () => {
     history.replaceState(null, "", "/contribute-now/?sector=agriculture-dairy");
     try {
-      await openEdit();
+      await openEdit(); // SAVED has no fromSectorPage: started on the general page (or before 0.1.9)
       expect(q("#sector-picker").hidden).toBe(false); expect(q("#sector-fixed").hidden).toBe(true);
       expect(Array.from(document.querySelectorAll<HTMLInputElement>("#sector-choices input")).filter((i) => i.checked).map((i) => i.value)).toEqual(["education"]);
       (Array.from(document.querySelectorAll<HTMLButtonElement>("#rv-c2-editing button")).find((b) => b.textContent === "Cancel editing"))!.click();
       expect(q("#sector-fixed").hidden).toBe(false); expect(q("#sector-fixed").textContent).toBe("Sector · Agriculture & Dairy");
+    } finally { history.replaceState(null, "", "/"); }
+  });
+  const openEditOf = async (contribution: Record<string, unknown>) => {
+    const saved = { success: true, contribution: { ...SAVED.contribution, ...contribution } };
+    await run(routes((c) => (c.path === "/api/contributions/mine" ? reply(WITH_CHANGES) : c.path === "/api/contributions/55" && c.method === "GET" ? reply(saved) : c.method === "PATCH" ? reply({ success: true, id: 55, status: "changes_requested" }) : c.path.startsWith("/api/contributions/55/photos") && c.method === "DELETE" ? reply({ success: true }) : c.path === "/api/contributions/55/submit" ? reply({ success: true, id: 55, status: "pending_review" }) : undefined)));
+    (document.querySelector("#history button.rv-c2-edit") as HTMLButtonElement).click();
+    await flush();
+  };
+  it("Edit of an item started on a sector page: its saved sector as fixed text, no list (opened on the general page); the change keeps that sector", async () => {
+    await openEditOf({ fromSectorPage: true });
+    expect(q("#sector-fixed").hidden).toBe(false); expect(q("#sector-fixed").textContent).toBe("Sector · Education");
+    expect(q("#sector-picker").hidden).toBe(true);
+    expect(q("#sector-fixed").querySelector("button, a")).toBeNull();
+    field("title").value = "Solar milking robot, Guntur";
+    await submit();
+    const patch = calls.find((c) => c.method === "PATCH")!;
+    expect(patch.body.sectors).toEqual(["education"]);
+    expect(patch.body.fromSectorPage).toBe(false); // only a new contribution says where it was started; the app never changes it later
+    expect(q("#message").textContent).toContain("sent for review");
+    expect(q("#sector-picker").hidden).toBe(false); // after sending, the general page shows its list again
+  });
+  it("Edit of an item started on a sector page, opened on another sector's page: the item's own sector, not the page's; Cancel goes back to the page's", async () => {
+    history.replaceState(null, "", "/contribute-now/?sector=agriculture-dairy");
+    try {
+      await openEditOf({ fromSectorPage: true });
+      expect(q("#sector-fixed").textContent).toBe("Sector · Education"); expect(q("#sector-picker").hidden).toBe(true);
+      expect(Array.from(document.querySelectorAll<HTMLInputElement>("#sector-choices input")).filter((i) => i.checked).map((i) => i.value)).toEqual(["education"]);
+      (Array.from(document.querySelectorAll<HTMLButtonElement>("#rv-c2-editing button")).find((b) => b.textContent === "Cancel editing"))!.click();
+      expect(q("#sector-fixed").textContent).toBe("Sector · Agriculture & Dairy"); expect(q("#sector-picker").hidden).toBe(true);
+    } finally { history.replaceState(null, "", "/"); }
+  });
+  it("an item started on a sector page whose sector is no longer offered opens with the list (nothing to show as text)", async () => {
+    await openEditOf({ fromSectorPage: true, sectors: ["retired-sector"] });
+    expect(q("#sector-fixed").hidden).toBe(true); expect(q("#sector-picker").hidden).toBe(false);
+    expect(Array.from(document.querySelectorAll<HTMLInputElement>("#sector-choices input")).some((i) => i.checked)).toBe(false);
+  });
+  it("only exactly true counts as started on a sector page", async () => {
+    await openEditOf({ fromSectorPage: "true" });
+    expect(q("#sector-fixed").hidden).toBe(true); expect(q("#sector-picker").hidden).toBe(false);
+  });
+  it("origin never recorded (sent before 0.1.9, or the app before migration 022): Edit shows the list with the saved sectors ticked, on the general page and even on that same sector's page", async () => {
+    const listWithSaved = () => {
+      expect(q("#sector-picker").hidden).toBe(false); expect(q("#sector-fixed").hidden).toBe(true);
+      expect(Array.from(document.querySelectorAll<HTMLInputElement>("#sector-choices input")).filter((i) => i.checked).map((i) => i.value)).toEqual(["education"]);
+    };
+    // the app before 022 answers fromSectorPage: false; an app without this change sends no fromSectorPage at all
+    await openEditOf({ fromSectorPage: false }); listWithSaved();
+    await openEditOf({ fromSectorPage: undefined }); listWithSaved();
+    history.replaceState(null, "", "/contribute-now/?sector=education");
+    try {
+      await openEditOf({ fromSectorPage: false }); listWithSaved();
+      await openEditOf({ fromSectorPage: undefined }); listWithSaved();
     } finally { history.replaceState(null, "", "/"); }
   });
   it("Cancel editing empties the form and leaves Edit; an item that is no longer waiting for changes is not opened", async () => {
@@ -618,6 +671,7 @@ describe("sectors: a searchable list, and the sector already set from a sector p
     const p = q<HTMLInputElement>('#choices input[value="Projects"]'); p.checked = true; p.dispatchEvent(new Event("change"));
     await submit();
     expect(calls.find((c) => c.method === "POST" && c.path === "/api/contributions")!.body.sectors).toEqual(["agriculture-dairy"]);
+    expect(calls.find((c) => c.method === "POST" && c.path === "/api/contributions")!.body.fromSectorPage).toBe(true); // so Edit looks the same later
     expect(q("#message").textContent).toContain("sent for review");
     expect(q("#sector-fixed").hidden).toBe(false); expect(box("agriculture-dairy").checked).toBe(true);
   });
