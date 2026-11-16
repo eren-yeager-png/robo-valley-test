@@ -4,6 +4,7 @@ import { pool } from "../../../../lib/db";
 import { enforceRateLimit } from "../../../../lib/apiRateLimit";
 import { publicSectorCounts } from "../../../../lib/contributionHub";
 import { SERVICE_CACHE_CONTROL } from "../../../../lib/serviceCache";
+import { logDbError } from "../../../../lib/dbError";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,10 +23,10 @@ export async function GET(req: Request) {
     const sectors = await publicSectorCounts(pool);
     return withCors(req, json({ success: true, sectors }, 200, { "Cache-Control": SERVICE_CACHE_CONTROL }), METHODS);
   } catch (e) {
-    if ((e as { code?: string })?.code === "42P01") { // migration 012 is not applied yet
+    // The real cause goes to the server log (a code, and for a missing table or column its name; never data). The answer stays friendly.
+    if (logDbError("contribute sectors", e) === "not_set_up") { // a migration (012 sectors and contributions, 016 the first sector) is not applied yet
       return withCors(req, json({ success: false, error: "NOT_SET_UP", message: "The Contribute hub is not set up yet." }, 503), METHODS);
     }
-    console.error("hub counts failed: server error"); // nothing from the data in the log
     return withCors(req, json({ success: false, error: "SERVER_ERROR", message: "The numbers are not available right now. Please try again." }, 500), METHODS);
   }
 }

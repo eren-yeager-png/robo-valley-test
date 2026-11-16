@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { pool } from "../../lib/db";
 import { requireReviewerPage } from "../../lib/reviewerPage";
 import { sectorOverview, type PortalTotals, type SectorCard } from "../../lib/contributionReview";
+import { logDbError } from "../../lib/dbError";
 
 type SP = { q?: string; sort?: string; item?: string };
 const SORTS = [["pending", "Most pending first"], ["name", "A–Z"], ["total", "Most contributions"]] as const;
@@ -19,8 +20,7 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
   try {
     ({ totals, sectors } = await sectorOverview(pool as never));
   } catch (e) {
-    problem = (e as { code?: string })?.code === "42P01" ? "Reviewing is not set up on this database yet (migrations 012 to 019 are needed)." : "The numbers could not be loaded. Please try again.";
-    console.error("admin portal: could not read the sectors");
+    problem = logDbError("admin portal sectors", e) === "not_set_up" ? "Reviewing is not set up on this database yet (migrations 012 to 019 are needed)." : "The numbers could not be loaded. Please try again.";
   }
   const shown = sectors
     .filter((s) => !q || s.name.toLowerCase().includes(q.toLowerCase()))
@@ -46,6 +46,7 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
             <select id="sec-sort" name="sort" defaultValue={sort}>{SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
             <button type="submit" className="mod-btn mod-btn--small">Apply</button>
           </form>
+          {totals.all === 0 && sectors.length > 0 && <p className="mod-note" role="status">No contributions yet. The numbers loaded, and every sector is at 0.</p>}
           {shown.length === 0 ? <p className="mod-empty" role="status">{q ? `No sector matches “${q}”.` : "No sectors yet."}</p> : (
             <div className="mod-grid">
               {shown.map((s) => (

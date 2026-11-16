@@ -230,6 +230,25 @@ describe("the page", () => {
     expect(h).toContain("could not be loaded");
     expect(h).not.toContain("secret detail");
   });
+  it("a missing table says the migrations are needed (not 'the database did not answer'), and the log names the table", async () => {
+    admin = Number((await seedUser({ email: `boss${++seq}@example.com`, role: "admin", fullName: "Boss" })).id); signInAs(admin, "admin");
+    testDb().failOn((sql) => (/FROM sectors/.test(sql) ? Object.assign(new Error('relation "contribution_scopes" does not exist'), { code: "42P01" }) : undefined));
+    const h = await html();
+    expect(h).toContain("Contributions are not set up on this database yet"); expect(h).toContain("migrations 012 to 019");
+    expect(h).not.toContain("did not answer"); expect(h).not.toContain("contribution_scopes"); // the page stays plain; the cause is in the log
+    expect((console.error as any).mock.calls.map((c: unknown[]) => c[0])).toContain('admin sector counts: database error 42P01 (relation "contribution_scopes" does not exist)');
+    testDb().failOn((sql) => (/FROM sectors/.test(sql) ? Object.assign(new Error("connect ECONNREFUSED 10.0.0.1:5432"), { code: "ECONNREFUSED" }) : undefined));
+    const down = await html();
+    expect(down).toContain("The database did not answer"); expect(down).not.toContain("10.0.0.1");
+  });
+  it("loads with zero contributions: says 'No contributions yet' (not an error) and still lists every sector at 0", async () => {
+    admin = Number((await seedUser({ email: `boss${++seq}@example.com`, role: "admin", fullName: "Boss" })).id); signInAs(admin, "admin");
+    const h = await html();
+    expect(h).toContain("No contributions yet"); expect(h).not.toContain("could not be loaded");
+    expect(h).toContain("Agriculture"); expect(h).not.toContain("<a ");
+    await seedAll();
+    expect(await html()).not.toContain("No contributions yet");
+  });
   it("is in the admin navigation", () => {
     expect(ADMIN_NAV.some((n) => n.href === "/admin/sectors")).toBe(true);
   });

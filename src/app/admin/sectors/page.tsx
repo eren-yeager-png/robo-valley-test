@@ -4,6 +4,7 @@ import { pool } from "../../../lib/db";
 import { requireAdminPage } from "../../../lib/adminPage";
 import { sectorStatusCounts, type CountKey, type Counts, type SectorCounts } from "../../../lib/sectorCounts";
 import { DataTable, Notice, PageHeader } from "../_components/ui";
+import { logDbError, type DbProblem } from "../../../lib/dbError";
 
 export const metadata: Metadata = { title: "Sector counts | RoboValley admin", robots: { index: false, follow: false } };
 
@@ -32,6 +33,14 @@ function cells(c: Counts, slug: string | null, linked: boolean) {
   });
 }
 
+// What the page says when the counts cannot be read. "Not set up" is the usual one on a new database: the contribution tables come
+// from migrations 012 to 019, and until they are applied every query here fails with "relation does not exist".
+const PROBLEM: Record<DbProblem, [string, string]> = {
+  not_set_up: ["Contributions are not set up on this database yet", "The contribution tables are missing: migrations 012 to 019 need to be applied (Settings shows which ones). Nothing was changed."],
+  unreachable: ["The counts could not be loaded", "The database did not answer. Nothing was changed. Please try again in a moment."],
+  error: ["The counts could not be loaded", "Something went wrong while counting. Nothing was changed. Please try again."],
+};
+
 // Admin only. Every figure is counted from the database; nothing is estimated.
 export default async function SectorCountsPage() {
   const admin = await requireAdminPage();
@@ -40,10 +49,12 @@ export default async function SectorCountsPage() {
   let data: SectorCounts;
   try {
     data = await sectorStatusCounts(pool as never);
-  } catch {
-    console.error("admin sector counts: could not read the data");
-    return (<><PageHeader title="Contributions by sector" /><Notice kind="error" title="The counts could not be loaded">The database did not answer. Please try again.</Notice></>);
+  } catch (e) {
+    const why: DbProblem = logDbError("admin sector counts", e); // the real cause is in the server log; the page says what it means
+    const [title, body] = PROBLEM[why];
+    return (<><PageHeader title="Contributions by sector" /><Notice kind="error" title={title}>{body}</Notice></>);
   }
+  const nothingYet = data.sectors.length > 0 && data.unique.total === 0 && data.withoutSector === 0;
 
   const rows = [
     ...data.sectors.map((s) => (
@@ -59,6 +70,11 @@ export default async function SectorCountsPage() {
   return (
     <>
       <PageHeader title="Contributions by sector" lead="How many contributions each sector holds in each state. Click a number to open that sector's list in the Admin Portal." />
+      {nothingYet && (
+        <div style={{ marginBottom: 14 }}>
+          <Notice kind="info" title="No contributions yet">The counts loaded, and every sector is at 0: nobody has contributed yet. The numbers appear here as soon as members send contributions.</Notice>
+        </div>
+      )}
       <div className="adm-counts">
       <DataTable
         caption="Contributions per sector by status"
