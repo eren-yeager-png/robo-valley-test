@@ -113,7 +113,7 @@ describe("getCurrentUser", () => {
   it("a forged or tampered cookie is still refused, and the role still comes from the database", async () => {
     const a = await person("ST"); setCookie(tokenAt(a, "admin", NOW)); // claims admin
     const u = await getCurrentUser(); expect(u?.role).toBe("ST");
-    setCookie(tokenAt(a, "ST", NOW).replace(/.$/, (c) => (c === "A" ? "B" : "A"))); expect(await getCurrentUser()).toBeNull();
+    setCookie(tokenAt(a, "ST", NOW).replace(/\.(.)/, (_m, c) => "." + (c === "A" ? "B" : "A"))); expect(await getCurrentUser()).toBeNull(); // first signature character: all 6 bits count (the last one has 2 the decoder ignores)
   });
 });
 
