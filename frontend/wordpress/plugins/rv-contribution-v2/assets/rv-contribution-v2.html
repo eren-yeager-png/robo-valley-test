@@ -36,10 +36,23 @@
     </div>
     <div id="category-details"></div>
   </fieldset>
-  <fieldset class="links">
+  <fieldset class="links" id="sector-field">
     <legend>Sectors <span aria-hidden="true">*</span></legend>
-    <p class="hint">Select at least one sector, up to 20.</p>
-    <div class="choices" id="sector-choices"><small>Loading sectors…</small></div>
+    <p class="notice" id="sector-fixed" hidden>Sector · <strong id="sector-fixed-names"></strong> <button type="button" class="link" id="sector-change" aria-controls="sector-picker">Change</button></p>
+    <div id="sector-picker">
+      <p class="hint" id="sector-hint">Choose at least one sector, up to 20. Type in the list to search.</p>
+      <small id="sector-status" role="status">Loading sectors…</small>
+      <div class="picker">
+        <button type="button" class="picker-toggle" id="sector-toggle" aria-expanded="false" aria-controls="sector-panel" aria-describedby="sector-hint" disabled>Choose sectors</button>
+        <div class="picker-panel" id="sector-panel" hidden>
+          <label class="sr" for="sector-search">Search sectors</label>
+          <input type="search" id="sector-search" placeholder="Search sectors…" autocomplete="off">
+          <div class="choices picker-list" id="sector-choices" role="group" aria-label="Sectors"></div>
+          <small id="sector-none" hidden>No sector matches.</small>
+        </div>
+        <div class="chips" id="sector-chips" aria-live="polite"></div>
+      </div>
+    </div>
   </fieldset>
   <fieldset class="links">
     <legend>Photos <small>· Optional</small></legend>
@@ -49,14 +62,8 @@
     <label>Add a photo<input type="file" id="photo-file" accept=".jpg,.jpeg,.png,image/jpeg,image/png"></label>
   </fieldset>
   <fieldset class="links">
-    <legend>Contact details <small>· Optional, private</small></legend>
-    <p class="hint">Only you can see these. Moderators see them only if you tick the box. They are never shown publicly.</p>
-    <div class="grid">
-      <label>Name<input name="contactName" maxlength="150" autocomplete="name"></label>
-      <label>Email<input name="contactEmail" type="email" maxlength="254" autocomplete="email"></label>
-      <label>Mobile number<input name="contactPhone" type="tel" maxlength="16" autocomplete="tel"></label>
-    </div>
-    <div class="choices"><label><input type="checkbox" name="shareWithModerators">Share my contact details with moderators</label></div>
+    <legend>Contact</legend>
+    <div class="choices"><label><input type="checkbox" name="shareContact">Let moderators contact me using my profile details</label></div>
   </fieldset>
   <div class="rv-c2-trap" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div>
   <div class="actions">
