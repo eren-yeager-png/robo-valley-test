@@ -1,4 +1,4 @@
-<!-- rv-fas widget 03 PR#24 -->
+<!-- rv-fas widget 03 PR#33 -->
 <div class="rv-fas rv-fas-results" id="rv-fas-results">
 	<div class="rv-fas-results-head">
 		<p class="rv-fas-summary" id="rv-fas-summary" role="status" aria-live="polite">Choose a service and a place to see results.</p>
@@ -58,6 +58,7 @@
 .rv-fas a.rv-fas-dir-link.rv-fas-dir-link--small,.rv-fas-pop-row a.rv-fas-dir-link{min-height:32px;margin:2px 0 0 10px;padding:0 12px;font-size:13px}
 .rv-fas-map-note[hidden]{display:none!important}
 .rv-fas-map-note{margin:8px 2px 0;font-size:13px;color:var(--rv-fas-amber-ink)}
+.rv-fas-map.is-bare{background:#eef2ee}
 </style>
 <script>
 /* RoboValley Find a Service: PIN code + distance search for the chosen category, with the map, tooltips and popups.
@@ -75,8 +76,8 @@
 	};
 	/* Base map: OpenFreeMap vector tiles drawn with MapLibre GL (through the maplibre-gl-leaflet bridge), with every place label
 	   switched to its English name first (name_en, then name:latin, then the local name). Both libraries are pinned and checked
-	   with SRI. If WebGL or the style cannot load, the standard OpenStreetMap tiles take over (their labels follow the local
-	   language) and a note says so. */
+	   with SRI. If WebGL or the style cannot load there is NO second map service: the map keeps working on a plain background
+	   (markers, circle, list and Google Maps links are unaffected) and a quiet note says "Map background unavailable". */
 	var MAPLIBRE = {
 		css: 'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.css',
 		cssSri: 'sha384-MinO0mNliZ3vwppuPOUnGa+iq619pfMhLVUXfC4LHwSCvF9H+6P/KO4Q7qBOYV5V',
@@ -86,15 +87,13 @@
 		bridgeSri: 'sha384-4CB9Vtol9LN6lGgBCvmPLbUEZwilrqIvPieSRurgAXAB7FVJaLS9n8WyAIA5wjQ+'
 	};
 	var STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
-	var LABEL_NOTE = 'Labels may be in local languages';
+	var BARE_NOTE = 'Map background unavailable';
 	var GL_TIMEOUT = 15000;
-	var TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 	var GEOCODER = 'https://nominatim.openstreetmap.org/search'; // only called when a PIN code has no stored position, once per Search press
 	var DIRECTIONS = 'https://www.google.com/maps/dir/';
 	var PLACE = 'https://www.google.com/maps/search/';
 	var GEONAMES = ' · Postal code data: <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">GeoNames</a> (CC BY 4.0)';
 	var ATTRIBUTION_OFM = '<a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap</a> <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener noreferrer">&copy; OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>' + GEONAMES;
-	var ATTRIBUTION_OSM = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors' + GEONAMES;
 	var PIN_RE = /^[1-9][0-9]{5}$/;
 	var TEXT_LIMIT = 50, MAX_KM = 50, INDIA_VIEW = [ 22.5, 79 ], INDIA_ZOOM = 5, TIP_NAMES = 3, CLICK_ZOOM = 14, FIT = { padding: [ 24, 24 ], maxZoom: 15 };
 
@@ -111,7 +110,7 @@
 		};
 		var api = ( window.RoboValleyApi && window.RoboValleyApi.base ) || '';
 		var reduce = window.matchMedia( '(prefers-reduced-motion: reduce)' );
-		var L = null, map = null, layer = null, circle = null, glLayer = null, rasterOn = false;
+		var L = null, map = null, layer = null, circle = null, glLayer = null, bareOn = false;
 		var S = {
 			pin: '', mode: 'pin', selRank: 0, seq: 0, ctl: null, results: [], groups: [], byPin: {}, markers: {}, originMarker: null, lastAsk: 0, searched: false,
 			flownPin: '', catName: '', pointer: '', tipKey: '', hoverPin: '', blockedUntil: 0, pending: null, limitTimer: 0, prevSummary: ''
@@ -836,7 +835,7 @@
 				document.head.appendChild( s );
 			} );
 		}
-		/* ---------- Base map: English labels (vector), or the standard OpenStreetMap tiles with a note ---------- */
+		/* ---------- Base map: English labels (vector), or a plain background with a quiet note ---------- */
 		var NAME_CHAIN = [ 'coalesce', [ 'get', 'name_en' ], [ 'get', 'name:latin' ], [ 'get', 'name' ] ];
 		/** Every label that shows a place name uses the English name when there is one, then the Latin-script name, then the local name (never hidden). */
 		function localiseStyle( style ) {
@@ -891,33 +890,27 @@
 				return loadScript( MAPLIBRE.bridge, MAPLIBRE.bridgeSri, function () { return !! ( L && L.maplibreGL ); } );
 			} );
 		}
-		/** The standard OpenStreetMap tiles. Their labels follow each place's local language, so the visitor is told. */
-		function useRaster() {
-			if ( rasterOn ) {
+		/** The base map could not be drawn (no WebGL, the style or its tiles failed): no other map service is asked. The map stays usable on a plain background. */
+		function showBareMap() {
+			if ( bareOn ) {
 				return;
 			}
-			rasterOn = true;
+			bareOn = true;
 			if ( glLayer ) {
 				try { glLayer.remove(); } catch ( e ) { /* already gone */ }
 				glLayer = null;
 			}
-			var ok = 0, bad = 0;
-			L.tileLayer( TILES, { maxZoom: 19, attribution: ATTRIBUTION_OSM } ).on( 'tileload', function () {
-				ok++;
-			} ).on( 'tileerror', function () {
-				if ( ++bad === 4 && ! ok ) {
-					el.mapMsg.className = 'rv-fas-map-msg is-banner';
-					el.mapMsg.textContent = 'Map images could not load. The results list still works.';
-					el.mapMsg.hidden = false;
-				}
-			} ).addTo( map );
-			el.mapNote.textContent = LABEL_NOTE;
+			el.map.classList.add( 'is-bare' );
+			if ( map && map.attributionControl ) {
+				map.attributionControl.addAttribution( GEONAMES.replace( ' · ', '' ) ); // the postal-code data is still credited
+			}
+			el.mapNote.textContent = BARE_NOTE;
 			el.mapNote.hidden = false;
 		}
 		/** Starts the base map and returns at once: a search never waits for the map images. */
 		function addBasemap() {
 			if ( ! hasWebGL() ) {
-				useRaster();
+				showBareMap();
 				return Promise.resolve();
 			}
 			return loadVectorLibs().then( function () {
@@ -928,7 +921,7 @@
 					return r.json();
 				} );
 			} ).then( function ( style ) {
-				if ( rasterOn ) {
+				if ( bareOn ) {
 					return;
 				}
 				glLayer = L.maplibreGL( { style: localiseStyle( style ), attribution: ATTRIBUTION_OFM } ).addTo( map );
@@ -937,7 +930,7 @@
 					clearTimeout( timer );
 					if ( ! settled ) {
 						settled = true;
-						useRaster();
+						showBareMap();
 					}
 				};
 				timer = setTimeout( bail, GL_TIMEOUT );
@@ -948,7 +941,7 @@
 					}
 				} );
 			} ).catch( function () {
-				useRaster();
+				showBareMap();
 			} );
 		}
 		var mapReady = loadLeaflet().then( function ( lib ) {

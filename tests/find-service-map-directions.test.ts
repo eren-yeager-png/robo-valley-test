@@ -177,34 +177,39 @@ describe("base map: English labels", () => {
     expect(w.note().hidden).toBe(true);
     expect(calls.glRemoved).toBe(0);
   });
-  it("falls back to the standard OSM tiles with the note when WebGL is missing", async () => {
+  const bareOk = async (w: Awaited<ReturnType<typeof mount>>) => {
+    expect(calls.tileLayers).toHaveLength(0); // no second map service is ever asked
+    expect(w.note().hidden).toBe(false);
+    expect(w.note().textContent).toBe("Map background unavailable");
+    expect(document.getElementById("rv-fas-map")!.classList.contains("is-bare")).toBe(true);
+    expect(fetchMock.mock.calls.map((c) => String(c[0])).join(" ")).not.toContain("openstreetmap.org/");
+    await w.search(); // markers, list and Google Maps links keep working on the plain background
+    expect(w.cards().length).toBe(2);
+    expect(calls.markers.length).toBeGreaterThan(0);
+    expect(w.links()[0].href).toContain("https://www.google.com/maps/dir/");
+    expect(document.getElementById("rv-fas-map-msg")!.hidden).toBe(true);
+  };
+  it("shows a quiet note and no other map service when WebGL is missing", async () => {
     const w = await mount({ gl: true, webgl: false });
     await flush(20);
     expect(calls.gl).toHaveLength(0);
-    expect(calls.tileLayers).toHaveLength(1);
-    expect(calls.tileLayers[0].url).toBe("https://tile.openstreetmap.org/{z}/{x}/{y}.png");
-    expect(calls.tileLayers[0].o.attribution).toContain("OpenStreetMap");
-    expect(calls.tileLayers[0].o.attribution).toContain("GeoNames");
-    expect(w.note().hidden).toBe(false);
-    expect(w.note().textContent).toBe("Labels may be in local languages");
     expect(fetchMock.mock.calls.map((c) => String(c[0])).join(" ")).not.toContain("openfreemap");
+    await bareOk(w);
   });
-  it("falls back, with the note, when the style cannot be fetched", async () => {
+  it("shows the note when the style request is blocked (HTTP 503), and everything else still works", async () => {
     const w = await mount({ gl: true, webgl: true, styleStatus: 503 });
     await flush(20);
     expect(calls.gl).toHaveLength(0);
-    expect(calls.tileLayers).toHaveLength(1);
-    expect(w.note().textContent).toBe("Labels may be in local languages");
+    await bareOk(w);
   });
-  it("falls back, removing the vector layer, when the style fails before the first draw", async () => {
+  it("shows the note, removing the vector layer, when the style fails before the first draw", async () => {
     const w = await mount({ gl: true, webgl: true });
     await flush(20);
     calls.glHandlers.error?.forEach((f) => f({ error: new Error("style") }));
     expect(calls.glRemoved).toBe(1);
-    expect(calls.tileLayers).toHaveLength(1);
-    expect(w.note().hidden).toBe(false);
+    await bareOk(w);
   });
-  it("falls back when the vector map never finishes loading", async () => {
+  it("shows the note when the vector map never finishes loading", async () => {
     const real = globalThis.setTimeout;
     const waiting: Array<() => void> = [];
     vi.spyOn(globalThis, "setTimeout").mockImplementation(((fn: any, ms?: number, ...a: any[]) => (ms === 15000 ? (waiting.push(fn), 0) : real(fn, ms, ...a))) as any);
@@ -213,9 +218,13 @@ describe("base map: English labels", () => {
     expect(waiting).toHaveLength(1); // the 15 s wait for the first draw
     expect(w.note().hidden).toBe(true);
     waiting[0]();
-    expect(calls.tileLayers).toHaveLength(1);
     expect(calls.glRemoved).toBe(1);
-    expect(w.note().hidden).toBe(false);
+    await bareOk(w);
+  });
+  it("the widget no longer names the OpenStreetMap tile server at all", () => {
+    expect(RESULTS).not.toContain("tile.openstreetmap.org");
+    expect(RESULTS).not.toContain("L.tileLayer");
+    expect(RESULTS).toContain("https://tiles.openfreemap.org/styles/liberty");
   });
 });
 
