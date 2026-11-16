@@ -21,6 +21,7 @@
 	var TYPE = 'resource'; // the form has no type field; contributions are sent as "Share a video or resource"
 	var me = null, draftId = null, busy = false, photos = [];
 	var removedPhotos = [], wantSectors = null; // 0.1.5 Edit: saved photos the member removed; the saved sectors to tick once the list is loaded
+	var wantFixed = false; // 0.1.9 Edit: the item was started from a sector page, so its sector shows as fixed text
 	var signOutHere = root.getAttribute( 'data-sign-out' ) !== 'no'; // 0.1.6: the Contribute page has no Sign Out (the header menu has it)
 
 	/* ---------- talking to the app ---------- */
@@ -144,7 +145,7 @@
 			} );
 			preselectSectors();
 			if ( wantSectors ) {
-				tickSectors( wantSectors );
+				tickSectors( wantSectors, wantFixed );
 			}
 			sectorsChanged();
 		} );
@@ -223,7 +224,8 @@
 	/* "Contribute to this sector" links add ?sector=slug: tick only sectors that really exist in the app's list (the app checks them
 	   again when the contribution is saved). Then the picker is replaced by one read-only line, "Sector · <name>" (0.1.8: no Change
 	   link, no list: a contribution started from a sector page is for that sector). The list appears only on the general Contribute
-	   page. A value that matches no sector leaves the normal list with nothing chosen. A hand-made ?sector=a,b shows both as text. */
+	   page. A value that matches no sector leaves the normal list with nothing chosen. A hand-made ?sector=a,b shows both as text.
+	   The app is told where the contribution was started (fromSectorPage), so Edit can look the same way later. */
 	function preselectSectors() {
 		var m = /[?&]sector=([a-z0-9,-]{1,700})(?:&|$)/.exec( location.search ), ticked = [];
 		if ( m ) {
@@ -240,6 +242,9 @@
 			showPicker();
 			return;
 		}
+		showFixed( ticked );
+	}
+	function showFixed( ticked ) {
 		$( '#sector-fixed-names' ).textContent = ticked.map( function ( b ) { return b.getAttribute( 'data-name' ) || b.value; } ).join( ', ' );
 		$( '#sector-fixed-label' ).textContent = ticked.length === 1 ? 'Sector' : 'Sectors';
 		sectorFixed.hidden = false;
@@ -504,7 +509,7 @@
 		}
 		busy = true;
 		form.querySelector( 'button[type=submit]' ).disabled = true;
-		var payload = { type: TYPE, sectors: selectedSectors(), title: form.elements.title.value.trim(), description: folded( selected ), directory: directoryOf( selected ), shareContact: !! form.elements.shareContact.checked, robotType: '', role: me.stakeholder || '', district: '', website: form.elements.website.value };
+		var payload = { type: TYPE, sectors: selectedSectors(), title: form.elements.title.value.trim(), description: folded( selected ), directory: directoryOf( selected ), shareContact: !! form.elements.shareContact.checked, fromSectorPage: draftId === null && ! sectorFixed.hidden, robotType: '', role: me.stakeholder || '', district: '', website: form.elements.website.value };
 		var first = draftId === null ? call( 'POST', '/api/contributions', payload ) : call( 'PATCH', '/api/contributions/' + draftId, payload );
 		first.then( function ( r ) {
 			if ( ! r.ok ) {
@@ -576,6 +581,7 @@
 		photoCount();
 		removedPhotos = [];
 		wantSectors = null;
+		wantFixed = false;
 		openPanel( false );
 		filterSectors();
 		if ( sectorBox.getAttribute( 'data-loaded' ) ) {
@@ -589,15 +595,28 @@
 	}
 
 	/* ---------- 0.1.5: Edit an item that needs changes (the same form, filled in) ---------- */
-	function tickSectors( slugs ) {
-		var boxes = sectorBox.querySelectorAll( 'input[name="sector"]' );
+	/* Edit looks the way the contribution was started (0.1.9): started from a sector page, its saved sector as fixed text and no list;
+	   started from the general Contribute page, the list. This does not depend on the page Edit is opened on. A saved sector that is
+	   no longer offered leaves nothing to show as text: then the list, so the member can choose again. */
+	function tickSectors( slugs, fixed ) {
+		var boxes = sectorBox.querySelectorAll( 'input[name="sector"]' ), ticked = [];
 		wantSectors = slugs;
+		wantFixed = fixed;
 		if ( ! boxes.length ) {
 			return; // the list is still loading: ticked when it arrives
 		}
-		Array.prototype.forEach.call( boxes, function ( b ) { b.checked = slugs.indexOf( b.value ) >= 0; } );
+		Array.prototype.forEach.call( boxes, function ( b ) {
+			b.checked = slugs.indexOf( b.value ) >= 0;
+			if ( b.checked ) {
+				ticked.push( b );
+			}
+		} );
 		wantSectors = null;
-		showPicker(); // Edit shows the saved sectors in the picker, never the fixed line
+		if ( fixed && ticked.length ) {
+			showFixed( ticked );
+		} else {
+			showPicker();
+		}
 		sectorsChanged();
 	}
 	function addSavedPhoto( p ) {
@@ -647,7 +666,7 @@
 					row.querySelector( '[name=referenceGist]' ).value = l.gist || '';
 				} );
 			} );
-			tickSectors( Array.isArray( c.sectors ) ? c.sectors : [] );
+			tickSectors( Array.isArray( c.sectors ) ? c.sectors : [], c.fromSectorPage === true );
 			( Array.isArray( c.photos ) ? c.photos : [] ).slice( 0, L.photosMax ).forEach( addSavedPhoto );
 			photoCount();
 			form.elements.shareContact.checked = c.shareContact === true;

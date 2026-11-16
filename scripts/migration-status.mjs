@@ -113,6 +113,9 @@ export const MIGRATIONS = [
   { id: "021", title: "contact through the profile", feature: "The Contribute form's \"Let moderators contact me using my profile details\" choice", requires: ["012"], checks: [
     { kind: "column", table: "contributions", column: "share_contact_with_moderators" },
   ] },
+  { id: "022", title: "where a contribution was started", feature: "Edit (after \"changes requested\") showing a contribution started from a sector page with its sector as fixed text", requires: ["012"], checks: [
+    { kind: "column", table: "contributions", column: "from_sector_page" },
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */
