@@ -3,14 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import LogoutButton from "./LogoutButton";
+import HeaderMenuSlot from "../_components/HeaderMenuSlot";
 import "../join/join.css";
 import "../login/login.css";
 import "./dashboard.css";
 
 export type NavItem = { href: string; label: string };
 
-export default function DashboardShell({ userName, roleLabel, items, children }: {
-  userName: string; roleLabel: string; items: NavItem[]; children: React.ReactNode;
+export default function DashboardShell({ userName, roleLabel, items, site, children }: {
+  userName: string; roleLabel: string; items: NavItem[]; site?: string; children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -33,6 +34,7 @@ export default function DashboardShell({ userName, roleLabel, items, children }:
         <div className="brand">RoboValley Community<small>{roleLabel}</small></div>
         <div className="dtop-right">
           <span className="who" title={userName}>{userName}</span>
+          <HeaderMenuSlot site={site} />
           <button ref={menuBtn} type="button" className="btn menu" aria-expanded={open} aria-controls="dash-nav" onClick={() => setOpen((o) => !o)}>
             {open ? "Close" : "Menu"}<span className="sr"> navigation</span>
           </button>

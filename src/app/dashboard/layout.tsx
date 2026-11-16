@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getDashboardContext } from "../../lib/dashboardContext";
 import DashboardShell from "./DashboardShell";
+import { siteUrl } from "../../lib/session";
 import { UnauthorizedState } from "./states";
 import "../join/join.css";
 import "../login/login.css";
@@ -30,5 +31,5 @@ export default async function DashboardLayout({ children }: { children: React.Re
     { href: "/dashboard/notifications", label: "Notifications" },
     { href: "/dashboard/profile", label: "Profile & settings" },
   ];
-  return <DashboardShell userName={user.fullName} roleLabel={dash.label} items={items}>{children}</DashboardShell>;
+  return <DashboardShell userName={user.fullName} roleLabel={dash.label} items={items} site={siteUrl()}>{children}</DashboardShell>;
 }
