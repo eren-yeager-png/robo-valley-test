@@ -38,4 +38,3 @@
 .rv-c2 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .rv-c2 .chip{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 10px;border-radius:999px;background:var(--pale);border:1px solid var(--line);font-size:.92rem}
 .rv-c2 .chip-x{min-height:28px;min-width:28px;padding:0 6px;border:0;background:transparent;font-size:1.1rem;line-height:1}
-.rv-c2 button.link{min-height:0;padding:0 2px;border:0;background:none;text-decoration:underline;font-weight:650}

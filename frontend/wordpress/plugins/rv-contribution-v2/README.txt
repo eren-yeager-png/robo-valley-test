@@ -1,4 +1,4 @@
-RoboValley Contribution (v2) - WordPress plugin, version 0.1.7
+RoboValley Contribution (v2) - WordPress plugin, version 0.1.8
 
 WHAT IT IS
 The new Contribute form for the Contribution and Contributor pages. It only shows the form and talks to the RoboValley app.
@@ -86,7 +86,14 @@ NEW IN 0.1.7
     the list back. A slug that is not a real sector is ignored: the normal list shows with nothing chosen. The app checks the
     sectors again when the contribution is saved.
   * Contact: the Name / Email / Mobile number fields are gone. One box instead, unticked by default: "Let moderators contact me
-    using my profile details". It is saved with the contribution (app migration 021). Moderators see the profile's contact only
+    using my profile details". It is saved with the contribution (app migration 021). Moderators and administrators see the profile's contact only
     when it is ticked; it is never shown publicly. Contact details sent with older versions stay in the app, unchanged.
   * Needs the app with migration 021 for the box to be saved (with an older app the box is ignored: nothing is shared).
   * The HTML and CSS changed (the sector list and the contact section).
+
+NEW IN 0.1.8
+  * Opened from a sector page ("Contribute to this sector"): only that sector, as fixed text ("Sector · Agriculture & Dairy").
+    No list, no other sectors and no Change link: a contribution started from a sector page is for that sector.
+  * The sector list (search, up to 20) appears only on the general Contribute page, when no sector was given.
+  * Edit (Changes requested) still shows the saved sectors in the list, wherever it is opened, so the member can fix them.
+  * Contact box wording unchanged; on the app side administrators now see a shared contact too (app change, not the plugin).

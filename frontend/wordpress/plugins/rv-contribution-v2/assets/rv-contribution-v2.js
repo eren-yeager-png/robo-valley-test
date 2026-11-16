@@ -212,18 +212,18 @@
 			openPanel( false );
 		}
 	} );
-	$( '#sector-change' ).addEventListener( 'click', function () {
-		showPicker();
-		openPanel( true );
-	} );
 	function sectorInvalid( text ) {
-		showPicker();
+		if ( ! sectorFixed.hidden ) { // the sector came from the sector page and cannot be changed here: just say what is wrong
+			say( text );
+			return false;
+		}
 		openPanel( true );
 		return invalid( sectorSearch, text );
 	}
-	/* "Contribute to this sector" links add ?sector=slug (or slug,slug): tick only sectors that really exist in the app's list (the app
-	   checks them again when the contribution is saved). Then the picker is replaced by one read-only line, "Sector · <name>", with a
-	   Change link that brings the picker back. A value that matches no sector leaves the normal picker with nothing chosen. */
+	/* "Contribute to this sector" links add ?sector=slug: tick only sectors that really exist in the app's list (the app checks them
+	   again when the contribution is saved). Then the picker is replaced by one read-only line, "Sector · <name>" (0.1.8: no Change
+	   link, no list: a contribution started from a sector page is for that sector). The list appears only on the general Contribute
+	   page. A value that matches no sector leaves the normal list with nothing chosen. A hand-made ?sector=a,b shows both as text. */
 	function preselectSectors() {
 		var m = /[?&]sector=([a-z0-9,-]{1,700})(?:&|$)/.exec( location.search ), ticked = [];
 		if ( m ) {
@@ -241,6 +241,7 @@
 			return;
 		}
 		$( '#sector-fixed-names' ).textContent = ticked.map( function ( b ) { return b.getAttribute( 'data-name' ) || b.value; } ).join( ', ' );
+		$( '#sector-fixed-label' ).textContent = ticked.length === 1 ? 'Sector' : 'Sectors';
 		sectorFixed.hidden = false;
 		sectorPicker.hidden = true;
 	}
@@ -471,8 +472,7 @@
 			var k = keys[ i ], el = null;
 			if ( FIELD[ k ] ) {
 				el = form.elements[ FIELD[ k ] ];
-			} else if ( k === 'sectors' ) {
-				showPicker();
+			} else if ( k === 'sectors' && sectorFixed.hidden ) { // (a fixed sector has no field: the message below says it)
 				openPanel( true );
 				el = sectorSearch;
 			} else if ( k === 'alt' || k === 'photo' ) {

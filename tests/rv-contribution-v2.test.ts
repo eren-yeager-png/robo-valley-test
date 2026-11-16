@@ -233,8 +233,8 @@ describe("?sector= preselects sectors (the Contribute to this sector link)", () 
     const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions");
     expect(create?.body.sectors).toEqual(["education"]);
   });
-  it("the plugin version moved to 0.1.7 so browsers fetch the new script", () => {
-    expect(PHP).toMatch(/Version: 0\.1\.7/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.7'/);
+  it("the plugin version moved to 0.1.8 so browsers fetch the new script", () => {
+    expect(PHP).toMatch(/Version: 0\.1\.8/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.8'/);
   });
 });
 
@@ -308,9 +308,9 @@ describe("Contribute to this sector (0.1.2, static; run on a local WordPress too
 
 describe("members contribute, administrators review (0.1.4)", () => {
   const sha = (t: string) => createHash("sha256").update(t).digest("hex");
-  it("the member form's markup and styles are pinned (0.1.7: only the sector list and the contact section changed, as asked)", () => {
-    expect(sha(MARKUP.replace(/\r\n/g, "\n"))).toBe("26844a10ae66230ee07687fa71e6a46010e9e04282f5310ea00d6f339b76dd70");
-    expect(sha(CSS.replace(/\r\n/g, "\n"))).toBe("c1f11db64b408f6755b49c2392c5cd625654592eaa1442e786b0ac396306c0bd");
+  it("the member form's markup and styles are pinned (0.1.8: the sector line has no Change link)", () => {
+    expect(sha(MARKUP.replace(/\r\n/g, "\n"))).toBe("61cb558546a06f3fabdcc4dc067111eb104dbd235ddb7654af634301b766d01c");
+    expect(sha(CSS.replace(/\r\n/g, "\n"))).toBe("dfda65c5ad765ff438882153eb30db2de7a6ad6fa5100228b984a3bade917d3e");
   });
   it("WordPress administrators get a note with a Moderation link instead of the form, and no form script (static; also run in PHP)", () => {
     expect(PHP).toContain("function rv_c2_is_wp_admin() {\n\treturn function_exists( 'current_user_can' ) && current_user_can( 'manage_options' );");
@@ -451,6 +451,16 @@ describe("structured categories and Edit after changes are requested (0.1.5)", (
     expect(document.querySelector("#rv-c2-editing")).toBeNull();
     expect(q("#message").textContent).toContain("sent for review");
   });
+  it("Edit opened on a sector page still shows the saved sectors in the list (to fix what was asked); Cancel goes back to the fixed sector", async () => {
+    history.replaceState(null, "", "/contribute-now/?sector=agriculture-dairy");
+    try {
+      await openEdit();
+      expect(q("#sector-picker").hidden).toBe(false); expect(q("#sector-fixed").hidden).toBe(true);
+      expect(Array.from(document.querySelectorAll<HTMLInputElement>("#sector-choices input")).filter((i) => i.checked).map((i) => i.value)).toEqual(["education"]);
+      (Array.from(document.querySelectorAll<HTMLButtonElement>("#rv-c2-editing button")).find((b) => b.textContent === "Cancel editing"))!.click();
+      expect(q("#sector-fixed").hidden).toBe(false); expect(q("#sector-fixed").textContent).toBe("Sector · Agriculture & Dairy");
+    } finally { history.replaceState(null, "", "/"); }
+  });
   it("Cancel editing empties the form and leaves Edit; an item that is no longer waiting for changes is not opened", async () => {
     await openEdit();
     (q("#rv-c2-editing").querySelector("button") as HTMLButtonElement).click();
@@ -566,22 +576,36 @@ describe("sectors: a searchable list, and the sector already set from a sector p
     (document.querySelector("#sector-chips .chip button") as HTMLButtonElement).click();
     expect(box("sector-21").disabled).toBe(false);
   });
-  it("from a sector page (?sector=agriculture-dairy): already chosen, shown as 'Sector · Agriculture & Dairy' with Change, and no list", async () => {
+  it("from a sector page (?sector=agriculture-dairy): only that sector, as fixed text 'Sector · Agriculture & Dairy'; no list, no Change link", async () => {
     await at("?sector=agriculture-dairy");
     expect(q("#sector-fixed").hidden).toBe(false);
-    expect(q("#sector-fixed").textContent).toBe("Sector · Agriculture & Dairy Change");
+    expect(q("#sector-fixed").textContent).toBe("Sector · Agriculture & Dairy");
+    expect(q("#sector-fixed").querySelector("button, a")).toBeNull();
+    expect(document.querySelector("#sector-change")).toBeNull();
+    expect(MARKUP).not.toContain("sector-change"); expect(SCRIPT).not.toContain("sector-change");
     expect(q("#sector-picker").hidden).toBe(true);
     expect(box("agriculture-dairy").checked).toBe(true);
     expect(q("#sector-fixed").className).toBe(q("#stakeholder").parentElement!.className); // the same look as the stakeholder line
   });
-  it("Change brings the list back with the sector still chosen", async () => {
+  it("on a sector page no other sector can be added: the list stays hidden, whatever happens on the page", async () => {
     await at("?sector=agriculture-dairy");
-    q<HTMLButtonElement>("#sector-change").click();
-    expect(q("#sector-fixed").hidden).toBe(true); expect(q("#sector-picker").hidden).toBe(false);
-    expect(q("#sector-panel").hidden).toBe(false);
-    expect(box("agriculture-dairy").checked).toBe(true);
-    tick("education");
-    expect(q("#sector-toggle").textContent).toBe("2 sectors chosen");
+    expect(q("#sector-picker").hidden).toBe(true);
+    expect(Array.from(document.querySelectorAll<HTMLInputElement>("#sector-choices input")).filter((i) => i.checked).map((i) => i.value)).toEqual(["agriculture-dairy"]);
+    await submit(); // invalid form (no title): the sector line stays as it is
+    expect(q("#sector-fixed").hidden).toBe(false); expect(q("#sector-picker").hidden).toBe(true);
+  });
+  it("if the app refuses the preset sector, the message says so and no list opens", async () => {
+    await at("?sector=agriculture-dairy", SIX, (c) => c.method === "POST" && c.path === "/api/contributions" ? reply({ success: false, error: "VALIDATION_FAILED", message: "Check the highlighted fields.", fieldErrors: { sectors: "Choose sectors from the list." } }, 400) : undefined);
+    field("title").value = "Weekend robotics club"; field("description").value = "A free weekend club where students build simple robots.";
+    const p = q<HTMLInputElement>('#choices input[value="Projects"]'); p.checked = true; p.dispatchEvent(new Event("change"));
+    await submit();
+    expect(q("#message").textContent).toContain("Check the highlighted fields.");
+    expect(q("#sector-picker").hidden).toBe(true); expect(q("#sector-fixed").hidden).toBe(false);
+  });
+  it("a hand-made link with several sectors shows them all as fixed text ('Sectors · …'), still with no list", async () => {
+    await at("?sector=agriculture-dairy,education");
+    expect(q("#sector-fixed").textContent).toBe("Sectors · Agriculture & Dairy, Education");
+    expect(q("#sector-picker").hidden).toBe(true);
   });
   it("a slug that is not a sector falls back to the normal list with nothing chosen", async () => {
     await at("?sector=not-a-sector");
