@@ -10,6 +10,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), refres
 import AdminShell from "../src/app/admin/_components/AdminShell";
 import DashboardShell from "../src/app/dashboard/DashboardShell";
 import HeaderMenuSlot from "../src/app/_components/HeaderMenuSlot";
+import { POST as logoutRoute } from "../src/app/api/auth/logout/route";
 
 const MENU_JS = readFileSync("public/rv-header-menu.js", "utf8");
 const BOOTSTRAP_JS = readFileSync("public/vendor/bootstrap-5.3.3/bootstrap.bundle.min.js", "utf8");
@@ -267,16 +268,47 @@ describe("on the app's own pages", () => {
     await waitFor(() => expect(later.querySelector(".rv-header-menu button.rv-hm-toggle")).not.toBeNull());
   });
 
-  it("the admin top bar and the member dashboard top bar have the slot, and keep their own Sign Out", () => {
+  it("the admin top bar has the slot as its only account control (the old green Admin button is gone); the member dashboard keeps its own Sign out", () => {
     page("");
-    const admin = render(<AdminShell email="boss@robovalley.com" landingUrl="https://techytree.in/" locked={false}><p>x</p></AdminShell>);
+    const admin = render(<AdminShell landingUrl="https://techytree.in/" locked={false}><p>x</p></AdminShell>);
     expect(admin.container.querySelector("header [data-rv-header-menu]")?.getAttribute("data-site")).toBe("https://techytree.in/");
-    expect(admin.getByRole("button", { name: "Admin" })).toBeTruthy(); // the existing profile menu (Landing Page / My Profile / Sign Out)
+    expect(admin.queryByRole("button", { name: "Admin" })).toBeNull();
+    expect(admin.queryByText(/sign out/i)).toBeNull(); // Sign Out comes from the avatar menu once it is drawn
     admin.unmount();
     const dash = render(<DashboardShell userName="Asha Rao" roleLabel="Student" items={[{ href: "/dashboard", label: "Home" }]} site="https://techytree.in/"><p>x</p></DashboardShell>);
     expect(dash.container.querySelector("header [data-rv-header-menu]")?.getAttribute("data-site")).toBe("https://techytree.in/");
     expect(dash.getByRole("button", { name: "Sign out" })).toBeTruthy(); // the existing sidebar Sign out
     expect(dash.container.querySelector("header [data-rv-header-menu]")?.hasAttribute("data-tone")).toBe(false); // light bars: no dark mode
+  });
+
+  it("forced password change: the locked admin top bar draws the avatar menu, and its Sign Out ends the session (the real logout route) and leaves for /login", async () => {
+    vi.stubEnv("SESSION_SECRET", "unit-test-secret-unit-test-secret-1234");
+    try {
+      answerWith(ANSWERS.admin); // /api/auth/menu answers for an administrator who still has to change the password (see admin-ui.test.tsx)
+      const real = fetchMock.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>;
+      fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+        String(url).endsWith("/api/auth/logout") ? logoutRoute(new Request(String(url), { ...init, headers: { host: "app.techytree.in" } })) : real(url, init));
+      page("");
+      const shell = render(<AdminShell landingUrl="https://techytree.in/" locked><p>Choose a new password</p></AdminShell>);
+      expect(shell.queryByRole("navigation")).toBeNull(); // locked: no sidebar, no Menu button
+      load(); await drawn();
+      expect(menus()).toHaveLength(1);
+      expect(menus()[0].closest("header.adm-top")).not.toBeNull();
+      expect(labels(menus()[0])).toEqual(["Admin portal", "Contributions by sector", "Review queue", "Users & moderators", "Site settings", "Sign Out"]);
+      expect(document.querySelectorAll(".adm-profile-btn, .adm-menu")).toHaveLength(0); // the old green button is not there to fall back on
+      const toggle = menus()[0].querySelector<HTMLButtonElement>("button.rv-hm-toggle")!;
+      toggle.click();
+      await waitFor(() => expect(toggle.getAttribute("aria-expanded")).toBe("true"));
+      const out = menus()[0].querySelector<HTMLButtonElement>(".rv-hm-signout")!;
+      out.click();
+      expect(fetchMock).toHaveBeenLastCalledWith(`${APP}/api/auth/logout`, expect.objectContaining({ method: "POST", credentials: "include" }));
+      const res = (await fetchMock.mock.results[fetchMock.mock.results.length - 1]!.value) as Response;
+      expect(res.status).toBe(200);
+      expect(res.headers.get("set-cookie")).toMatch(/rv_session=;/); // the session cookie is cleared on the server
+      await waitFor(() => expect(out.textContent).toBe("Signing out…")); // success path: it goes to /login (jsdom cannot navigate)
+      expect(out.textContent).not.toMatch(/failed/);
+      shell.unmount();
+    } finally { vi.unstubAllEnvs(); }
   });
 
   it("on the dark green moderation bar the icon gets a white edge, hover ring and focus outline (at least 3:1 against the bar)", async () => {
