@@ -37,7 +37,10 @@
     { label: "Contributions by sector", role: "admin", base: "app", path: "/admin/sectors", enabled: true },
     { label: "Review queue", role: "admin", base: "app", path: "/moderation", enabled: true, count: "reviewQueue" },
     { label: "Users & moderators", role: "admin", base: "app", path: "/admin/users", enabled: true },
-    { label: "Site settings", role: "admin", base: "app", path: "/admin/settings", enabled: true }
+    { label: "Site settings", role: "admin", base: "app", path: "/admin/settings", enabled: true },
+    { label: "Landing page", role: "admin", base: "site", path: "/", enabled: true },
+    // an administrator's profile is the "My profile" section of Settings (name, email, role, change password)
+    { label: "My profile", role: "admin", base: "app", path: "/admin/settings#profile", enabled: true }
   ];
 
   var LOOK = {
