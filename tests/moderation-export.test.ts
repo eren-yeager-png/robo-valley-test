@@ -50,12 +50,13 @@ describe("CSV export", () => {
     expect(r.headers.get("content-disposition")).toMatch(/^attachment; filename="contributions-agriculture-dairy-\d{4}-\d{2}-\d{2}\.csv"$/);
     expect(r.headers.get("cache-control")).toBe("no-store");
     const rows = parse(text);
-    expect(rows[0]).toEqual(["ID", "Title", "Also in", "Contributor", "Stakeholder category", "Directory categories", "Submitted", "Status", "Contact name", "Contact email", "Contact mobile"]);
+    expect(rows[0]).toEqual(["ID", "Title", "Type", "Also in", "Contributor", "Stakeholder category", "Directory categories", "Submitted", "Status", "Contact name", "Contact email", "Contact mobile"]);
     const byTitle = new Map(rows.slice(1).map((x) => [x[1], x]));
-    expect(byTitle.get("Shared contact item")!.slice(3, 6)).toEqual(["Asha R.", "Teacher / lab in-charge", "Projects; Events"]);
-    expect(byTitle.get("Shared contact item")!.slice(8)).toEqual(["Asha Shared", "asha@example.com", "9876543210"]);
-    expect(byTitle.get("Private contact item")![2]).toBe("Education");
-    expect(byTitle.get("Private contact item")!.slice(8)).toEqual(["", "", ""]);
+    expect(byTitle.get("Shared contact item")![2]).toBe("not asked (older form)"); // P1: saved without the type question
+    expect(byTitle.get("Shared contact item")!.slice(4, 7)).toEqual(["Asha R.", "Teacher / lab in-charge", "Projects; Events"]);
+    expect(byTitle.get("Shared contact item")!.slice(9)).toEqual(["Asha Shared", "asha@example.com", "9876543210"]);
+    expect(byTitle.get("Private contact item")![3]).toBe("Education");
+    expect(byTitle.get("Private contact item")!.slice(9)).toEqual(["", "", ""]);
     expect(text).not.toMatch(/Bela|bela@|9999999999/);
     expect(text).not.toContain("Kumari"); // contributor shown as first name + initial only
   });

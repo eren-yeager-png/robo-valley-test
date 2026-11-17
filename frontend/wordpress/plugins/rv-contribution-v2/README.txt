@@ -1,4 +1,4 @@
-RoboValley Contribution (v2) - WordPress plugin, version 0.1.9
+RoboValley Contribution (v2) - WordPress plugin, version 0.1.10
 
 WHAT IT IS
 The new Contribute form for the Contribution and Contributor pages. It only shows the form and talks to the RoboValley app.
@@ -105,3 +105,14 @@ NEW IN 0.1.9
   * Where the origin was never recorded, Edit shows the list: contributions sent before 0.1.9, and every contribution while the
     app does not have migration 022 yet. A saved sector that is no longer offered also shows the list, so the member can choose again.
   * The HTML and CSS are unchanged; only the script changed.
+
+NEW IN 0.1.10
+  * The form starts with "What would you like to share?" (required): Describe a problem, Share an idea, or Share a video or resource.
+    They are saved as problem, improve and resource, and the form tells the app the member chose it (typeChosen); the app
+    remembers that (app migration 023). Moderation's item page and the CSV show the type.
+  * Older contributions (sent before 0.1.10, which had no type question and sent "resource" for everything) show
+    "Type: not asked (older form)". Their Edit has nothing ticked, with a short note, and the member picks one before sending.
+  * Edit (Changes requested) keeps the saved type ticked, and the member can change it.
+  * Install it only after the app has migration 023 (the app also works without it, but then every contribution shows
+    "not asked (older form)").
+  * The CSS is unchanged; the HTML has the new question and the script sends it.
