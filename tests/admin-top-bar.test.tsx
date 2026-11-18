@@ -58,11 +58,11 @@ describe("admin top bar: one account control", () => {
 });
 
 describe("admin shell", () => {
-  it("shows the eleven sections with the current page highlighted, and no standalone email or Sign out button", () => {
+  it("shows the twelve sections with the current page highlighted, and no standalone email or Sign out button", () => {
     h.path = "/admin/users";
     render(<AdminShell landingUrl={LANDING} locked={false}><p>body</p></AdminShell>);
     const nav = screen.getByRole("navigation");
-    expect(within(nav).getAllByRole("link")).toHaveLength(11); // Sector Counts was added
+    expect(within(nav).getAllByRole("link")).toHaveLength(12); // Sector Counts, then Sector Forms (P2) were added
     expect(within(nav).getByRole("link", { name: /User Management/ }).getAttribute("aria-current")).toBe("page");
     expect(within(nav).getByRole("link", { name: /Overview/ }).getAttribute("aria-current")).toBeNull();
     expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("User Management");

@@ -119,6 +119,10 @@ export const MIGRATIONS = [
   { id: "023", title: "the type the member chose", feature: "The Contribute form's \"What would you like to share?\" (Describe a problem / Share an idea / Share a video or resource), shown in Moderation and the CSV", requires: ["012"], checks: [
     { kind: "column", table: "contributions", column: "type_chosen" },
   ] },
+  { id: "024", title: "robot types per sector", feature: "Sector forms: each sector's robot types, entered by an administrator (the Contribute form asks for them from P3)", requires: ["012"], checks: [
+    { kind: "table", table: "sector_robot_types" },
+    { kind: "index", name: "sector_robot_types_name_uq" },
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */
