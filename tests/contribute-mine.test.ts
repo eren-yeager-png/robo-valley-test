@@ -59,7 +59,7 @@ describe("what a list contains", () => {
     const u = await signIn(); const id = await make(u, "draft", "My milking idea");
     await q("INSERT INTO contribution_contacts (contribution_id, contact_name, email, share_with_moderators) VALUES ($1,'Secret Name','secret@example.com',false)", [id]);
     const x = await getMine();
-    expect(x.b.items[0]).toMatchObject({ id, title: "My milking idea", type: "problem", typeLabel: "Report a problem", status: "draft", statusLabel: "Draft", canEdit: true, note: null, sectors: [{ slug: "agriculture-dairy", name: "Agriculture & Dairy" }] });
+    expect(x.b.items[0]).toMatchObject({ id, title: "My milking idea", type: "problem", typeLabel: "not asked (older form)", typeChosen: false, status: "draft", statusLabel: "Draft", canEdit: true, note: null, sectors: [{ slug: "agriculture-dairy", name: "Agriculture & Dairy" }] });
     const text = JSON.stringify(x.b);
     expect(text).not.toMatch(/SECRET-BODY|Secret Name|secret@example|body|photo/i);
     expect(x.r.headers.get("cache-control")).toBe("no-store");

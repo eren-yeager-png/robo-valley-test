@@ -3,7 +3,7 @@
 // for New and In review, and "Replied" once a moderator has replied in the current review round). Internal notes are never read here.
 // Only the owner's rows (user_id = $1). Never returns the body text, photos' bytes or contact details: a list only needs titles.
 // The Contributor badge is DERIVED (at least one non-draft submission) and never stored, so it can never disagree with the data.
-import { CONTRIBUTION_TYPES, type ContributionStatus } from "./contributions";
+import { typeChosenSql, typeShown, type ContributionStatus } from "./contributions";
 import { displayStatus, memberLabel, roundFacts } from "./reviewStatus";
 import { repliesForItems, type MemberReply } from "./contributionReplies";
 import { OWNER_RULES } from "./contributionApi";
@@ -13,17 +13,16 @@ type Db = { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }>
 export const MINE_STATUS_ORDER: ContributionStatus[] = ["draft", "changes_requested", "pending_review", "published", "unpublished", "rejected", "removed"];
 /** The note is shown to the author only for the statuses where a moderator's words explain what happened. */
 const NOTE_STATUSES = new Set<string>(["changes_requested", "rejected", "unpublished", "removed"]);
-const TYPE_LABEL = new Map<string, string>(CONTRIBUTION_TYPES.map((t) => [t.id, t.label]));
 const MAX_ITEMS = 200;
 
 export type MineItem = {
-  id: number; title: string; type: string; typeLabel: string; status: ContributionStatus; statusLabel: string;
+  id: number; title: string; type: string; typeLabel: string; typeChosen: boolean; status: ContributionStatus; statusLabel: string;
   sectors: { slug: string; name: string }[]; note: string | null; replies: MemberReply[]; canEdit: boolean; updatedAt: string;
 };
 export type Mine = { contributor: boolean; counts: Record<ContributionStatus, number>; items: MineItem[] };
 
 const LIST_SQL =
-  "SELECT c.id, c.title, c.type, c.status, c.updated_at, c.submitted_at IS NOT NULL AS submitted, " +
+  "SELECT c.id, c.title, c.type, " + typeChosenSql("c") + " AS type_chosen, c.status, c.updated_at, c.submitted_at IS NOT NULL AS submitted, " +
   "COALESCE((SELECT json_agg(json_build_object('slug', s.slug, 'name', s.name) ORDER BY s.sort_order, s.slug) FROM contribution_scopes cs JOIN sectors s ON s.id = cs.sector_id WHERE cs.contribution_id = c.id), '[]'::json) AS sectors " +
   "FROM contributions c WHERE c.user_id = $1 ORDER BY c.updated_at DESC, c.id DESC LIMIT " + MAX_ITEMS;
 // The latest decision with a note, per item, for the items shown. Needs migration 017; without it the list simply has no notes.
@@ -50,7 +49,7 @@ export async function listMine(db: Db, userId: number): Promise<Mine> {
     const status = r.status as ContributionStatus;
     if (status in counts) counts[status]++;
     return {
-      id: Number(r.id), title: r.title, type: r.type, typeLabel: TYPE_LABEL.get(r.type) ?? "", status, statusLabel: memberLabel(displayStatus(status, facts.get(Number(r.id)))),
+      id: Number(r.id), title: r.title, type: r.type, typeLabel: typeShown(r.type, r.type_chosen === true), typeChosen: r.type_chosen === true, status, statusLabel: memberLabel(displayStatus(status, facts.get(Number(r.id)))),
       sectors: Array.isArray(r.sectors) ? r.sectors : [], note: NOTE_STATUSES.has(status) ? notes.get(Number(r.id)) ?? null : null, replies: replies.get(Number(r.id)) ?? [],
       // you may edit while it is a Draft or needs changes; editing a published or taken-down item sends it back to review, so it is allowed too
       canEdit: (OWNER_RULES[status]?.edit ?? null) !== null, updatedAt: new Date(r.updated_at).toISOString(),

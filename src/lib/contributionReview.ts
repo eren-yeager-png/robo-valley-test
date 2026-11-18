@@ -21,7 +21,7 @@
 import { readContact, type Contact } from "./contributionContacts";
 import { listPhotoMeta } from "./contributionPhotos";
 import { splitBody } from "./contributionApi";
-import { CONTRIBUTION_TYPES, STATUS_LABELS, type ContributionStatus } from "./contributions";
+import { STATUS_LABELS, typeChosenSql, typeShown, type ContributionStatus } from "./contributions";
 import { hasControlChars } from "./validation";
 import { NEAR_DUPLICATE_SIMILARITY, normText, similarity } from "./spreadsheet/dedupe";
 import { displayStatus, portalLabel, roundFacts, type DisplayStatus } from "./reviewStatus";
@@ -65,7 +65,6 @@ export async function findDuplicates(db: Db, id: number, title: string): Promise
 export const NOTE_MIN = 3, NOTE_MAX = 1000;
 /** The reason for not accepting is read by the contributor: at least 5 characters (portal PR2). */
 export const REJECT_MIN = 5;
-const TYPE_LABEL = new Map<string, string>(CONTRIBUTION_TYPES.map((t) => [t.id, t.label]));
 
 export type Fail = { ok: false; status: number; error: string; message: string; fieldErrors?: Record<string, string>; duplicates?: Duplicate[] };
 const fail = (status: number, error: string, message: string, fieldErrors?: Record<string, string>): Fail => ({ ok: false, status, error, message, ...(fieldErrors ? { fieldErrors } : {}) });
@@ -73,7 +72,7 @@ const NOT_SET_UP = () => fail(503, "NOT_SET_UP", "Reviewing is not set up yet.")
 const NOT_FOUND = () => fail(404, "NOT_FOUND", "We could not find that contribution.");
 const code = (e: unknown) => (e as { code?: string })?.code;
 
-export type QueueItem = { id: number; title: string; type: string; typeLabel: string; status: ContributionStatus; statusLabel: string; display: DisplayStatus; displayLabel: string; sectors: string[]; submittedAt: string | null; photos: number };
+export type QueueItem = { id: number; title: string; type: string; typeLabel: string; typeChosen: boolean; status: ContributionStatus; statusLabel: string; display: DisplayStatus; displayLabel: string; sectors: string[]; submittedAt: string | null; photos: number };
 
 /** A page of the queue for one status (oldest first for the pending list, so nothing waits forever). Drafts are never listed. */
 export async function listQueue(db: Db, status: string, filter: { sector?: string | null; verified?: boolean | null } = {}): Promise<QueueItem[]> {
@@ -84,14 +83,14 @@ export async function listQueue(db: Db, status: string, filter: { sector?: strin
   if (filter.sector) { params.push(filter.sector); extra += " AND EXISTS (SELECT 1 FROM contribution_scopes f JOIN sectors fs ON fs.id = f.sector_id WHERE f.contribution_id = c.id AND fs.slug = $" + params.length + "::varchar)"; }
   if (filter.verified === true || filter.verified === false) extra += (filter.verified ? " AND EXISTS" : " AND NOT EXISTS") + " (SELECT 1 FROM contribution_reviews fr WHERE fr.contribution_id = c.id AND fr.action = 'verify')";
   const { rows } = await db.query(
-    "SELECT c.id, c.title, c.type, c.status, c.submitted_at, " +
+    "SELECT c.id, c.title, c.type, " + typeChosenSql("c") + " AS type_chosen, c.status, c.submitted_at, " +
     "COALESCE((SELECT json_agg(s.name ORDER BY s.sort_order, s.slug) FROM contribution_scopes cs JOIN sectors s ON s.id = cs.sector_id WHERE cs.contribution_id = c.id), '[]'::json) AS sectors, " +
     "(SELECT count(*)::int FROM contribution_photos p WHERE p.contribution_id = c.id) AS photos " +
     "FROM contributions c WHERE c.status = $1::varchar AND NOT c.is_demo" + extra + " ORDER BY " + (st === "pending_review" ? "c.submitted_at ASC, c.id ASC" : "c.updated_at DESC, c.id DESC") + " LIMIT 100", params);
   const facts = st === "pending_review" ? await roundFacts(db, rows.map((r) => Number(r.id))) : new Map();
   return rows.map((r) => {
     const display = displayStatus(r.status, facts.get(Number(r.id)));
-    return { id: Number(r.id), title: r.title, type: r.type, typeLabel: TYPE_LABEL.get(r.type) ?? "", status: r.status, statusLabel: STATUS_LABELS[r.status as ContributionStatus] ?? r.status, display, displayLabel: portalLabel(display), sectors: Array.isArray(r.sectors) ? r.sectors : [], submittedAt: r.submitted_at ? new Date(r.submitted_at).toISOString() : null, photos: Number(r.photos) };
+    return { id: Number(r.id), title: r.title, type: r.type, typeLabel: typeShown(r.type, r.type_chosen === true), typeChosen: r.type_chosen === true, status: r.status, statusLabel: STATUS_LABELS[r.status as ContributionStatus] ?? r.status, display, displayLabel: portalLabel(display), sectors: Array.isArray(r.sectors) ? r.sectors : [], submittedAt: r.submitted_at ? new Date(r.submitted_at).toISOString() : null, photos: Number(r.photos) };
   });
 }
 
@@ -106,7 +105,7 @@ export type TimelineEntry = { at: string; text: string; detail: string | null };
 
 /** One non-draft item to read. The contact details come back only through readContact: the author allowed reviewers AND the viewer is a reviewer (administrator or flagged moderator). */
 export async function getForReview(db: Db, viewerId: number, id: number, isAdmin = false): Promise<ReviewItem | null> {
-  const { rows } = await db.query("SELECT c.id, c.user_id, c.title, c.body, c.type, c.status, c.submitted_at, u.full_name, u.role AS user_role FROM contributions c LEFT JOIN users u ON u.id = c.user_id WHERE c.id = $1 AND c.status <> 'draft'", [id]);
+  const { rows } = await db.query("SELECT c.id, c.user_id, c.title, c.body, c.type, " + typeChosenSql("c") + " AS type_chosen, c.status, c.submitted_at, u.full_name, u.role AS user_role FROM contributions c LEFT JOIN users u ON u.id = c.user_id WHERE c.id = $1 AND c.status <> 'draft'", [id]);
   const c = rows[0];
   if (!c) return null;
   const sc = await db.query("SELECT s.name, s.slug FROM contribution_scopes cs JOIN sectors s ON s.id = cs.sector_id WHERE cs.contribution_id = $1 ORDER BY s.sort_order, s.slug", [id]);
@@ -131,7 +130,7 @@ export async function getForReview(db: Db, viewerId: number, id: number, isAdmin
     ...notes.map((n) => ({ at: n.at, text: `Internal note: ${n.by}`, detail: n.text })),
   ].sort((a, b) => b.at.localeCompare(a.at));
   return {
-    id: Number(c.id), title: c.title, type: c.type, typeLabel: TYPE_LABEL.get(c.type) ?? "", status: c.status, statusLabel: STATUS_LABELS[c.status as ContributionStatus] ?? c.status, display, displayLabel: portalLabel(display),
+    id: Number(c.id), title: c.title, type: c.type, typeLabel: typeShown(c.type, c.type_chosen === true), typeChosen: c.type_chosen === true, status: c.status, statusLabel: STATUS_LABELS[c.status as ContributionStatus] ?? c.status, display, displayLabel: portalLabel(display),
     sectors: sc.rows.map((r) => r.name), submittedAt: c.submitted_at ? new Date(c.submitted_at).toISOString() : null, photos: photos.length,
     authorLabel: `Member #${c.user_id}`, own, description: parts.description, sections: labels.filter(([k]) => parts[k]).map(([k, l]) => ({ label: l, text: parts[k] })),
     role: parts.role, district: parts.district, photoList: photos.map((p) => ({ id: p.id, alt: p.alt, mime: p.mime })), contact, history,
@@ -250,14 +249,14 @@ export type SectorList = {
   counts: Record<PortalTab, number>; contributions: number; contributors: number;
   rows: PortalRow[]; page: number; pages: number; matching: number; categoriesUsed: string[];
 };
-type FullRow = PortalRow & { userId: number; verified: boolean };
+type FullRow = PortalRow & { userId: number; verified: boolean; typeLabel: string }; // typeLabel: the CSV's Type column
 
 /** One sector's items with everything the list, the CSV and previous / next need. Needs migration 019. */
 async function sectorRows(db: Db, slug: string): Promise<{ sector: { slug: string; name: string }; rows: FullRow[] } | null> {
   const sec = (await db.query("SELECT slug, name FROM sectors WHERE slug = $1 AND NOT is_demo", [slug])).rows[0];
   if (!sec) return null;
   const { rows } = await db.query(
-    "SELECT c.id, c.title, c.status, c.submitted_at, c.user_id, u.full_name, u.role AS user_role, " +
+    "SELECT c.id, c.title, c.type, " + typeChosenSql("c") + " AS type_chosen, c.status, c.submitted_at, c.user_id, u.full_name, u.role AS user_role, " +
     `EXISTS (SELECT 1 FROM contribution_replies p WHERE p.contribution_id = c.id AND p.created_at >= ${ROUND_START_SQL}) AS replied, ` +
     `EXISTS (SELECT 1 FROM contribution_views v WHERE v.contribution_id = c.id AND v.last_viewed_at >= ${ROUND_START_SQL}) AS viewed, ` +
     "EXISTS (SELECT 1 FROM contribution_reviews r WHERE r.contribution_id = c.id AND r.action = 'verify') AS verified, " +
@@ -272,7 +271,7 @@ async function sectorRows(db: Db, slug: string): Promise<{ sector: { slug: strin
       return {
         id: Number(r.id), title: r.title, alsoIn: Array.isArray(r.also_in) ? r.also_in : [], contributor: contributorLabel(r.full_name), stakeholder: stakeholderLabel(r.user_role),
         categories: Array.isArray(r.categories) ? r.categories : [], submittedAt: r.submitted_at ? new Date(r.submitted_at).toISOString() : null,
-        status: r.status, display, displayLabel: portalLabel(display), userId: Number(r.user_id), verified: r.verified === true,
+        status: r.status, display, displayLabel: portalLabel(display), userId: Number(r.user_id), verified: r.verified === true, typeLabel: typeShown(r.type, r.type_chosen === true),
       };
     }),
   };
@@ -306,7 +305,7 @@ export async function sectorList(db: Db, slug: string, opts: ListOptions = {}): 
   return {
     sector: data.sector, tab: o.tab, sort: o.sort, q: o.q, category: o.category, verified: o.verified, counts,
     contributions: data.rows.length, contributors: new Set(data.rows.map((r) => r.userId)).size,
-    rows: matching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(({ userId: _u, verified: _v, ...r }) => r), page, pages, matching: matching.length,
+    rows: matching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(({ userId: _u, verified: _v, typeLabel: _t, ...r }) => r), page, pages, matching: matching.length,
     categoriesUsed: [...new Set(data.rows.flatMap((r) => r.categories))],
   };
 }
@@ -340,11 +339,11 @@ export async function exportCsv(db: Db, viewerId: number, slug: string, opts: Li
   const data = await sectorRows(db, slug);
   if (!data) return null;
   const list = applyOptions(data.rows, cleanOptions({ ...opts, page: 1 })).slice(0, EXPORT_MAX_ROWS);
-  const header = ["ID", "Title", "Also in", "Contributor", "Stakeholder category", "Directory categories", "Submitted", "Status", "Contact name", "Contact email", "Contact mobile"];
+  const header = ["ID", "Title", "Type", "Also in", "Contributor", "Stakeholder category", "Directory categories", "Submitted", "Status", "Contact name", "Contact email", "Contact mobile"];
   const lines = [header.map(csvCell).join(",")];
   for (const r of list) {
     const contact = await readContact(db, r.id, viewerId).catch(() => null);
-    lines.push([r.id, r.title, r.alsoIn.join("; "), r.contributor, r.stakeholder, r.categories.join("; "), r.submittedAt ?? "", r.displayLabel, contact?.name ?? "", contact?.email ?? "", contact?.phone ?? ""].map(csvCell).join(","));
+    lines.push([r.id, r.title, r.typeLabel, r.alsoIn.join("; "), r.contributor, r.stakeholder, r.categories.join("; "), r.submittedAt ?? "", r.displayLabel, contact?.name ?? "", contact?.email ?? "", contact?.phone ?? ""].map(csvCell).join(","));
   }
   const day = new Date().toISOString().slice(0, 10);
   return { filename: `contributions-${data.sector.slug}-${day}.csv`, csv: "\uFEFF" + lines.join("\r\n") + "\r\n", rows: list.length };

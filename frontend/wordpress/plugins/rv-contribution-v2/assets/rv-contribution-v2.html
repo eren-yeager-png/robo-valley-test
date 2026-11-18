@@ -14,6 +14,15 @@
 <section id="member-area" hidden>
   <p class="notice"><strong id="member-name"></strong> · Registered member <button type="button" id="sign-out">Sign Out</button></p>
   <form id="contribute" novalidate>
+  <fieldset id="type-field">
+    <legend>What would you like to share? <span aria-hidden="true">*</span></legend>
+    <p class="hint" id="type-older" hidden>This contribution was sent before the form asked this. Choose one.</p>
+    <div class="choices" id="type-choices">
+      <label><input type="radio" name="type" value="problem" required>Describe a problem</label>
+      <label><input type="radio" name="type" value="improve" required>Share an idea</label>
+      <label><input type="radio" name="type" value="resource" required>Share a video or resource</label>
+    </div>
+  </fieldset>
   <fieldset>
     <legend>Contribution details</legend>
     <label>Feature title <span aria-hidden="true">*</span><input name="title" maxlength="120" required placeholder="e.g. Weekend robotics club" aria-describedby="rv-c2-title-hint"></label>

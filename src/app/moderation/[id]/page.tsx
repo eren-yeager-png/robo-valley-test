@@ -64,6 +64,8 @@ export default async function ContributionPage({ params, searchParams }: { param
             <h2 id="d-details">Contribution details</h2>
             <dl>
               <div className="mod-field"><dt>Feature title</dt><dd>{it.title}</dd></div>
+              {/* P1: the type the member chose in the form; an older form did not ask, so its stored type is not shown as a choice */}
+              <div className="mod-field" data-type-chosen={it.typeChosen ? "yes" : "no"}><dt>Type</dt><dd style={it.typeChosen ? undefined : { color: "var(--mod-muted)" }}>{it.typeLabel}</dd></div>
               <div className="mod-field"><dt>Stakeholder category (from profile)</dt><dd>{it.stakeholder || "Not set"}</dd></div>
               <div className="mod-field"><dt>Brief description</dt><dd>{it.description}</dd></div>
               {it.sections.map((s) => (<div key={s.label} className="mod-field"><dt>{s.label}</dt><dd>{s.text}</dd></div>))}

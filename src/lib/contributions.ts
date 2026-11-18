@@ -22,6 +22,29 @@ export const CONTRIBUTION_TYPES = [
 ] as const;
 export type ContributionType = (typeof CONTRIBUTION_TYPES)[number]["id"];
 
+/**
+ * P1 (plugin 0.1.10): the three types the Contribute form asks for ("What would you like to share?"), with the words the member sees.
+ * The id is the stored contributions.type (all three are in the list above). contributions.type_chosen (migration 023) says the member
+ * chose it; older forms did not ask and saved 'resource' for everything, so for them the stored value is a default, not a choice.
+ */
+export const FORM_TYPES = [
+  { id: "problem", label: "Describe a problem" },
+  { id: "improve", label: "Share an idea" },
+  { id: "resource", label: "Share a video or resource" },
+] as const;
+export const FORM_TYPE_IDS: readonly string[] = FORM_TYPES.map((t) => t.id);
+export const TYPE_NOT_ASKED = "not asked (older form)";
+/** The type as Moderation, the CSV and My Contributions show it: the form's words when the member chose it, else "not asked (older form)". */
+export function typeShown(type: string, chosen: boolean): string {
+  if (!chosen) return TYPE_NOT_ASKED;
+  return FORM_TYPES.find((t) => t.id === type)?.label ?? CONTRIBUTION_TYPES.find((t) => t.id === type)?.label ?? type;
+}
+/**
+ * Reads contributions.type_chosen without failing before migration 023 (a missing column reads as false). `alias` is the
+ * contributions row in the query, e.g. "c".
+ */
+export const typeChosenSql = (alias: string) => `COALESCE((to_jsonb(${alias}) ->> 'type_chosen')::boolean, false)`;
+
 // The six stored statuses. "rejected" and "unpublished" need migration 017; before it nothing can be in them.
 export const CONTRIBUTION_STATUSES = ["draft", "pending_review", "changes_requested", "published", "rejected", "unpublished", "removed"] as const; // "removed" needs migration 018
 export type ContributionStatus = (typeof CONTRIBUTION_STATUSES)[number];

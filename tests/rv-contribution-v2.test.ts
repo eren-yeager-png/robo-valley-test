@@ -43,7 +43,10 @@ async function run(r: (c: Call) => Response | undefined, base: string | null = B
   (0, eval)(script);
   await flush();
 }
-function fillValid() {
+const typeBox = (value: string) => q<HTMLInputElement>(`#type-choices input[value="${value}"]`);
+function chooseType(value: string) { const b = typeBox(value); b.checked = true; b.dispatchEvent(new Event("change", { bubbles: true })); }
+function fillValid(type = "problem") {
+  chooseType(type);
   field("title").value = "Weekend robotics club";
   field("description").value = "A free weekend club where students build simple robots.";
   const projects = q<HTMLInputElement>('#choices input[value="Projects"]'); projects.checked = true; projects.dispatchEvent(new Event("change"));
@@ -107,6 +110,8 @@ describe("the owner's form: limits and messages", () => {
   });
   it("refuses a short title, a short description, no category, a bad link, no sector, and too much text, with plain messages; nothing is sent", async () => {
     await run(routes());
+    await submit(); expect(typeBox("problem").validationMessage).toBe("Choose what you would like to share."); // 0.1.10: the type comes first
+    chooseType("improve"); expect(typeBox("problem").validationMessage).toBe("");
     await submit(); expect(field("title").validationMessage).toBe("Give it a title of at least 5 characters.");
     field("title").value = "Weekend robotics club"; await submit(); expect(field("description").validationMessage).toBe("Tell us a little more (at least 10 characters).");
     field("description").value = "A free weekend club for students."; await submit();
@@ -160,7 +165,7 @@ describe("sending: pending only, through the app", () => {
     expect(calls.filter((c) => c.method !== "GET").map((c) => `${c.method} ${c.path}`)).toEqual([
       "POST /api/contributions", "POST /api/contributions/42/photos", "POST /api/contributions/42/submit"]); // no contact call any more
     const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions")!.body;
-    expect(create).toMatchObject({ type: "resource", sectors: ["education"], title: "Weekend robotics club", role: "Teacher / lab in-charge", district: "", website: "", shareContact: true });
+    expect(create).toMatchObject({ type: "problem", typeChosen: true, sectors: ["education"], title: "Weekend robotics club", role: "Teacher / lab in-charge", district: "", website: "", shareContact: true });
     expect(create.description).toBe("A free weekend club where students build simple robots.\n\nDirectory categories: Projects\n[Projects] Remarks: Runs on Saturdays\n[Projects] Link 1 (Website): https://example.org/club - Club page with photos");
     expect(calls.find((c) => c.path.endsWith("/photos"))!.body.alt).toBe("Students building a robot");
     expect(q("#message").textContent).toMatch(/sent for review\. It stays pending and is not public until it is approved/);
@@ -227,14 +232,15 @@ describe("?sector= preselects sectors (the Contribute to this sector link)", () 
   });
   it("the ticked sector is what is sent", async () => {
     await at("?sector=education");
+    chooseType("resource");
     field("title").value = "Weekend robotics club"; field("description").value = "A free weekend club where students build simple robots.";
     const p = q<HTMLInputElement>('#choices input[value="Projects"]'); p.checked = true; p.dispatchEvent(new Event("change"));
     await submit();
     const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions");
     expect(create?.body.sectors).toEqual(["education"]);
   });
-  it("the plugin version moved to 0.1.9 so browsers fetch the new script", () => {
-    expect(PHP).toMatch(/Version: 0\.1\.9/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.9'/);
+  it("the plugin version moved to 0.1.10 so browsers fetch the new script", () => {
+    expect(PHP).toMatch(/Version: 0\.1\.10/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.10'/);
   });
 });
 
@@ -308,8 +314,8 @@ describe("Contribute to this sector (0.1.2, static; run on a local WordPress too
 
 describe("members contribute, administrators review (0.1.4)", () => {
   const sha = (t: string) => createHash("sha256").update(t).digest("hex");
-  it("the member form's markup and styles are pinned (0.1.8: the sector line has no Change link)", () => {
-    expect(sha(MARKUP.replace(/\r\n/g, "\n"))).toBe("61cb558546a06f3fabdcc4dc067111eb104dbd235ddb7654af634301b766d01c");
+  it("the member form's markup and styles are pinned (0.1.10: the type question; the CSS is unchanged)", () => {
+    expect(sha(MARKUP.replace(/\r\n/g, "\n"))).toBe("827a62d4b5f644577ef82a2789dbbf985d9128e7908a6db25315599a48918ed4");
     expect(sha(CSS.replace(/\r\n/g, "\n"))).toBe("dfda65c5ad765ff438882153eb30db2de7a6ad6fa5100228b984a3bade917d3e");
   });
   it("WordPress administrators get a note with a Moderation link instead of the form, and no form script (static; also run in PHP)", () => {
@@ -372,7 +378,7 @@ describe("members contribute, administrators review (0.1.4)", () => {
 
 describe("structured categories and Edit after changes are requested (0.1.5)", () => {
   const SAVED = { success: true, contribution: {
-    id: 55, status: "changes_requested", title: "Solar milking robot", description: "A student team built a small solar milking unit.",
+    id: 55, status: "changes_requested", type: "improve", typeChosen: true, title: "Solar milking robot", description: "A student team built a small solar milking unit.",
     directory: [
       { category: "Projects", remarks: "Tested for six weeks.", links: [{ type: "Website", url: "https://example.org/milker", gist: "The build log" }] },
       { category: "Events", remarks: "", links: [] },
@@ -527,6 +533,98 @@ describe("structured categories and Edit after changes are requested (0.1.5)", (
     expect(document.querySelector("#rv-c2-editing")).toBeNull();
     expect(q("#message").textContent).toBe("This contribution cannot be edited right now.");
   });
+
+  // P1 (0.1.10): Edit keeps the saved type and lets the member change it
+  const ticked = () => Array.from(document.querySelectorAll<HTMLInputElement>('#type-choices input[name="type"]')).filter((i) => i.checked).map((i) => i.value);
+  it("Edit ticks the type the member chose (typeChosen: true), for each of the three; nothing else is ticked and there is no older-form note", async () => {
+    for (const type of ["problem", "improve", "resource"]) {
+      await openEditOf({ type, typeChosen: true });
+      expect(ticked()).toEqual([type]);
+      expect(q("#type-older").hidden).toBe(true);
+    }
+  });
+  it("keeping the saved type: Submit for Review sends it again with typeChosen", async () => {
+    await openEditOf({ type: "improve", typeChosen: true });
+    await submit();
+    const patch = calls.find((c) => c.method === "PATCH")!;
+    expect(patch.body).toMatchObject({ type: "improve", typeChosen: true });
+    expect(q("#message").textContent).toContain("sent for review");
+  });
+  it("changing it: the member picks another type and the change is what is sent", async () => {
+    await openEditOf({ type: "improve", typeChosen: true });
+    chooseType("resource");
+    expect(ticked()).toEqual(["resource"]); // radio buttons: one at a time
+    await submit();
+    expect(calls.find((c) => c.method === "PATCH")!.body).toMatchObject({ type: "resource", typeChosen: true });
+  });
+  it("an older contribution (sent before the form asked: typeChosen false or missing) opens with nothing ticked and a short note; it cannot be sent until a type is chosen", async () => {
+    for (const older of [{ type: "resource", typeChosen: false }, { type: "resource", typeChosen: undefined }, { type: "resource", typeChosen: "true" }]) {
+      await openEditOf(older);
+      expect(ticked()).toEqual([]); // the stored 'resource' was a default, not a choice: it is not shown as one
+      expect(q("#type-older").hidden).toBe(false);
+      expect(q("#type-older").textContent).toBe("This contribution was sent before the form asked this. Choose one.");
+      await submit();
+      expect(typeBox("problem").validationMessage).toBe("Choose what you would like to share.");
+      expect(calls.filter((c) => c.method === "PATCH")).toEqual([]);
+    }
+    chooseType("problem");
+    await submit();
+    expect(calls.find((c) => c.method === "PATCH")!.body).toMatchObject({ type: "problem", typeChosen: true });
+    expect(q("#type-older").hidden).toBe(true); // the form is empty again after sending
+  });
+  it("Cancel editing clears the type and the older-form note", async () => {
+    await openEditOf({ type: "resource", typeChosen: false });
+    chooseType("improve");
+    (Array.from(document.querySelectorAll<HTMLButtonElement>("#rv-c2-editing button")).find((b) => b.textContent === "Cancel editing"))!.click();
+    expect(ticked()).toEqual([]); expect(q("#type-older").hidden).toBe(true);
+  });
+});
+
+describe("pick a type (0.1.10, P1)", () => {
+  it("the form starts with 'What would you like to share?': three required choices, in this order, nothing ticked", async () => {
+    await run(routes());
+    const field0 = q("#contribute").querySelector("fieldset")!;
+    expect(field0.id).toBe("type-field"); // the first question in the form
+    expect(field0.querySelector("legend")!.textContent).toBe("What would you like to share? *");
+    const boxes = Array.from(field0.querySelectorAll<HTMLInputElement>('input[name="type"]'));
+    expect(boxes.map((b) => [b.type, b.value, b.parentElement!.textContent, b.required])).toEqual([
+      ["radio", "problem", "Describe a problem", true], ["radio", "improve", "Share an idea", true], ["radio", "resource", "Share a video or resource", true]]);
+    expect(boxes.some((b) => b.checked)).toBe(false);
+    expect(q("#type-older").hidden).toBe(true);
+  });
+  it("each choice is sent as its stored value with typeChosen: true (problem / improve / resource)", async () => {
+    for (const type of ["problem", "improve", "resource"]) {
+      await run(routes((c) => (c.path === "/api/contributions" && c.method === "POST" ? reply({ success: true, id: 41, status: "draft" }, 201) : c.path.endsWith("/submit") ? reply({ success: true, id: 41, status: "pending_review" }) : undefined)));
+      fillValid(type);
+      await submit();
+      const create = calls.find((c) => c.path === "/api/contributions" && c.method === "POST")!;
+      expect(create.body.type).toBe(type);
+      expect(create.body.typeChosen).toBe(true);
+      expect(q("#message").textContent).toContain("sent for review");
+      expect(Array.from(document.querySelectorAll<HTMLInputElement>('#type-choices input')).some((b) => b.checked)).toBe(false); // ready for the next one
+    }
+  });
+  it("on a sector page the type question is the same and is sent the same way", async () => {
+    history.replaceState(null, "", "/contribute-now/?sector=education");
+    try {
+      await run(routes((c) => (c.path === "/api/contributions" && c.method === "POST" ? reply({ success: true, id: 43, status: "draft" }, 201) : c.path.endsWith("/submit") ? reply({ success: true, id: 43, status: "pending_review" }) : undefined)));
+      expect(q("#type-field").hidden).toBe(false);
+      fillValid("improve");
+      await submit();
+      expect(calls.find((c) => c.path === "/api/contributions" && c.method === "POST")!.body).toMatchObject({ type: "improve", typeChosen: true, sectors: ["education"], fromSectorPage: true });
+    } finally { history.replaceState(null, "", "/"); }
+  });
+  it("if the app refuses the type, its message is shown on the type question", async () => {
+    await run(routes((c) => (c.path === "/api/contributions" && c.method === "POST" ? reply({ success: false, error: "VALIDATION_FAILED", message: "Please fix the highlighted fields.", fieldErrors: { type: "Choose what you would like to share: a problem, an idea, or a video or resource." } }, 400) : undefined)));
+    fillValid("problem");
+    await submit();
+    expect(typeBox("problem").validationMessage).toBe("Choose what you would like to share: a problem, an idea, or a video or resource.");
+    expect(q("#message").textContent).toContain("Please fix the highlighted fields.");
+  });
+  it("the script no longer sends a fixed 'resource': the type comes only from the member's choice", () => {
+    expect(SCRIPT).not.toMatch(/var TYPE = 'resource'/);
+    expect(SCRIPT).toContain("type: chosenType(), typeChosen: true");
+  });
 });
 
 describe("no Sign Out on the Contribute page (0.1.6)", () => {
@@ -649,6 +747,7 @@ describe("sectors: a searchable list, and the sector already set from a sector p
   });
   it("if the app refuses the preset sector, the message says so and no list opens", async () => {
     await at("?sector=agriculture-dairy", SIX, (c) => c.method === "POST" && c.path === "/api/contributions" ? reply({ success: false, error: "VALIDATION_FAILED", message: "Check the highlighted fields.", fieldErrors: { sectors: "Choose sectors from the list." } }, 400) : undefined);
+    chooseType("problem");
     field("title").value = "Weekend robotics club"; field("description").value = "A free weekend club where students build simple robots.";
     const p = q<HTMLInputElement>('#choices input[value="Projects"]'); p.checked = true; p.dispatchEvent(new Event("change"));
     await submit();
@@ -667,6 +766,7 @@ describe("sectors: a searchable list, and the sector already set from a sector p
   });
   it("the preset sector is sent; after sending, the page is ready again for the same sector", async () => {
     await at("?sector=agriculture-dairy", SIX, (c) => c.method === "POST" && c.path === "/api/contributions" ? reply({ success: true, id: 42, status: "draft" }, 201) : c.path === "/api/contributions/42/submit" ? reply({ success: true, id: 42, status: "pending_review" }) : undefined);
+    chooseType("problem");
     field("title").value = "Weekend robotics club"; field("description").value = "A free weekend club where students build simple robots.";
     const p = q<HTMLInputElement>('#choices input[value="Projects"]'); p.checked = true; p.dispatchEvent(new Event("change"));
     await submit();

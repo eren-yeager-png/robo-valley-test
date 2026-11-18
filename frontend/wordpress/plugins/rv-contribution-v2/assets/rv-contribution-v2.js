@@ -18,7 +18,10 @@
 	var choices = Array.prototype.slice.call( root.querySelectorAll( '#choices input' ) );
 	// The limits: the owner's form is stricter for title and description (120 and 1,200); the server's minimums are 5 and 10.
 	var L = { titleMin: 5, titleMax: 120, descMin: 10, descMax: 1200, folded: 2000, sectorsMax: 20, photosMax: 3, photoBytes: 4 * 1024 * 1024, altMax: 200, maxLinks: 5 };
-	var TYPE = 'resource'; // the form has no type field; contributions are sent as "Share a video or resource"
+	// 0.1.10 (P1): "What would you like to share?" - Describe a problem / Share an idea / Share a video or resource, sent as problem /
+	// improve / resource with typeChosen: true (the app's migration 023 remembers that the member chose it). Forms before 0.1.10 had no
+	// type question and sent 'resource' for everything; the app shows those as "Type: not asked (older form)".
+	var typeBoxes = Array.prototype.slice.call( root.querySelectorAll( '#type-choices input[name="type"]' ) ), typeOlder = $( '#type-older' );
 	var me = null, draftId = null, busy = false, photos = [];
 	var removedPhotos = [], wantSectors = null; // 0.1.5 Edit: saved photos the member removed; the saved sectors to tick once the list is loaded
 	var wantFixed = false; // 0.1.9 Edit: the item was started from a sector page, so its sector shows as fixed text
@@ -383,6 +386,9 @@
 			}
 		} );
 	} );
+	typeBoxes.forEach( function ( b ) {
+		b.addEventListener( 'change', function () { typeBoxes[ 0 ].setCustomValidity( '' ); } );
+	} );
 	function invalid( field, text ) {
 		field.setCustomValidity( text );
 		field.reportValidity();
@@ -420,6 +426,9 @@
 	}
 	function check() {
 		var title = form.elements.title, desc = form.elements.description;
+		if ( ! chosenType() ) {
+			return invalid( typeBoxes[ 0 ], 'Choose what you would like to share.' );
+		}
 		if ( title.value.trim().length < L.titleMin ) {
 			return invalid( title, 'Give it a title of at least 5 characters.' );
 		}
@@ -461,6 +470,10 @@
 		}
 		return selected;
 	}
+	function chosenType() {
+		var on = typeBoxes.filter( function ( b ) { return b.checked; } )[ 0 ];
+		return on ? on.value : '';
+	}
 	var FIELD = { title: 'title', description: 'description' };
 	function fail( res ) {
 		busy = false;
@@ -477,6 +490,8 @@
 			var k = keys[ i ], el = null;
 			if ( FIELD[ k ] ) {
 				el = form.elements[ FIELD[ k ] ];
+			} else if ( k === 'type' ) {
+				el = typeBoxes[ 0 ];
 			} else if ( k === 'sectors' && sectorFixed.hidden ) { // (a fixed sector has no field: the message below says it)
 				openPanel( true );
 				el = sectorSearch;
@@ -509,7 +524,7 @@
 		}
 		busy = true;
 		form.querySelector( 'button[type=submit]' ).disabled = true;
-		var payload = { type: TYPE, sectors: selectedSectors(), title: form.elements.title.value.trim(), description: folded( selected ), directory: directoryOf( selected ), shareContact: !! form.elements.shareContact.checked, fromSectorPage: draftId === null && ! sectorFixed.hidden, robotType: '', role: me.stakeholder || '', district: '', website: form.elements.website.value };
+		var payload = { type: chosenType(), typeChosen: true, sectors: selectedSectors(), title: form.elements.title.value.trim(), description: folded( selected ), directory: directoryOf( selected ), shareContact: !! form.elements.shareContact.checked, fromSectorPage: draftId === null && ! sectorFixed.hidden, robotType: '', role: me.stakeholder || '', district: '', website: form.elements.website.value };
 		var first = draftId === null ? call( 'POST', '/api/contributions', payload ) : call( 'PATCH', '/api/contributions/' + draftId, payload );
 		first.then( function ( r ) {
 			if ( ! r.ok ) {
@@ -582,6 +597,7 @@
 		removedPhotos = [];
 		wantSectors = null;
 		wantFixed = false;
+		typeOlder.hidden = true;
 		openPanel( false );
 		filterSectors();
 		if ( sectorBox.getAttribute( 'data-loaded' ) ) {
@@ -648,6 +664,10 @@
 			}
 			resetContribution();
 			draftId = c.id;
+			// 0.1.10: Edit keeps the type the member chose, and the member can change it. A contribution sent before the form asked
+			// (typeChosen not true) has no choice to keep: nothing is ticked and the member picks one before sending it again.
+			typeBoxes.forEach( function ( b ) { b.checked = c.typeChosen === true && b.value === c.type; } );
+			typeOlder.hidden = c.typeChosen === true;
 			form.elements.title.value = c.title || '';
 			form.elements.description.value = c.description || '';
 			( Array.isArray( c.directory ) ? c.directory : [] ).forEach( function ( d ) {
