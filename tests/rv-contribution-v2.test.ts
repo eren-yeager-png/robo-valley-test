@@ -239,8 +239,8 @@ describe("?sector= preselects sectors (the Contribute to this sector link)", () 
     const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions");
     expect(create?.body.sectors).toEqual(["education"]);
   });
-  it("the plugin version moved to 0.1.10 so browsers fetch the new script", () => {
-    expect(PHP).toMatch(/Version: 0\.1\.10/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.10'/);
+  it("the plugin version moved to 0.1.11 so browsers fetch the new script", () => {
+    expect(PHP).toMatch(/Version: 0\.1\.11/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.11'/);
   });
 });
 
@@ -258,6 +258,14 @@ describe("Sign In and Sign Up keep the sector (0.1.3)", () => {
   };
   const page = () => `${location.origin}/contribute-now/`;
   afterEach(() => { history.replaceState(null, "", "/"); delete (window as any).__rvNav; });
+  it("0.1.11: a robot card's link keeps its robot with its one sector, and the app accepts exactly that", async () => {
+    const r = await leave("?sector=agriculture-dairy&robot=milking-robots");
+    expect(r.back).toBe(page() + "?sector=agriculture-dairy&robot=milking-robots");
+    expect(validateContributeReturn(r.back, location.origin, "/contribute-now/")).toBe(r.back);
+    expect((await leave("?sector=agriculture-dairy,education&robot=milking-robots")).back).toBe(page() + "?sector=agriculture-dairy,education"); // a robot needs exactly one sector
+    expect((await leave("?sector=agriculture-dairy&robot=Milking")).back).toBe(page() + "?sector=agriculture-dairy");
+    expect((await leave("?robot=milking-robots")).back).toBe(page());
+  });
   it("only the two sign-in navigations are swapped for the recorder", () => {
     expect(SCRIPT.match(/location\.href = /g)).toHaveLength(2);
   });
@@ -314,9 +322,9 @@ describe("Contribute to this sector (0.1.2, static; run on a local WordPress too
 
 describe("members contribute, administrators review (0.1.4)", () => {
   const sha = (t: string) => createHash("sha256").update(t).digest("hex");
-  it("the member form's markup and styles are pinned (0.1.10: the type question; the CSS is unchanged)", () => {
-    expect(sha(MARKUP.replace(/\r\n/g, "\n"))).toBe("827a62d4b5f644577ef82a2789dbbf985d9128e7908a6db25315599a48918ed4");
-    expect(sha(CSS.replace(/\r\n/g, "\n"))).toBe("dfda65c5ad765ff438882153eb30db2de7a6ad6fa5100228b984a3bade917d3e");
+  it("the member form's markup and styles are pinned (0.1.11: the robot question and one spacing rule for it)", () => {
+    expect(sha(MARKUP.replace(/\r\n/g, "\n"))).toBe("27a473f40d24e3a1fe3474a028095286233ef3af99b0d8bf317f974e3c6c33c4");
+    expect(sha(CSS.replace(/\r\n/g, "\n"))).toBe("5bcc55b0c9d4529341824d0ec1797e9c95d3ffb6f1c4a79521805030745d0571");
   });
   it("WordPress administrators get a note with a Moderation link instead of the form, and no form script (static; also run in PHP)", () => {
     expect(PHP).toContain("function rv_c2_is_wp_admin() {\n\treturn function_exists( 'current_user_can' ) && current_user_can( 'manage_options' );");
@@ -782,5 +790,135 @@ describe("sectors: a searchable list, and the sector already set from a sector p
     await at("", { success: false, error: "NOT_SET_UP" }, undefined, 503);
     expect(q<HTMLButtonElement>("#sector-toggle").disabled).toBe(true);
     expect(q("#sector-status").textContent).toBe("Sectors could not be loaded. Please reload the page.");
+  });
+});
+
+describe("0.1.11 (P3): which robot is it about", () => {
+  const SECTORS_R = { success: true, sectors: [
+    { slug: "agriculture-dairy", name: "Agriculture & Dairy", robots: [{ slug: "milking-robots", name: "Milking robots" }, { slug: "drone-sprayers", name: "Drone sprayers" }] },
+    { slug: "education", name: "Education", robots: [] },
+    { slug: "healthcare", name: "Healthcare", robots: [{ slug: "pharmacy-robots", name: "Pharmacy robots" }] },
+  ] };
+  const created = (c: Call) => (c.path === "/api/contributions" && c.method === "POST" ? reply({ success: true, id: 41, status: "draft" }, 201) : c.path.endsWith("/submit") ? reply({ success: true, id: 41, status: "pending_review" }) : undefined);
+  const withRobots = (extra: (c: Call) => Response | undefined = () => undefined) => routes((c) => extra(c) ?? (c.path === "/api/contributions/sectors" ? reply(SECTORS_R) : undefined));
+  const at = async (search: string, extra?: (c: Call) => Response | undefined) => { history.replaceState(null, "", "/contribute-now/" + search); await run(withRobots(extra)); };
+  afterEach(() => history.replaceState(null, "", "/"));
+  const tick = (slug: string, on = true) => { const b = q<HTMLInputElement>(`#sector-choices input[value="${slug}"]`); b.checked = on; b.dispatchEvent(new Event("change")); };
+  const selects = () => Array.from(document.querySelectorAll<HTMLSelectElement>("#robot-choices select")).map((s) => ({ sector: s.getAttribute("data-sector"), label: (s.parentElement as HTMLLabelElement).firstChild!.textContent, options: Array.from(s.options).map((o) => o.textContent), value: s.value }));
+  const choose = (sector: string, robot: string) => { const s = q<HTMLSelectElement>(`#robot-choices select[data-sector="${sector}"]`); s.value = robot; s.dispatchEvent(new Event("change")); };
+  const NO_LONGER = 'That robot type is no longer offered for Agriculture & Dairy. Choose another, or "Not sure".';
+  const fill = () => {
+    chooseType("problem");
+    field("title").value = "Robots in the milking shed"; field("description").value = "Cows are milked by hand every morning before school.";
+    const p = q<HTMLInputElement>('#choices input[value="Projects"]'); p.checked = true; p.dispatchEvent(new Event("change"));
+  };
+
+  it("nothing is asked until a sector with robot types is chosen; a sector without robot types asks nothing", async () => {
+    await at("");
+    expect(q("#robot-field").hidden).toBe(true);
+    tick("education");
+    expect(q("#robot-field").hidden).toBe(true); expect(selects()).toEqual([]);
+  });
+  it("one list per chosen sector that has robot types: the sector's name, 'Not sure' first and chosen, then the robots in the admins' order", async () => {
+    await at("");
+    tick("agriculture-dairy"); tick("education"); tick("healthcare");
+    expect(q("#robot-field").hidden).toBe(false);
+    expect(q("#robot-field legend").textContent).toBe("Which robot is it about? · Optional");
+    expect(selects()).toEqual([
+      { sector: "agriculture-dairy", label: "Agriculture & Dairy", options: ["Not sure", "Milking robots", "Drone sprayers"], value: "" },
+      { sector: "healthcare", label: "Healthcare", options: ["Not sure", "Pharmacy robots"], value: "" },
+    ]);
+  });
+  it("sends one answer per chosen sector ('' = Not sure, also for a sector without robot types) and fromRobotPage false", async () => {
+    await at("", created);
+    fill(); tick("agriculture-dairy"); tick("education"); tick("healthcare");
+    choose("agriculture-dairy", "drone-sprayers");
+    await submit();
+    const create = calls.find((c) => c.path === "/api/contributions" && c.method === "POST")!;
+    expect(create.body.robots).toEqual({ "agriculture-dairy": "drone-sprayers", education: "", healthcare: "" });
+    expect(create.body.fromRobotPage).toBe(false);
+  });
+  it("a choice survives ticking another sector; unticking a sector drops its question and its answer", async () => {
+    await at("", created);
+    fill(); tick("agriculture-dairy"); choose("agriculture-dairy", "milking-robots");
+    tick("healthcare");
+    expect(selects().map((s) => [s.sector, s.value])).toEqual([["agriculture-dairy", "milking-robots"], ["healthcare", ""]]);
+    tick("agriculture-dairy", false);
+    expect(selects().map((s) => s.sector)).toEqual(["healthcare"]);
+    await submit();
+    expect(calls.find((c) => c.path === "/api/contributions" && c.method === "POST")!.body.robots).toEqual({ healthcare: "" });
+  });
+  it("from a robot card (?sector=agriculture-dairy&robot=milking-robots): the robot is fixed text, sent with fromRobotPage", async () => {
+    await at("?sector=agriculture-dairy&robot=milking-robots", created);
+    expect(q("#sector-fixed").textContent).toBe("Sector · Agriculture & Dairy");
+    expect(q("#robot-fixed").hidden).toBe(false); expect(q("#robot-fixed").textContent).toBe("Robot · Milking robots");
+    expect(selects()).toEqual([]);
+    fill(); await submit();
+    const create = calls.find((c) => c.path === "/api/contributions" && c.method === "POST")!;
+    expect(create.body.robots).toEqual({ "agriculture-dairy": "milking-robots" });
+    expect(create.body.fromRobotPage).toBe(true);
+    expect(create.body.fromSectorPage).toBe(true);
+  });
+  it("a robot that is not one of that sector's robots, a bad value, or several sectors: the normal question, nothing fixed", async () => {
+    for (const s of ["?sector=agriculture-dairy&robot=pharmacy-robots", "?sector=agriculture-dairy&robot=Milking", "?sector=agriculture-dairy,healthcare&robot=milking-robots", "?robot=milking-robots"]) {
+      await at(s);
+      expect(q("#robot-fixed").hidden, s).toBe(true);
+    }
+    await at("?sector=agriculture-dairy&robot=pharmacy-robots");
+    expect(selects().map((x) => [x.sector, x.value])).toEqual([["agriculture-dairy", ""]]);
+  });
+  it("a robot type switched off since the page loaded: the app's message points at the robot question", async () => {
+    await at("", (c) => (c.path === "/api/contributions" && c.method === "POST" ? reply({ success: false, error: "VALIDATION_FAILED", message: "Please fix the highlighted fields.", fieldErrors: { robots: NO_LONGER } }, 400) : undefined));
+    fill(); tick("agriculture-dairy"); choose("agriculture-dairy", "milking-robots");
+    await submit();
+    expect(q<HTMLSelectElement>("#robot-choices select").validationMessage).toBe(NO_LONGER);
+  });
+
+  const SAVED_R = {
+    id: 56, status: "changes_requested", type: "problem", typeChosen: true, title: "Robots in the milking shed", description: "Cows are milked by hand every morning before school.",
+    directory: [{ category: "Projects", remarks: "", links: [] }], sectors: ["agriculture-dairy", "healthcare"], photos: [], contact: null, shareContact: false,
+    robots: [{ sector: "agriculture-dairy", slug: "old-milker", name: "Old milker", active: false }, { sector: "healthcare", slug: "pharmacy-robots", name: "Pharmacy robots", active: true }],
+  };
+  const MINE_R = { ...MINE, items: [{ id: 56, title: "Robots in the milking shed", status: "changes_requested", statusLabel: "Changes requested", sectors: [], note: "Add the district.", replies: [] }] };
+  const openEditOf = async (contribution: Record<string, unknown>, search = "") => {
+    history.replaceState(null, "", "/contribute-now/" + search);
+    await run(withRobots((c) => (c.path === "/api/contributions/mine" ? reply(MINE_R) : c.path === "/api/contributions/56" && c.method === "GET" ? reply({ success: true, contribution }) : c.method === "PATCH" ? reply({ success: true, id: 56, status: "changes_requested" }) : c.path.endsWith("/submit") ? reply({ success: true, id: 56, status: "pending_review" }) : undefined)));
+    (document.querySelector("#history button.rv-c2-edit") as HTMLButtonElement).click();
+    await flush();
+  };
+  it("Edit shows the saved robots; one switched off since stays chosen, marked (no longer offered), and is sent back unchanged", async () => {
+    await openEditOf(SAVED_R);
+    expect(selects()).toEqual([
+      { sector: "agriculture-dairy", label: "Agriculture & Dairy", options: ["Not sure", "Milking robots", "Drone sprayers", "Old milker (no longer offered)"], value: "old-milker" },
+      { sector: "healthcare", label: "Healthcare", options: ["Not sure", "Pharmacy robots"], value: "pharmacy-robots" },
+    ]);
+    await submit();
+    const patch = calls.find((c) => c.method === "PATCH")!;
+    expect(patch.body.robots).toEqual({ "agriculture-dairy": "old-milker", healthcare: "pharmacy-robots" });
+    expect(patch.body.fromRobotPage).toBe(false); // only ever said when the item is created
+  });
+  it("Edit of an item started from a robot card keeps the robot as fixed text, wherever Edit is opened", async () => {
+    const one = { ...SAVED_R, sectors: ["agriculture-dairy"], fromSectorPage: true, fromRobotPage: true, robots: [{ sector: "agriculture-dairy", slug: "milking-robots", name: "Milking robots", active: true }] };
+    await openEditOf(one, "?sector=healthcare");
+    expect(q("#sector-fixed").textContent).toBe("Sector · Agriculture & Dairy");
+    expect(q("#robot-fixed").textContent).toBe("Robot · Milking robots");
+    expect(selects()).toEqual([]);
+    await submit();
+    expect(calls.find((c) => c.method === "PATCH")!.body.robots).toEqual({ "agriculture-dairy": "milking-robots" });
+  });
+  it("Cancel editing goes back to the page's own robot card", async () => {
+    await openEditOf(SAVED_R, "?sector=agriculture-dairy&robot=drone-sprayers");
+    expect(q("#robot-fixed").hidden).toBe(true); // the item was started on the general page: its lists, not the page's robot
+    (Array.from(document.querySelectorAll<HTMLButtonElement>("#rv-c2-editing button")).find((b) => b.textContent === "Cancel editing"))!.click();
+    expect(q("#robot-fixed").textContent).toBe("Robot · Drone sprayers");
+  });
+  it("an older app (no robots in the sector list): nothing is asked and every answer is Not sure", async () => {
+    history.replaceState(null, "", "/contribute-now/?sector=agriculture-dairy&robot=milking-robots");
+    await run(routes(created));
+    expect(q("#robot-field").hidden).toBe(true);
+    fill(); await submit();
+    const create = calls.find((c) => c.path === "/api/contributions" && c.method === "POST")!;
+    expect(create.body.robots).toEqual({ "agriculture-dairy": "" });
+    expect(create.body.fromRobotPage).toBe(false);
   });
 });

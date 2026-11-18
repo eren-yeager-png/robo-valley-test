@@ -30,6 +30,7 @@ import { notesForReview } from "./contributionNotes";
 import { PORTAL_TABS, ROUND_START_SQL } from "./reviewStatus";
 import { directoryFor, splitFold, type DirectoryEntry } from "./directoryCategories";
 import { ROLES } from "./roles";
+import { robotNamesInSector, robotsOf, type ChosenRobot } from "./contributionRobots";
 
 type Db = { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }> };
 type Pool = Db & { connect: () => Promise<Db & { release: () => void }> };
@@ -100,6 +101,7 @@ export type ReviewItem = QueueItem & {
   photoList: { id: number; alt: string; mime: string }[]; contact: Contact | null; history: History[]; actions: Action[];
   duplicates: Duplicate[]; verified: boolean; replies: PortalEntry[]; notes: PortalEntry[];
   /** portal PR2 */ contributor: string; stakeholder: string; categories: DirectoryEntry[] | null; timeline: TimelineEntry[]; reason: string | null; sectorSlugs: string[];
+  /** P3: the robot chosen for each sector (null = robots not set up on this database yet) */ robots: ChosenRobot[] | null;
 };
 export type TimelineEntry = { at: string; text: string; detail: string | null };
 
@@ -138,6 +140,7 @@ export async function getForReview(db: Db, viewerId: number, id: number, isAdmin
     duplicates: c.status === "pending_review" || c.status === "unpublished" ? await findDuplicates(db, Number(c.id), c.title).catch(() => []) : [],
     verified: history.some((h) => h.action === "verify"), replies, notes,
     contributor, stakeholder: stakeholderLabel(c.user_role), categories, sectorSlugs: sc.rows.map((r) => r.slug),
+    robots: await robotsOf(db, Number(c.id)).catch(() => null),
     // with structured categories the folded copy is left out of the description; an older item shows its description as it is
     ...(categories ? { description: splitFold(parts.description).text } : {}),
     timeline, reason: ["rejected", "removed", "changes_requested", "unpublished"].includes(c.status) ? history.find((h) => h.note && ["reject", "remove", "request_changes", "unpublish"].includes(h.action))?.note ?? null : null,
@@ -339,11 +342,12 @@ export async function exportCsv(db: Db, viewerId: number, slug: string, opts: Li
   const data = await sectorRows(db, slug);
   if (!data) return null;
   const list = applyOptions(data.rows, cleanOptions({ ...opts, page: 1 })).slice(0, EXPORT_MAX_ROWS);
-  const header = ["ID", "Title", "Type", "Also in", "Contributor", "Stakeholder category", "Directory categories", "Submitted", "Status", "Contact name", "Contact email", "Contact mobile"];
+  const header = ["ID", "Title", "Type", "Robot", "Also in", "Contributor", "Stakeholder category", "Directory categories", "Submitted", "Status", "Contact name", "Contact email", "Contact mobile"];
   const lines = [header.map(csvCell).join(",")];
+  const robots = await robotNamesInSector(db, data.sector.slug, list.map((r) => r.id)); // P3: the robot chosen in THIS sector
   for (const r of list) {
     const contact = await readContact(db, r.id, viewerId).catch(() => null);
-    lines.push([r.id, r.title, r.typeLabel, r.alsoIn.join("; "), r.contributor, r.stakeholder, r.categories.join("; "), r.submittedAt ?? "", r.displayLabel, contact?.name ?? "", contact?.email ?? "", contact?.phone ?? ""].map(csvCell).join(","));
+    lines.push([r.id, r.title, r.typeLabel, robots.get(r.id) ?? "Not sure", r.alsoIn.join("; "), r.contributor, r.stakeholder, r.categories.join("; "), r.submittedAt ?? "", r.displayLabel, contact?.name ?? "", contact?.email ?? "", contact?.phone ?? ""].map(csvCell).join(","));
   }
   const day = new Date().toISOString().slice(0, 10);
   return { filename: `contributions-${data.sector.slug}-${day}.csv`, csv: "\uFEFF" + lines.join("\r\n") + "\r\n", rows: list.length };

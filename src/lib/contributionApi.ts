@@ -10,6 +10,7 @@ import { addPhoto, detectPhotoMime, listPhotoMeta, validatePhoto, type PhotoMeta
 import { readShareChoice, removeContact, readContact, saveContact, saveShareChoice, shareChoiceOf, validateContact, type Contact } from "./contributionContacts";
 import { CONTRIBUTION_LIMITS, FORM_TYPE_IDS, contributionDbError, typeChosenSql, validateContribution, type ContributionStatus } from "./contributions";
 import { stripPhotoMetadata } from "./photoClean";
+import { applyRobots, fromRobotPageOf, planRobots, readFromRobotPage, readRobots, robotsOf, saveFromRobotPage } from "./contributionRobots";
 import { hasControlChars, type FieldErrors } from "./validation";
 import { directoryFor, readDirectory, saveDirectory, splitFold, type DirectoryEntry } from "./directoryCategories";
 
@@ -165,6 +166,8 @@ export async function saveOwn(pool: Pool, ownerId: number, raw: unknown, id?: nu
   if (dir.present && !dir.ok) return fail(400, "VALIDATION_FAILED", VALIDATION, { directory: (dir as { message: string }).message });
   const share = readShareChoice(raw); // item 3: "Let moderators contact me using my profile details" (absent = an older form: unchanged)
   const typeChosen = readTypeChosen(raw); // P1: the member picked the type in the form (0.1.10 or later)
+  const robots = readRobots(raw); // P3: the robot per chosen sector (0.1.11 or later); absent = an older form: the saved ones stay
+  if ("error" in robots) return fail(400, "VALIDATION_FAILED", VALIDATION, { robots: robots.error });
   if (typeChosen && !FORM_TYPE_IDS.includes(f.type)) return fail(400, "VALIDATION_FAILED", VALIDATION, { type: CHOOSE_TYPE });
   const client = await pool.connect();
   try {
@@ -191,6 +194,7 @@ export async function saveOwn(pool: Pool, ownerId: number, raw: unknown, id?: nu
       cid = Number(ins.rows[0].id);
       if (readFromSectorPage(raw)) await saveFromSectorPage(client, cid, ownerId); // once, at creation
       if (typeChosen) await saveTypeChosen(client, cid, ownerId);
+      if (readFromRobotPage(raw)) await saveFromRobotPage(client, cid, ownerId); // once, at creation
     } else {
       const backToReview = status === "pending_review" && cur!.status !== "pending_review";
       await client.query(
@@ -200,9 +204,14 @@ export async function saveOwn(pool: Pool, ownerId: number, raw: unknown, id?: nu
       if (typeChosen) await saveTypeChosen(client, cid, ownerId); // an older contribution gets its type once the member picks one in Edit
     }
     // new sectors first, then remove the ones no longer chosen: a submitted item must always keep at least one sector
-    const want = await client.query("SELECT id, slug FROM sectors WHERE slug = ANY($1::text[])", [v.sectors]);
+    const want = await client.query("SELECT id, slug, name FROM sectors WHERE slug = ANY($1::text[])", [v.sectors]);
     for (const r of want.rows) await client.query("INSERT INTO contribution_scopes (contribution_id, sector_id) VALUES ($1,$2) ON CONFLICT DO NOTHING", [cid, r.id]);
     await client.query("DELETE FROM contribution_scopes WHERE contribution_id = $1 AND NOT (sector_id = ANY($2::int[]))", [cid, want.rows.map((r) => r.id)]);
+    if (robots.present) { // P3: one robot per chosen sector, or Not sure; checked against Sector forms before anything is stored
+      const p = await planRobots(client, cid, want.rows.map((r) => ({ id: Number(r.id), slug: r.slug, name: r.name })), robots.value);
+      if ("error" in p) { await client.query("ROLLBACK"); return fail(400, "VALIDATION_FAILED", VALIDATION, { robots: p.error }); }
+      if ("plan" in p) await applyRobots(client, cid, p.plan); // skip: migration 024 or 025 not applied yet, nothing to store
+    }
     if (dir.present) await saveDirectory(client, cid, (dir as { value: DirectoryEntry[] }).value); // absent (an older form): the rows stay as they are
     if (share !== undefined) await saveShareChoice(client, cid, ownerId, share);
     await client.query("COMMIT");
@@ -253,11 +262,14 @@ export async function getOwn(db: Db, ownerId: number, id: number): Promise<Ok<{ 
     const contact: Contact | null = await readContact(db, id, ownerId).catch(() => null);
     const shareContact = await shareChoiceOf(db, id, ownerId).catch(() => false);
     const fromSectorPage = await fromSectorPageOf(db, id, ownerId).catch(() => false);
+    const chosen = await robotsOf(db, id).catch(() => null); // P3 (null before 024/025)
+    const robots = (chosen ?? []).filter((r) => r.robot).map((r) => ({ sector: r.sector, slug: r.robot!.slug, name: r.robot!.name, active: r.robot!.active }));
+    const fromRobotPage = await fromRobotPageOf(db, id, ownerId).catch(() => false);
     const parts = splitBody(c.body);
     // for Edit: the structured categories (or, for an item saved before PR2, the ones in the folded text) and your own words without the fold
     const fold = splitFold(parts.description);
     const directory = (await directoryFor(db, [id])).get(id) ?? fold.entries ?? [];
-    return { ok: true, contribution: { id: Number(c.id), status: c.status, editable: OWNER_RULES[c.status as keyof typeof OWNER_RULES]?.edit !== null, type: c.type, typeChosen: c.type_chosen === true, robotType: c.robot_type ?? "", sectors: scopes.rows.map((r) => r.slug), title: c.title, ...parts, description: fold.entries ? fold.text : parts.description, directory, photos: photos.map((p) => ({ id: p.id, position: p.position, alt: p.alt, mime: p.mime })), contact, shareContact, fromSectorPage } };
+    return { ok: true, contribution: { id: Number(c.id), status: c.status, editable: OWNER_RULES[c.status as keyof typeof OWNER_RULES]?.edit !== null, type: c.type, typeChosen: c.type_chosen === true, robotType: c.robot_type ?? "", sectors: scopes.rows.map((r) => r.slug), title: c.title, ...parts, description: fold.entries ? fold.text : parts.description, directory, photos: photos.map((p) => ({ id: p.id, position: p.position, alt: p.alt, mime: p.mime })), contact, shareContact, fromSectorPage, robots, fromRobotPage } };
   } catch (e) { const s = notSet(e); if (s) return s; throw e; }
 }
 

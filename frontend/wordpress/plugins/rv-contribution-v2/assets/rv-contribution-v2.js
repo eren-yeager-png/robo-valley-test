@@ -26,6 +26,11 @@
 	var removedPhotos = [], wantSectors = null; // 0.1.5 Edit: saved photos the member removed; the saved sectors to tick once the list is loaded
 	var wantFixed = false; // 0.1.9 Edit: the item was started from a sector page, so its sector shows as fixed text
 	var signOutHere = root.getAttribute( 'data-sign-out' ) !== 'no'; // 0.1.6: the Contribute page has no Sign Out (the header menu has it)
+	// 0.1.11 (P3): "Which robot is it about?" for each chosen sector that has robot types (the administrators' lists in the app's Sector
+	// forms, sent with the sector list). Optional, "Not sure" by default. From a robot card (?sector=<slug>&robot=<slug>) that robot is
+	// fixed text, like the sector. The app stores the answers privately (migration 025); forms before 0.1.11 never send them.
+	var robotField = $( '#robot-field' ), robotChoices = $( '#robot-choices' ), robotFixedLine = $( '#robot-fixed' );
+	var robotsBySector = {}, sectorNames = {}, savedRobots = {}, pageRobot = null, editRobot = null;
 
 	/* ---------- talking to the app ---------- */
 	function call( method, path, body, isForm ) {
@@ -98,12 +103,19 @@
 	}
 	/* After signing in, come back to this page, keeping ?sector= only when the app would accept it (else the app sends people home) */
 	function back() {
-		var page = location.origin + location.pathname, m = /[?&]sector=([a-z0-9,-]{1,700})(?:&|$)/.exec( location.search ), s;
+		var page = location.origin + location.pathname, m = /[?&]sector=([a-z0-9,-]{1,700})(?:&|$)/.exec( location.search ), s, robot = urlRobot();
 		if ( ! m ) {
 			return page;
 		}
 		s = m[ 1 ].split( ',' );
-		return s.length <= 20 && s.every( function ( x, i ) { return x.length <= 60 && /^[a-z0-9]+(-[a-z0-9]+)*$/.test( x ) && s.indexOf( x ) === i; } ) ? page + '?sector=' + m[ 1 ] : page;
+		if ( ! ( s.length <= 20 && s.every( function ( x, i ) { return x.length <= 60 && /^[a-z0-9]+(-[a-z0-9]+)*$/.test( x ) && s.indexOf( x ) === i; } ) ) ) {
+			return page;
+		}
+		return page + '?sector=' + m[ 1 ] + ( robot && s.length === 1 ? '&robot=' + robot : '' ); // 0.1.11: a robot card's link keeps its robot
+	}
+	function urlRobot() {
+		var m = /[?&]robot=([a-z0-9-]{1,60})(?:&|$)/.exec( location.search );
+		return m && /^[a-z0-9]+(-[a-z0-9]+)*$/.test( m[ 1 ] ) ? m[ 1 ] : '';
 	}
 	$( '#sign-in' ).addEventListener( 'click', function () { location.href = api + '/login?returnTo=' + encodeURIComponent( back() ); } );
 	$( '#sign-up' ).addEventListener( 'click', function () { location.href = api + '/join?returnTo=' + encodeURIComponent( back() ); } );
@@ -141,6 +153,8 @@
 				input.name = 'sector';
 				input.value = sec.slug;
 				input.setAttribute( 'data-name', sec.name );
+				robotsBySector[ sec.slug ] = Array.isArray( sec.robots ) ? sec.robots : []; // 0.1.11: the robot types that are on
+				sectorNames[ sec.slug ] = sec.name;
 				input.addEventListener( 'change', sectorsChanged );
 				label.appendChild( input );
 				label.appendChild( document.createTextNode( sec.name ) );
@@ -190,6 +204,59 @@
 		sectorToggle.textContent = on.length ? on.length + ( on.length === 1 ? ' sector chosen' : ' sectors chosen' ) : 'Choose sectors';
 		boxes.forEach( function ( b ) { b.disabled = ! b.checked && on.length >= L.sectorsMax; } );
 		sectorSearch.setCustomValidity( '' );
+		renderRobots();
+	}
+	/* ---------- 0.1.11: the robot for each chosen sector ---------- */
+	function fixedRobot() {
+		return draftId !== null ? editRobot : pageRobot; // Edit looks the way the item was started; a new one the way the page was opened
+	}
+	function renderRobots() {
+		var keep = {}, shown = 0, fixed = fixedRobot();
+		Array.prototype.forEach.call( robotChoices.querySelectorAll( 'select' ), function ( s ) { keep[ s.getAttribute( 'data-sector' ) ] = s.value; } );
+		robotChoices.textContent = '';
+		robotFixedLine.hidden = true;
+		selectedSectors().forEach( function ( slug ) {
+			var list = ( robotsBySector[ slug ] || [] ).slice(), saved = savedRobots[ slug ], label, sel, want;
+			if ( fixed && fixed.sector === slug ) {
+				$( '#robot-fixed-name' ).textContent = fixed.name;
+				robotFixedLine.hidden = false;
+				shown++;
+				return;
+			}
+			if ( saved && ! list.some( function ( r ) { return r.slug === saved.slug; } ) ) {
+				list.push( { slug: saved.slug, name: saved.name + ' (no longer offered)' } ); // switched off after it was chosen: it stays chosen
+			}
+			if ( ! list.length ) {
+				return; // this sector has no robot types: nothing to ask
+			}
+			label = document.createElement( 'label' );
+			sel = document.createElement( 'select' );
+			sel.name = 'robot';
+			sel.setAttribute( 'data-sector', slug );
+			[ { slug: '', name: 'Not sure' } ].concat( list ).forEach( function ( r ) {
+				var o = document.createElement( 'option' );
+				o.value = r.slug;
+				o.textContent = r.name;
+				sel.appendChild( o );
+			} );
+			want = Object.prototype.hasOwnProperty.call( keep, slug ) ? keep[ slug ] : ( saved ? saved.slug : '' );
+			sel.value = list.some( function ( r ) { return r.slug === want; } ) ? want : '';
+			sel.addEventListener( 'change', function () { sel.setCustomValidity( '' ); } );
+			label.appendChild( document.createTextNode( sectorNames[ slug ] || slug ) );
+			label.appendChild( sel );
+			robotChoices.appendChild( label );
+			shown++;
+		} );
+		robotField.hidden = shown === 0;
+	}
+	/** { "<sector>": "<robot>" | "" } for every chosen sector ("" = Not sure, or the sector has no robot types). */
+	function robotAnswers() {
+		var out = {}, fixed = fixedRobot();
+		selectedSectors().forEach( function ( slug ) {
+			var s = robotChoices.querySelector( 'select[data-sector="' + slug + '"]' );
+			out[ slug ] = fixed && fixed.sector === slug ? fixed.slug : ( s ? s.value : '' );
+		} );
+		return out;
 	}
 	function filterSectors() {
 		var t = sectorSearch.value.trim().toLowerCase(), shown = 0;
@@ -241,11 +308,20 @@
 				} );
 			} );
 		}
+		pageRobot = null;
 		if ( ! ticked.length ) {
 			showPicker();
 			return;
 		}
 		showFixed( ticked );
+		// 0.1.11: a robot card's link (?sector=<one sector>&robot=<slug>) fixes that robot too, if it really is one of that sector's
+		// robot types that are on. Anything else leaves the normal question.
+		var want = urlRobot(), list = ticked.length === 1 ? robotsBySector[ ticked[ 0 ].value ] || [] : [];
+		list.forEach( function ( r ) {
+			if ( r.slug === want ) {
+				pageRobot = { sector: ticked[ 0 ].value, slug: r.slug, name: r.name };
+			}
+		} );
 	}
 	function showFixed( ticked ) {
 		$( '#sector-fixed-names' ).textContent = ticked.map( function ( b ) { return b.getAttribute( 'data-name' ) || b.value; } ).join( ', ' );
@@ -497,6 +573,8 @@
 				el = sectorSearch;
 			} else if ( k === 'alt' || k === 'photo' ) {
 				el = photoFile;
+			} else if ( k === 'robots' ) { // 0.1.11 (a fixed robot has no field: the message below says it)
+				el = robotChoices.querySelector( 'select' );
 			}
 			if ( el ) {
 				el.setCustomValidity( fe[ k ] );
@@ -524,7 +602,7 @@
 		}
 		busy = true;
 		form.querySelector( 'button[type=submit]' ).disabled = true;
-		var payload = { type: chosenType(), typeChosen: true, sectors: selectedSectors(), title: form.elements.title.value.trim(), description: folded( selected ), directory: directoryOf( selected ), shareContact: !! form.elements.shareContact.checked, fromSectorPage: draftId === null && ! sectorFixed.hidden, robotType: '', role: me.stakeholder || '', district: '', website: form.elements.website.value };
+		var payload = { type: chosenType(), typeChosen: true, sectors: selectedSectors(), title: form.elements.title.value.trim(), description: folded( selected ), directory: directoryOf( selected ), shareContact: !! form.elements.shareContact.checked, fromSectorPage: draftId === null && ! sectorFixed.hidden, robots: robotAnswers(), fromRobotPage: draftId === null && !! pageRobot, robotType: '', role: me.stakeholder || '', district: '', website: form.elements.website.value };
 		var first = draftId === null ? call( 'POST', '/api/contributions', payload ) : call( 'PATCH', '/api/contributions/' + draftId, payload );
 		first.then( function ( r ) {
 			if ( ! r.ok ) {
@@ -597,6 +675,8 @@
 		removedPhotos = [];
 		wantSectors = null;
 		wantFixed = false;
+		savedRobots = {};
+		editRobot = null;
 		typeOlder.hidden = true;
 		openPanel( false );
 		filterSectors();
@@ -686,6 +766,13 @@
 					row.querySelector( '[name=referenceGist]' ).value = l.gist || '';
 				} );
 			} );
+			// 0.1.11: the saved robots (one per sector, possibly switched off since), and a robot card's item keeps its robot as fixed text
+			savedRobots = {};
+			( Array.isArray( c.robots ) ? c.robots : [] ).forEach( function ( r ) { savedRobots[ r.sector ] = r; } );
+			editRobot = null;
+			if ( c.fromRobotPage === true && c.fromSectorPage === true && Array.isArray( c.robots ) && c.robots.length === 1 ) {
+				editRobot = { sector: c.robots[ 0 ].sector, slug: c.robots[ 0 ].slug, name: c.robots[ 0 ].name };
+			}
 			tickSectors( Array.isArray( c.sectors ) ? c.sectors : [], c.fromSectorPage === true );
 			( Array.isArray( c.photos ) ? c.photos : [] ).slice( 0, L.photosMax ).forEach( addSavedPhoto );
 			photoCount();

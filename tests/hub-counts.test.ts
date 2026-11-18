@@ -75,7 +75,7 @@ describe("what counts", () => {
     const a = await person();
     await make(a, ["education"], "pending_review");
     const { body } = await get();
-    expect(body.sectors.find((s: any) => s.slug === "education")).toEqual({ slug: "education", name: "Education", contributions: 0, contributors: null, empty: true });
+    expect(body.sectors.find((s: any) => s.slug === "education")).toEqual({ slug: "education", name: "Education", contributions: 0, contributors: null, empty: true, robots: [] });
   });
 
   it("an edited published item leaves the numbers until it is approved again", async () => {
@@ -129,13 +129,14 @@ describe("privacy: aggregates only", () => {
     const { r, body } = await get();
     const text = JSON.stringify(body) + JSON.stringify([...r.headers.entries()]);
     for (const s of [t1.title, t2.title, t3.title, "private body", "person1@example.com", "Person Number", "@example.com", String(t1.id) + '"', "author", "contact"]) expect(text.toLowerCase()).not.toContain(s.toLowerCase());
-    for (const s of body.sectors) expect(Object.keys(s).sort()).toEqual(["contributions", "contributors", "empty", "name", "slug"]);
+    for (const s of body.sectors) expect(Object.keys(s).sort()).toEqual(["contributions", "contributors", "empty", "name", "robots", "slug"]); // robots: the robot TYPES that are on (P3), never anyone's answer
+    expect(text).not.toMatch(/"id":/); // the sector id is only used inside the app
     expect(Object.keys(body).sort()).toEqual(["sectors", "success"]);
   });
 
   it("the query selects only the sector, and two counts: no personal or content column", () => {
     const select = SECTOR_COUNTS_SQL.slice(0, SECTOR_COUNTS_SQL.indexOf(" FROM "));
-    expect(select).toBe("SELECT s.slug, s.name, count(DISTINCT c.id)::int AS contributions, count(DISTINCT c.user_id)::int AS contributors");
+    expect(select).toBe("SELECT s.id, s.slug, s.name, count(DISTINCT c.id)::int AS contributions, count(DISTINCT c.user_id)::int AS contributors"); // s.id: to attach the sector's robot types (P3); not sent
     expect(SECTOR_COUNTS_SQL).not.toMatch(/\btitle\b|\bbody\b|full_name|email|phone|contribution_contacts|contribution_photos/i);
   });
 

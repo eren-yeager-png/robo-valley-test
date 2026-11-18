@@ -89,6 +89,16 @@ export default async function ContributionPage({ params, searchParams }: { param
           <section className="mod-card" aria-labelledby="d-sectors">
             <h2 id="d-sectors">Sectors</h2>
             <div className="mod-pills">{it.sectors.map((s) => <span key={s} className="mod-pill">{s}</span>)}</div>
+            {it.robots && it.robots.length > 0 && ( /* P3: the robot chosen for each sector (shown to reviewers only, like the rest of this page) */
+              <dl className="mod-robots">
+                {it.robots.map((r) => (
+                  <div key={r.sector}>
+                    <dt>{r.sectorName}</dt>
+                    <dd>Robot: {r.robot ? <>{r.robot.name}{r.robot.active ? "" : <span className="mod-small" style={{ display: "inline" }}> (switched off in Sector forms)</span>}</> : <span className="mod-small" style={{ display: "inline" }}>Not sure</span>}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
           </section>
           <section className="mod-card" aria-labelledby="d-photos">
             <h2 id="d-photos">Photos <span className="mod-small" style={{ display: "inline" }}>{it.photoList.length} of 3</span></h2>

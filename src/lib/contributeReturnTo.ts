@@ -5,9 +5,12 @@
 // Accepted:   https://techytree.in/contribute-now/                              the Contribute page itself
 //             https://techytree.in/contribute-now/?sector=agriculture-dairy      one sector
 //             /contribute-now/?sector=agriculture-dairy,education                a path only, several sectors (comma separated)
+//             https://techytree.in/contribute-now/?sector=agriculture-dairy&robot=milking-robots
+//                                                                                 P3: one sector and one robot of it (a robot card's link)
 // Everything else is rejected (null): another host, user-info, a protocol-relative URL, backslashes, encoded characters,
 // javascript:/data:, control characters or spaces, a fragment, dot segments, any other or repeated query parameter, an empty "?",
-// a bad slug (only a-z, 0-9 and single dashes, up to 60 characters), a repeated slug, or more than 20 sectors.
+// a bad slug (only a-z, 0-9 and single dashes, up to 60 characters), a repeated slug, more than 20 sectors, or a robot without
+// exactly one sector. (Whether the robot really belongs to that sector is checked by the form and the app when it is saved.)
 // Pure (no Node imports) so tests, server components and anything else can share it.
 
 const MAX_LENGTH = 700;
@@ -46,11 +49,15 @@ export function validateContributeReturn(raw: unknown, siteUrl: string, contribu
 
   const keys = [...url.searchParams.keys()];
   if (keys.length === 0) return raw.includes("?") ? null : `${site.origin}${path}`;
-  const values = url.searchParams.getAll("sector");
-  if (keys.length !== 1 || keys[0] !== "sector" || values.length !== 1) return null;
+  const values = url.searchParams.getAll("sector"), robots = url.searchParams.getAll("robot");
+  if (values.length !== 1 || robots.length > 1 || keys.length !== 1 + robots.length || keys.some((k) => k !== "sector" && k !== "robot")) return null;
   const slugs = values[0].split(",");
   if (slugs.length === 0 || slugs.length > MAX_SECTORS) return null;
   for (const s of slugs) if (s.length > 60 || !SLUG.test(s)) return null;
   if (new Set(slugs).size !== slugs.length) return null;
+  if (robots.length === 1) {
+    if (slugs.length !== 1 || robots[0].length > 60 || !SLUG.test(robots[0])) return null;
+    return `${site.origin}${path}?sector=${slugs[0]}&robot=${robots[0]}`;
+  }
   return `${site.origin}${path}?sector=${slugs.join(",")}`;
 }

@@ -123,6 +123,13 @@ export const MIGRATIONS = [
     { kind: "table", table: "sector_robot_types" },
     { kind: "index", name: "sector_robot_types_name_uq" },
   ] },
+  { id: "025", title: "the robot a contribution is about", feature: "The Contribute form's \"Which robot is it about?\" for each chosen sector, and a fixed robot from a robot card (shown in Moderation and the CSV)", requires: ["012", "024"], checks: [
+    { kind: "column", table: "contribution_scopes", column: "robot_type_id" },
+    { kind: "column", table: "contributions", column: "from_robot_page" },
+    { kind: "constraint", name: "sector_robot_types_id_sector_uq" },
+    { kind: "constraint", name: "contribution_scopes_robot_fk" },
+    { kind: "index", name: "contribution_scopes_robot_idx" },
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */
