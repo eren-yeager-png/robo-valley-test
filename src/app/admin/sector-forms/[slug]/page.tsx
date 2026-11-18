@@ -7,19 +7,22 @@ import { parseSectorSlug, sectorForm, type SectorForm } from "../../../../lib/se
 import { logDbError } from "../../../../lib/dbError";
 import { Notice, PageHeader } from "../../_components/ui";
 import RobotTypesEditor from "./RobotTypesEditor";
+import QuestionsEditor from "./QuestionsEditor";
+import { QUESTIONS_ON_MAX, REQUIRED_MAX, TEXT_ANSWER_MAX, questionsOf, type Question } from "../../../../lib/sectorQuestions";
 
 export const metadata: Metadata = { title: "Sector form | RoboValley admin", robots: { index: false, follow: false } };
 
-// Admin only (P2). One sector's form, part 1: its robot types. Add, rename, reorder, switch off/on; never delete.
+// Admin only. One sector's form: its robot types (P2) and its questions (P5). Add, correct, reorder, switch off/on; never delete.
 export default async function SectorFormPage({ params }: { params?: Promise<{ slug?: string }> } = {}) {
   const admin = await requireAdminPage();
   if (admin.mustChangePassword) return null;
   const slug = parseSectorSlug((await params)?.slug);
   if (!slug) notFound();
 
-  let form: SectorForm | null;
+  let form: SectorForm | null, questions: Question[] | null = null;
   try {
     form = await sectorForm(pool as never, slug);
+    if (form) questions = await questionsOf(pool as never, slug); // null before migration 026
   } catch (e) {
     const why = logDbError("admin sector form", e);
     return (
@@ -34,11 +37,12 @@ export default async function SectorFormPage({ params }: { params?: Promise<{ sl
   }
   if (!form) notFound();
   const active = form.robots.filter((r) => r.active);
+  const asked = (questions ?? []).filter((q) => q.active);
 
   return (
     <>
       <p><Link href="/admin/sector-forms">← Sector forms</Link></p>
-      <PageHeader title={`Sector form: ${form.sector.name}`} lead="Robot types members can pick for this sector. Use the same names as the robot cards on the sector's page on techytree.in." />
+      <PageHeader title={`Sector form: ${form.sector.name}`} lead="What the Contribute form asks for this sector: the robot types members can pick, and up to five questions." />
       {!form.sector.active && (
         <div style={{ marginBottom: 14 }}>
           <Notice kind="info" title="This sector is not offered on the Contribute form right now">You can still prepare its robot types; they are used once the sector is offered.</Notice>
@@ -68,6 +72,29 @@ export default async function SectorFormPage({ params }: { params?: Promise<{ sl
           </section>
         </>
       )}
+      <section aria-labelledby="questions-h" style={{ marginTop: 28 }}>
+        <h2 id="questions-h" style={{ fontSize: "1.15rem", margin: "0 0 6px" }}>Questions</h2>
+        {questions === null ? (
+          <Notice kind="setup" title="Questions are not set up on this database yet">Migration 026 is needed before questions can be added. Settings shows which migrations this database has.</Notice>
+        ) : (
+          <>
+            <p className="muted" style={{ margin: "0 0 12px" }}>Up to {QUESTIONS_ON_MAX} questions on, each optional unless you make it required (at most {REQUIRED_MAX}). Questions are never deleted: switch one off to stop asking it; answers already given keep it. The kind of answer cannot change once a question exists.</p>
+            <QuestionsEditor sector={form.sector.slug} sectorName={form.sector.name} questions={questions} />
+            <h3 style={{ fontSize: "1rem", margin: "22px 0 6px" }}>What members will be asked</h3>
+            {asked.length === 0 ? <p className="muted" style={{ margin: 0 }}>No question is on yet, so members are asked nothing extra for this sector.</p> : (
+              <div className="adm-preview" aria-label={`Preview of the questions for ${form.sector.name}`}>
+                {asked.map((q) => (
+                  <label key={q.id}>{q.label} <small>{q.required ? "(required)" : "(optional)"}</small>
+                    {q.kind === "text" ? <input type="text" disabled maxLength={TEXT_ANSWER_MAX} placeholder={`Up to ${TEXT_ANSWER_MAX} characters`} /> : (
+                      <select disabled defaultValue=""><option value="">Choose one</option>{(q.options ?? []).map((o) => <option key={o}>{o}</option>)}</select>
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </section>
     </>
   );
 }

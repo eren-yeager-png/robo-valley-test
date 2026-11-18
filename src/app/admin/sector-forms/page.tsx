@@ -3,6 +3,7 @@ import Link from "next/link";
 import { pool } from "../../../lib/db";
 import { requireAdminPage } from "../../../lib/adminPage";
 import { listSectorForms, type SectorFormRow } from "../../../lib/sectorForms";
+import { questionCounts } from "../../../lib/sectorQuestions";
 import { logDbError } from "../../../lib/dbError";
 import { DataTable, Notice, PageHeader } from "../_components/ui";
 
@@ -15,9 +16,14 @@ export default async function SectorFormsPage() {
   const admin = await requireAdminPage();
   if (admin.mustChangePassword) return null;
 
-  let data: { sectors: SectorFormRow[]; robotsReady: boolean };
+  let data: { sectors: SectorFormRow[]; robotsReady: boolean }, questions: Map<string, number> | null = null;
   try {
     data = await listSectorForms(pool as never);
+    const counts = await questionCounts(pool as never); // null before migration 026 (P5)
+    if (counts) {
+      const ids = (await pool.query("SELECT id, slug FROM sectors WHERE NOT is_demo")).rows as { id: number; slug: string }[];
+      questions = new Map(ids.map((s) => [s.slug, counts.get(Number(s.id))?.on ?? 0]));
+    }
   } catch (e) {
     const why = logDbError("admin sector forms", e);
     return (
@@ -32,7 +38,7 @@ export default async function SectorFormsPage() {
 
   return (
     <>
-      <PageHeader title="Sector forms" lead="What the Contribute form asks for in each sector. Start with the robot types: use the same names as the robot cards on the sector's page." />
+      <PageHeader title="Sector forms" lead="What the Contribute form asks for in each sector: the robot types (use the same names as the robot cards on the sector's page) and up to five questions." />
       {!data.robotsReady && (
         <div style={{ marginBottom: 14 }}>
           <Notice kind="setup" title="Robot types are not set up on this database yet">Migration 024 is needed before robot types can be added. Settings shows which migrations this database has. The sectors below are read-only until then.</Notice>
@@ -40,13 +46,14 @@ export default async function SectorFormsPage() {
       )}
       <DataTable
         caption="Sectors and their robot types"
-        head={["Sector", "On the Contribute form", "Robot types", ""]}
+        head={["Sector", "On the Contribute form", "Robot types", "Questions on", ""]}
         empty="There are no sectors yet."
         rows={data.sectors.map((s) => (
           <tr key={s.slug}>
             <th scope="row"><Link href={`/admin/sector-forms/${s.slug}`}>{s.name}</Link></th>
             <td>{s.active ? <span className="adm-pill">Offered</span> : <span className="adm-pill mute">Not offered</span>}</td>
             <td>{data.robotsReady ? robotsText(s) : "—"}</td>
+            <td>{questions ? `${questions.get(s.slug) ?? 0} of 5` : "—"}</td>
             <td><Link className="btn" href={`/admin/sector-forms/${s.slug}`} aria-label={`Open the form for ${s.name}`}>Open</Link></td>
           </tr>
         ))}

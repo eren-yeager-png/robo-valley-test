@@ -63,7 +63,8 @@ const toRobot = (r: any): RobotType => ({
   updatedAt: new Date(r.updated_at).toISOString(),
 });
 
-async function sectorBySlug(db: Db, slug: string): Promise<{ id: number; slug: string; name: string; active: boolean } | null> {
+/** A non-demo sector by its slug (shared with the questions in sectorQuestions.ts). */
+export async function sectorBySlug(db: Db, slug: string): Promise<{ id: number; slug: string; name: string; active: boolean } | null> {
   const { rows } = await db.query("SELECT id, slug, name, is_active FROM sectors WHERE slug = $1::varchar AND NOT is_demo", [slug]);
   return rows[0] ? { id: Number(rows[0].id), slug: rows[0].slug, name: rows[0].name, active: rows[0].is_active !== false } : null;
 }

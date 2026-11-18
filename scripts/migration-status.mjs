@@ -123,6 +123,11 @@ export const MIGRATIONS = [
     { kind: "table", table: "sector_robot_types" },
     { kind: "index", name: "sector_robot_types_name_uq" },
   ] },
+  { id: "026", title: "questions per sector", feature: "Sector forms: each sector's questions (up to 5 on, at most 2 required), written by an administrator (the Contribute form asks them from P6)", requires: ["012"], checks: [
+    { kind: "table", table: "sector_questions" },
+    { kind: "constraint", name: "sector_questions_options_ck" },
+    { kind: "index", name: "sector_questions_order_idx" },
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */
