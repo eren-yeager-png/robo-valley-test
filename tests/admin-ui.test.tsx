@@ -149,8 +149,8 @@ describe("overview", () => {
     await q("alter table login_events rename to login_events_hidden"); // the harness is shared, so put it back afterwards
     let h: string;
     try { h = await html(AdminDashboard()); } finally { await q("alter table login_events_hidden rename to login_events"); }
-    expect(h).toContain("Sign-in activity is not set up yet");
-    expect(h).toContain("migration 008");
+    expect(h).toContain("Sign-in activity is not available yet");
+    expect(h).not.toMatch(/migration|008|db:migrate|npm run/i); // no developer details on the page
     expect(h).toMatch(/Registered users/);
   });
 

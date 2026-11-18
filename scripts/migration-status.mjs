@@ -50,6 +50,7 @@ export const MIGRATIONS = [
   ] },
   { id: "008", title: "login events", feature: "Login Activity page and sign-in/OTP charts", requires: ["000"], checks: [
     { kind: "table", table: "login_events" },
+    ...["id", "created_at", "event_type", "user_id", "reason", "purpose", "ua_family"].map((column) => ({ kind: "column", table: "login_events", column })),
     { kind: "constraint", name: "login_events_purpose_ck" },
     { kind: "constraint", name: "login_events_reason_ck" },
     { kind: "index", name: "login_events_created_idx" },
@@ -58,6 +59,8 @@ export const MIGRATIONS = [
   { id: "009", title: "upload attachments", feature: "Stored files, downloads and richer upload history", requires: ["005"], checks: [
     { kind: "table", table: "upload_attachments" },
     { kind: "table", table: "upload_attachment_blobs" },
+    ...["id", "storage_key", "uploaded_by", "uploaded_at", "original_filename", "detected_type", "content_type", "size_bytes", "file_sha256"].map((column) => ({ kind: "column", table: "upload_attachments", column })),
+    ...["attachment_id", "content"].map((column) => ({ kind: "column", table: "upload_attachment_blobs", column })),
     ...["kind", "file_size", "file_sha256", "attachment_id"].map((column) => ({ kind: "column", table: "upload_audit_log", column })),
     { kind: "constraint", name: "upload_audit_log_attachment_kind_ck" },
     ...["upload_attachments_sha_idx", "upload_attachments_uploaded_idx", "upload_audit_log_user_created_idx", "upload_audit_log_attachment_idx"].map((name) => ({ kind: "index", name })),

@@ -3,6 +3,7 @@
 // The file type is decided from the file CONTENT, never from the browser's claim; the stored name is random; the
 // original name is display-only. Dataset spreadsheets keep using /api/services/upload.
 import { createHash, randomBytes } from "node:crypto";
+import { logError } from "./logger";
 
 export const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024; // Vercel functions reject request bodies much larger than this
 export const MULTIPART_OVERHEAD = 64 * 1024;
@@ -10,7 +11,7 @@ export const UPLOADS_PER_WINDOW = 30; // per admin
 export const UPLOAD_WINDOW_MINUTES = 10;
 
 export type AttachmentType = "xlsx" | "csv" | "pdf" | "docx" | "png" | "jpg" | "txt";
-const CONTENT_TYPES: Record<AttachmentType, string> = {
+export const CONTENT_TYPES: Record<AttachmentType, string> = {
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   csv: "text/csv",
   pdf: "application/pdf",
@@ -91,8 +92,8 @@ async function audit(db: Db, e: { userId: string; result: "success" | "rejected"
       `INSERT INTO upload_audit_log (user_id, action, result, filename, detail, kind, file_size, file_sha256, attachment_id)
        VALUES ($1, 'upload', $2, $3, $4, 'attachment', $5, $6, $7)`,
       [e.userId, e.result, e.filename?.slice(0, 255) ?? null, e.detail.slice(0, 1000), e.size ?? null, e.sha ?? null, e.attachmentId ?? null]);
-  } catch {
-    console.error("audit: could not write the upload log");
+  } catch (err) {
+    logError({ category: "UPLOAD", where: "lib/attachments", what: "Could not write the upload-history record (the upload itself is not affected)", err });
   }
 }
 export const auditAttachmentRejection = (db: Db, userId: string, filename: string | null, detail: string, result: "rejected" | "error" = "rejected") =>

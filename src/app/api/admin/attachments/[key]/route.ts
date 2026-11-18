@@ -2,6 +2,7 @@ import { requireAdmin } from "../../../../../lib/admin";
 import { json } from "../../../../../lib/http";
 import { pool } from "../../../../../lib/db";
 import { contentDisposition, getAttachment } from "../../../../../lib/attachments";
+import { logError } from "../../../../../lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,8 +26,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ key: string }> 
         "Cache-Control": "private, no-store",
       },
     });
-  } catch {
-    console.error("attachment download failed: server error");
-    return json({ success: false, error: "SERVER_ERROR", message: "The file could not be read." }, 500);
+  } catch (err) {
+    const requestId = logError({ category: "UPLOAD", where: "api/admin/attachments/[key]", what: "Reading a stored file for download failed", err });
+    return json({ success: false, error: "SERVER_ERROR", message: "The file could not be read.", requestId }, 500);
   }
 }

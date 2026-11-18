@@ -3,6 +3,7 @@ import { preflight, withCors } from "../../../../../lib/cors";
 import { json, readJson } from "../../../../../lib/http";
 import { pool } from "../../../../../lib/db";
 import { confirmDataset, DatasetError, writeAudit } from "../../../../../lib/serviceDatasets";
+import { logError } from "../../../../../lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
       await writeAudit(pool, { userId: admin.id, action: "confirm", result: "rejected", datasetId: id, detail: e.code });
       return reply({ success: false, error: e.code, message: e.message }, e.status);
     }
-    console.error("confirm failed: server error");
+    logError({ category: "UPLOAD", where: "api/services/upload/confirm", what: "Making a staged dataset live failed (it was rolled back)", err: e, context: { stage: "confirm" } });
     await writeAudit(pool, { userId: admin.id, action: "confirm", result: "error", datasetId: id, detail: "server error" });
     return reply({ success: false, error: "SERVER_ERROR", message: "The switch failed and was rolled back. The previous data is still live." }, 500);
   }

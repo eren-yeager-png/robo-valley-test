@@ -9,6 +9,7 @@
 import { MAX_REPORT_ENTRIES } from "./spreadsheet/dedupe";
 import type { ParsedFile } from "./spreadsheet/parse";
 import { CATEGORIES, categoryName, DEFAULT_CATEGORY, parseCategory, type CategorySlug } from "./serviceCategories";
+import { logError } from "./logger";
 
 // pg row objects are untyped; they are only read by column name below.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,8 +38,8 @@ export async function writeAudit(
       "INSERT INTO upload_audit_log (user_id, action, result, dataset_id, filename, detail) VALUES ($1, $2, $3, $4, $5, $6)",
       [e.userId, e.action, e.result, e.datasetId ?? null, e.filename?.slice(0, 255) ?? null, e.detail?.slice(0, 1000) ?? null]
     );
-  } catch {
-    console.error("audit: could not write the upload log");
+  } catch (err) {
+    logError({ category: "UPLOAD", where: "lib/serviceDatasets", what: "Could not write the upload-history record (the dataset action itself is not affected)", err });
   }
 }
 

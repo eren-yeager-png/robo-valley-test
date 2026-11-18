@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pool } from "../../../lib/db";
+import { logError } from "../../../lib/logger";
 import { requireAdminPage } from "../../../lib/adminPage";
 import { datasetsByCategory, getOverview, loginsByDay, parseRange, RANGES, registrationsByDay, uploadsByDay } from "../../../lib/adminStats";
 import ChangePasswordForm from "./ChangePasswordForm";
@@ -23,8 +24,8 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
     const [overview, perCategory, registrations, uploads] = await Promise.all([getOverview(pool), datasetsByCategory(pool), registrationsByDay(pool, days), uploadsByDay(pool, days)]);
     const logins = overview.setup.loginEvents ? await loginsByDay(pool, days) : null;
     data = { overview, perCategory, registrations, uploads, logins };
-  } catch {
-    console.error("admin overview: could not read the data");
+  } catch (err) {
+    logError({ category: "DASHBOARD", where: "admin/dashboard", what: "Could not load the overview page data", err });
     return (<><PageHeader title="Admin dashboard" /><Notice kind="error" title="The overview could not be loaded">The database did not answer. Nothing was changed. Please try again in a moment.</Notice></>);
   }
   const { overview: o, perCategory, registrations, uploads, logins } = data;
@@ -49,7 +50,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
         </section>
         <section className="adm-card"><h3>Sign-in activity</h3>
           {logins ? <Chart kind="line" xKey="day" label={`Sign-ins per day, last ${days} days`} data={logins} series={[{ key: "success", label: "Successful", color: TEAL }, { key: "failed", label: "Failed", color: RED }]} />
-            : <SetupNotice what="Sign-in activity" migration="008" />}
+            : <SetupNotice what="Sign-in activity" migration="008" where="admin/dashboard" />}
         </section>
         <section className="adm-card"><h3>Uploads</h3>
           <Chart kind="bar" xKey="day" label={`Uploads per day, last ${days} days`} data={uploads} series={[{ key: "accepted", label: "Accepted", color: NAVY }, { key: "rejected", label: "Rejected", color: AMBER }]} />
@@ -61,7 +62,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
 
       <div className="adm-grid two">
         <section><h3>Recent sign-ins</h3>
-          {!o.setup.loginEvents ? <SetupNotice what="Sign-in activity" migration="008" /> : (
+          {!o.setup.loginEvents ? <SetupNotice what="Sign-in activity" migration="008" where="admin/dashboard" /> : (
             <DataTable caption="Recent sign-ins" head={["When", "Event"]} empty="No sign-ins recorded yet."
               rows={o.recentLogins.map((l, i) => <tr key={i}><td>{when(l.at)}</td><td><span className={"adm-pill" + (l.type === "login_failed" ? " bad" : "")}>{LOGIN_LABEL[l.type] ?? l.type}</span></td></tr>)} />
           )}

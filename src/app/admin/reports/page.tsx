@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pool } from "../../../lib/db";
+import { logError } from "../../../lib/logger";
 import { requireAdminPage } from "../../../lib/adminPage";
 import { datasetsByCategory, loginsByDay, otpByDay, parseRange, RANGES, registrationsByDay, sumOf, tableExists, uploadsByDay, usersByRole } from "../../../lib/adminStats";
 import Chart from "../_components/ChartsLoader";
@@ -22,8 +23,8 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
     const [registrations, uploads, perCategory, roles] = await Promise.all([registrationsByDay(pool, days), uploadsByDay(pool, days), datasetsByCategory(pool), usersByRole(pool)]);
     const [logins, otp] = hasEvents ? await Promise.all([loginsByDay(pool, days), otpByDay(pool, days)]) : [null, null];
     d = { registrations, uploads, perCategory, roles, logins, otp };
-  } catch {
-    console.error("admin reports: could not read the data");
+  } catch (err) {
+    logError({ category: "DASHBOARD", where: "admin/reports", what: "Could not load the reports page data", err });
     return (<><PageHeader title="Reports & analytics" /><Notice kind="error" title="Reports could not be loaded">The database did not answer. Please try again.</Notice></>);
   }
   const { registrations, uploads, perCategory, roles, logins, otp } = d;
@@ -37,8 +38,8 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
 
       <div className="adm-grid">
         <StatCard label="New registrations" value={sumOf(registrations, "registrations")} />
-        <StatCard label="Successful logins" value={logins ? sumOf(logins, "success") : null} hint={logins ? undefined : "Needs migration 008"} />
-        <StatCard label="Failed logins" value={logins ? sumOf(logins, "failed") : null} hint={logins ? undefined : "Needs migration 008"} />
+        <StatCard label="Successful logins" value={logins ? sumOf(logins, "success") : null} hint={logins ? undefined : "Not available yet"} />
+        <StatCard label="Failed logins" value={logins ? sumOf(logins, "failed") : null} hint={logins ? undefined : "Not available yet"} />
         <StatCard label="Uploads accepted" value={sumOf(uploads, "accepted")} hint={`${sumOf(uploads, "rejected")} rejected`} />
       </div>
 
@@ -47,10 +48,10 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
           <Chart kind="line" xKey="day" label={`New registrations per day, last ${days} days`} data={registrations} series={[{ key: "registrations", label: "Registrations", color: TEAL }]} />
         </section>
         <section className="adm-card"><h3>Login activity</h3>
-          {logins ? <Chart kind="line" xKey="day" label={`Logins per day, last ${days} days`} data={logins} series={[{ key: "success", label: "Successful", color: TEAL }, { key: "failed", label: "Failed", color: RED }]} /> : <SetupNotice what="Login reports" migration="008" />}
+          {logins ? <Chart kind="line" xKey="day" label={`Logins per day, last ${days} days`} data={logins} series={[{ key: "success", label: "Successful", color: TEAL }, { key: "failed", label: "Failed", color: RED }]} /> : <SetupNotice what="Login reports" migration="008" where="admin/reports" />}
         </section>
         <section className="adm-card"><h3>One-time codes</h3>
-          {otp ? <Chart kind="bar" xKey="day" label={`One-time codes per day, last ${days} days`} data={otp} series={[{ key: "sent", label: "Sent", color: NAVY }, { key: "verified", label: "Verified", color: TEAL }, { key: "failed", label: "Failed", color: RED }]} /> : <SetupNotice what="One-time code reports" migration="008" />}
+          {otp ? <Chart kind="bar" xKey="day" label={`One-time codes per day, last ${days} days`} data={otp} series={[{ key: "sent", label: "Sent", color: NAVY }, { key: "verified", label: "Verified", color: TEAL }, { key: "failed", label: "Failed", color: RED }]} /> : <SetupNotice what="One-time code reports" migration="008" where="admin/reports" />}
         </section>
         <section className="adm-card"><h3>Upload activity</h3>
           <Chart kind="bar" xKey="day" label={`Uploads per day, last ${days} days`} data={uploads} series={[{ key: "accepted", label: "Accepted", color: NAVY }, { key: "rejected", label: "Rejected", color: AMBER }]} />

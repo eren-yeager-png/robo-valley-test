@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pool } from "../../../lib/db";
+import { logError } from "../../../lib/logger";
 import { requireAdminPage } from "../../../lib/adminPage";
 import { categoryRows } from "../../../lib/adminDatasets";
 import { DataTable, Notice, PageHeader, when } from "../_components/ui";
@@ -14,8 +15,8 @@ export default async function CategoriesPage() {
   let rows;
   try {
     rows = await categoryRows(pool);
-  } catch {
-    console.error("admin categories: could not read the data");
+  } catch (err) {
+    logError({ category: "DASHBOARD", where: "admin/categories", what: "Could not load the categories page data", err });
     return (<><PageHeader title="Manage categories" /><Notice kind="error" title="Categories could not be loaded">The database did not answer. Please try again.</Notice></>);
   }
   return (

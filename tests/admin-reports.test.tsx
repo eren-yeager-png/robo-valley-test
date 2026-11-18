@@ -96,9 +96,9 @@ describe("reports page", () => {
     await q("alter table login_events rename to login_events_hidden");
     let h: string;
     try { h = await page(); } finally { await q("alter table login_events_hidden rename to login_events"); }
-    expect(h).toContain("Login reports is not set up yet");
-    expect(h).toContain("One-time code reports is not set up yet");
-    expect(h).toContain("Needs migration 008");
+    expect(h).toContain("Login reports is not available yet");
+    expect(h).toContain("One-time code reports is not available yet");
+    expect(h).not.toMatch(/migration|008|db:migrate|npm run/i); // no developer details on the page
     expect(total(chart(h, "New registrations per day"), "registrations")).toBe(0);
   });
 
@@ -120,24 +120,36 @@ describe("settings page", () => {
     expect(h).toContain("Change your password");
     expect(h.toLowerCase()).toContain('autocomplete="current-password"');
     expect(h).toContain('id="profile"');
-    expect(h).toContain('id="database-setup"');
-    expect((h.match(/>Applied</g) ?? []).length).toBe(11);
-    expect(h).toContain("Everything is applied");
-    expect(h).not.toContain("For the developer");
+    expect(h).toContain('id="features"');
+    expect((h.match(/>Available</g) ?? []).length).toBe(2);
+    expect(h).not.toMatch(/For the developer|db:migrate|npm run|--status|--apply|--only|dry run|expect-db|migration/i); // no developer-only information
     expect(h).not.toMatch(/password_hash|SESSION_SECRET|DATABASE_URL/);
   });
 
-  it("lists the migrations that are not applied, what they affect, and the developer steps, without any SQL or database error", async () => {
+  it("says which features are not available yet, in plain words, with no commands, migration names, SQL or database errors", async () => {
     await q("alter table upload_attachments rename to upload_attachments_hidden"); // shared harness: put it back below
     let h: string;
     try { h = await html(SettingsPage()); } finally { await q("alter table upload_attachments_hidden rename to upload_attachments"); }
-    expect(h).toContain("Partly applied");
-    expect(h).toContain("Stored files, downloads and richer upload history");
-    expect(h).toContain("For the developer: applying 009");
-    expect(h).toContain("--only 009 --apply");
-    expect(h).toContain("--status");
+    expect(h).toContain("Stored files and downloads");
+    expect(h).toContain("Partly available");
+    expect(h).toContain("contact your technical team");
+    expect(h).not.toMatch(/For the developer|db:migrate|npm run|--status|--apply|--only|dry run|expect-db|migration|009|008/i);
     expect(h).not.toMatch(/relation|syntax error|SELECT |pg_/i);
-    expect(h).not.toContain("--only 008"); // only what is actually pending
+  });
+
+  it("shows a feature that is completely missing as not available yet", async () => {
+    await q("alter table login_events rename to login_events_hidden");
+    await q("drop index login_events_created_idx"); await q("drop index login_events_type_created_idx");
+    await q("alter table login_events_hidden drop constraint login_events_purpose_ck"); await q("alter table login_events_hidden drop constraint login_events_reason_ck");
+    let h: string;
+    try { h = await html(SettingsPage()); } finally {
+      await q("alter table login_events_hidden rename to login_events");
+      await q("alter table login_events add constraint login_events_purpose_ck check (purpose is null or event_type in ('otp_sent','otp_failed','otp_verified'))");
+      await q("alter table login_events add constraint login_events_reason_ck check (reason is null or event_type in ('login_failed','otp_failed'))");
+      await q("create index login_events_created_idx on login_events (created_at)");
+      await q("create index login_events_type_created_idx on login_events (event_type, created_at) include (user_id)");
+    }
+    expect(h).toContain("Not available yet");
   });
 
   it("says plainly when the database structure cannot be checked", async () => {

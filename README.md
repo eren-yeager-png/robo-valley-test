@@ -248,3 +248,32 @@ npm run seed:sample -- --expect-db <local database name> --reset --apply      # 
 ```
 
 It adds 24 sample users (students, parents, teachers) and a sample admin, datasets for all six categories (history, one live each, some staged), about 670 login events over 90 days using only the fixed event types and reasons, upload history, and seven real downloadable files (csv, xlsx, pdf, docx, png, jpg, txt). Sample rows are recognisable (e-mail ending `@sample.robovalley.test`; row ids in the reserved range 9,000,000,000,000 and above), which is how `--reset` removes only them. A real live dataset is never replaced. The sample schools also appear in the local Find a Service search until you reset.
+
+## 3d. Error messages in the terminal
+
+When something fails, the terminal that runs `npm run dev` (for example the VS Code terminal) shows a block like this, once per problem (repeats within 30 seconds are counted, not printed):
+
+```
+[2026-11-04T10:36:11.397Z] ERROR DATABASE  admin/overview  (request a1b2-c3d4-e5f6)
+  What:   Could not load the overview page data
+  Why:    Error / 42P01 / table login_events - relation "login_events" does not exist
+  Check:  A database table is missing (table "login_events"). ... Run "npm run db:migrate -- --expect-db <database name> --status" ...
+  Stack:  ...
+```
+
+Categories: `API`, `AUTH`, `DATABASE`, `MIGRATION`, `ENV`, `UPLOAD`, `DASHBOARD`, `RENDER`, `PROCESS`. At start-up the server also reports wrong or missing settings (`DATABASE_URL`, `SESSION_SECRET`, `OTP_PROVIDER`, ...) by name only, and, in development, which migrations the database is missing. In production (and tests) each entry is a single JSON line with no stack trace and no error message. Passwords, one-time codes, tokens, cookies, API keys and connection strings are never logged. Code: `src/lib/logger.ts`, `src/lib/envCheck.ts`, `src/instrumentation.ts`.
+
+The admin pages never show commands, migration numbers, SQL or database errors. A feature whose database update is pending shows "not available yet"; the details are in the terminal and in sections 3, 3b and 3e of this file.
+
+## 3e. Runbook: applying migrations 008 and 009 to a live database (for an authorised developer)
+
+Nothing here is done automatically, and the app never applies migrations.
+
+1. Confirm the target. Set `DATABASE_URL` in that window to the live database's **direct** (not "-pooler") connection string and note the database name.
+2. Backup: confirm in the hosting provider's console that a recent backup or point-in-time restore exists. Do this before every step below.
+3. Read-only status: `npm run db:migrate -- --expect-db <database name> --status`. It reports each migration as applied, MISSING or PARTIAL and the objects it is missing.
+4. Dry run (connects to nothing): `npm run db:migrate -- --expect-db <database name> --only 008`, then `--only 009`.
+5. Apply, one at a time, then re-check with `--status`:
+   `npm run db:migrate -- --expect-db <database name> --only 008 --apply` and `--only 009 --apply`.
+
+Impact: 008 adds one table (`login_events`) and its indexes. 009 adds two tables (`upload_attachments`, `upload_attachment_blobs`), four columns on `upload_audit_log` (existing rows become kind `dataset`) and indexes. Neither drops, renames, truncates or rewrites existing data, and each file runs as one transaction. Rollbacks (`db/rollback/008_down.sql`, `009_down.sql`) exist but are for emergencies only: 009's rollback deletes stored files.

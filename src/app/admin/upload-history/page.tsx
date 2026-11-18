@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pool } from "../../../lib/db";
+import { logError } from "../../../lib/logger";
 import { requireAdminPage } from "../../../lib/adminPage";
 import { tableExists } from "../../../lib/adminStats";
 import { formatSize, HISTORY_KINDS, HISTORY_RESULTS, listHistory } from "../../../lib/uploadHistory";
@@ -24,8 +25,8 @@ export default async function UploadHistoryPage({ searchParams }: { searchParams
   try {
     hasAttachments = await tableExists(pool, "upload_attachments");
     data = await listHistory(pool, { page, kind, result, hasAttachments });
-  } catch {
-    console.error("admin upload history: could not read the data");
+  } catch (err) {
+    logError({ category: "DASHBOARD", where: "admin/upload-history", what: "Could not load the upload history page data", err });
     return (<><PageHeader title="Upload history" /><Notice kind="error" title="The history could not be loaded">The database did not answer. Please try again.</Notice></>);
   }
   const href = (k: string, r: string) => { const q = new URLSearchParams({ ...(k ? { kind: k } : {}), ...(r ? { result: r } : {}) }).toString(); return "/admin/upload-history" + (q ? "?" + q : ""); };
@@ -36,7 +37,7 @@ export default async function UploadHistoryPage({ searchParams }: { searchParams
   return (
     <>
       <PageHeader title="Upload history" lead="Every upload and every time a dataset was made live, newest first." />
-      {!hasAttachments && <SetupNotice what="Stored files and download" migration="009" />}
+      {!hasAttachments && <SetupNotice what="Stored files and download" migration="009" where="admin/upload-history" />}
       <div className="adm-tabs" aria-label="Type">
         <Link href={href("", result)} aria-current={kind === "" ? "page" : undefined}>All types</Link>
         <Link href={href("dataset", result)} aria-current={kind === "dataset" ? "page" : undefined}>Datasets</Link>

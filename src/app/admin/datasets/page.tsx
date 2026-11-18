@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pool } from "../../../lib/db";
+import { logError } from "../../../lib/logger";
 import { requireAdminPage } from "../../../lib/adminPage";
 import { DATASET_STATUSES, listDatasets } from "../../../lib/adminDatasets";
 import { CATEGORIES, parseCategory } from "../../../lib/serviceCategories";
@@ -23,8 +24,8 @@ export default async function DatasetsPage({ searchParams }: { searchParams?: Pr
   let result;
   try {
     result = await listDatasets(pool, { category, status, page });
-  } catch {
-    console.error("admin datasets: could not read the data");
+  } catch (err) {
+    logError({ category: "DASHBOARD", where: "admin/datasets", what: "Could not load the datasets page data", err });
     return (<><PageHeader title="Manage datasets" /><Notice kind="error" title="Datasets could not be loaded">The database did not answer. Please try again.</Notice></>);
   }
   const link = (c: string) => (c ? `/admin/datasets?category=${c}${status ? `&status=${status}` : ""}` : `/admin/datasets${status ? `?status=${status}` : ""}`);

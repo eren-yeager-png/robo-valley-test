@@ -3,6 +3,7 @@ import { json, readJson } from "../../../../lib/http";
 import { recordLoginEvent } from "../../../../lib/loginEvents";
 import { createAccount, DuplicateEmailError, VerificationRequiredError } from "../../../../lib/signup";
 import { LIMITS, validateSignup } from "../../../../lib/validation";
+import { logError } from "../../../../lib/logger";
 
 export const runtime = "nodejs";
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
     if (err instanceof DuplicateEmailError) {
       return json({ success: false, error: "EMAIL_TAKEN", message: "An account with this email already exists.", fieldErrors: { email: "An account with this email already exists." } }, 409);
     }
-    console.error("signup failed:", (err as { code?: string })?.code ?? "unknown error"); // no SQL, values or stack
+    logError({ category: "AUTH", where: "api/auth/signup", what: "Creating the account failed unexpectedly", err }); // only the error summary: never the submitted details
     return json({ success: false, error: "SERVER_ERROR", message: "We could not create your account. Please try again." }, 500);
   }
 }

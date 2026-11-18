@@ -98,7 +98,6 @@ describe("session check: results", () => {
     expect(text).not.toMatch(/ECONNREFUSED|postgres|neon|Pw9/);
     expect(res.headers.get("access-control-allow-origin")).toBe(OK); // the page can still read the status
     const logged = vi.mocked(console.error).mock.calls.flat().join(" ");
-    console.error("session.check.failed: database lookup unavailable.");
     expect(logged).not.toMatch(/Pw9|neondb_owner|postgresql:\/\//);
   });
 

@@ -6,6 +6,7 @@
 //
 // SAFETY: recording must never change what the user experiences. recordLoginEvent never throws, gives up after a short
 // time if the database is slow, and does nothing (quietly) while the table does not exist yet.
+import { logWarn } from "./logger";
 import { SESSION_COOKIE, verifySessionToken } from "./session";
 
 export const EVENT_TYPES = ["login_success", "login_failed", "otp_sent", "otp_failed", "otp_verified", "signup", "logout"] as const;
@@ -42,8 +43,6 @@ export function otpReason(code: unknown): LoginReason {
   }
 }
 
-let warned = false;
-
 export async function recordLoginEvent(
   db: Db,
   e: { type: LoginEventType; userId?: string | number | null; reason?: LoginReason | null; purpose?: string | null; req?: Request | null }
@@ -60,8 +59,9 @@ export async function recordLoginEvent(
     const write = db.query(
       "INSERT INTO login_events (event_type, user_id, reason, purpose, ua_family) VALUES ($1, $2, $3, $4, $5)",
       [e.type, userId, reason, purpose, ua]
-    ).then(() => undefined, (err: { code?: string }) => {
-      if (!warned) { warned = true; console.error("login events: could not record (", typeof err?.code === "string" ? err.code : "error", ")"); } // once per process, no values
+    ).then(() => undefined, (err: unknown) => {
+      // Never changes the sign-in result; the log says why (for example "migration 008 not applied") and is not repeated for every request.
+      logWarn({ category: "DATABASE", where: "lib/loginEvents", what: `Could not record a "${e.type}" event in the login activity log (sign-in, OTP and sign-up are not affected)`, err });
     });
     await Promise.race([write, timeout]);
     clearTimeout(timer);

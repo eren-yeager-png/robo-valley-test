@@ -7,6 +7,7 @@ import { getCurrentUser, type CurrentUser } from "./currentUser";
 import { pool } from "./db";
 import { originAllowed } from "./cors";
 import { json } from "./http";
+import { logError } from "./logger";
 
 export const ADMIN_ROLE = "admin";
 export const ADMIN_HOME = "/admin/dashboard";
@@ -26,8 +27,8 @@ export async function getAdminContext(): Promise<AdminContext> {
   try {
     const { rows } = await pool.query("SELECT must_change_password FROM users WHERE id = $1", [user.id]);
     mustChangePassword = rows[0]?.must_change_password === true;
-  } catch {
-    console.error("admin: could not read must_change_password"); // fail closed is not needed (they are an admin), but never crash the page
+  } catch (err) {
+    logError({ category: "DATABASE", where: "lib/admin", what: "Could not read the admin's must-change-password flag", err }); // fail closed is not needed (they are an admin), but never crash the page
   }
   return { status: "ok", admin: { ...user, mustChangePassword } };
 }

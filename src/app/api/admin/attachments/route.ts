@@ -4,6 +4,7 @@ import { pool } from "../../../../lib/db";
 import { readBodyLimited } from "../../../../lib/uploadBody";
 import { tableExists } from "../../../../lib/adminStats";
 import { AttachmentError, auditAttachmentRejection, MAX_ATTACHMENT_BYTES, MULTIPART_OVERHEAD, storeAttachment, uploadRateLimited } from "../../../../lib/attachments";
+import { logError, logWarn } from "../../../../lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,8 @@ export async function POST(req: Request) {
   let filename: string | null = null;
   try {
     if (!(await tableExists(pool, "upload_attachments"))) {
-      return json({ success: false, error: "NOT_SET_UP", message: "File storage is not set up in this database yet (migration 009)." }, 503);
+      logWarn({ category: "MIGRATION", where: "api/admin/attachments", what: "A file upload was refused because table upload_attachments does not exist (migration 009 is not applied on this database)", hint: 'Run "npm run db:migrate -- --expect-db <database name> --status". Applying 009 is a deliberate, approved step.' });
+      return json({ success: false, error: "NOT_SET_UP", message: "File storage is not available yet. Please contact your technical team." }, 503);
     }
     if (await uploadRateLimited(pool, admin.id)) {
       return json({ success: false, error: "RATE_LIMITED", message: "Too many uploads in a short time. Please wait a few minutes." }, 429, { "Retry-After": "600" });
@@ -52,8 +54,8 @@ export async function POST(req: Request) {
       await auditAttachmentRejection(pool, admin.id, filename, `${e.code}: ${e.message}`);
       return json({ success: false, error: e.code, message: e.message }, e.status);
     }
-    console.error("attachment upload failed: server error");
+    const requestId = logError({ category: "UPLOAD", where: "api/admin/attachments", what: "Storing an uploaded file failed unexpectedly", err: e, context: { stage: "store" } });
     await auditAttachmentRejection(pool, admin.id, filename, "server error", "error");
-    return json({ success: false, error: "SERVER_ERROR", message: "The upload could not be processed. Nothing was stored." }, 500);
+    return json({ success: false, error: "SERVER_ERROR", message: "The upload could not be processed. Nothing was stored.", requestId }, 500);
   }
 }

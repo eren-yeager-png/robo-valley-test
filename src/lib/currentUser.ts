@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { pool } from "./db";
 import { canSignIn, SESSION_COOKIE, verifySessionToken } from "./session";
+import { logError } from "./logger";
 
 export type CurrentUser = { id: string; fullName: string; email: string; role: string };
 
@@ -29,8 +30,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     const u = rows[0];
     if (!u || !canSignIn(u.email_verification)) return null;
     return { id: String(u.id), fullName: u.full_name, email: u.email, role: u.role };
-  } catch {
-    console.error("currentUser: database lookup failed");
+  } catch (err) {
+    logError({ category: "DATABASE", where: "lib/currentUser", what: "The signed-in account could not be looked up, so the visitor is treated as signed out", err });
     return null;
   }
 }

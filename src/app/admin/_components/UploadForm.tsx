@@ -127,7 +127,7 @@ export default function UploadForm({ categories, initialCategory, filesReady }: 
       ) : filesReady ? (
         <p>Store a document or image (.xlsx, .csv, .pdf, .docx, .png, .jpg, .txt, up to 4 MB). Stored files never change the Find a Service data.</p>
       ) : (
-        <div className="adm-note setup"><strong>File storage is not set up yet</strong>The database needs migration 009 before other files can be stored. Dataset uploads still work.</div>
+        <div className="adm-note setup"><strong>File storage is not available yet</strong>Other files cannot be stored until a database update is completed. Dataset uploads still work.</div>
       )}
 
       {(mode === "dataset" || filesReady) && (

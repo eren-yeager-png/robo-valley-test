@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { pool } from "../../../lib/db";
+import { logError } from "../../../lib/logger";
 import { requireAdminPage } from "../../../lib/adminPage";
 import { listUsers, usersByRole } from "../../../lib/adminStats";
 import { ROLE_CODES } from "../../../lib/roles";
@@ -21,8 +22,8 @@ export default async function UsersPage({ searchParams }: { searchParams?: Promi
   let result, roles;
   try {
     [result, roles] = await Promise.all([listUsers(pool, { page, q, role }), usersByRole(pool)]);
-  } catch {
-    console.error("admin users: could not read the data");
+  } catch (err) {
+    logError({ category: "DASHBOARD", where: "admin/users", what: "Could not load the users page data", err });
     return (<><PageHeader title="User management" /><Notice kind="error" title="Users could not be loaded">The database did not answer. Please try again.</Notice></>);
   }
   const params: Record<string, string> = {};

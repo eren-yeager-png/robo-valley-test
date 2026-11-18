@@ -2,6 +2,7 @@ import { preflight, withCors } from "../../../../lib/cors";
 import { json } from "../../../../lib/http";
 import { pool } from "../../../../lib/db";
 import { parseSearchParams, searchServices } from "../../../../lib/serviceDatasets";
+import { logError } from "../../../../lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic"; // never prerendered or cached: a new upload must be visible immediately
@@ -16,8 +17,8 @@ export async function GET(req: Request) {
   if ("error" in parsed) return reply({ success: false, error: "VALIDATION_FAILED", message: parsed.error }, 400);
   try {
     return reply({ success: true, ...(await searchServices(pool, parsed.value)) }, 200);
-  } catch {
-    console.error("search failed: server error");
+  } catch (err) {
+    logError({ category: "API", where: "api/services/search", what: "The school search failed", err });
     return reply({ success: false, error: "SERVER_ERROR", message: "Search is not available right now. Please try again." }, 500);
   }
 }

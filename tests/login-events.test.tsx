@@ -283,8 +283,8 @@ describe("login activity page", () => {
     await q("alter table login_events rename to login_events_hidden");
     let h: string;
     try { h = await page(); } finally { await q("alter table login_events_hidden rename to login_events"); }
-    expect(h).toContain("Login activity is not set up yet");
-    expect(h).toContain("migration 008");
+    expect(h).toContain("Login activity is not available yet");
+    expect(h).not.toMatch(/migration|008|db:migrate|npm run/i); // no developer details on the page
   });
 
   it("is closed to visitors and regular users", async () => {

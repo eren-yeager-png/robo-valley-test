@@ -4,6 +4,7 @@ import { pool } from "../../../../lib/db";
 import { json, readJson } from "../../../../lib/http";
 import { BCRYPT_ROUNDS } from "../../../../lib/signup";
 import { LIMITS } from "../../../../lib/validation";
+import { logError } from "../../../../lib/logger";
 
 export const runtime = "nodejs";
 
@@ -32,8 +33,8 @@ export async function POST(req: Request) {
     const hash = await bcrypt.hash(next, BCRYPT_ROUNDS);
     await pool.query("UPDATE users SET password_hash = $2, must_change_password = false WHERE id = $1 AND role = 'admin'", [auth.admin.id, hash]);
     return json({ success: true });
-  } catch {
-    console.error("admin change-password failed"); // no SQL, passwords or hashes in logs
+  } catch (err) {
+    logError({ category: "AUTH", where: "api/admin/change-password", what: "Changing the admin password failed", err }); // only the error summary: never the passwords or hashes
     return json({ success: false, error: "SERVER_ERROR", message: "We could not change your password. Please try again." }, 500);
   }
 }

@@ -252,8 +252,8 @@ describe("upload history page", () => {
     let h: string;
     try { h = await page(); } finally { await q("alter table upload_attachments_hidden rename to upload_attachments"); }
     expect(h).toContain("schools.xlsx");
-    expect(h).toContain("not set up yet");
-    expect(h).toContain("migration 009");
+    expect(h).toContain("not available yet");
+    expect(h).not.toMatch(/migration|009|db:migrate|npm run/i); // no developer details on the page
   });
 
   it("shows an empty state, and refuses visitors and regular users", async () => {

@@ -10,6 +10,7 @@ import {
 } from "../../../../lib/session";
 import { LIMITS, normalizeEmail } from "../../../../lib/validation";
 import { BCRYPT_ROUNDS } from "../../../../lib/signup";
+import { logError } from "../../../../lib/logger";
 
 export const runtime = "nodejs";
 
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
     assertSessionConfigured();
   } catch (e) {
     if (e instanceof SessionConfigError) {
-      console.error("login: SESSION_SECRET is not configured (min 32 characters)");
+      logError({ category: "ENV", where: "api/auth/login", what: "SESSION_SECRET is not set or is shorter than 32 characters, so sign-in is switched off", hint: "Set SESSION_SECRET (32 or more random characters) in .env.local, then restart the server." });
       return json({ success: false, error: "SESSION_NOT_CONFIGURED", message: "Sign-in is not available right now." }, 503);
     }
     throw e;
@@ -92,8 +93,8 @@ export async function POST(req: Request) {
     res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(remember ? maxAgeSeconds : undefined));
     await recordLoginEvent(pool, { type: "login_success", userId: id, req }); // best effort: never throws, never changes the result
     return res;
-  } catch {
-    console.error("login failed: server error"); // no SQL, email or password in logs
+  } catch (err) {
+    logError({ category: "AUTH", where: "api/auth/login", what: "Sign-in failed unexpectedly", err }); // only the error summary: never the email, password or SQL
     await recordLoginEvent(pool, { type: "login_failed", reason: "server_error", req });
     return json({ success: false, error: "SERVER_ERROR", message: "We could not sign you in. Please try again." }, 500);
   }

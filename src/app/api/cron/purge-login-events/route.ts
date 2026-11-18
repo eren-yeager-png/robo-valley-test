@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { json } from "../../../../lib/http";
 import { pool } from "../../../../lib/db";
 import { purgeOldLoginEvents, RETENTION_DAYS } from "../../../../lib/loginEvents";
+import { logError } from "../../../../lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,8 +22,8 @@ export async function GET(req: Request) {
   try {
     const removed = await purgeOldLoginEvents(pool);
     return json({ success: true, retentionDays: RETENTION_DAYS, removed, ...(removed === null ? { note: "login_events does not exist yet" } : {}) });
-  } catch {
-    console.error("login events clean-up failed");
+  } catch (err) {
+    logError({ category: "DATABASE", where: "api/cron/purge-login-events", what: "Deleting login events older than the retention period failed", err });
     return json({ success: false, error: "SERVER_ERROR", message: "Clean-up failed. Nothing else was changed." }, 500);
   }
 }

@@ -2,6 +2,7 @@ import { preflight, withCors } from "../../../../lib/cors";
 import { json } from "../../../../lib/http";
 import { pool } from "../../../../lib/db";
 import { listCategories } from "../../../../lib/serviceDatasets";
+import { logError } from "../../../../lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,8 +16,8 @@ export async function GET(req: Request) {
   try {
     const categories = await listCategories(pool);
     return reply({ success: true, categories, defaultSlug: categories.find((c) => c.active)?.slug ?? null }, 200);
-  } catch {
-    console.error("categories failed: server error");
+  } catch (err) {
+    logError({ category: "API", where: "api/services/categories", what: "Listing the categories failed", err });
     return reply({ success: false, error: "SERVER_ERROR", message: "Categories are not available right now. Please try again." }, 500);
   }
 }

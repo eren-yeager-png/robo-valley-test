@@ -102,7 +102,7 @@ describe("upload form", () => {
     unmount();
     render(<UploadForm categories={CATS} initialCategory="" filesReady={false} />);
     fireEvent.click(screen.getByRole("tab", { name: "Other file (stored only)" }));
-    expect(screen.getByText("File storage is not set up yet")).toBeTruthy();
+    expect(screen.getByText("File storage is not available yet")).toBeTruthy();
     expect(screen.queryByLabelText("File to upload")).toBeNull();
   });
 

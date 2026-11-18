@@ -1,5 +1,6 @@
 // Small presentational pieces shared by the admin pages (server-compatible: no state, no effects).
 import Link from "next/link";
+import { logWarn } from "../../../lib/logger";
 
 export function PageHeader({ title, lead }: { title: string; lead?: string }) {
   return (
@@ -31,16 +32,20 @@ export function Notice({ kind, title, children }: { kind: "setup" | "empty" | "e
 }
 
 /**
- * Slim notice shown while a feature's database table has not been created yet. It names the feature and the migration;
- * the developer steps are on the Settings page (Database setup). It disappears by itself once the migration is applied.
+ * Slim notice shown while a feature's database update has not been completed. Administrators see only that the feature
+ * is not available yet. The technical detail (which migration, what to run) goes to the server terminal instead, once
+ * per 30 seconds, and the notice disappears by itself when the update is in place.
  */
-export function SetupNotice({ what, migration }: { what: string; migration: "008" | "009" }) {
+export function SetupNotice({ what, migration, where = "admin" }: { what: string; migration: "008" | "009"; where?: string }) {
+  logWarn({
+    category: "MIGRATION", where, what: `${what} is unavailable because migration ${migration} is not applied on this database`,
+    hint: `Run "npm run db:migrate -- --expect-db <database name> --status" to see the state. Applying ${migration} is a deliberate, approved step; the app only reports it.`,
+  });
   return (
     <div className="adm-note setup" role="status">
       <span className="ico" aria-hidden="true">!</span>
-      <strong>{what} is not set up yet</strong>
-      <span>Needs migration {migration} on this database.</span>
-      <Link href="/admin/settings#database-setup">Setup steps</Link>
+      <strong>{what} is not available yet</strong>
+      <span>The update it needs has not been completed on this system. Please contact your technical team.</span>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   SessionConfigError,
   verifySessionToken,
 } from "../../../../lib/session";
+import { logError } from "../../../../lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
     assertSessionConfigured();
   } catch (error) {
     if (error instanceof SessionConfigError) {
-      console.error("Session check unavailable: SESSION_SECRET is not configured.");
+      logError({ category: "ENV", where: "api/auth/session", what: "SESSION_SECRET is not set or is too short, so the session check is unavailable", hint: "Set SESSION_SECRET (32 or more random characters) in .env.local, then restart the server." });
       return reply({ authenticated: false, error: "SERVICE_UNAVAILABLE" }, 503, origin);
     }
     throw error;
@@ -96,8 +97,8 @@ export async function GET(req: NextRequest) {
       200,
       origin
     );
-  } catch {
-    console.error("Session check failed: database lookup unavailable.");
+  } catch (err) {
+    logError({ category: "DATABASE", where: "api/auth/session", what: "The session check could not look the account up", err });
     return reply({ authenticated: false, error: "SERVICE_UNAVAILABLE" }, 503, origin);
   }
 }

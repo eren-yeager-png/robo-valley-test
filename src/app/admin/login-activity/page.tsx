@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pool } from "../../../lib/db";
+import { logError } from "../../../lib/logger";
 import { requireAdminPage } from "../../../lib/adminPage";
 import { parseRange, RANGES, tableExists } from "../../../lib/adminStats";
 import { EVENT_TYPES, RETENTION_DAYS } from "../../../lib/loginEvents";
@@ -25,12 +26,12 @@ export default async function LoginActivityPage({ searchParams }: { searchParams
   try {
     ready = await tableExists(pool, "login_events");
     if (ready) [counts, list] = await Promise.all([eventCounts(pool, days), listActivity(pool, { days, type, page })]);
-  } catch {
-    console.error("admin login activity: could not read the data");
+  } catch (err) {
+    logError({ category: "DASHBOARD", where: "admin/login-activity", what: "Could not load the login activity page data", err });
     return (<><PageHeader title="Login activity" /><Notice kind="error" title="Activity could not be loaded">The database did not answer. Please try again.</Notice></>);
   }
   if (!ready || !counts || !list) {
-    return (<><PageHeader title="Login activity" lead="Sign-ins, one-time codes, signups and sign-outs." /><SetupNotice what="Login activity" migration="008" /></>);
+    return (<><PageHeader title="Login activity" lead="Sign-ins, one-time codes, signups and sign-outs." /><SetupNotice what="Login activity" migration="008" where="admin/login-activity" /></>);
   }
   const href = (r: number, t: string) => `/admin/login-activity?${new URLSearchParams({ range: String(r), ...(t ? { type: t } : {}) })}`;
   const params: Record<string, string> = { range: String(days) };

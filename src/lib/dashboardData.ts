@@ -4,6 +4,7 @@
 
 import { pool } from "./db";
 import { ROLE_FIELDS } from "./roles";
+import { logError } from "./logger";
 
 export type GuardianStatus = {
   guardianName: string;
@@ -71,8 +72,8 @@ export async function loadAccount(userId: string): Promise<LoadResult> {
         guardian,
       },
     };
-  } catch {
-    console.error("dashboard: account lookup failed"); // no SQL, ids or details in logs
+  } catch (err) {
+    logError({ category: "DASHBOARD", where: "lib/dashboardData", what: "The dashboard could not look the account up", err }); // no SQL, ids or details in logs
     return { ok: false, reason: "error" };
   }
 }

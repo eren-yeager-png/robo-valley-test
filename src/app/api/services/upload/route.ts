@@ -7,6 +7,7 @@ import { stageDataset, writeAudit } from "../../../../lib/serviceDatasets";
 import { categoryName, parseCategory } from "../../../../lib/serviceCategories";
 import { MAX_FILE_BYTES, parseUpload, safeFilename, UploadError } from "../../../../lib/spreadsheet/parse";
 import { readBodyLimited } from "../../../../lib/uploadBody";
+import { logError } from "../../../../lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,7 +97,7 @@ export async function POST(req: Request) {
       await writeAudit(pool, { userId: admin.id, action: "upload", result: "rejected", filename, detail: `${e.code}: ${e.message}` });
       return reply({ success: false, error: e.code, message: e.message, ...(e.details ?? {}) }, e.status);
     }
-    console.error("upload failed: server error");
+    logError({ category: "UPLOAD", where: "api/services/upload", what: "Staging an uploaded dataset failed unexpectedly", err: e, context: { stage: "stage" } });
     await writeAudit(pool, { userId: admin.id, action: "upload", result: "error", filename, detail: "server error" });
     return reply({ success: false, error: "SERVER_ERROR", message: "The upload could not be processed. Nothing was changed." }, 500);
   }

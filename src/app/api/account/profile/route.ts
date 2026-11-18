@@ -3,6 +3,7 @@ import { pool } from "../../../../lib/db";
 import { json, readJson, sameOrigin } from "../../../../lib/http";
 import { LANGUAGES } from "../../../../lib/roles";
 import { hasControlChars, LIMITS, validateProfile } from "../../../../lib/validation";
+import { logError } from "../../../../lib/logger";
 
 export const runtime = "nodejs";
 
@@ -74,8 +75,8 @@ export async function PATCH(req: Request) {
     );
     if (!rows[0]) return json({ success: false, error: "UNAUTHENTICATED", message: "Please sign in." }, 401);
     return json({ success: true, user: { fullName: rows[0].full_name, district: rows[0].district, language: rows[0].preferred_language } });
-  } catch {
-    console.error("profile update failed");
+  } catch (err) {
+    logError({ category: "API", where: "api/account/profile", what: "Updating the profile failed", err });
     return json({ success: false, error: "SERVER_ERROR", message: "We could not save your changes. Please try again." }, 500);
   }
 }
