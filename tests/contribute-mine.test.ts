@@ -83,11 +83,11 @@ describe("what a list contains", () => {
     expect(items[r].note).toMatch(/product advert/); expect(items[k].note).toMatch(/private phone/);
     expect(items[p].note).toBeNull();
   });
-  it("rejected can not be edited; every other status can", async () => {
+  it("only drafts, Pending review and Changes requested can be edited; published, taken down and rejected are read-only", async () => {
     const u = await signIn(); const ids: Record<string, number> = {};
     for (const s of ["draft", "pending_review", "changes_requested", "published", "unpublished", "rejected"]) ids[s] = await make(u, s);
     const items = Object.fromEntries((await getMine()).b.items.map((i: any) => [i.status, i.canEdit]));
-    expect(items).toEqual({ draft: true, pending_review: true, changes_requested: true, published: true, unpublished: true, rejected: false });
+    expect(items).toEqual({ draft: true, pending_review: true, changes_requested: true, published: false, unpublished: false, rejected: false });
   });
 });
 
@@ -114,27 +114,27 @@ describe("editing rules in each status (the owner's side of the status machine)"
     const r = await (one.PATCH as never as (r: Request, c: unknown) => Promise<Response>)(new Request(`http://localhost/api/contributions/${id}`, { method: "PATCH", headers: { ...H, "x-forwarded-for": `7.${Math.floor(Math.random() * 250)}.1.1` }, body: JSON.stringify({ type: "problem", sectors: ["agriculture-dairy"], title: `Edited title ${Math.random()}`, description: `Edited text that is long enough ${Math.random()}`, ...over }) }), ctx(id));
     return { r, b: await r.json() };
   };
-  it("a taken-down item edited goes back to Pending review; a rejected one is refused (409) and stays rejected", async () => {
-    const u = await signIn(); const k = await make(u, "unpublished"), r = await make(u, "rejected");
-    expect((await patch(k)).b.status).toBe("pending_review");
-    const x = await patch(r);
-    expect(x.r.status).toBe(409); expect(x.b.error).toBe("NOT_EDITABLE");
-    expect(((await q("SELECT status FROM contributions WHERE id=$1", [r])).rows[0] as any).status).toBe("rejected");
-    expect(((await q("SELECT published_at FROM contributions WHERE id=$1", [k])).rows[0] as any).published_at).toBeNull();
+  it("taken-down, published and rejected items are read-only: an edit is refused (409) and the status stays", async () => {
+    const u = await signIn(); const k = await make(u, "unpublished"), p = await make(u, "published"), r = await make(u, "rejected");
+    for (const [id, st] of [[k, "unpublished"], [p, "published"], [r, "rejected"]] as const) {
+      const x = await patch(id);
+      expect([x.r.status, x.b.error], st).toEqual([409, "NOT_EDITABLE"]);
+      expect(((await q("SELECT status FROM contributions WHERE id=$1", [id])).rows[0] as any).status, st).toBe(st);
+    }
   });
-  it("a taken-down item can be sent again; rejected and published cannot be submitted", async () => {
+  it("only drafts and Changes requested can be sent; taken-down, published and rejected cannot be submitted", async () => {
     const u = await signIn(); const k = await make(u, "unpublished"), r = await make(u, "rejected"), p = await make(u, "published");
     const s = async (id: number, ip: string) => { const x = await (submit.POST as never as (r: Request, c: unknown) => Promise<Response>)(new Request("http://localhost/x", { method: "POST", headers: { ...H, "x-forwarded-for": ip } }), ctx(id)); return x.status; };
-    expect(await s(k, "7.1.1.1")).toBe(200);
+    expect(await s(k, "7.1.1.1")).toBe(409);
     expect(await s(r, "7.1.1.2")).toBe(409); expect(await s(p, "7.1.1.3")).toBe(409);
   });
-  it("an edited PUBLISHED item leaves the public counts until it is approved again", async () => {
+  it("a PUBLISHED item stays in the public counts: the owner cannot edit it out of them", async () => {
     const u = await signIn(); const p = await make(u, "published");
     const count = async (ip: string) => ((await (await (sectors.GET as never as (r: Request) => Promise<Response>)(new Request("http://localhost/x", { headers: { "x-forwarded-for": ip } }))).json()).sectors.find((s: any) => s.slug === "agriculture-dairy")).contributions;
     expect(await count("4.4.4.4")).toBe(1);
-    await patch(p, { title: "Edited after it was published" });
-    expect(await count("4.4.4.5")).toBe(0);
-    expect((await getMine()).b.items[0]).toMatchObject({ status: "pending_review" });
+    expect((await patch(p, { title: "Edited after it was published" })).r.status).toBe(409);
+    expect(await count("4.4.4.5")).toBe(1);
+    expect((await getMine()).b.items[0]).toMatchObject({ status: "published", canEdit: false });
   });
 });
 
