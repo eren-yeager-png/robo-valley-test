@@ -98,6 +98,28 @@ describe("provider failures (no silent fallback to mock)", () => {
     expect(m.send).toHaveBeenCalledTimes(2);
   });
 
+  it("logs Resend's explanation (masked) so a real cause such as an unverified domain is visible, but never shows it to the client", async () => {
+    m.send.mockResolvedValueOnce({
+      data: null,
+      error: { name: "validation_error", message: `The techytree.in domain is not verified. Cannot send to asha@example.com with ${KEY}` },
+    });
+    const res = await ask("asha@example.com");
+    const text = await res.text();
+    const body = JSON.parse(text);
+    expect(res.status).toBe(502);
+    expect(body.error).toBe("EMAIL_SEND_FAILED");
+    expect(body.requestId).toMatch(/^[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}$/);
+    expect(text).not.toMatch(/techytree|not verified|validation_error/); // generic for the client
+
+    const line = logs.find((l) => l.startsWith("otp.email.failed"))!;
+    expect(line).toBeTruthy();
+    const entry = JSON.parse(line.slice(line.indexOf("{")));
+    expect(entry).toMatchObject({ requestId: body.requestId, stage: "send-email", reason: "validation_error" });
+    expect(entry.detail).toMatch(/domain is not verified/); // the real cause
+    expect(line).not.toContain("asha@example.com");
+    expect(line).not.toContain(KEY);
+  });
+
   it("a code from a failed send cannot be verified", async () => {
     m.send.mockRejectedValueOnce(new Error("network down"));
     const res = await ask();

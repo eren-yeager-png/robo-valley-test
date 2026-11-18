@@ -2,14 +2,19 @@
 // Never log the code, the API key, or the recipient address.
 
 import { Resend } from "resend";
+import { redact } from "./diagnostics";
 
 export const DEFAULT_FROM = "RoboValley <onboarding@resend.dev>"; // Resend's shared dev sender
 const SEND_TIMEOUT_MS = 10_000;
 
 export class EmailConfigError extends Error {}
 export class EmailSendError extends Error {
-  /** A short, non-sensitive reason such as the Resend error name, for server logs. */
-  constructor(public reason: string) {
+  /**
+   * `reason`: a short, non-sensitive label such as the Resend error name.
+   * `detail`: Resend's own explanation (for example "the domain is not verified"), already masked and shortened
+   * (see redact in diagnostics.ts) so it is safe for server logs. Neither is ever sent to the client.
+   */
+  constructor(public reason: string, public detail?: string) {
     super("email send failed");
   }
 }
@@ -36,7 +41,9 @@ export async function sendOtpEmail(to: string, code: string, env: NodeJS.Process
       resend.emails.send({ from: getFromAddress(env), to, subject: "Your RoboValley verification code", text, html }),
       new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error("timeout")), SEND_TIMEOUT_MS); }),
     ]);
-    if (result.error) throw new EmailSendError(String(result.error.name ?? "resend_error"));
+    if (result.error) {
+      throw new EmailSendError(String(result.error.name ?? "resend_error"), redact(String((result.error as { message?: unknown }).message ?? "")).slice(0, 200));
+    }
   } catch (err) {
     if (err instanceof EmailSendError) throw err;
     throw new EmailSendError((err as Error)?.message === "timeout" ? "timeout" : "network_error");

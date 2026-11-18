@@ -1,9 +1,8 @@
 // In-process PostgreSQL (PGlite = real Postgres compiled to WebAssembly) for tests.
-// It is created empty, receives the test base tables, then the REAL migrations (001, 002, 003) through the
-// same code path the migration runner uses. It never touches any real database.
+// It is created empty and receives the REAL migrations (000, 001, 002, 003) through the same code path the
+// migration runner uses. It never touches any real database.
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { applyFile, pickFiles } from "../../scripts/migrate.mjs";
 
 export type Call = { sql: string; params?: unknown[] };
@@ -12,7 +11,6 @@ type Failer = (sql: string, params?: unknown[]) => Error | undefined;
 export async function createHarness() {
   // bigint (OID 20) as string, exactly like node-postgres returns it
   const pg = new PGlite({ parsers: { 20: (v: string) => v } } as never);
-  await pg.exec(readFileSync(resolve("tests/helpers/baseSchema.sql"), "utf8"));
   const dbName = String((await pg.query("select current_database() as d")).rows[0]!["d" as never]);
   const run = {
     setExpected: (name: string) => pg.query("select set_config('rv.expected_db', $1, false)", [name]),

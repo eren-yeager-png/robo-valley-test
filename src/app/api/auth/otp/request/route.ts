@@ -1,4 +1,5 @@
 import { EmailConfigError, EmailSendError, sendOtpEmail } from "../../../../../lib/email";
+import { logUnexpected, newRequestId } from "../../../../../lib/diagnostics";
 import { json, readJson } from "../../../../../lib/http";
 import { pool } from "../../../../../lib/db";
 import { otpReason, recordLoginEvent } from "../../../../../lib/loginEvents";
@@ -30,12 +31,14 @@ export async function POST(req: Request) {
       } catch (err) {
         await r.rollback().catch(() => undefined); // a failed send must not consume the cooldown, and no code stays valid
         await recordLoginEvent(pool, { type: "otp_failed", reason: "send_failed", purpose, req });
+        const requestId = newRequestId();
         if (err instanceof EmailConfigError) {
-          console.error("otp email: RESEND_API_KEY is not configured");
-          return json({ success: false, error: "EMAIL_NOT_CONFIGURED", message: "Email service is not configured." }, 503);
+          console.error("otp.email.failed", JSON.stringify({ requestId, stage: "send-email", reason: "RESEND_API_KEY is not configured" }));
+          return json({ success: false, error: "EMAIL_NOT_CONFIGURED", message: "Email service is not configured.", requestId }, 503);
         }
-        console.error("otp email: send failed:", err instanceof EmailSendError ? err.reason : "unknown"); // reason only: no code, key or address
-        return json({ success: false, error: "EMAIL_SEND_FAILED", message: "We could not send the email. Please try again later." }, 502);
+        // reason + Resend's masked explanation only: never the code, the API key or the address
+        console.error("otp.email.failed", JSON.stringify({ requestId, stage: "send-email", reason: err instanceof EmailSendError ? err.reason : "unknown", detail: err instanceof EmailSendError ? err.detail : undefined }));
+        return json({ success: false, error: "EMAIL_SEND_FAILED", message: "We could not send the email. Please try again later.", requestId }, 502);
       }
       await recordLoginEvent(pool, { type: "otp_sent", purpose, req });
       // The code is never part of the response when the provider is Resend.
@@ -59,10 +62,11 @@ export async function POST(req: Request) {
         err.retryAfterSeconds ? { "Retry-After": String(err.retryAfterSeconds) } : undefined
       );
     }
-    // Not an OtpError, so the code could not be stored: a database failure. Log only the error class/code, never the SQL, email or code.
-    const e = err as { code?: unknown; name?: unknown };
-    console.error("otp request failed (database):", typeof e?.code === "string" ? e.code : typeof e?.name === "string" ? e.name : "unknown");
+    // Unexpected failure while storing the code (database connection, missing table, ...). The client gets a generic
+    // message plus a request id; the real cause goes to the server log (safe description only, no secrets).
+    const requestId = newRequestId();
+    logUnexpected("otp.request.failed", requestId, req, err, { stage: "store-code", purpose });
     await recordLoginEvent(pool, { type: "otp_failed", reason: "server_error", purpose, req });
-    return json({ success: false, error: "SERVER_ERROR", message: "We couldn't send the code right now. Please try again in a moment." }, 500);
+    return json({ success: false, error: "SERVER_ERROR", message: "Could not send the code.", requestId }, 500);
   }
 }

@@ -29,7 +29,7 @@ describe("status probes", () => {
   it("covers exactly the migration files, in order", () => {
     const files = pickFiles().map((f) => f.split(/[\\/]/).pop()!.slice(0, 3));
     expect(MIGRATIONS.map((m) => m.id)).toEqual(files);
-    expect(files).toEqual(["001", "002", "003", "004", "005", "006", "007", "008", "009", "010"]);
+    expect(files).toEqual(["000", "001", "002", "003", "004", "005", "006", "007", "008", "009", "010"]);
   });
 
   it("reports every migration applied on a fully migrated database", async () => {
@@ -45,8 +45,9 @@ describe("status probes", () => {
     expect(r.every((x: any) => x.status === "missing")).toBe(true);
     expect(byId(r, "007").blockedBy).toEqual(["005"]);
     expect(byId(r, "009").blockedBy).toEqual(["005"]);
-    expect(byId(r, "008").blockedBy).toEqual([]);
-    expect(formatStatus(r)).toContain("To do: 001, 002");
+    expect(byId(r, "001").blockedBy).toEqual(["000"]);
+    expect(byId(r, "008").blockedBy).toEqual(["000"]);
+    expect(formatStatus(r)).toContain("To do: 000, 001, 002");
   });
 
   it("detects a missing migration (008 rolled back) without disturbing the others, and that it is applied again afterwards", async () => {
@@ -138,9 +139,8 @@ describe("running the whole chain again", () => {
   });
 
   it("an empty database can be built up one migration at a time in order, and the status follows along", async () => {
-    // The tests' base fixture (users, guardian_details), then 001..009 one by one on a private database.
+    // An empty database, then 000..009 one by one (000 creates users and guardian_details itself).
     const pg = new PGlite();
-    await pg.exec(readFileSync(resolve("tests/helpers/baseSchema.sql"), "utf8"));
     const name = String(((await pg.query("select current_database() as d")).rows[0] as any).d);
     const run = runnerFor(pg);
     let applied = 0;

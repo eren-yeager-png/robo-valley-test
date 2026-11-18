@@ -13,12 +13,16 @@
 /** @typedef {{ kind: 'table', table: string } | { kind: 'column', table: string, column: string } | { kind: 'index', name: string } | { kind: 'constraint', name: string } | { kind: 'old-index-removed', name: string, table: string }} Check */
 /** @type {{ id: string, title: string, feature: string, requires: string[], checks: Check[] }[]} */
 export const MIGRATIONS = [
-  { id: "001", title: "signup additions", feature: "Sign-up profile fields", requires: [], checks: [
+  { id: "000", title: "base tables", feature: "Accounts (users and guardian_details)", requires: [], checks: [
+    { kind: "table", table: "users" },
+    { kind: "table", table: "guardian_details" },
+  ] },
+  { id: "001", title: "signup additions", feature: "Sign-up profile fields", requires: ["000"], checks: [
     ...["age_category", "profile", "consents", "mobile_verification"].map((column) => ({ kind: "column", table: "users", column })),
     ...["mobile_verification", "consent_mode"].map((column) => ({ kind: "column", table: "guardian_details", column })),
     { kind: "index", name: "users_email_lower_key" },
   ] },
-  { id: "002", title: "email verification", feature: "Email one-time-code sign-up", requires: [], checks: [
+  { id: "002", title: "email verification", feature: "Email one-time-code sign-up", requires: ["000"], checks: [
     { kind: "column", table: "users", column: "email_verification" },
     { kind: "column", table: "guardian_details", column: "guardian_email" },
     { kind: "column", table: "guardian_details", column: "email_verification" },
@@ -27,10 +31,10 @@ export const MIGRATIONS = [
     ...["otp_challenges", "email_verifications", "login_attempts"].map((table) => ({ kind: "table", table })),
     ...["otp_challenges_expires_idx", "email_verifications_expires_idx", "login_attempts_window_idx"].map((name) => ({ kind: "index", name })),
   ] },
-  { id: "004", title: "admin support", feature: "Admin accounts (forced password change)", requires: [], checks: [
+  { id: "004", title: "admin support", feature: "Admin accounts (forced password change)", requires: ["000"], checks: [
     { kind: "column", table: "users", column: "must_change_password" },
   ] },
-  { id: "005", title: "service datasets", feature: "Find a Service school directory and upload history", requires: [], checks: [
+  { id: "005", title: "service datasets", feature: "Find a Service school directory and upload history", requires: ["000"], checks: [
     ...["service_datasets", "service_dataset_rows", "upload_audit_log"].map((table) => ({ kind: "table", table })),
     ...["service_datasets_status_idx", "service_dataset_rows_dataset_idx", "service_dataset_rows_pincode_idx", "upload_audit_log_created_idx"].map((name) => ({ kind: "index", name })),
   ] },
@@ -44,7 +48,7 @@ export const MIGRATIONS = [
     { kind: "index", name: "service_datasets_one_active_per_category" },
     { kind: "old-index-removed", name: "service_datasets_one_active", table: "service_datasets" },
   ] },
-  { id: "008", title: "login events", feature: "Login Activity page and sign-in/OTP charts", requires: [], checks: [
+  { id: "008", title: "login events", feature: "Login Activity page and sign-in/OTP charts", requires: ["000"], checks: [
     { kind: "table", table: "login_events" },
     { kind: "constraint", name: "login_events_purpose_ck" },
     { kind: "constraint", name: "login_events_reason_ck" },

@@ -1,3 +1,4 @@
+import { logUnexpected, newRequestId } from "../../../../../lib/diagnostics";
 import { json, readJson } from "../../../../../lib/http";
 import { pool } from "../../../../../lib/db";
 import { otpReason, recordLoginEvent } from "../../../../../lib/loginEvents";
@@ -33,7 +34,9 @@ export async function POST(req: Request) {
         err.status
       );
     }
+    const requestId = newRequestId();
+    logUnexpected("otp.verify.failed", requestId, req, err, { stage: "check-code", purpose: String(b.purpose) });
     await recordLoginEvent(pool, { type: "otp_failed", reason: "server_error", purpose: b.purpose as string, req });
-    return json({ success: false, error: "SERVER_ERROR", message: "Could not verify the code." }, 500);
+    return json({ success: false, error: "SERVER_ERROR", message: "Could not verify the code.", requestId }, 500);
   }
 }
