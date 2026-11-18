@@ -23,12 +23,14 @@
 //           --apply           actually execute (default is a dry run)
 //           --status          READ-ONLY: connect and report which migrations are applied / missing / partial (never applies anything)
 //           --force           with --apply: run a migration even though its objects already exist (normally skipped)
+//           --allow-gaps      with --only: run it even though an EARLIER migration is missing or partly applied (normally refused,
+//                             with the list of what is missing; apply those first, lowest number first)
 //           --expect-host <endpoint ID>   refuse unless DATABASE_URL points to this Neon endpoint (shown in the Neon console)
 
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { formatStatus, migrationStatus, statusOf } from "./migration-status.mjs";
+import { earlierGaps, formatStatus, migrationStatus, statusOf } from "./migration-status.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const MIGRATIONS_DIR = resolve(here, "..", "db", "migrations");
@@ -105,12 +107,50 @@ export function hintFor(e) {
   return "";
 }
 
+/**
+ * What to do with one migration file before applying it, from the database's real schema (read-only). A decision only, no writes.
+ *   skip   - it is already applied (unless --force)
+ *   refuse - a migration it needs is missing (always), or, for a --only run, an earlier migration is missing or partly applied
+ *            (unless --allow-gaps); the message lists them
+ *   run    - go ahead (note: what to tell the operator first, e.g. "partly applied")
+ * @param {(sql: string) => Promise<{ rows: any[] }>} query
+ * @param {string} fileName e.g. "024_sector_robot_types.sql"
+ * @param {{ force?: boolean, only?: boolean, allowGaps?: boolean, expectDb?: string }} opts
+ * @returns {Promise<{ action: 'skip'|'run'|'refuse', message?: string, note?: string }>}
+ */
+export async function preflight(query, fileName, opts = {}) {
+  const id = fileName.slice(0, 3);
+  const results = await migrationStatus(query);
+  const st = statusOf(results, id);
+  if (st && st.status === "applied" && !opts.force) return { action: "skip", message: `Skipping ${fileName} (already applied; --force runs it again)` };
+  if (st && st.blockedBy.length) return { action: "refuse", message: `${fileName} needs migration ${st.blockedBy.join(", ")} first (its tables are not in this database). Run --status to see the state.` };
+  if (opts.only && !opts.allowGaps) {
+    const gaps = earlierGaps(results, id);
+    if (gaps.length) return { action: "refuse", message: gapMessage(fileName, gaps, opts.expectDb) };
+  }
+  const note = st && st.status === "partial" ? `Note: ${fileName} is partly applied (${st.absent.join(", ")} missing); running it completes it.` : undefined;
+  return { action: "run", note };
+}
+
+/** The refusal for a --only run that would skip earlier migrations: what is missing, and what to run instead. No connection details. */
+export function gapMessage(fileName, gaps, expectDb = "<database name>") {
+  const id = fileName.slice(0, 3);
+  return [
+    `${fileName} comes after ${gaps.length === 1 ? "a migration that is" : `${gaps.length} migrations that are`} not fully applied in this database:`,
+    ...gaps.map((g) => `    ${g.id}  ${(g.status === "partial" ? "partly applied" : "missing").padEnd(14)}  ${g.title}`),
+    "  Apply them first, lowest number first (a dry run, then --apply), for example:",
+    `    node scripts/migrate.mjs --expect-db ${expectDb} --only ${gaps[0].id} --apply`,
+    `  Only if you are sure ${id} does not need them, run it again with --allow-gaps.`,
+  ].join("\n");
+}
+
 function parseArgs(argv) {
-  const a = { apply: false, status: false, force: false, expectDb: undefined, expectHost: undefined, only: undefined, file: undefined };
+  const a = { apply: false, status: false, force: false, allowGaps: false, expectDb: undefined, expectHost: undefined, only: undefined, file: undefined };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
     if (t === "--status") a.status = true;
     else if (t === "--force") a.force = true;
+    else if (t === "--allow-gaps") a.allowGaps = true;
     else if (t === "--apply") a.apply = true;
     else if (t === "--expect-db") a.expectDb = argv[++i];
     else if (t === "--expect-host") a.expectHost = argv[++i];
@@ -132,7 +172,8 @@ async function main() {
   const urlDb = dbNameFromUrl(url);
   if (!urlDb) fail("Could not read a database name from DATABASE_URL.");
   const isLocal = /^(localhost|127\.0\.0\.1|\[?::1\]?)$/.test(new URL(url).hostname);
-  if (args.status && (args.apply || args.force || args.only || args.file)) fail("--status only reads the database. It cannot be combined with --apply, --force, --only or --file.");
+  if (args.status && (args.apply || args.force || args.allowGaps || args.only || args.file)) fail("--status only reads the database. It cannot be combined with --apply, --force, --allow-gaps, --only or --file.");
+  if (args.allowGaps && !args.only) fail("--allow-gaps only goes with --only <number> (a full run applies every migration in order, so it cannot skip one).");
   const files = args.status ? [] : pickFiles({ only: args.only, file: args.file });
   if (!args.status && !files.length) fail("No migration files matched.");
 
@@ -149,6 +190,7 @@ async function main() {
   if (!args.apply && !args.status) {
     console.log("\nDRY RUN: nothing was connected or changed. Add --apply to run these files.");
     console.log("To see which of them the database already has, run the same command with --status (read-only).");
+    if (args.only && !args.allowGaps) console.log("With --apply, it first checks that every earlier migration is applied, and refuses (listing them) if one is not.");
     return;
   }
 
@@ -169,12 +211,13 @@ async function main() {
     };
     for (const f of files) {
       const name = f.split(/[\\/]/).pop();
-      // Skip what the database already has, and refuse to start one whose prerequisite is missing. (A --file run, e.g. a rollback, is exempt.)
+      // Skip what the database already has; refuse to start one whose prerequisite is missing, or (for --only) one that comes after a
+      // migration that is not fully applied, unless --allow-gaps. A --file run (e.g. a rollback) is exempt.
       if (!args.file) {
-        const st = statusOf(await migrationStatus((sql) => client.query(sql)), name.slice(0, 3));
-        if (st && st.status === "applied" && !args.force) { console.log(`Skipping ${name} (already applied; --force runs it again)`); continue; }
-        if (st && st.blockedBy.length) fail(`${name} needs migration ${st.blockedBy.join(", ")} first (its tables are not in this database). Run --status to see the state.`);
-        if (st && st.status === "partial") console.log(`Note: ${name} is partly applied (${st.absent.join(", ")} missing); running it completes it.`);
+        const p = await preflight((sql) => client.query(sql), name, { force: args.force, only: Boolean(args.only), allowGaps: args.allowGaps, expectDb: args.expectDb });
+        if (p.action === "skip") { console.log(p.message); continue; }
+        if (p.action === "refuse") fail(p.message);
+        if (p.note) console.log(p.note);
       }
       process.stdout.write(`Applying ${name} ... `);
       try {
