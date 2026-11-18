@@ -8,6 +8,7 @@ export const ADMIN_NAV = [
   { href: "/admin/reports", label: "Reports & Analytics", icon: "◔" },
   { href: "/admin/users", label: "User Management", icon: "☺" },
   { href: "/admin/sectors", label: "Sector Counts", icon: "▥" },
+  { href: "/admin/sector-forms", label: "Sector Forms", icon: "✎" },
   { href: "/moderation", label: "Moderation", icon: "✓" },
   { href: "/admin/settings", label: "Settings", icon: "⚙" },
 ] as const;

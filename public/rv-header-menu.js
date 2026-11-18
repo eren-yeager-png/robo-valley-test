@@ -35,6 +35,7 @@
     { label: "Review queue", role: "moderator", base: "app", path: "/moderation", enabled: true, count: "reviewQueue" },
     { label: "Admin portal", role: "admin", base: "app", path: "/admin/dashboard", enabled: true },
     { label: "Contributions by sector", role: "admin", base: "app", path: "/admin/sectors", enabled: true },
+    { label: "Sector forms", role: "admin", base: "app", path: "/admin/sector-forms", enabled: true },
     { label: "Review queue", role: "admin", base: "app", path: "/moderation", enabled: true, count: "reviewQueue" },
     { label: "Users & moderators", role: "admin", base: "app", path: "/admin/users", enabled: true },
     { label: "Site settings", role: "admin", base: "app", path: "/admin/settings", enabled: true },

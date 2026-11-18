@@ -102,6 +102,25 @@
 .rv .adm-skel .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}.rv .adm-skel .box{height:96px}
 @keyframes adm-sh{to{background-position:-200% 0}}
 .rv .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* Sector forms (P2): the robot types editor */
+.rv .adm-robots .row-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.rv .adm-robots .row-actions .btn{min-height:36px;padding:4px 12px}
+.rv .adm-robots tbody th input{width:100%;max-width:320px;min-height:38px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);font:inherit}
+.rv .adm-robots .adm-msg{margin:6px 0 0;font-size:.88rem;color:var(--muted)}
+.rv .adm-robots .adm-msg.err{color:var(--red);font-weight:600}
+.rv .adm-robots .adm-msg:empty{display:none}
+.rv .adm-robots tbody th{white-space:normal;min-width:140px}
+@media (max-width:640px){ /* phone: each robot type is a small card, so the buttons are on screen without scrolling sideways */
+  .rv .adm-robots thead{display:none}
+  .rv .adm-robots table,.rv .adm-robots tbody{display:block}
+  .rv .adm-robots tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name status" "code code" "order actions";gap:8px 10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .rv .adm-robots tbody tr:last-child{border-bottom:0}
+  .rv .adm-robots tbody th,.rv .adm-robots tbody td{display:block;padding:0;border:0;min-width:0}
+  .rv .adm-robots .c-name{grid-area:name}.rv .adm-robots .c-status{grid-area:status}.rv .adm-robots .c-code{grid-area:code}
+  .rv .adm-robots .c-order{grid-area:order}.rv .adm-robots .c-actions{grid-area:actions}
+  .rv .adm-robots .c-actions .row-actions{justify-content:flex-end}
+  .rv .adm-robots tbody td[colspan]{padding:12px 14px}
+}
 @media (prefers-reduced-motion:reduce){.rv .adm-skel .bar,.rv .adm-skel .box{animation:none}.rv .adm-progress>i,.rv .adm-side{transition:none}}
 
 /* Tablet and phone: the sidebar becomes a drawer opened from the menu button. */

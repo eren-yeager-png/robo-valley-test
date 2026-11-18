@@ -126,19 +126,19 @@ describe("on techytree.in (one <script> tag from the app)", () => {
     expect(labels(m)).toEqual(["Review queue", "Sign Out"]);
     expect(items(m)[0].getAttribute("href")).toBe(`${APP}/moderation`);
     expect(m.querySelector(".rv-hm-count")?.textContent).toBe("12");
-    expect(m.textContent).not.toMatch(/Moderator dashboard|Admin portal|Users|settings|Landing page|My profile/);
+    expect(m.textContent).not.toMatch(/Moderator dashboard|Admin portal|Users|settings|Landing page|My profile|Sector forms/);
   });
 
-  it("admin: navy avatar with the orange star; Admin portal / Contributions by sector / Review queue (12) / Users & moderators / Site settings / Landing page / My profile / Sign Out", async () => {
+  it("admin: navy avatar with the orange star; Admin portal / Contributions by sector / Sector forms / Review queue (12) / Users & moderators / Site settings / Landing page / My profile / Sign Out", async () => {
     answerWith(ANSWERS.admin);
     page(SITE_HTML); load(); await drawn();
     const m = menus()[0];
     expect(m.querySelector("button circle")?.getAttribute("fill")).toBe("#1e3a5f");
     expect(m.querySelector("button circle[fill='#e8590c']")).not.toBeNull();
     expect(m.querySelector(".rv-hm-sub")?.textContent).toBe("Administrator · full access");
-    expect(labels(m)).toEqual(["Admin portal", "Contributions by sector", "Review queue", "Users & moderators", "Site settings", "Landing page", "My profile", "Sign Out"]);
-    expect(items(m).slice(0, 5).map((i) => i.getAttribute("href"))).toEqual(["/admin/dashboard", "/admin/sectors", "/moderation", "/admin/users", "/admin/settings"].map((p) => APP + p));
-    expect(items(m).slice(5, 7).map((i) => i.getAttribute("href"))).toEqual(["https://techytree.in/", `${APP}/admin/settings#profile`]);
+    expect(labels(m)).toEqual(["Admin portal", "Contributions by sector", "Sector forms", "Review queue", "Users & moderators", "Site settings", "Landing page", "My profile", "Sign Out"]);
+    expect(items(m).slice(0, 6).map((i) => i.getAttribute("href"))).toEqual(["/admin/dashboard", "/admin/sectors", "/admin/sector-forms", "/moderation", "/admin/users", "/admin/settings"].map((p) => APP + p));
+    expect(items(m).slice(6, 8).map((i) => i.getAttribute("href"))).toEqual(["https://techytree.in/", `${APP}/admin/settings#profile`]);
   });
 
   it("signed out: the grey person icon links to Sign In and comes back to this page; tooltip and label as agreed", async () => {
@@ -314,7 +314,7 @@ describe("on the app's own pages", () => {
       load(); await drawn();
       expect(menus()).toHaveLength(1);
       expect(menus()[0].closest("header.adm-top")).not.toBeNull();
-      expect(labels(menus()[0])).toEqual(["Admin portal", "Contributions by sector", "Review queue", "Users & moderators", "Site settings", "Landing page", "My profile", "Sign Out"]);
+      expect(labels(menus()[0])).toEqual(["Admin portal", "Contributions by sector", "Sector forms", "Review queue", "Users & moderators", "Site settings", "Landing page", "My profile", "Sign Out"]);
       expect(document.querySelectorAll(".adm-profile-btn, .adm-menu")).toHaveLength(0); // the old green button is not there to fall back on
       const toggle = menus()[0].querySelector<HTMLButtonElement>("button.rv-hm-toggle")!;
       toggle.click();
