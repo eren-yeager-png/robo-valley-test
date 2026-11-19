@@ -110,6 +110,23 @@
 .rv .adm-robots .adm-msg.err{color:var(--red);font-weight:600}
 .rv .adm-robots .adm-msg:empty{display:none}
 .rv .adm-robots tbody th{white-space:normal;min-width:140px}
+/* Sector forms (P5): the questions form, and the preview of what members will be asked */
+.rv .adm-qform{display:grid;gap:10px;max-width:560px}
+.rv .adm-qform label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;font-weight:700;color:var(--muted)}
+.rv .adm-qform label.inline{flex-direction:row;align-items:center;gap:8px;font-weight:600;color:var(--fg);width:auto}
+.rv .adm-qform label.inline input{width:auto;min-height:0;margin:0;flex:none}
+.rv .adm-qform input[type=text],.rv .adm-qform textarea,.rv .adm-questions td textarea{min-height:42px;padding:6px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font:inherit}
+.rv .adm-questions td textarea{width:100%;min-width:180px}
+.rv .adm-qform fieldset{border:0;padding:0;margin:0;display:flex;gap:16px;flex-wrap:wrap}
+.rv .adm-qform legend{font-size:.85rem;font-weight:700;color:var(--muted);margin-bottom:4px;width:100%}
+.rv .adm-qform .btn{justify-self:start}
+.rv .adm-preview{display:grid;gap:12px;max-width:560px}
+.rv .adm-preview label{display:flex;flex-direction:column;gap:4px;font-weight:700}
+.rv .adm-preview input,.rv .adm-preview select{min-height:42px;padding:6px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font:inherit}
+.rv .adm-preview small{font-weight:400;color:var(--muted)}
+@media (max-width:640px){ /* phone: a question spans the card width; its order buttons and actions share the last row */
+  .rv .adm-robots.adm-questions tbody tr{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"name name" "status status" "code code" "order actions"}
+}
 @media (max-width:640px){ /* phone: each robot type is a small card, so the buttons are on screen without scrolling sideways */
   .rv .adm-robots thead{display:none}
   .rv .adm-robots table,.rv .adm-robots tbody{display:block}
