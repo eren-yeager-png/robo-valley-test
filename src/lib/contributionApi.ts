@@ -67,11 +67,26 @@ export const OWNER_RULES: Record<ContributionStatus | "rejected" | "unpublished"
   draft: { edit: "draft", submit: true, deleteIt: true },
   changes_requested: { edit: "changes_requested", submit: true, deleteIt: false },
   pending_review: { edit: "pending_review", submit: false, deleteIt: false },
-  published: { edit: "pending_review", submit: false, deleteIt: false }, // an edited published item goes back to review and leaves the public numbers
-  unpublished: { edit: "pending_review", submit: true, deleteIt: false }, // editing an unpublished item asks for review again
+  published: { edit: null, submit: false, deleteIt: false }, // read-only for the owner (owner decision 16-11-2026): no edit, photo or contact change
+  unpublished: { edit: null, submit: false, deleteIt: false }, // read-only too: taken down by an administrator, the owner cannot change or resend it
   rejected: { edit: null, submit: false, deleteIt: false }, // final: the author starts a new contribution instead
   removed: { edit: null, submit: false, deleteIt: false }, // final: removed by an administrator as a duplicate or unsuitable
 };
+/** The statuses in which the owner may still change a contribution (the form, its photos and its contact details). */
+export const EDITABLE_STATUSES = (Object.keys(OWNER_RULES) as (keyof typeof OWNER_RULES)[]).filter((s) => OWNER_RULES[s].edit !== null);
+
+/** Why the owner cannot change this contribution any more, in words for the member. */
+export function notEditable(status: string): Fail {
+  if (status === "published") return fail(409, "NOT_EDITABLE", "This contribution is published, so it can no longer be changed. To add something, start a new contribution.");
+  if (status === "unpublished") return fail(409, "NOT_EDITABLE", "This contribution was taken down by an administrator, so it can no longer be changed. You can start a new one.");
+  return fail(409, "NOT_EDITABLE", "This contribution was closed by a moderator, so it cannot be changed. You can start a new one.");
+}
+
+/** The owner's contribution status, for the checks before a change (null = not yours or not there). */
+async function ownStatus(db: Db, ownerId: number, id: number): Promise<string | null> {
+  const { rows } = await db.query("SELECT status FROM contributions WHERE id = $1 AND user_id = $2", [id, ownerId]);
+  return rows[0] ? String(rows[0].status) : null;
+}
 
 export async function activeSectorSlugs(db: Db): Promise<string[]> {
   const { rows } = await db.query("SELECT slug FROM sectors WHERE is_active AND NOT is_demo");
@@ -176,7 +191,7 @@ export async function saveOwn(pool: Pool, ownerId: number, raw: unknown, id?: nu
       cur = rows[0];
       if (!cur) { await client.query("ROLLBACK"); return NOT_FOUND; }
       const rule = OWNER_RULES[cur.status as keyof typeof OWNER_RULES];
-      if (!rule || rule.edit === null) { await client.query("ROLLBACK"); return fail(409, "NOT_EDITABLE", "This contribution was closed by a moderator, so it cannot be changed. You can start a new one."); }
+      if (!rule || rule.edit === null) { await client.query("ROLLBACK"); return notEditable(cur.status); }
       status = rule.edit;
       // Edit keeps the type the member chose: a form older than 0.1.10 (which always sends 'resource') never changes it
       if (!typeChosen && cur.type_chosen === true) f.type = cur.type;
@@ -225,7 +240,14 @@ export async function submitOwn(pool: Pool, ownerId: number, id: number): Promis
     const c = rows[0];
     if (!c) { await client.query("ROLLBACK"); return NOT_FOUND; }
     const rule = OWNER_RULES[c.status as keyof typeof OWNER_RULES];
-    if (!rule?.submit) { await client.query("ROLLBACK"); return fail(409, "NOT_SUBMITTABLE", c.status === "pending_review" ? "This is already waiting for review." : "This contribution cannot be sent right now."); }
+    if (!rule?.submit) {
+      await client.query("ROLLBACK");
+      const why = c.status === "pending_review" ? "This is already waiting for review."
+        : c.status === "published" ? "This contribution is already published."
+        : c.status === "unpublished" ? "This contribution was taken down by an administrator, so it cannot be sent again. You can start a new one."
+        : "This contribution cannot be sent right now.";
+      return fail(409, "NOT_SUBMITTABLE", why);
+    }
     const scopes = await client.query("SELECT s.slug FROM contribution_scopes cs JOIN sectors s ON s.id = cs.sector_id WHERE cs.contribution_id = $1", [id]);
     const v = validateContribution({ type: c.type, robotType: c.robot_type, title: c.title, body: c.body, sectors: scopes.rows.map((r) => r.slug) }, await activeSectorSlugs(client), { forSubmit: true });
     if (!v.ok) { await client.query("ROLLBACK"); return fail(400, "VALIDATION_FAILED", VALIDATION, Object.fromEntries(Object.entries(errorsOf(v)).map(([k, m]) => [k === "body" ? "description" : k, m]))); }
@@ -274,9 +296,9 @@ export async function deleteDraft(db: Db, ownerId: number, id: number): Promise<
 /** Adds ONE photo to your contribution: the type is decided from the bytes, the size is limited, the description is required, and the hidden metadata (GPS and more) is removed before it is stored. */
 export async function addOwnPhoto(pool: Pool, ownerId: number, id: number, file: { bytes: Buffer; alt: string }): Promise<Ok<{ photoId: number; bytes: number }> | Fail> {
   try {
-    const own = await pool.query("SELECT status FROM contributions WHERE id = $1 AND user_id = $2", [id, ownerId]);
-    if (!own.rows[0]) return NOT_FOUND;
-    if (OWNER_RULES[own.rows[0].status as keyof typeof OWNER_RULES]?.edit === null) return fail(409, "NOT_EDITABLE", "This contribution was closed by a moderator, so it cannot be changed.");
+    const status = await ownStatus(pool, ownerId, id);
+    if (status === null) return NOT_FOUND;
+    if ((OWNER_RULES[status as keyof typeof OWNER_RULES]?.edit ?? null) === null) return notEditable(status);
     const count = Number((await pool.query("SELECT count(*)::int AS n FROM contribution_photos WHERE contribution_id = $1", [id])).rows[0].n);
     const checked = validatePhoto({ bytes: file.bytes, alt: file.alt }, count);
     if (!checked.ok) return fail(400, "VALIDATION_FAILED", VALIDATION, errorsOf(checked));
@@ -284,7 +306,6 @@ export async function addOwnPhoto(pool: Pool, ownerId: number, id: number, file:
     if (!clean) return fail(400, "VALIDATION_FAILED", VALIDATION, { photo: "We could not read that photo. Choose another JPG or PNG." });
     if (detectPhotoMime(clean) !== checked.value.mime) return fail(400, "VALIDATION_FAILED", VALIDATION, { photo: "We could not read that photo. Choose another JPG or PNG." });
     const photoId = await addPhoto(pool, id, { mime: checked.value.mime, bytes: clean, alt: checked.value.alt, sha256: createHash("sha256").update(clean).digest("hex") });
-    await sendBackToReview(pool, ownerId, id);
     return { ok: true, photoId, bytes: clean.length };
   } catch (e) {
     const s = notSet(e); if (s) return s;
@@ -295,15 +316,14 @@ export async function addOwnPhoto(pool: Pool, ownerId: number, id: number, file:
 }
 export async function removeOwnPhoto(pool: Pool, ownerId: number, id: number, photoId: number): Promise<Ok<{ id: number }> | Fail> {
   try {
-    const { rows } = await pool.query("DELETE FROM contribution_photos p USING contributions c WHERE p.id = $3 AND p.contribution_id = c.id AND c.id = $1 AND c.user_id = $2 AND c.status <> 'rejected' RETURNING p.id", [id, ownerId, photoId]);
+    const status = await ownStatus(pool, ownerId, id);
+    if (status === null) return NOT_FOUND;
+    if ((OWNER_RULES[status as keyof typeof OWNER_RULES]?.edit ?? null) === null) return notEditable(status);
+    // the status is checked again inside the DELETE, so a change of status in between cannot slip a removal through
+    const { rows } = await pool.query("DELETE FROM contribution_photos p USING contributions c WHERE p.id = $3 AND p.contribution_id = c.id AND c.id = $1 AND c.user_id = $2 AND c.status = ANY($4::varchar[]) RETURNING p.id", [id, ownerId, photoId, EDITABLE_STATUSES]);
     if (!rows[0]) return NOT_FOUND;
-    await sendBackToReview(pool, ownerId, id);
     return { ok: true, id: photoId };
   } catch (e) { const s = notSet(e); if (s) return s; throw e; }
-}
-/** A change to the photos of a published or unpublished item is an edit too: it goes back to review. */
-async function sendBackToReview(db: Db, ownerId: number, id: number): Promise<void> {
-  await db.query("UPDATE contributions SET status = 'pending_review', published_at = NULL, updated_at = now() WHERE id = $1 AND user_id = $2 AND status IN ('published','unpublished')", [id, ownerId]);
 }
 
 /** Your private contact details: validated here, saved by the contact module (owner only). */
@@ -311,11 +331,17 @@ export async function saveOwnContact(db: Db, ownerId: number, id: number, raw: u
   const v = validateContact(raw);
   if (!v.ok) return fail(400, "VALIDATION_FAILED", VALIDATION, errorsOf(v));
   try {
+    const status = await ownStatus(db, ownerId, id);
+    if (status === null) return NOT_FOUND;
+    if ((OWNER_RULES[status as keyof typeof OWNER_RULES]?.edit ?? null) === null) return notEditable(status);
     return (await saveContact(db, id, ownerId, v.value)) ? { ok: true, id } : NOT_FOUND;
   } catch (e) { const s = notSet(e); if (s) return s; throw e; }
 }
 export async function removeOwnContact(db: Db, ownerId: number, id: number): Promise<Ok<{ id: number }> | Fail> {
   try {
+    const status = await ownStatus(db, ownerId, id);
+    if (status === null) return NOT_FOUND;
+    if ((OWNER_RULES[status as keyof typeof OWNER_RULES]?.edit ?? null) === null) return notEditable(status);
     return (await removeContact(db, id, ownerId)) ? { ok: true, id } : NOT_FOUND;
   } catch (e) { const s = notSet(e); if (s) return s; throw e; }
 }

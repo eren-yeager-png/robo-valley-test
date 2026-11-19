@@ -168,7 +168,8 @@ describe("status rules", () => {
     expect(OWNER_RULES.draft).toMatchObject({ edit: "draft", submit: true, deleteIt: true });
     expect(OWNER_RULES.changes_requested).toMatchObject({ edit: "changes_requested", submit: true, deleteIt: false });
     expect(OWNER_RULES.pending_review).toMatchObject({ edit: "pending_review", submit: false });
-    expect(OWNER_RULES.published.edit).toBe("pending_review");
+    expect(OWNER_RULES.published).toMatchObject({ edit: null, submit: false }); // read-only for the owner (16-11-2026)
+    expect(OWNER_RULES.unpublished).toMatchObject({ edit: null, submit: false });
     expect(OWNER_RULES.rejected.edit).toBeNull();
   });
   it("submit: draft to pending review once; a second submit is refused", async () => {
@@ -189,17 +190,18 @@ describe("status rules", () => {
     expect(none.r.status).toBe(400);
     expect((await q("SELECT count(*)::int AS n FROM contribution_scopes WHERE contribution_id = $1", [id])).rows[0]).toMatchObject({ n: 1 });
   });
-  it("editing a PUBLISHED item sends it back to Pending review and it leaves the public counts", async () => {
+  it("a PUBLISHED item is read-only: an edit is refused (409), it stays published and in the public counts", async () => {
     await signIn(); const id = await createDraft();
     await toStatus(id, "published");
     const before = (await (sectors.GET as never as (r: Request) => Promise<Response>)(new Request("http://localhost/api/contributions/sectors", { headers: { "x-forwarded-for": "5.5.5.5" } }))).json();
     expect((await before).sectors.find((s: any) => s.slug === "agriculture-dairy").contributions).toBe(1);
     const e = await call(one.PATCH as never, "PATCH", `/api/contributions/${id}`, good({ title: "Edited after publishing" }), id);
-    expect(e.r.status).toBe(200); expect(e.b.status).toBe("pending_review");
+    expect([e.r.status, e.b.error]).toEqual([409, "NOT_EDITABLE"]);
+    expect(e.b.message).toMatch(/published, so it can no longer be changed/);
     const row = (await q("SELECT status, published_at FROM contributions WHERE id = $1", [id])).rows[0] as any;
-    expect(row.status).toBe("pending_review"); expect(row.published_at).toBeNull();
+    expect(row.status).toBe("published"); expect(row.published_at).not.toBeNull();
     const after = await (await (sectors.GET as never as (r: Request) => Promise<Response>)(new Request("http://localhost/api/contributions/sectors", { headers: { "x-forwarded-for": "5.5.5.6" } }))).json();
-    expect(after.sectors.find((s: any) => s.slug === "agriculture-dairy").contributions).toBe(0);
+    expect(after.sectors.find((s: any) => s.slug === "agriculture-dairy").contributions).toBe(1);
   });
   it("changes requested can be edited and sent again; the author's own notes do not change status by themselves", async () => {
     await signIn(); const id = await createDraft();
@@ -310,11 +312,13 @@ describe("one photo per request: type by content, size, alt text, hidden data re
     who.id = String(((await q("SELECT user_id FROM contributions WHERE id = $1", [id])).rows[0] as any).user_id);
     expect((await call(photos.DELETE as never, "DELETE", `/api/contributions/${id}/photos?photoId=${pid}`, undefined, id)).r.status).toBe(200);
   });
-  it("adding a photo to a published item sends it back to review", async () => {
+  it("a published item is read-only: adding a photo is refused (409) and it stays published", async () => {
     await signIn(); const id = await createDraft();
     await q("UPDATE contributions SET status='published', submitted_at=now(), published_at=now() WHERE id=$1", [id]);
-    expect((await upload(id, jpeg(), "A new photo after publishing")).r.status).toBe(201);
-    expect(((await q("SELECT status FROM contributions WHERE id=$1", [id])).rows[0] as any).status).toBe("pending_review");
+    const x = await upload(id, jpeg(), "A new photo after publishing");
+    expect([x.r.status, x.b.error]).toEqual([409, "NOT_EDITABLE"]);
+    expect(((await q("SELECT status FROM contributions WHERE id=$1", [id])).rows[0] as any).status).toBe("published");
+    expect(((await q("SELECT count(*)::int n FROM contribution_photos WHERE contribution_id=$1", [id])).rows[0] as any).n).toBe(0);
   });
   it("the photo limit has its own, lower per-user rate", async () => {
     await signIn(); const id = await createDraft();
