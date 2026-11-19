@@ -8,7 +8,7 @@
 .rv-c2 p{margin:0 0 12px}.rv-c2 .crumb,.rv-c2 .hint,.rv-c2 small{color:var(--muted)}.rv-c2 .crumb{font-size:.9rem}
 .rv-c2 form,.rv-c2 aside{padding:clamp(15px,3vw,24px);background:#fff;border:1px solid var(--line);border-radius:14px;margin-top:16px}
 .rv-c2 fieldset{min-width:0;padding:0;border:0;margin:0 0 18px}.rv-c2 legend{font-weight:700;padding:0;margin:0 0 10px}
-.rv-c2 label{display:block;font-weight:600}.rv-c2 input,.rv-c2 select,.rv-c2 textarea,.rv-c2 button{font:inherit}
+.rv-c2 label{display:block;font-weight:600}.rv-c2 #robot-choices label{margin:0 0 10px}.rv-c2 input,.rv-c2 select,.rv-c2 textarea,.rv-c2 button{font:inherit}
 .rv-c2 input,.rv-c2 select,.rv-c2 textarea{display:block;width:100%;margin-top:5px;padding:9px 10px;border:1px solid #a9c0b9;border-radius:7px;background:#fff;color:var(--ink);min-height:44px}
 .rv-c2 textarea{resize:vertical}.rv-c2 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
 .rv-c2 .links{border-top:1px solid var(--line);padding-top:16px}

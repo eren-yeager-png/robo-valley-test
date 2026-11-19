@@ -31,6 +31,10 @@
 .mod-sector h2{margin:0}
 .mod-sector .mod-btn{margin-top:auto;text-align:center}
 .mod-pills{display:flex;gap:6px;flex-wrap:wrap}
+.mod-robots{margin:12px 0 0;display:grid;gap:6px}
+.mod-robots div{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.mod-robots dt{font-weight:700}
+.mod-robots dd{margin:0}
 .mod-pill{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:3px 9px;background:var(--mod-mint-2);color:var(--mod-brand);white-space:nowrap}
 .mod-pill--amber{background:var(--mod-amber-bg);color:var(--mod-amber)}
 .mod-pill--red{background:var(--mod-err-bg);color:var(--mod-err)}

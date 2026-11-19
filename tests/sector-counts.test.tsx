@@ -67,27 +67,39 @@ beforeEach(async () => {
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); testDb().failOn(undefined); });
 
-const pick = (r: Record<string, any>) => ({ draft: r.draft, submitted: r.submitted, verified: r.verified, changesRequested: r.changesRequested, published: r.published, rejected: r.rejected, unpublished: r.unpublished, total: r.total });
+const pick = (r: Record<string, any>) => ({ submitted: r.submitted, verified: r.verified, changesRequested: r.changesRequested, published: r.published, rejected: r.rejected, unpublished: r.unpublished, total: r.total });
 
 describe("the numbers", () => {
   it("counts each contribution once in every sector it belongs to; the sum counts a two-sector item twice, the unique row once", async () => {
     await seedAll();
     const c = await sectorStatusCounts(testDb().raw as never);
     const by = Object.fromEntries(c.sectors.map((s) => [s.slug, pick(s)]));
-    expect(by["agriculture-dairy"]).toEqual({ draft: 1, submitted: 1, verified: 1, changesRequested: 0, published: 1, rejected: 0, unpublished: 0, total: 4 });
-    expect(by.education).toEqual({ draft: 0, submitted: 1, verified: 1, changesRequested: 0, published: 1, rejected: 1, unpublished: 0, total: 4 });
-    expect(by.healthcare).toEqual({ draft: 0, submitted: 0, verified: 0, changesRequested: 1, published: 0, rejected: 0, unpublished: 1, total: 2 });
-    expect(pick(c.sum)).toEqual({ draft: 1, submitted: 2, verified: 2, changesRequested: 1, published: 2, rejected: 1, unpublished: 1, total: 10 });
-    expect(pick(c.unique)).toEqual({ draft: 1, submitted: 2, verified: 1, changesRequested: 1, published: 1, rejected: 1, unpublished: 1, total: 8 });
+    expect(by["agriculture-dairy"]).toEqual({ submitted: 1, verified: 1, changesRequested: 0, published: 1, rejected: 0, unpublished: 0, total: 3 });
+    expect(by.education).toEqual({ submitted: 1, verified: 1, changesRequested: 0, published: 1, rejected: 1, unpublished: 0, total: 4 });
+    expect(by.healthcare).toEqual({ submitted: 0, verified: 0, changesRequested: 1, published: 0, rejected: 0, unpublished: 1, total: 2 });
+    expect(pick(c.sum)).toEqual({ submitted: 2, verified: 2, changesRequested: 1, published: 2, rejected: 1, unpublished: 1, total: 9 });
+    expect(pick(c.unique)).toEqual({ submitted: 2, verified: 1, changesRequested: 1, published: 1, rejected: 1, unpublished: 1, total: 7 });
     expect(c.sum.total).toBe(c.unique.total + 2); // the two items that are in two sectors
-    expect(c.withoutSector).toBe(1);
+  });
+
+  it("drafts are never counted: not in any column, not in any total, and there is no draft number at all", async () => {
+    await seedAll(); // one draft in Agriculture & Dairy, one draft without a sector
+    const before = await sectorStatusCounts(testDb().raw as never);
+    for (const row of [...before.sectors, before.sum, before.unique]) expect(Object.keys(row)).not.toContain("draft");
+    expect(Object.keys(before)).toEqual(["sectors", "sum", "unique"]); // no "withoutSector" either: only drafts ever had no sector
+    await mk("Another draft in education", "draft", ["education"]);
+    await mk("A draft in healthcare too", "draft", ["healthcare"]);
+    const after = await sectorStatusCounts(testDb().raw as never);
+    expect(after).toEqual(before); // more drafts change nothing
+    const total = (r: Record<string, number>) => r.submitted + r.verified + r.changesRequested + r.published + r.rejected + r.unpublished;
+    for (const row of [...after.sectors, after.sum, after.unique]) expect(row.total).toBe(total(row as never)); // Total is the sum of the columns shown
   });
 
   it("removed and demo items are never counted; the published figure matches the public sector count", async () => {
     await seedAll();
     const c = await sectorStatusCounts(testDb().raw as never);
     const agri = c.sectors.find((s) => s.slug === "agriculture-dairy")!;
-    expect(agri.total).toBe(4); // not 6: the removed item and the demo item are left out
+    expect(agri.total).toBe(3); // not 6: the draft, the removed item and the demo item are left out
     const pub = (await q("SELECT s.slug, count(*)::int n FROM contribution_scopes cs JOIN sectors s ON s.id = cs.sector_id JOIN contributions c ON c.id = cs.contribution_id WHERE c.status = 'published' AND NOT c.is_demo GROUP BY s.slug")).rows as { slug: string; n: number }[];
     for (const p of pub) expect(c.sectors.find((s) => s.slug === p.slug)!.published).toBe(p.n);
   });
@@ -95,9 +107,8 @@ describe("the numbers", () => {
   it("a sector nobody has contributed to is listed with zeros, and no data at all gives zeros and no error", async () => {
     const c = await sectorStatusCounts(testDb().raw as never);
     expect(c.sectors.length).toBeGreaterThanOrEqual(1);
-    for (const s of c.sectors) expect(pick(s)).toEqual({ draft: 0, submitted: 0, verified: 0, changesRequested: 0, published: 0, rejected: 0, unpublished: 0, total: 0 });
+    for (const s of c.sectors) expect(pick(s)).toEqual({ submitted: 0, verified: 0, changesRequested: 0, published: 0, rejected: 0, unpublished: 0, total: 0 });
     expect(pick(c.sum).total).toBe(0);
-    expect(c.withoutSector).toBe(0);
   });
 
   it("without the audit table nothing can be verified: it still answers, with Verified at 0", async () => {
@@ -106,7 +117,7 @@ describe("the numbers", () => {
     const c = await sectorStatusCounts(pool as never); // the pool is where failOn applies
     expect(c.sum.verified).toBe(0);
     expect(c.sum.submitted).toBe(4); // verified ones count as submitted when there is no record of a verify
-    expect(c.sum.total).toBe(10);
+    expect(c.sum.total).toBe(9);
   });
 });
 
@@ -144,7 +155,8 @@ describe("who may read it (API)", () => {
     expect(x.r.status).toBe(200);
     expect(x.r.headers.get("cache-control")).toMatch(/no-store/);
     expect(x.b.success).toBe(true);
-    expect(pick(x.b.unique).total).toBe(8);
+    expect(pick(x.b.unique).total).toBe(7);
+    expect(JSON.stringify(x.b)).not.toMatch(/draft|withoutSector/i); // the API carries no draft numbers either
     expect(x.b.sectors.map((s: { slug: string }) => s.slug)).toEqual(["agriculture-dairy", "education", "healthcare"]);
   });
   it("a browser request from another website is refused even for an administrator", async () => {
@@ -198,9 +210,10 @@ describe("the page", () => {
   it("shows every sector with its counts, a sum row and a unique row, and explains the difference", async () => {
     await seedAll(); signInAs(admin, "admin");
     const h = await html();
-    for (const w of ["Agriculture", "Education", "Healthcare", "Total of the sector rows", "Unique contributions", "counted once in each of them", "Drafts are private"]) expect(h).toContain(w);
-    for (const col of ["Draft", "Submitted", "Verified", "Changes requested", "Approved / published", "Rejected", "Unpublished", "Total"]) expect(h).toContain(col);
-    expect(h).toMatch(/1 contribution has no sector yet and is in no row/);
+    for (const w of ["Agriculture", "Education", "Healthcare", "Total of the sector rows", "Unique contributions", "counted once in each of them", "Drafts are private to their authors, so they are never counted"]) expect(h).toContain(w);
+    const head = h.slice(h.indexOf("<thead>"), h.indexOf("</thead>"));
+    expect([...head.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map((m) => m[1])).toEqual(["Sector", "Submitted", "Verified", "Changes requested", "Approved / published", "Rejected", "Unpublished", "Total"]); // no Draft column
+    expect(h).not.toMatch(/no sector yet/);
   });
   it("links each non-zero count to that sector's list in the Admin Portal; zeros, drafts and the two total rows are plain numbers", async () => {
     await seedAll(); signInAs(admin, "admin");

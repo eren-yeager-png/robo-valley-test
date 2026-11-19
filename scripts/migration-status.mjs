@@ -123,10 +123,12 @@ export const MIGRATIONS = [
     { kind: "table", table: "sector_robot_types" },
     { kind: "index", name: "sector_robot_types_name_uq" },
   ] },
-  { id: "026", title: "questions per sector", feature: "Sector forms: each sector's questions (up to 5 on, at most 2 required), written by an administrator (the Contribute form asks them from P6)", requires: ["012"], checks: [
-    { kind: "table", table: "sector_questions" },
-    { kind: "constraint", name: "sector_questions_options_ck" },
-    { kind: "index", name: "sector_questions_order_idx" },
+  { id: "025", title: "the robot a contribution is about", feature: "The Contribute form's \"Which robot is it about?\" for each chosen sector, and a fixed robot from a robot card (shown in Moderation and the CSV)", requires: ["012", "024"], checks: [
+    { kind: "column", table: "contribution_scopes", column: "robot_type_id" },
+    { kind: "column", table: "contributions", column: "from_robot_page" },
+    { kind: "constraint", name: "sector_robot_types_id_sector_uq" },
+    { kind: "constraint", name: "contribution_scopes_robot_fk" },
+    { kind: "index", name: "contribution_scopes_robot_idx" },
   ] },
 ];
 
@@ -201,6 +203,14 @@ export const statusOf = (results, id) => results.find((r) => r.id === id);
 
 /** The migrations that exist in the files but whose objects are not all there, in order. */
 export const pending = (results) => results.filter((r) => r.status !== "applied");
+
+/**
+ * The earlier migrations (lower numbers) that are not fully applied: what running only `id` would skip over.
+ * Missing and partly applied ones both count. In number order.
+ * @returns {{ id: string, title: string, status: 'missing'|'partial' }[]}
+ */
+export const earlierGaps = (results, id) =>
+  results.filter((r) => r.id < id && r.status !== "applied").map((r) => ({ id: r.id, title: r.title, status: r.status }));
 
 /** Human-readable table for the command line. Contains no connection details. */
 export function formatStatus(results) {

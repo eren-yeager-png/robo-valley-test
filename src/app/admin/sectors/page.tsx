@@ -9,10 +9,10 @@ import { logDbError, type DbProblem } from "../../../lib/dbError";
 export const metadata: Metadata = { title: "Sector counts | RoboValley admin", robots: { index: false, follow: false } };
 
 // Column heading, and where a number leads: that sector's list in the Admin Portal, on the matching tab (Submitted and Verified are
-// pending items a reviewer has not verified yet / has verified). Drafts are private to their authors, so they have no list; "Total" is
-// just the row's sum, and the rows that span sectors (sum, unique) are plain numbers because a list is always one sector's.
+// pending items a reviewer has not verified yet / has verified). Drafts are private to their authors: they have no column and are in
+// no total. "Total" is just the row's sum, and the rows that span sectors (sum, unique) are plain numbers because a list is always
+// one sector's.
 const COLUMNS: { key: CountKey; label: string; qs: string | null }[] = [
-  { key: "draft", label: "Draft", qs: null },
   { key: "submitted", label: "Submitted", qs: "tab=all&verified=0" },
   { key: "verified", label: "Verified", qs: "tab=all&verified=1" },
   { key: "changesRequested", label: "Changes requested", qs: "tab=changes_requested" },
@@ -54,7 +54,7 @@ export default async function SectorCountsPage() {
     const [title, body] = PROBLEM[why];
     return (<><PageHeader title="Contributions by sector" /><Notice kind="error" title={title}>{body}</Notice></>);
   }
-  const nothingYet = data.sectors.length > 0 && data.unique.total === 0 && data.withoutSector === 0;
+  const nothingYet = data.sectors.length > 0 && data.unique.total === 0;
 
   const rows = [
     ...data.sectors.map((s) => (
@@ -72,7 +72,7 @@ export default async function SectorCountsPage() {
       <PageHeader title="Contributions by sector" lead="How many contributions each sector holds in each state. Click a number to open that sector's list in the Admin Portal." />
       {nothingYet && (
         <div style={{ marginBottom: 14 }}>
-          <Notice kind="info" title="No contributions yet">The counts loaded, and every sector is at 0: nobody has contributed yet. The numbers appear here as soon as members send contributions.</Notice>
+          <Notice kind="info" title="No contributions yet">The counts loaded, and every sector is at 0: nobody has sent a contribution yet (drafts are not counted). The numbers appear here as soon as members send contributions.</Notice>
         </div>
       )}
       <div className="adm-counts">
@@ -88,9 +88,8 @@ export default async function SectorCountsPage() {
         A contribution can belong to several sectors, and it is counted once in each of them. So a contribution in two sectors adds 2 to
         “Total of the sector rows” but only 1 to “Unique contributions”. A number in a sector&apos;s row opens that sector&apos;s list in the Admin Portal; the two total rows span sectors, so they are plain numbers.
         “Submitted” has not been verified yet; “Verified” has been checked by a reviewer and waits for an administrator to approve it.
-        Drafts are private to their authors and are not listed.
-        {data.withoutSector > 0 ? ` ${data.withoutSector} contribution${data.withoutSector === 1 ? " has" : "s have"} no sector yet and ${data.withoutSector === 1 ? "is" : "are"} in no row.` : ""}
-        {" "}Removed and demo items are not counted.
+        Drafts are private to their authors, so they are never counted: not in any column and not in any total.
+        Removed and demo items are not counted either.
       </Notice>
       </div>
     </>
