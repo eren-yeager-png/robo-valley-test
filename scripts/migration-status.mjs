@@ -197,6 +197,14 @@ export const statusOf = (results, id) => results.find((r) => r.id === id);
 /** The migrations that exist in the files but whose objects are not all there, in order. */
 export const pending = (results) => results.filter((r) => r.status !== "applied");
 
+/**
+ * The earlier migrations (lower numbers) that are not fully applied: what running only `id` would skip over.
+ * Missing and partly applied ones both count. In number order.
+ * @returns {{ id: string, title: string, status: 'missing'|'partial' }[]}
+ */
+export const earlierGaps = (results, id) =>
+  results.filter((r) => r.id < id && r.status !== "applied").map((r) => ({ id: r.id, title: r.title, status: r.status }));
+
 /** Human-readable table for the command line. Contains no connection details. */
 export function formatStatus(results) {
   const lines = ["Migration status (read from the database's real schema; nothing was changed):", ""];
