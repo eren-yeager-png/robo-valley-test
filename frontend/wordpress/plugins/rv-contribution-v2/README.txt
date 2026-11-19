@@ -1,4 +1,4 @@
-RoboValley Contribution (v2) - WordPress plugin, version 0.1.10
+RoboValley Contribution (v2) - WordPress plugin, version 0.1.11
 
 WHAT IT IS
 The new Contribute form for the Contribution and Contributor pages. It only shows the form and talks to the RoboValley app.
@@ -116,3 +116,14 @@ NEW IN 0.1.10
   * Install it only after the app has migration 023 (the app also works without it, but then every contribution shows
     "not asked (older form)").
   * The CSS is unchanged; the HTML has the new question and the script sends it.
+
+NEW IN 0.1.11
+  * "Which robot is it about?" (optional): for each chosen sector that has robot types, a list with "Not sure" first and then the
+    robot types an administrator switched on in the app's Sector forms (they come with the sector list). Sectors without robot
+    types ask nothing. The answers go to the app as robots: { "<sector>": "<robot>" | "" } and are stored privately (app migration 025).
+  * From a robot card's link (?sector=<one sector>&robot=<slug>): that robot shows as fixed text, "Robot · Milking robots", like the
+    fixed sector, if it really is one of that sector's robot types that are on (anything else shows the normal question). After
+    signing in, the page comes back with the robot. The app is told (fromRobotPage) so Edit can look the same way later.
+  * Edit (Changes requested) shows the saved robots; one that was switched off since stays chosen, marked "(no longer offered)".
+  * Install it only after the app has migrations 024 and 025 (without them nothing is asked and nothing is saved, as in 0.1.10).
+  * The HTML has the new question, the CSS one spacing rule, the script the rest.

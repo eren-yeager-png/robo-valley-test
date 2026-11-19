@@ -189,7 +189,7 @@ describe("reviewers: Moderation's item page, the review API and the CSV show the
       const x = await call(exportRoute.GET, "GET", "/api/review/export?sector=agriculture-dairy&tab=all");
       expect(x.r.status).toBe(200);
       const rows = parse(x.text);
-      expect(rows[0]!.slice(0, 4)).toEqual(["ID", "Title", "Type", "Also in"]);
+      expect(rows[0]!.slice(0, 5)).toEqual(["ID", "Title", "Type", "Robot", "Also in"]); // P3 added Robot after Type
       const byId = new Map(rows.slice(1).map((r) => [Number(r[0]), r]));
       expect(byId.get(chosen)![2]).toBe("Share an idea");
       expect(byId.get(older)![2]).toBe("not asked (older form)");

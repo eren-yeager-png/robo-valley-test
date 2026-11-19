@@ -279,10 +279,12 @@ describe("before migration 024, and when the database fails", () => {
     expect(await html(listPage())).toContain("Sector forms could not be loaded");
   });
 
-  it("nothing else in the app reads the new table, so everything else works before 024 exactly as before", () => {
+  it("only Sector forms and the robot module (P3) read the new table, so everything else works before 024 exactly as before", () => {
     const walk = (dir: string): string[] => readdirSync(dir).flatMap((f) => { const p = join(dir, f); return statSync(p).isDirectory() ? walk(p) : [p]; });
     const users = walk("src").filter((f) => /\.(ts|tsx)$/.test(f) && readFileSync(f, "utf8").includes("sector_robot_types"));
-    expect(users.map((f) => f.replace(/\\/g, "/"))).toEqual(["src/lib/sectorForms.ts"]);
+    expect(users.map((f) => f.replace(/\\/g, "/")).sort()).toEqual(["src/lib/contributionRobots.ts", "src/lib/sectorForms.ts"]);
+    // every read in the robot module treats a missing table or column as "no robots" (tested in robots-per-sector.test.tsx)
+    expect(readFileSync("src/lib/contributionRobots.ts", "utf8")).toContain('const missing = (e: unknown) => ["42P01", "42703"]');
   });
 });
 
