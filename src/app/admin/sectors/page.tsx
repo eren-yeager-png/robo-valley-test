@@ -27,7 +27,7 @@ function cells(c: Counts, slug: string | null, linked: boolean) {
     const v = c[col.key];
     return (
       <td key={col.key} className="num">
-        {linked && slug && col.qs && v > 0 ? <Link href={`/moderation/sector/${slug}?${col.qs}`}>{v.toLocaleString("en-IN")}</Link> : v.toLocaleString("en-IN")}
+        {linked && slug && col.qs && v > 0 ? <Link href={`/admin/moderation/sector/${slug}?${col.qs}`}>{v.toLocaleString("en-IN")}</Link> : v.toLocaleString("en-IN")}
       </td>
     );
   });

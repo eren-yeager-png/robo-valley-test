@@ -1,0 +1,74 @@
+/* RoboValley site styles (plugin 0.1.12). Loaded on every public page, after Astra's own stylesheet, while RV_CONTRIBUTION_V2 is on.
+   Astra's rules for the same elements have the same weight, so being later is enough: no !important. */
+
+/* Space around the entry header. B1 before B2: a page-builder page matches both, and the later one counts. */
+.ast-single-post .entry-header.ast-header-without-markup,
+.ast-single-post .entry-header.ast-no-title.ast-no-thumbnail {
+	margin-bottom: 25px;
+	margin-top: 35px;
+}
+.ast-page-builder-template .entry-header.ast-header-without-markup {
+	margin-top: 25px;
+	margin-bottom: 15px;
+}
+/* A page whose title is switched off still has an entry header, with nothing in it: no blank band there. */
+.ast-single-post .entry-header.ast-no-title.ast-header-without-markup:not(:has(*)) {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+/* The rich-text block. THE one place for it: anything inside an element with the class rv-rt gets this look, whenever it was added.
+   Give the class to the container that all fields are rendered into, never to single fields. */
+.rv-rt {
+	max-width: 1080px;
+	margin: 24px 0;
+	padding: 24px;
+	border: 1px solid #e1e4ea;
+	border-radius: 16px;
+	background: #fff;
+	color: #1b1f3b;
+	width: 100%;
+	box-sizing: border-box;
+	overflow-wrap: anywhere;
+}
+.rv-rt:empty {
+	display: none;
+}
+/* Whatever is put inside shrinks or wraps; the page itself never scrolls sideways. */
+.rv-rt *,
+.rv-rt *::before,
+.rv-rt *::after {
+	box-sizing: border-box;
+}
+.rv-rt > *,
+.rv-rt input,
+.rv-rt select,
+.rv-rt textarea,
+.rv-rt fieldset,
+.rv-rt img,
+.rv-rt svg,
+.rv-rt video,
+.rv-rt iframe {
+	max-width: 100%;
+}
+.rv-rt fieldset {
+	min-width: 0;
+}
+.rv-rt img,
+.rv-rt video {
+	height: auto;
+}
+.rv-rt table {
+	display: block;
+	width: 100%;
+	overflow-x: auto;
+}
+.rv-rt pre {
+	white-space: pre-wrap;
+}
+.rv-rt > :first-child {
+	margin-top: 0;
+}
+.rv-rt > :last-child {
+	margin-bottom: 0;
+}

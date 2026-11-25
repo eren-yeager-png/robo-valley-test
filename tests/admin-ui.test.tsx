@@ -63,7 +63,8 @@ describe("admin layout and navigation", () => {
 
   it("every nav entry points at a page that exists", async () => {
     const { existsSync } = await import("node:fs");
-    for (const n of ADMIN_NAV) expect(existsSync(`src/app${n.href}/page.tsx`), n.href).toBe(true);
+    // Moderation is open to moderators too, so its folder is outside src/app/admin (the route group "(reviewer)" is not part of the address)
+    for (const n of ADMIN_NAV) expect(existsSync(`src/app${n.href}/page.tsx`) || existsSync(`src/app/(reviewer)${n.href}/page.tsx`), n.href).toBe(true);
   });
 
   it("the top-bar title follows the page", () => {

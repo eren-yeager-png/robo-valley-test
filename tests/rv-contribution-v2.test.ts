@@ -239,8 +239,8 @@ describe("?sector= preselects sectors (the Contribute to this sector link)", () 
     const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions");
     expect(create?.body.sectors).toEqual(["education"]);
   });
-  it("the plugin version moved to 0.1.11 so browsers fetch the new script", () => {
-    expect(PHP).toMatch(/Version: 0\.1\.11/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.11'/);
+  it("the plugin version moved to 0.1.12 so browsers fetch the new styles and markup", () => {
+    expect(PHP).toMatch(/Version: 0\.1\.12/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.12'/);
   });
 });
 
@@ -322,8 +322,9 @@ describe("Contribute to this sector (0.1.2, static; run on a local WordPress too
 
 describe("members contribute, administrators review (0.1.4)", () => {
   const sha = (t: string) => createHash("sha256").update(t).digest("hex");
-  it("the member form's markup and styles are pinned (0.1.11: the robot question and one spacing rule for it)", () => {
-    expect(sha(MARKUP.replace(/\r\n/g, "\n"))).toBe("27a473f40d24e3a1fe3474a028095286233ef3af99b0d8bf317f974e3c6c33c4");
+  it("the member form's markup and styles are pinned (0.1.12: the robot answers are one .rv-rt block; nothing else changed)", () => {
+    expect(sha(MARKUP.replace(/\r\n/g, "\n"))).toBe("6d548a6e2dd23343c748b52923b2020b3beeaa2498f8414e357141317f2d99e8");
+    expect(sha(MARKUP.replace(/\r\n/g, "\n").replace('<div id="robot-choices" class="rv-rt"></div>', '<div id="robot-choices"></div>'))).toBe("27a473f40d24e3a1fe3474a028095286233ef3af99b0d8bf317f974e3c6c33c4");
     expect(sha(CSS.replace(/\r\n/g, "\n"))).toBe("5bcc55b0c9d4529341824d0ec1797e9c95d3ffb6f1c4a79521805030745d0571");
   });
   it("WordPress administrators get a note with a Moderation link instead of the form, and no form script (static; also run in PHP)", () => {

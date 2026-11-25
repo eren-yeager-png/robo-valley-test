@@ -1,4 +1,4 @@
-RoboValley Contribution (v2) - WordPress plugin, version 0.1.11
+RoboValley Contribution (v2) - WordPress plugin, version 0.1.12
 
 WHAT IT IS
 The new Contribute form for the Contribution and Contributor pages. It only shows the form and talks to the RoboValley app.
@@ -127,3 +127,12 @@ NEW IN 0.1.11
   * Edit (Changes requested) shows the saved robots; one that was switched off since stays chosen, marked "(no longer offered)".
   * Install it only after the app has migrations 024 and 025 (without them nothing is asked and nothing is saved, as in 0.1.10).
   * The HTML has the new question, the CSS one spacing rule, the script the rest.
+
+NEW IN 0.1.12
+  * Site styles (assets/rv-site.css), loaded on every public page after Astra's stylesheet while RV_CONTRIBUTION_V2 is true:
+    the space around the entry header (single posts and pages 35px above / 25px below, page-builder pages 25px / 15px; a page
+    whose title is switched off gets none), and the .rv-rt block, now 1080px wide (it was 880px).
+  * The one block that shows what administrators add in Sector Forms ("Which robot is it about?") is an .rv-rt block. Robot types
+    added later appear in it by themselves. Its width is the form's own column (800px); .rv-rt is 1080px wherever there is room.
+  * If an older .rv-rt rule exists somewhere else in WordPress (Additional CSS, a code snippet, another plugin), delete it there:
+    this file is the only place for it.

@@ -52,7 +52,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
             : <SetupNotice what="Sign-in activity" migration="008" />}
         </section>
         <section className="adm-card"><h3>Uploads</h3>
-          <Chart kind="bar" xKey="day" label={`Uploads per day, last ${days} days`} data={uploads} series={[{ key: "accepted", label: "Accepted", color: NAVY }, { key: "rejected", label: "Rejected", color: AMBER }]} />
+          <Chart kind="bar" stacked xKey="day" label={`Uploads per day, last ${days} days`} data={uploads} series={[{ key: "accepted", label: "Accepted", color: NAVY }, { key: "rejected", label: "Rejected", color: AMBER }]} />
         </section>
         <section className="adm-card"><h3>Datasets by category</h3>
           <Chart kind="bar" angled xKey="name" label="Number of datasets in each category" data={perCategory.map((c) => ({ name: c.name, datasets: c.datasets }))} series={[{ key: "datasets", label: "Datasets", color: TEAL }]} />

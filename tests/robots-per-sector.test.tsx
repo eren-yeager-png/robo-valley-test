@@ -19,7 +19,7 @@ import * as create from "../src/app/api/contributions/route";
 import * as one from "../src/app/api/contributions/[id]/route";
 import * as sectorsRoute from "../src/app/api/contributions/sectors/route";
 import { GET as exportCsv } from "../src/app/api/review/export/route";
-import Detail from "../src/app/moderation/[id]/page";
+import Detail from "../src/app/(reviewer)/admin/moderation/[id]/page";
 import { readRobots } from "../src/lib/contributionRobots";
 import { validateContributeReturn } from "../src/lib/contributeReturnTo";
 

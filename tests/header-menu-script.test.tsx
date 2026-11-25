@@ -331,7 +331,7 @@ describe("on the app's own pages", () => {
     } finally { vi.unstubAllEnvs(); }
   });
 
-  it("on the dark green moderation bar the icon gets a white edge, hover ring and focus outline (at least 3:1 against the bar)", async () => {
+  it("on a dark green bar (the old moderation bar) the icon gets a white edge, hover ring and focus outline (at least 3:1 against the bar)", async () => {
     goTo(`${APP}/moderation`);
     answerWith(ANSWERS.moderator);
     page(`<header class="mod-bar"><nav><div data-rv-header-menu data-tone="dark"></div></nav></header><header class="adm-top"><div data-rv-header-menu></div></header>`);
@@ -340,8 +340,8 @@ describe("on the app's own pages", () => {
     expect(dark.classList.contains("rv-header-menu--on-dark")).toBe(true);
     expect(light.classList.contains("rv-header-menu--on-dark")).toBe(false);
     expect(dark.querySelector(".rv-hm-toggle .rv-hm-disc")).not.toBeNull();
-    // the moderation bar's own colour (moderation.css) against the edge rv-header-menu.css gives the icon there
-    const bar = /--mod-dark:\s*(#[0-9a-f]{6})/i.exec(readFileSync("src/app/moderation/moderation.css", "utf8"))![1];
+    // the old moderation bar's colour against the edge rv-header-menu.css gives the icon there (the tone stays supported)
+    const bar = "#123f37";
     const css = readFileSync("public/rv-header-menu.css", "utf8");
     const edge = /\.rv-header-menu--on-dark \.rv-hm-toggle \.rv-hm-disc\s*\{\s*stroke:\s*(#[0-9a-f]{3,6})/i.exec(css)![1];
     expect(contrast("#1f4d3f", bar)).toBeLessThan(3); // the reason: the moderator's dark green alone melts into the bar
@@ -349,10 +349,11 @@ describe("on the app's own pages", () => {
     expect(css).toMatch(/--on-dark \.rv-hm-toggle:focus-visible\s*\{\s*outline-color:\s*#fff;/);
   });
 
-  it("the moderation layout marks its slot dark", () => {
+  it("a slot can be marked dark; Moderation now uses the admin shell, whose top bar is light", () => {
     page("");
     const slot = render(<HeaderMenuSlot site="https://techytree.in/" tone="dark" />);
     expect(slot.container.querySelector("[data-rv-header-menu]")?.getAttribute("data-tone")).toBe("dark");
-    expect(readFileSync("src/app/moderation/layout.tsx", "utf8")).toContain(`<HeaderMenuSlot site={siteUrl()} tone="dark" />`);
+    const layout = readFileSync("src/app/(reviewer)/admin/moderation/layout.tsx", "utf8");
+    expect(layout).toContain("<AdminShell landingUrl={siteUrl()}"); expect(layout).not.toContain("HeaderMenuSlot");
   });
 });

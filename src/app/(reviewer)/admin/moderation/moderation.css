@@ -1,0 +1,77 @@
+/* Moderation, inside the admin portal's shell. Everything shared (page title, cards, tables, pills, tabs, filters, buttons, notices)
+   comes from ../../../admin/admin.css; this file holds only what no other admin page has, in the same colours, sizes and corners. */
+.rv .adm .mod-crumb{margin:0 0 6px;font-size:.86rem;color:var(--muted)}
+.rv .adm .mod-crumb a{text-decoration:none}
+.rv .adm .mod-crumb a:hover{text-decoration:underline}
+.rv .adm .adm-head h1{overflow-wrap:anywhere}
+.rv .adm .mod-meta,.rv .adm .mod-small{display:block;font-size:.82rem;color:var(--muted)}
+.rv .adm .mod-pills{display:flex;flex-wrap:wrap;gap:6px}
+.rv .adm .btn.danger{border-color:var(--red);color:var(--red)}
+.rv .adm .btn.danger:hover:not(:disabled){background:var(--red-soft);border-color:var(--red);color:var(--red)}
+.rv .adm a.btn{text-align:center}
+
+/* the sector cards */
+.rv .adm .mod-sectors{grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr))}
+.rv .adm .mod-sector{display:flex;flex-direction:column;gap:10px}
+.rv .adm .mod-sector h3{margin:0}
+.rv .adm .mod-sector .btn{margin-top:auto;padding:10px 12px;font-size:.9rem}
+
+/* one sector's list */
+.rv .adm .adm-filters input[type=search]{width:260px;max-width:100%}
+.rv .adm .adm-filters .mod-end{margin-left:auto}
+.rv .adm .mod-table td strong{display:block;overflow-wrap:anywhere;min-width:160px}
+.rv .adm .mod-table td .btn{padding:6px 14px;white-space:nowrap}
+
+/* one contribution */
+.rv .adm .mod-detail{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+.rv .adm .mod-detail .adm-card{margin-bottom:16px}
+.rv .adm .mod-detail h4{margin:16px 0 6px;font-size:.95rem}
+.rv .adm .mod-side{position:sticky;top:80px}
+.rv .adm .mod-detail dl{margin:0}
+.rv .adm .mod-field{margin-bottom:14px}
+.rv .adm .mod-field dt{margin-bottom:3px;font-size:.8rem;font-weight:700;color:var(--muted)}
+.rv .adm .mod-field dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.rv .adm .mod-cat{margin-bottom:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px}
+.rv .adm .mod-cat h4{margin:0 0 4px}
+.rv .adm .mod-cat ul{margin:4px 0 0;padding-left:18px}
+.rv .adm .mod-cat a{word-break:break-all}
+.rv .adm .mod-remarks{margin-top:6px;padding:6px 10px;border-radius:10px;background:var(--bg);font-size:.88rem}
+.rv .adm .mod-detail dl.mod-robots{display:grid;gap:6px;margin:12px 0 0}
+.rv .adm .mod-robots div{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.rv .adm .mod-robots dt{font-weight:700}
+.rv .adm .mod-robots dd{margin:0}
+.rv .adm .mod-photos{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.rv .adm .mod-photos figure{margin:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:.82rem}
+.rv .adm .mod-photos img{display:block;width:100%;height:120px;object-fit:cover;background:var(--tint)}
+.rv .adm .mod-photos figcaption{padding:6px 8px}
+.rv .adm .mod-callout{margin:0 0 10px;padding:9px 12px;border-left:4px solid var(--brand);border-radius:0 10px 10px 0;background:var(--tint);font-size:.88rem;overflow-wrap:anywhere}
+.rv .adm .mod-callout--muted{border-left-color:#9aa6a3;background:var(--bg);color:var(--muted)}
+.rv .adm .mod-callout--red{border-left-color:var(--red);background:var(--red-soft)}
+.rv .adm .mod-callout--amber{border-left-color:var(--amber);background:var(--amber-soft)}
+.rv .adm .mod-dup{margin-bottom:16px;padding:12px 16px;border:1px solid #ecc98a;border-radius:14px;background:var(--amber-soft);color:var(--amber-ink)}
+.rv .adm .mod-dup ul{margin:6px 0;padding-left:20px}
+.rv .adm .mod-dup a{color:var(--amber-ink);font-weight:700}
+.rv .adm .mod-dup .mod-meta{display:inline;color:inherit}
+.rv .adm .mod-dup p.mod-meta{display:block;margin:6px 0 0}
+.rv .adm .mod-history{list-style:none;margin:0;padding:0;font-size:.82rem}
+.rv .adm .mod-history li{padding:6px 0;border-bottom:1px dashed var(--line);overflow-wrap:anywhere}
+.rv .adm .mod-history li span{display:block;color:var(--muted)}
+.rv .adm .mod-history li div{white-space:pre-wrap;margin-top:2px}
+
+/* the review forms */
+.rv .adm .mod-act{margin-top:14px}
+.rv .adm .mod-act label{display:block;width:auto;margin:0 0 4px;font-size:.82rem;font-weight:700;color:var(--muted)}
+.rv .adm .mod-act textarea,.rv .adm .mod-act input.mod-input{display:block;width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font:inherit}
+.rv .adm .mod-act textarea{min-height:76px;resize:vertical}
+.rv .adm .mod-act input.mod-input{min-height:42px;margin:0 0 10px}
+.rv .adm .mod-act textarea[aria-invalid="true"]{border-color:var(--red);background:var(--red-soft)}
+.rv .adm .mod-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.rv .adm .mod-side .mod-row .btn{flex:1 1 100%}
+.rv .adm .mod-act label.mod-check{display:flex;gap:8px;align-items:flex-start;margin:10px 0;font-weight:600;color:var(--fg)}
+.rv .adm .mod-check input{flex:none;width:20px;height:20px;min-height:0;margin:1px 0 0}
+.rv .adm .mod-msg{margin:8px 0 0;padding:8px 12px;border-radius:10px;font-weight:700}
+.rv .adm .mod-msg[hidden]{display:none}
+.rv .adm .mod-msg--err{background:var(--red-soft);color:var(--red)}
+.rv .adm .mod-msg--ok{background:var(--tint);color:var(--brand)}
+@media (max-width:1080px){.rv .adm .mod-detail{grid-template-columns:minmax(0,1fr)}.rv .adm .mod-side{position:static}}
+@media (max-width:600px){.rv .adm .mod-photos{grid-template-columns:1fr 1fr}.rv .adm .mod-sectors{grid-template-columns:minmax(0,1fr)}.rv .adm .adm-filters .mod-end{margin-left:0}}

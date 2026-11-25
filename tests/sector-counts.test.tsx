@@ -218,12 +218,12 @@ describe("the page", () => {
   it("links each non-zero count to that sector's list in the Admin Portal; zeros, drafts and the two total rows are plain numbers", async () => {
     await seedAll(); signInAs(admin, "admin");
     const h = await html();
-    expect(h).toContain('href="/moderation/sector/education?tab=published"');
-    expect(h).toContain('href="/moderation/sector/agriculture-dairy?tab=all&amp;verified=1"');
-    expect(h).toContain('href="/moderation/sector/education?tab=all&amp;verified=0"');
-    expect(h).toContain('href="/moderation/sector/education?tab=rejected"');
-    expect(h).not.toContain("/moderation/sector/agriculture-dairy?tab=rejected"); // agriculture has no rejected item: just a 0
-    expect(h).not.toMatch(/href="\/moderation\?/); // nothing points at the old single-page queue any more
+    expect(h).toContain('href="/admin/moderation/sector/education?tab=published"');
+    expect(h).toContain('href="/admin/moderation/sector/agriculture-dairy?tab=all&amp;verified=1"');
+    expect(h).toContain('href="/admin/moderation/sector/education?tab=all&amp;verified=0"');
+    expect(h).toContain('href="/admin/moderation/sector/education?tab=rejected"');
+    expect(h).not.toContain("/admin/moderation/sector/agriculture-dairy?tab=rejected"); // agriculture has no rejected item: just a 0
+    expect(h).not.toMatch(/href="\/(admin\/)?moderation\?/); // nothing points at the old single-page queue any more
     const totals = h.slice(h.indexOf("Total of the sector rows"));
     expect(totals).not.toContain("<a "); // the sum and unique rows span sectors: no links
   });
