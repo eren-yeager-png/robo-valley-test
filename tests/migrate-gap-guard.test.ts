@@ -7,8 +7,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL } from "./setup";
-import { applyFile, gapMessage, pickFiles, preflight } from "../scripts/migrate.mjs";
-import { earlierGaps, migrationStatus, statusOf } from "../scripts/migration-status.mjs";
+import { applyFile, decideFile, gapMessage, pickFiles, preflight } from "../scripts/migrate.mjs";
+import { earlierGaps, formatStatus, migrationStatus, statusOf } from "../scripts/migration-status.mjs";
+import { migratedClone } from "./helpers/migratedClone";
 
 const read = (p: string) => readFileSync(resolve(p), "utf8");
 const runner = (pg: PGlite) => ({ setExpected: (n: string) => pg.query("select set_config('rv.expected_db', $1, false)", [n]), exec: (sql: string) => pg.exec(sql) });
@@ -17,10 +18,7 @@ const fileFor = (id: string) => nameOf(pickFiles().find((f) => nameOf(f).startsW
 
 /** A database with the base schema and every migration whose number is in `ids`. */
 async function db(ids: (id: string) => boolean) {
-  const pg = new PGlite();
-  await pg.exec(read("tests/helpers/baseSchema.sql"));
-  const name = String(((await pg.query("select current_database() d")).rows[0] as any).d);
-  for (const f of pickFiles()) if (ids(nameOf(f).slice(0, 3))) await applyFile(runner(pg), name, read(f));
+  const { pg, name } = await migratedClone(ids); // built once per file, a fresh copy per test (tests/helpers/migratedClone.ts)
   const query = (sql: string) => pg.query(sql) as Promise<{ rows: any[] }>;
   return { pg, name, query };
 }
@@ -91,6 +89,111 @@ describe("preflight: a --only run that would skip earlier migrations", () => {
     const p = await preflight(query, fileFor("020"), { only: true });
     expect(p.action).toBe("run");
     expect(p.note).toMatch(/020_password_reset\.sql is partly applied \(index password_reset_tokens_user_idx missing\)/);
+    await pg.close();
+  });
+});
+
+describe("a migration without a status entry (fails closed)", () => {
+  it("is refused on a fully migrated and on an empty database, whatever the options, with what to do", async () => {
+    const full = await db(() => true);
+    const empty = await db(() => false);
+    for (const { query } of [full, empty]) {
+      for (const opts of [{}, { only: true }, { force: true }, { only: true, allowGaps: true }]) {
+        const p = await preflight(query, "099_something_new.sql", opts);
+        expect(p.action, JSON.stringify(opts)).toBe("refuse");
+        expect(p.message).toMatch(/099_something_new\.sql has no entry in scripts\/migration-status\.mjs/);
+        expect(p.message).toMatch(/Add its entry there first/);
+      }
+    }
+    await full.pg.close(); await empty.pg.close();
+  });
+  it("every migration file in the folder has an entry, so a normal run never meets that refusal", async () => {
+    const { query, pg } = await db(() => true);
+    for (const f of pickFiles()) expect((await preflight(query, nameOf(f), {})).action, nameOf(f)).not.toBe("refuse");
+    await pg.close();
+  });
+});
+
+describe("--file on a migration in db/migrations gets the same checks as --only (decideFile)", () => {
+  it("already applied: skipped; with --force: run (017 then only widens, see tests/migration-017.test.ts)", async () => {
+    const { query, pg } = await db(() => true);
+    const file = "db/migrations/" + fileFor("017");
+    expect((await decideFile(query, resolve(file), { file })).action).toBe("skip");
+    expect((await decideFile(query, resolve(file), { file, force: true })).action).toBe("run");
+    await pg.close();
+  });
+  it("an earlier migration missing: refused with the list, exactly like --only (and --allow-gaps cannot be combined with --file)", async () => {
+    const { query, pg } = await db((id) => id < "019" || id === "021");
+    const file = "db/migrations/" + fileFor("022");
+    const viaFile = await decideFile(query, resolve(file), { file, expectDb: "neondb" });
+    const viaOnly = await preflight(query, fileFor("022"), { only: true, expectDb: "neondb" });
+    expect(viaFile).toEqual(viaOnly);
+    expect(viaFile.action).toBe("refuse");
+    expect(viaFile.message).toMatch(/019 {2}missing/);
+    await pg.close();
+  });
+  it("a missing prerequisite: refused (its SQL could not work)", async () => {
+    const { query, pg } = await db((id) => id < "012");
+    const file = "db/migrations/" + fileFor("021");
+    const p = await decideFile(query, resolve(file), { file });
+    expect(p.action).toBe("refuse");
+    expect(p.message).toMatch(/needs migration 012 first/);
+    await pg.close();
+  });
+  it("a rollback (or any file outside db/migrations) runs without the status checks: its own SQL refuses what it must not do", async () => {
+    const { query, pg } = await db(() => true);
+    expect(await decideFile(query, resolve("db/rollback/017_down.sql"), { file: "db/rollback/017_down.sql" })).toEqual({ action: "run" });
+    await pg.close();
+  });
+  it("a normal run (no --file) decides exactly as before: preflight per file", async () => {
+    const { query, pg } = await db((id) => id < "022");
+    const f = pickFiles({ only: "022" })[0]!;
+    expect(await decideFile(query, f, { only: "022" })).toEqual(await preflight(query, nameOf(f), { only: true }));
+    expect(await decideFile(query, pickFiles({ only: "021" })[0]!, {})).toEqual({ action: "skip", message: `Skipping ${fileFor("021")} (already applied; --force runs it again)` });
+    await pg.close();
+  });
+});
+
+describe("a prerequisite must be fully applied, not just present", () => {
+  it("prerequisite applied: the migration runs", async () => {
+    const { pg, query } = await db((id) => id < "021");
+    expect(await preflight(query, fileFor("021"), { only: true })).toEqual({ action: "run", note: undefined });
+    await pg.close();
+  });
+  it("prerequisite partly applied: refused (even with --allow-gaps), naming the prerequisite and exactly what it is missing", async () => {
+    const { pg, query } = await db((id) => id < "021");
+    await pg.exec("drop index contributions_public_idx"); // 012 is now partly applied
+    for (const opts of [{ only: true }, { only: true, allowGaps: true }, { only: false }]) {
+      const p = await preflight(query, fileFor("021"), opts);
+      expect(p.action, JSON.stringify(opts)).toBe("refuse");
+      expect(p.message).toContain("021_contact_share.sql needs migration 012 first, fully applied:");
+      expect(p.message).toContain("012 is partly applied (missing: index contributions_public_idx)");
+      expect(p.message).toContain("--only 012 --apply");
+    }
+    const r = await migrationStatus(query);
+    expect(statusOf(r, "021")!.blockedBy).toEqual(["012"]);
+    expect(formatStatus(r)).toMatch(/021 {2}MISSING[^\n]*\n {11}needs 012 \(partly applied\) first/);
+    await pg.close();
+  });
+  it("prerequisite missing: refused, saying it is missing", async () => {
+    const { pg, query } = await db((id) => id < "012");
+    const p = await preflight(query, fileFor("021"), { only: true, allowGaps: true });
+    expect(p.action).toBe("refuse");
+    expect(p.message).toContain("012 is missing (none of its objects are in this database)");
+    await pg.close();
+  });
+  it("a missing trigger is enough to make a prerequisite partial; running the prerequisite again lets the migration go ahead", async () => {
+    const { pg, name, query } = await db((id) => id < "024");
+    await pg.exec("drop trigger contribution_scopes_keep_last on contribution_scopes"); // 012 partial: one of its safety triggers is gone
+    expect((await preflight(query, fileFor("024"), { only: true })).message).toContain("012 is partly applied (missing: trigger contribution_scopes_keep_last on contribution_scopes calling rv_scope_keep_last())");
+    await applyFile(runner(pg), name, read(pickFiles({ only: "012" })[0]!)); // what --only 012 --apply does
+    expect(await preflight(query, fileFor("024"), { only: true })).toEqual({ action: "run", note: undefined });
+    await pg.close();
+  });
+  it("an already applied migration is still skipped when a prerequisite is partial (nothing would run)", async () => {
+    const { pg, query } = await db(() => true);
+    await pg.exec("drop index contributions_public_idx");
+    expect((await preflight(query, fileFor("021"), { only: true })).action).toBe("skip");
     await pg.close();
   });
 });

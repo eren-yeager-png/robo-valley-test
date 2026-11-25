@@ -4,7 +4,7 @@
 -- Review, take a fresh backup, then run it yourself, e.g.:
 --   node --env-file=.env.local scripts/migrate.mjs --expect-db <database name> --only 013          (dry run)
 --   node --env-file=.env.local scripts/migrate.mjs --expect-db <database name> --only 013 --apply
--- Undo: db/rollback/013_down.sql (WARNING: it DELETES every contribution photo saved after this ran).
+-- Undo: db/rollback/013_down.sql (it REFUSES while any contribution photo exists: photos are never deleted by an undo).
 --
 -- MODEL
 --   contribution_photos       one row per photo, METADATA ONLY: position 1-3, JPG or PNG, up to 4 MB, required alt text (up to 200

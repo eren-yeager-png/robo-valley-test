@@ -9,8 +9,17 @@
 //
 // The checks name only objects the migration files themselves create (see db/migrations). 005's pg_trgm indexes are
 // not checked (they are optional), and 005's old "one active dataset overall" index is not checked (007 replaces it).
+// Functions and triggers (012-019) are checked exactly, never by name alone, and only in current_schema() like everything else:
+//   function - schema + name + the exact argument types, so another overload of the same name does not count;
+//   trigger  - schema + table + trigger name + the function it calls (with that function's schema and argument types);
+//              internal triggers (the ones PostgreSQL makes for foreign keys) are never counted, and neither is a DISABLED trigger
+//              (ALTER TABLE ... DISABLE TRIGGER, tgenabled = 'D'): it does not fire, so its migration is partial and the trigger is
+//              listed as "exists but is disabled". Running the migration again does not enable it (the files only create a missing one).
 
-/** @typedef {{ kind: 'table', table: string } | { kind: 'column', table: string, column: string } | { kind: 'index', name: string } | { kind: 'constraint', name: string } | { kind: 'old-index-removed', name: string, table: string }} Check */
+/** @typedef {{ kind: 'table', table: string } | { kind: 'column', table: string, column: string } | { kind: 'index', name: string } | { kind: 'constraint', name: string } | { kind: 'old-index-removed', name: string, table: string } | { kind: 'function', name: string, args: string[] } | { kind: 'trigger', table: string, name: string, calls: string }} Check */
+// `calls` is the function the trigger runs, written as in a function check: "name(argument types)", e.g. "rv_review_round()".
+const fn = (name, args = []) => ({ kind: "function", name, args });
+const trigger = (table, name, calls) => ({ kind: "trigger", table, name, calls });
 /** @type {{ id: string, title: string, feature: string, requires: string[], checks: Check[] }[]} */
 export const MIGRATIONS = [
   { id: "001", title: "signup additions", feature: "Sign-up profile fields", requires: [], checks: [
@@ -70,10 +79,16 @@ export const MIGRATIONS = [
   { id: "012", title: "contributions", feature: "Sectors, contributions and their sector scopes (foundation for the Contribute pages)", requires: [], checks: [
     ...["sectors", "contributions", "contribution_scopes"].map((table) => ({ kind: "table", table })),
     ...["contributions_user_status_idx", "contributions_public_idx", "contribution_scopes_sector_idx"].map((name) => ({ kind: "index", name })),
+    fn("rv_contribution_needs_scope"),                                                                // 012_contributions.sql:81
+    fn("rv_scope_keep_last"),                                                                         // 012_contributions.sql:89
+    trigger("contributions", "contributions_needs_scope", "rv_contribution_needs_scope()"),         // 012_contributions.sql:102-103
+    trigger("contribution_scopes", "contribution_scopes_keep_last", "rv_scope_keep_last()"),        // 012_contributions.sql:106-107
   ] },
   { id: "013", title: "contribution photos", feature: "Up to 3 photos (JPG or PNG, 4 MB, with alt text) on a contribution", requires: ["012"], checks: [
     ...["contribution_photos", "contribution_photo_blobs"].map((table) => ({ kind: "table", table })),
     ...["contribution_photos_position_uq", "contribution_photos_position_ck", "contribution_photos_mime_ck", "contribution_photos_size_ck", "contribution_photos_alt_ck", "contribution_photos_sha_ck"].map((name) => ({ kind: "constraint", name })),
+    fn("rv_photo_blob_matches"),                                                                      // 013_contribution_photos.sql:57
+    trigger("contribution_photo_blobs", "contribution_photo_blobs_match", "rv_photo_blob_matches()"), // 013_contribution_photos.sql:82-83
   ] },
   { id: "014", title: "contribution contacts", feature: "Private contact details for a contribution (owner only, or a moderator when shared)", requires: ["012"], checks: [
     { kind: "table", table: "contribution_contacts" },
@@ -84,6 +99,9 @@ export const MIGRATIONS = [
     { kind: "table", table: "moderator_audit" },
     { kind: "constraint", name: "moderator_audit_not_self_ck" },
     { kind: "index", name: "moderator_audit_target_idx" },
+    fn("rv_moderator_audit"),                                                                         // 015_moderator_flag.sql:51
+    trigger("users", "users_moderator_audit_upd", "rv_moderator_audit()"),                          // 015_moderator_flag.sql:66-68
+    trigger("users", "users_moderator_audit_ins", "rv_moderator_audit()"),                          // 015_moderator_flag.sql:71-73
   ] },
   { id: "016", title: "first sector", feature: "The Agriculture & Dairy sector for the Contribute hub, and unique sector names", requires: ["012"], checks: [
     { kind: "index", name: "sectors_name_lower_uq" },
@@ -92,17 +110,30 @@ export const MIGRATIONS = [
     { kind: "table", table: "contribution_reviews" },
     { kind: "constraint", name: "contribution_reviews_action_ck" },
     { kind: "index", name: "contribution_reviews_item_idx" },
+    fn("rv_review_append_only"),                                                                      // 017_review_statuses.sql:102
+    trigger("contribution_reviews", "contribution_reviews_append_only", "rv_review_append_only()"), // 017_review_statuses.sql:114-115
   ] },
   { id: "018", title: "duplicate safeguard", feature: "One live contribution per normalised title and sector; verify and remove review actions", requires: ["017"], checks: [
     { kind: "table", table: "contribution_title_keys" },
     { kind: "constraint", name: "contribution_title_keys_pkey" },
     { kind: "index", name: "contribution_title_keys_item_idx" },
+    fn("rv_title_key", ["text"]),                                                                     // 018_contribution_dedupe.sql:51 (t text)
+    fn("rv_sync_title_keys", ["bigint"]),                                                             // 018_contribution_dedupe.sql:64 (cid bigint)
+    fn("rv_title_keys_from_contribution"),                                                            // 018_contribution_dedupe.sql:73
+    fn("rv_title_keys_from_scope"),                                                                   // 018_contribution_dedupe.sql:79
+    trigger("contributions", "contributions_title_keys", "rv_title_keys_from_contribution()"),      // 018_contribution_dedupe.sql:93-94
+    trigger("contribution_scopes", "contribution_scopes_title_keys", "rv_title_keys_from_scope()"), // 018_contribution_dedupe.sql:97-98
   ] },
   { id: "019", title: "moderation portal", feature: "Replies to contributors, internal notes, who opened what, structured directory categories and the work log", requires: ["017"], checks: [
     ...["contribution_replies", "contribution_notes", "contribution_views", "contribution_categories", "contribution_category_links", "contribution_work_log"].map((table) => ({ kind: "table", table })),
     { kind: "column", table: "contributions", column: "review_round_at" },
     ...["contribution_replies_message_ck", "contribution_notes_note_ck", "contribution_categories_category_ck", "contribution_category_links_type_ck"].map((name) => ({ kind: "constraint", name })),
     ...["contribution_replies_item_idx", "contribution_notes_item_idx", "contribution_views_first_idx"].map((name) => ({ kind: "index", name })),
+    fn("rv_portal_append_only"),                                                                      // 019_moderation_portal.sql:66
+    fn("rv_review_round"),                                                                            // 019_moderation_portal.sql:137
+    trigger("contribution_replies", "contribution_replies_append_only", "rv_portal_append_only()"), // 019_moderation_portal.sql:86-87
+    trigger("contribution_notes", "contribution_notes_append_only", "rv_portal_append_only()"),     // 019_moderation_portal.sql:90-91
+    trigger("contributions", "contributions_review_round", "rv_review_round()"),                    // 019_moderation_portal.sql:148-149
   ] },
   { id: "020", title: "password reset", feature: "Forgot password: single-use reset links, and signing out other sessions after a reset", requires: [], checks: [
     { kind: "table", table: "password_reset_tokens" },
@@ -130,6 +161,11 @@ export const MIGRATIONS = [
     { kind: "constraint", name: "contribution_scopes_robot_fk" },
     { kind: "index", name: "contribution_scopes_robot_idx" },
   ] },
+  { id: "026", title: "questions per sector", feature: "Sector forms: each sector's questions (up to 5 on, at most 2 required), written by an administrator (the Contribute form asks them from P6)", requires: ["012"], checks: [
+    { kind: "table", table: "sector_questions" },
+    { kind: "constraint", name: "sector_questions_options_ck" },
+    { kind: "index", name: "sector_questions_order_idx" },
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */
@@ -140,23 +176,46 @@ export function describeCheck(c) {
     case "index": return `index ${c.name}`;
     case "constraint": return `constraint ${c.name}`;
     case "old-index-removed": return `old index ${c.name} replaced`;
+    case "function": return `function ${c.name}(${c.args.join(", ")})`;
+    case "trigger": return `trigger ${c.name} on ${c.table} calling ${c.calls}`;
     default: return "?";
   }
 }
 
+// The argument types of a function, in order, as format_type writes them ("bigint", "text"; "" for none). Types only: the argument
+// names do not make a different function, the types do.
+const ARG_TYPES = (procAlias) =>
+  `array_to_string(ARRAY(SELECT format_type(a.typ, NULL) FROM unnest(${procAlias}.proargtypes::oid[]) WITH ORDINALITY AS a(typ, ord) ORDER BY a.ord), ', ')`;
+
 /**
  * Reads the schema. `query(sql)` must return { rows }. Only SELECTs on system catalogs are issued.
- * @returns {Promise<{ tables: Set<string>, columns: Set<string>, indexes: Set<string>, constraints: Set<string> }>}
+ * functions: "name(type, type)" for every function in current_schema() (each overload separately).
+ * triggers:  "table.trigger -> function(types)" for every non-internal, not disabled trigger on a table in current_schema(); the
+ *            function is written with its schema when that is not current_schema(), so a trigger calling a same-named function elsewhere
+ *            does not match.
+ * disabledTriggers: the same, for the triggers that are there but disabled (tgenabled = 'D'). They do not count as present.
+ * @returns {Promise<{ tables: Set<string>, columns: Set<string>, indexes: Set<string>, constraints: Set<string>, functions: Set<string>, triggers: Set<string>, disabledTriggers: Set<string> }>}
  */
 export async function readSnapshot(query) {
   const cols = await query("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = current_schema()");
   const idx = await query("SELECT indexname FROM pg_indexes WHERE schemaname = current_schema()");
   const con = await query("SELECT c.conname FROM pg_constraint c JOIN pg_namespace n ON n.oid = c.connamespace WHERE n.nspname = current_schema()");
+  const fns = await query(`SELECT p.proname, ${ARG_TYPES("p")} AS args FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = current_schema()`);
+  const trg = await query(
+    `SELECT c.relname AS table_name, t.tgname, CASE WHEN fn.nspname = current_schema() THEN '' ELSE fn.nspname || '.' END || p.proname AS calls, ${ARG_TYPES("p")} AS args,
+            t.tgenabled::text AS enabled
+       FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+       JOIN pg_proc p ON p.oid = t.tgfoid JOIN pg_namespace fn ON fn.oid = p.pronamespace
+      WHERE n.nspname = current_schema() AND NOT t.tgisinternal`);
+  const triggerKey = (r) => `${r.table_name}.${r.tgname} -> ${r.calls}(${r.args})`;
   return {
     tables: new Set(cols.rows.map((r) => r.table_name)),
     columns: new Set(cols.rows.map((r) => `${r.table_name}.${r.column_name}`)),
     indexes: new Set(idx.rows.map((r) => r.indexname)),
     constraints: new Set(con.rows.map((r) => r.conname)),
+    functions: new Set(fns.rows.map((r) => `${r.proname}(${r.args})`)),
+    triggers: new Set(trg.rows.filter((r) => r.enabled !== "D").map(triggerKey)),
+    disabledTriggers: new Set(trg.rows.filter((r) => r.enabled === "D").map(triggerKey)),
   };
 }
 
@@ -167,12 +226,19 @@ function holds(snap, c) {
     case "index": return snap.indexes.has(c.name);
     case "constraint": return snap.constraints.has(c.name);
     case "old-index-removed": return !snap.indexes.has(c.name);
+    case "function": return snap.functions.has(`${c.name}(${c.args.join(", ")})`);
+    case "trigger": return snap.triggers.has(`${c.table}.${c.name} -> ${c.calls}`);
     default: return false;
   }
 }
 
+// A trigger check that fails only because the trigger is disabled says so: the trigger is there, but it does not fire.
+const disabled = (snap, c) => c.kind === "trigger" && Boolean(snap.disabledTriggers?.has(`${c.table}.${c.name} -> ${c.calls}`));
+/** Appended (after a space) to the description of a trigger that is there but disabled, in `absent`. The runner looks for it too. */
+export const DISABLED_NOTE = "(exists but is disabled; running the migration again does not enable it)";
+
 /**
- * @param {{ tables: Set<string>, columns: Set<string>, indexes: Set<string>, constraints: Set<string> }} snap
+ * @param {{ tables: Set<string>, columns: Set<string>, indexes: Set<string>, constraints: Set<string>, functions: Set<string>, triggers: Set<string>, disabledTriggers?: Set<string> }} snap
  * @returns {{ id: string, title: string, feature: string, status: 'applied'|'missing'|'partial', present: string[], absent: string[], blockedBy: string[] }[]}
  */
 export function evaluate(snap) {
@@ -180,15 +246,17 @@ export function evaluate(snap) {
     // "old index replaced" only means something once the table it belongs to exists
     const checks = m.checks.filter((c) => c.kind !== "old-index-removed" || snap.tables.has(c.table));
     const present = checks.filter((c) => holds(snap, c)).map(describeCheck);
-    const absent = checks.filter((c) => !holds(snap, c)).map(describeCheck);
+    const absent = checks.filter((c) => !holds(snap, c))
+      .map((c) => (disabled(snap, c) ? `${describeCheck(c)} ${DISABLED_NOTE}` : describeCheck(c)));
     const status = absent.length === 0 ? "applied" : present.length === 0 ? "missing" : "partial";
     return { id: m.id, title: m.title, feature: m.feature, status, present, absent, blockedBy: [] };
   });
   const byId = new Map(results.map((r) => [r.id, r]));
   for (const m of MIGRATIONS) {
     const r = byId.get(m.id);
-    // A prerequisite is only a problem for a migration that still has work to do.
-    if (r.status !== "applied") r.blockedBy = m.requires.filter((id) => byId.get(id).status === "missing");
+    // A prerequisite is only a problem for a migration that still has work to do. It must be fully applied: a partly applied one
+    // blocks too (its missing objects may be exactly what this migration needs).
+    if (r.status !== "applied") r.blockedBy = m.requires.filter((id) => byId.get(id).status !== "applied");
   }
   return results;
 }
@@ -219,7 +287,7 @@ export function formatStatus(results) {
     const mark = r.status === "applied" ? "applied" : r.status === "missing" ? "MISSING" : "PARTIAL";
     lines.push(`  ${r.id}  ${mark.padEnd(8)} ${r.title}${r.status === "applied" ? "" : ` - affects: ${r.feature}`}`);
     if (r.status === "partial") lines.push(`           found ${r.present.length}, missing: ${r.absent.join(", ")}`);
-    if (r.blockedBy.length) lines.push(`           needs ${r.blockedBy.join(", ")} first`);
+    if (r.blockedBy.length) lines.push(`           needs ${r.blockedBy.map((id) => `${id}${statusOf(results, id).status === "partial" ? " (partly applied)" : ""}`).join(", ")} first`);
   }
   const todo = pending(results);
   lines.push("");

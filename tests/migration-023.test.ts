@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyFile, pickFiles } from "../scripts/migrate.mjs";
 import { MIGRATIONS, migrationStatus, statusOf } from "../scripts/migration-status.mjs";
+import { migratedClone } from "./helpers/migratedClone";
 
 const read = (p: string) => readFileSync(resolve(p), "utf8");
 const runner = (pg: PGlite) => ({ setExpected: (n: string) => pg.query("select set_config('rv.expected_db', $1, false)", [n]), exec: (sql: string) => pg.exec(sql) });
@@ -14,10 +15,7 @@ const DOWN = "db/rollback/023_down.sql";
 
 /** Everything up to 022 applied, with one member and two contributions saved before 023 (the old form: 'resource'). */
 async function build(apply023 = true) {
-  const pg = new PGlite();
-  await pg.exec(read("tests/helpers/baseSchema.sql"));
-  const name = String(((await pg.query("select current_database() d")).rows[0] as any).d);
-  for (const f of pickFiles().filter((f) => f.split(/[\\/]/).pop()!.slice(0, 3) < "023")) await applyFile(runner(pg), name, read(f));
+  const { pg, name } = await migratedClone((id) => id < "023"); // built once per file, a fresh copy per test (tests/helpers/migratedClone.ts)
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('Asha','a@example.com','TC','x')");
   await pg.exec("insert into contributions (user_id, type, title, body) select id, 'resource', 'First title here', 'A long enough body.' from users");
   await pg.exec("insert into contributions (user_id, type, title, body, from_sector_page) select id, 'resource', 'Second title here', 'A long enough body.', true from users");
@@ -73,9 +71,21 @@ describe("migration 023", () => {
     expect(await col(pg)).toBeUndefined();
     await pg.close();
   });
-  it("rollback removes only the column, even when some types were chosen; the chosen types stay in contributions.type, and 022's column stays", async () => {
+  it("rollback REFUSES while any type was chosen (it would erase which types are real choices), and changes nothing", async () => {
     const { pg, name } = await build(true);
     await pg.exec("update contributions set type = 'problem', type_chosen = true where title = 'First title here'");
+    const before = await rows(pg);
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(/1 contribution\(s\) have a type the member chose/);
+    await pg.exec("ROLLBACK").catch(() => undefined);
+    expect(await col(pg)).toEqual({ data_type: "boolean", is_nullable: "NO", column_default: "false" });
+    expect(await rows(pg)).toBe(before); // 'problem', 022's column and every other row as they were
+    expect((await pg.query("select count(*)::int n from contributions where type_chosen")).rows[0]).toEqual({ n: 1 }); // the choice is kept
+    expect((await status(pg))?.status).toBe("applied");
+    await pg.close();
+  });
+  it("rollback with only false values removes only the column; stored types and 022's column stay; running it twice is harmless", async () => {
+    const { pg, name } = await build(true);
+    await pg.exec("update contributions set type = 'problem' where title = 'First title here'"); // a stored type that was not marked chosen
     const before = await rows(pg);
     await expect(applyFile(runner(pg), name + "_wrong", read(DOWN))).rejects.toThrow(/Wrong database/);
     await pg.exec("ROLLBACK").catch(() => undefined);

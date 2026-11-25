@@ -20,7 +20,9 @@ BEGIN
   IF current_database() <> expected THEN
     RAISE EXCEPTION 'Wrong database: connected to "%" but expected "%". Nothing was changed.', current_database(), expected;
   END IF;
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'password_changed_at') THEN
+  -- the column is looked up on the very table the ALTER TABLE below changes (to_regclass: one table in one schema), never by name in
+  -- any schema
+  IF EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass('users') AND attname = 'password_changed_at' AND attnum > 0 AND NOT attisdropped) THEN
     EXECUTE 'SELECT EXISTS (SELECT 1 FROM users WHERE password_changed_at IS NOT NULL)' INTO changed; -- dynamic: safe if the column is already gone
     IF changed THEN
       RAISE EXCEPTION 'Some passwords were changed through a reset. Dropping password_changed_at would make the sessions that reset signed out valid again. Nothing was changed.';

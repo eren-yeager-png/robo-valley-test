@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { applyFile, pickFiles } from "../scripts/migrate.mjs";
 import { readContact, saveContact } from "../src/lib/contributionContacts";
 import { parseUserId, setModerator } from "../src/lib/moderators";
+import { migratedClone } from "./helpers/migratedClone";
 
 const read = (p: string) => readFileSync(resolve(p), "utf8");
 const runner = (pg: PGlite) => ({
@@ -24,10 +25,7 @@ const bad = (pg: PGlite, sql: string, re?: RegExp) => expect(pg.exec(sql)).rejec
 
 // users: 1 = Ola (admin), 2 = Asha (owner), 3 = Meera (moderator), 4 = Ravi (ordinary user), 5 = Dev (second admin)
 async function build(upTo = "015") {
-  const pg = new PGlite();
-  await pg.exec(read("tests/helpers/baseSchema.sql"));
-  const name = String(((await pg.query("select current_database() d")).rows[0] as any).d);
-  for (const f of pickFiles().filter((f) => f.split(/[\\/]/).pop()!.slice(0, 3) <= upTo)) await applyFile(runner(pg), name, read(f));
+  const { pg, name } = await migratedClone((id) => id <= upTo); // built once per file, a fresh copy per test (tests/helpers/migratedClone.ts)
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('Ola','ola@example.com','admin','x'),('Asha','asha@example.com','TC','x'),('Meera','meera@example.com','TC','x'),('Ravi','ravi@example.com','TC','x'),('Dev','dev@example.com','admin','x')");
   return { pg, name };
 }
@@ -247,9 +245,36 @@ describe("the flag is set nowhere else in the code", () => {
 });
 
 describe("rollback 015", () => {
-  it("removes the column, table, function and triggers; keeps users and everything else; up, down, up", async () => {
+  it("REFUSES while anyone is a moderator, then while the audit trail has a row, and changes nothing either time", async () => {
     const { pg, name } = await build();
     await setModerator(pool(pg), 1, 3, true);
+    const before = await tables(pg);
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(/1 user\(s\) are moderators/);
+    await pg.exec("ROLLBACK").catch(() => undefined);
+    expect(await tables(pg)).toEqual(before);
+    expect(await flag(pg, 3)).toBe(true);
+    await setModerator(pool(pg), 1, 3, false); // nobody is a moderator now, but the grant and the removal are on record
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(/moderator_audit holds 2 row\(s\)/);
+    await pg.exec("ROLLBACK").catch(() => undefined);
+    expect(await tables(pg)).toEqual(before);
+    expect(await audit(pg)).toHaveLength(2);
+    expect(await count(pg, "select count(*) n from information_schema.columns where table_name='users' and column_name='is_moderator'")).toBe(1);
+    await pg.close();
+  });
+
+  it("everyone's default (not a moderator) does not count: with no flag and no audit row it goes ahead at once", async () => {
+    const { pg, name } = await build();
+    expect(await count(pg, "select count(*) n from users")).toBeGreaterThan(0); // every user has is_moderator = false
+    await applyFile(runner(pg), name, read(DOWN));
+    expect(await count(pg, "select count(*) n from information_schema.columns where table_name='users' and column_name='is_moderator'")).toBe(0);
+    await pg.close();
+  });
+
+  it("with the flags and the audit trail cleared on purpose it removes the column, table, function and triggers; keeps users and everything else; up, down, up", async () => {
+    const { pg, name } = await build();
+    await setModerator(pool(pg), 1, 3, true);
+    await setModerator(pool(pg), 1, 3, false);
+    await pg.exec("delete from moderator_audit"); // someone exported the history and decided it may go
     const users = (await pg.query("select id, full_name, email, role, password_hash from users order by id")).rows;
     const before = (await tables(pg)).filter((t) => t !== "moderator_audit");
     await applyFile(runner(pg), name, read(DOWN));
@@ -264,10 +289,10 @@ describe("rollback 015", () => {
     expect(await tables(pg)).toContain("moderator_audit");
     await pg.close();
   });
-  it("says plainly that it removes all moderator flags and affects no existing role", () => {
-    expect(read(DOWN)).toMatch(/REMOVES ALL MODERATOR FLAGS/);
+  it("says plainly that it refuses while anyone is a moderator or the audit trail has a row, and affects no existing role", () => {
+    expect(read(DOWN)).toMatch(/REFUSES \(and changes nothing\) while anyone is a moderator/);
     expect(read(DOWN)).toMatch(/affects no existing role/);
-    expect(read(UP)).toMatch(/removes ALL moderator flags/);
+    expect(read(UP)).toMatch(/REFUSES while anyone is a moderator or the audit trail has a row; it affects no existing role/);
   });
   it("refuses without a confirmed database name", async () => {
     const { pg } = await build();

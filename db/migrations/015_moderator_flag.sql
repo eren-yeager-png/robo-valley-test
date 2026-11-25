@@ -4,7 +4,7 @@
 -- Run AFTER 001-014 (needs users). NOT applied automatically. Review, take a fresh backup, then run it yourself, e.g.:
 --   node --env-file=.env.local scripts/migrate.mjs --expect-db <database name> --only 015          (dry run)
 --   node --env-file=.env.local scripts/migrate.mjs --expect-db <database name> --only 015 --apply
--- Undo: db/rollback/015_down.sql (removes ALL moderator flags and the audit trail; it affects no existing role).
+-- Undo: db/rollback/015_down.sql (it REFUSES while anyone is a moderator or the audit trail has a row; it affects no existing role).
 --
 -- WHAT IT IS. A moderator is a FLAG on a user, not a new role: users.role is untouched and everyone keeps their role.
 -- A moderator may read a contributor's private contact details ONLY when the contributor ticked "share with moderators"

@@ -33,10 +33,20 @@ BEGIN
 END $$;
 
 -- (id, sector_id) is unique already because id is; this states it so the link below can name both columns.
+-- Both constraints below are looked up on the very table this file changes ('<table>'::regclass names one table in one schema, the
+-- same one the ALTER TABLE reaches), so a constraint of the same name on any other table or in any other schema does not count.
+-- A constraint of that name on the right table but with a different definition was not made by this file: it stops the migration
+-- (nothing is changed) instead of being taken for this one.
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sector_robot_types_id_sector_uq') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'sector_robot_types'::regclass AND conname = 'sector_robot_types_id_sector_uq') THEN
     ALTER TABLE sector_robot_types ADD CONSTRAINT sector_robot_types_id_sector_uq UNIQUE (id, sector_id);
+  ELSIF NOT EXISTS (
+    SELECT 1 FROM pg_constraint c
+     WHERE c.conrelid = 'sector_robot_types'::regclass AND c.conname = 'sector_robot_types_id_sector_uq' AND c.contype = 'u'
+       AND ARRAY(SELECT a.attname::text FROM unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord)
+                   JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum ORDER BY k.ord) = ARRAY['id', 'sector_id']) THEN
+    RAISE EXCEPTION 'sector_robot_types already has a constraint named sector_robot_types_id_sector_uq that is not UNIQUE (id, sector_id). This migration did not make it; look at it before running 025 again. Nothing was changed.';
   END IF;
 END $$;
 
@@ -44,9 +54,18 @@ ALTER TABLE contribution_scopes ADD COLUMN IF NOT EXISTS robot_type_id integer;
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'contribution_scopes_robot_fk') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'contribution_scopes'::regclass AND conname = 'contribution_scopes_robot_fk') THEN
     ALTER TABLE contribution_scopes ADD CONSTRAINT contribution_scopes_robot_fk
       FOREIGN KEY (robot_type_id, sector_id) REFERENCES sector_robot_types (id, sector_id) ON DELETE RESTRICT;
+  ELSIF NOT EXISTS (
+    SELECT 1 FROM pg_constraint c
+     WHERE c.conrelid = 'contribution_scopes'::regclass AND c.conname = 'contribution_scopes_robot_fk' AND c.contype = 'f'
+       AND c.confrelid = 'sector_robot_types'::regclass AND c.confdeltype = 'r'
+       AND ARRAY(SELECT a.attname::text FROM unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord)
+                   JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum ORDER BY k.ord) = ARRAY['robot_type_id', 'sector_id']
+       AND ARRAY(SELECT a.attname::text FROM unnest(c.confkey) WITH ORDINALITY AS k(attnum, ord)
+                   JOIN pg_attribute a ON a.attrelid = c.confrelid AND a.attnum = k.attnum ORDER BY k.ord) = ARRAY['id', 'sector_id']) THEN
+    RAISE EXCEPTION 'contribution_scopes already has a constraint named contribution_scopes_robot_fk that is not the link (robot_type_id, sector_id) to sector_robot_types (id, sector_id) ON DELETE RESTRICT. This migration did not make it; look at it before running 025 again. Nothing was changed.';
   END IF;
 END $$;
 

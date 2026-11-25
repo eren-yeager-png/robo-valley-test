@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyFile, pickFiles } from "../scripts/migrate.mjs";
 import { MIGRATIONS, migrationStatus, statusOf } from "../scripts/migration-status.mjs";
+import { migratedClone } from "./helpers/migratedClone";
 
 const read = (p: string) => readFileSync(resolve(p), "utf8");
 const runner = (pg: PGlite) => ({ setExpected: (n: string) => pg.query("select set_config('rv.expected_db', $1, false)", [n]), exec: (sql: string) => pg.exec(sql) });
@@ -14,10 +15,7 @@ const DOWN = "db/rollback/021_down.sql";
 
 /** Everything up to 020 applied, with one member and two contributions. */
 async function build(apply021 = true) {
-  const pg = new PGlite();
-  await pg.exec(read("tests/helpers/baseSchema.sql"));
-  const name = String(((await pg.query("select current_database() d")).rows[0] as any).d);
-  for (const f of pickFiles().filter((f) => f.split(/[\\/]/).pop()!.slice(0, 3) < "021")) await applyFile(runner(pg), name, read(f));
+  const { pg, name } = await migratedClone((id) => id < "021"); // built once per file, a fresh copy per test (tests/helpers/migratedClone.ts)
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('Asha','a@example.com','TC','x')");
   await pg.exec("insert into contributions (user_id, type, title, body) select id, 'resource', 'First title here', 'A long enough body.' from users");
   await pg.exec("insert into contributions (user_id, type, title, body) select id, 'resource', 'Second title here', 'A long enough body.' from users");
@@ -70,6 +68,24 @@ describe("migration 021", () => {
     await applyFile(runner(pg), name, read(DOWN)); // running it twice is harmless
     await pg.close();
   });
+  it("the rollback looks only at the contributions table it changes: a ticked box in another schema neither blocks nor breaks it", async () => {
+    const { pg, name } = await build(true);
+    await pg.exec("CREATE SCHEMA other; CREATE TABLE other.contributions (id int, share_contact_with_moderators boolean); INSERT INTO other.contributions VALUES (1, true)");
+    const here = async () => ((await pg.query("select count(*)::int n from information_schema.columns where table_schema = 'public' and table_name = 'contributions' and column_name = 'share_contact_with_moderators'")).rows[0] as any).n;
+    await applyFile(runner(pg), name, read(DOWN)); // nothing ticked in THIS table: it goes ahead
+    expect(await here()).toBe(0);
+    await applyFile(runner(pg), name, read(DOWN)); // again, with the column only in other.contributions: harmless (it used to fail on the missing column)
+    expect((await pg.query("select count(*)::int n from other.contributions where share_contact_with_moderators")).rows[0]).toEqual({ n: 1 });
+    await pg.close();
+  });
+
+  it("the rollback refuses with the number of ticked contributions, and the message says what to export", async () => {
+    const { pg, name } = await build(true);
+    await pg.exec("update contributions set share_contact_with_moderators = true");
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(/\(2 contribution\(s\)\)\. Dropping the column would erase their choice\. Export their ids first/);
+    await pg.close();
+  });
+
   it("the rollback file is not in db/migrations, so the runner can never pick it", () => {
     expect(pickFiles().some((f) => f.includes("021_down"))).toBe(false);
   });

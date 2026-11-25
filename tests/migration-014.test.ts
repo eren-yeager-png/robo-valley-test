@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { applyFile, pickFiles } from "../scripts/migrate.mjs";
 import { READ_CONTACT_SQL, readContact, removeContact, saveContact, validateContact } from "../src/lib/contributionContacts";
 import { CONTRIBUTION_LIMITS } from "../src/lib/contributions";
+import { migratedClone } from "./helpers/migratedClone";
 
 const read = (p: string) => readFileSync(resolve(p), "utf8");
 const runner = (pg: PGlite) => ({
@@ -22,10 +23,7 @@ const db = (pg: PGlite) => ({ query: async (sql: string, p?: unknown[]) => { con
 
 // users: 1 = Asha (owner), 2 = Ravi (another contributor), 3 = Meera (a moderator, as far as the caller says)
 async function build() {
-  const pg = new PGlite();
-  await pg.exec(read("tests/helpers/baseSchema.sql"));
-  const name = String(((await pg.query("select current_database() d")).rows[0] as any).d);
-  for (const f of pickFiles()) await applyFile(runner(pg), name, read(f));
+  const { pg, name } = await migratedClone(); // built once per file, a fresh copy per test (tests/helpers/migratedClone.ts)
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('Asha','a@example.com','TC','x'),('Ravi','r@example.com','TC','x'),('Meera','m@example.com','TC','x')");
   await pg.exec("insert into sectors (slug,name) values ('education','Education')");
   await pg.exec("update users set is_moderator = true where id = 3"); // the moderator flag comes from the database (migration 015)
@@ -239,10 +237,23 @@ describe("code and database use the same contact limits", () => {
 });
 
 describe("rollback 014", () => {
-  it("removes exactly the contact table, keeps contributions and photos, and the migration comes back (up, down, up)", async () => {
+  it("REFUSES while any contact detail exists (private, and lost for good if dropped), and changes nothing", async () => {
     const { pg, name } = await build();
     const c = await newContribution(pg);
     await saveContact(db(pg), c, 1, CONTACT);
+    const before = await tables(pg);
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(/contribution_contacts holds 1 private contact record\(s\)/);
+    await pg.exec("ROLLBACK").catch(() => undefined);
+    expect(await tables(pg)).toEqual(before);
+    expect(await count(pg, "select count(*) n from contribution_contacts")).toBe(1);
+    await pg.close();
+  });
+
+  it("with no contact left it removes exactly the contact table, keeps contributions and photos, and the migration comes back (up, down, up)", async () => {
+    const { pg, name } = await build();
+    const c = await newContribution(pg);
+    await saveContact(db(pg), c, 1, CONTACT);
+    await pg.exec("delete from contribution_contacts"); // someone decided the contact details may go
     const before = (await tables(pg)).filter((t) => t !== "contribution_contacts");
     await applyFile(runner(pg), name, read(DOWN));
     expect(await tables(pg)).toEqual(before);
@@ -255,8 +266,10 @@ describe("rollback 014", () => {
     await pg.close();
   });
 
-  it("says plainly that it deletes the contact data", () => {
-    expect(read(DOWN)).toMatch(/DELETES every contact detail/);
+  it("says plainly that it refuses while contact details exist, because they cannot be got back except from a backup", () => {
+    expect(read(DOWN)).toMatch(/REFUSES \(and changes nothing\) while any contact detail exists/);
+    expect(read(DOWN)).toMatch(/no way to get them back except from a backup/);
+    expect(read(UP)).toMatch(/REFUSES while any contact detail exists/);
   });
 
   it("refuses without a confirmed database name", async () => {
