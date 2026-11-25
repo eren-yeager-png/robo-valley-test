@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { applyFile, pickFiles } from "../scripts/migrate.mjs";
 import { migrationStatus, statusOf } from "../scripts/migration-status.mjs";
 import { CONTRIBUTION_STATUSES } from "../src/lib/contributions";
+import { migratedClone } from "./helpers/migratedClone";
 
 const read = (p: string) => readFileSync(resolve(p), "utf8");
 const runner = (pg: PGlite) => ({
@@ -18,11 +19,8 @@ const DOWN = "db/rollback/017_down.sql";
 const n = async (pg: PGlite, sql: string) => Number(((await pg.query(sql)).rows[0] as any).n);
 
 async function build(upTo017 = true) {
-  const pg = new PGlite();
-  await pg.exec(read("tests/helpers/baseSchema.sql"));
-  const name = String(((await pg.query("select current_database() d")).rows[0] as any).d);
   // up to 018 only: 019's work-log view reads contribution_reviews, so 019 needs 017 and is undone first (see tests/migration-019.test.ts)
-  for (const f of pickFiles().filter((x: string) => !/019_/.test(x) && (upTo017 || !/01[78]_/.test(x)))) await applyFile(runner(pg), name, read(f));
+  const { pg, name } = await migratedClone((id) => id !== "019" && (upTo017 || (id !== "017" && id !== "018"))); // built once per file, a fresh copy per test (tests/helpers/migratedClone.ts)
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('A','a@example.com','TC','x'),('B','b@example.com','TC','x')");
   await pg.exec("insert into sectors (slug,name) values ('education','Education') on conflict do nothing");
   return { pg, name };
@@ -119,6 +117,63 @@ describe("migration 017: the review trail is append only", () => {
     expect((await pg.query("select reviewer_id from contribution_reviews")).rows).toEqual([{ reviewer_id: null }]);
     await pg.exec("delete from users where id = 1");
     expect(await n(pg, "select count(*) n from contribution_reviews")).toBe(0);
+    await pg.close();
+  });
+});
+
+describe("migration 017 run again", () => {
+  const rule = async (pg: PGlite) => String(((await pg.query("select pg_get_constraintdef(oid) d from pg_constraint where conname = 'contributions_status_ck'")).rows[0] as any).d);
+  it("017 -> 018 -> 017 again: the 'removed' status survives (017 only ever widens the rule), and a removed item stays valid", async () => {
+    const { pg, name } = await build(); // 001-018: 018's seven-status rule is in place
+    expect(await rule(pg)).toContain("'removed'");
+    const id = await item(pg, "pending_review");
+    await pg.exec(`update contributions set status = 'removed' where id = ${id}`);
+    await applyFile(runner(pg), name, read(UP)); // e.g. --only 017 --force, or --file db/migrations/017_...
+    expect(await rule(pg)).toContain("'removed'");
+    expect(await n(pg, `select count(*) n from contributions where id = ${id} and status = 'removed'`)).toBe(1);
+    const other = await item(pg, "pending_review");
+    await pg.exec(`update contributions set status = 'removed' where id = ${other}`); // still allowed after the re-run
+    expect(statusOf(await migrationStatus(async (sql: string) => ({ rows: (await pg.query(sql)).rows as any[] })), "018")?.status).toBe("applied");
+    await pg.close();
+  });
+  it("on a database with only 012's four statuses it widens the rule exactly as before; run twice it changes nothing", async () => {
+    const { pg, name } = await build(false);
+    expect(await rule(pg)).not.toContain("'rejected'");
+    await applyFile(runner(pg), name, read(UP));
+    const once = await rule(pg);
+    for (const s of ["draft", "pending_review", "changes_requested", "published", "rejected", "unpublished"]) expect(once).toContain(`'${s}'`);
+    expect(once).not.toContain("'removed'");
+    await applyFile(runner(pg), name, read(UP));
+    expect(await rule(pg)).toBe(once);
+    await pg.close();
+  });
+  it("a same-named rule that names all six statuses but forbids 'rejected' is a mismatch: 017 stops, the rule stays, 017 is not applied (review probe P4)", async () => {
+    const { pg, name } = await build(false);
+    await pg.exec("alter table contributions drop constraint contributions_status_ck");
+    await pg.exec("alter table contributions add constraint contributions_status_ck check (status in ('draft','pending_review','changes_requested','published','unpublished') or (status = 'rejected' and false))");
+    const odd = await rule(pg);
+    await expect(applyFile(runner(pg), name, read(UP))).rejects.toThrow(/none of the rules these migrations make \(012's four statuses, 017's six, 018's seven\)/);
+    await pg.exec("ROLLBACK").catch(() => undefined);
+    await expect(applyFile(runner(pg), name, read(UP))).rejects.toThrow(odd); // the message shows the rule it found
+    await pg.exec("ROLLBACK").catch(() => undefined);
+    expect(await rule(pg)).toBe(odd); // left exactly as it was
+    expect(await n(pg, "select count(*) n from information_schema.tables where table_name = 'contribution_reviews'")).toBe(0); // nothing of 017 was applied
+    expect(statusOf(await migrationStatus(async (sql: string) => ({ rows: (await pg.query(sql)).rows as any[] })), "017")?.status).toBe("missing");
+    expect(((await pg.query("select count(*)::int n from pg_class where relpersistence = 't'")).rows[0] as any).n).toBe(0); // no temporary table left
+    await pg.close();
+  });
+  it("the three known rules (012's four, its own six as 018_down restores it, 018's seven) are the only ones it accepts; a wider unknown rule stops it", async () => {
+    const { pg, name } = await build(); // 001-018
+    await applyFile(runner(pg), name, read("db/rollback/018_down.sql")); // back to the six, written by 018_down
+    const six = await rule(pg);
+    await applyFile(runner(pg), name, read(UP)); // its own six: left alone
+    expect(await rule(pg)).toBe(six);
+    await pg.exec("alter table contributions drop constraint contributions_status_ck");
+    await pg.exec("alter table contributions add constraint contributions_status_ck check (status in ('draft','pending_review','changes_requested','published','rejected','unpublished','removed','archived'))");
+    const wider = await rule(pg);
+    await expect(applyFile(runner(pg), name, read(UP))).rejects.toThrow(/none of the rules these migrations make/); // not made by these files: a person looks at it
+    await pg.exec("ROLLBACK").catch(() => undefined);
+    expect(await rule(pg)).toBe(wider);
     await pg.close();
   });
 });

@@ -4,7 +4,7 @@
 -- Review, take a fresh backup, then run it yourself, e.g.:
 --   node --env-file=.env.local scripts/migrate.mjs --expect-db <database name> --only 014          (dry run)
 --   node --env-file=.env.local scripts/migrate.mjs --expect-db <database name> --only 014 --apply
--- Undo: db/rollback/014_down.sql (WARNING: it DELETES every contact detail saved after this ran).
+-- Undo: db/rollback/014_down.sql (it REFUSES while any contact detail exists: they are never deleted by an undo).
 --
 -- PRIVACY BY DESIGN. This table holds a contributor's name, email and phone. It is PRIVATE.
 --   * It is a separate table, joined into NOTHING public: no view, no function and no public query refers to it.

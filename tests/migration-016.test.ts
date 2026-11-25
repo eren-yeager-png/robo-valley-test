@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyFile, pickFiles } from "../scripts/migrate.mjs";
 import { migrationStatus, statusOf } from "../scripts/migration-status.mjs";
+import { migratedClone } from "./helpers/migratedClone";
 
 const read = (p: string) => readFileSync(resolve(p), "utf8");
 const runner = (pg: PGlite) => ({
@@ -18,10 +19,7 @@ const n = async (pg: PGlite, sql: string) => Number(((await pg.query(sql)).rows[
 
 /** A database with every migration up to 015 (so 016 has not run). */
 async function before016() {
-  const pg = new PGlite();
-  await pg.exec(read("tests/helpers/baseSchema.sql"));
-  const name = String(((await pg.query("select current_database() d")).rows[0] as any).d);
-  for (const f of pickFiles().filter((x: string) => !/016_/.test(x))) await applyFile(runner(pg), name, read(f));
+  const { pg, name } = await migratedClone((id) => id !== "016"); // built once per file, a fresh copy per test (tests/helpers/migratedClone.ts)
   return { pg, name };
 }
 
@@ -108,6 +106,45 @@ describe("rollback 016", () => {
     expect(await n(pg, "select count(*) n from sectors")).toBe(1);
     expect(await n(pg, "select count(*) n from pg_indexes where indexname = 'sectors_name_lower_uq'")).toBe(1);
     expect(await n(pg, "select count(*) n from contributions")).toBe(1);
+    await pg.close();
+  });
+
+  it("keeps a seed row that existed BEFORE 016 ran, even one with exactly the values 016 inserts (a matching slug is no proof)", async () => {
+    const { pg, name } = await before016();
+    await pg.exec("insert into sectors (slug, name, sort_order, is_active, is_demo) values ('agriculture-dairy', 'Agriculture & Dairy', 10, true, false)");
+    await applyFile(runner(pg), name, read(UP)); // ON CONFLICT DO NOTHING: 016 leaves that row alone and only adds its index
+    await applyFile(runner(pg), name, read(DOWN));
+    expect((await pg.query("select slug, name, sort_order, is_active, is_demo from sectors")).rows)
+      .toEqual([{ slug: "agriculture-dairy", name: "Agriculture & Dairy", sort_order: 10, is_active: true, is_demo: false }]); // kept
+    expect(await n(pg, "select count(*) n from pg_indexes where indexname = 'sectors_name_lower_uq'")).toBe(0); // 016's own index is removed
+    await pg.close();
+  });
+
+  it("keeps a pre-existing row with other values, and a seeded row that was edited after 016 (it is the owner's now)", async () => {
+    const a = await before016();
+    await a.pg.exec("insert into sectors (slug, name, sort_order) values ('agriculture-dairy', 'Agriculture and Dairy', 5)");
+    await applyFile(runner(a.pg), a.name, read(UP));
+    await applyFile(runner(a.pg), a.name, read(DOWN));
+    expect((await a.pg.query("select name, sort_order from sectors")).rows).toEqual([{ name: "Agriculture and Dairy", sort_order: 5 }]);
+    await a.pg.close();
+    const b = await before016();
+    await applyFile(runner(b.pg), b.name, read(UP));
+    await b.pg.exec("update sectors set sort_order = 20 where slug = 'agriculture-dairy'"); // an administrator moved it
+    await applyFile(runner(b.pg), b.name, read(DOWN));
+    expect((await b.pg.query("select slug, sort_order from sectors")).rows).toEqual([{ slug: "agriculture-dairy", sort_order: 20 }]);
+    await b.pg.close();
+  });
+
+  it("is one transaction: a failure after the row is removed and the index dropped leaves both exactly as they were", async () => {
+    const { pg, name } = await before016();
+    await applyFile(runner(pg), name, read(UP));
+    const failing = read(DOWN).replace(/COMMIT;\s*$/, "SELECT 1 / 0; -- a failure after every change in the file\nCOMMIT;\n");
+    expect(failing).toContain("SELECT 1 / 0;");
+    await expect(applyFile(runner(pg), name, failing)).rejects.toThrow(/division by zero/);
+    expect(await n(pg, "select count(*) n from sectors where slug = 'agriculture-dairy'")).toBe(1);
+    expect(await n(pg, "select count(*) n from pg_indexes where indexname = 'sectors_name_lower_uq'")).toBe(1);
+    await applyFile(runner(pg), name, read(DOWN)); // and the real file still removes 016's row afterwards
+    expect(await n(pg, "select count(*) n from sectors")).toBe(0);
     await pg.close();
   });
 

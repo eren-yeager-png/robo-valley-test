@@ -4,7 +4,7 @@
 -- Run AFTER 001-010 (needs users). NOT applied automatically. Review, take a fresh backup, then run it yourself, e.g.:
 --   node --env-file=.env.local scripts/migrate.mjs --expect-db <database name> --only 012          (dry run)
 --   node --env-file=.env.local scripts/migrate.mjs --expect-db <database name> --only 012 --apply
--- Undo: db/rollback/012_down.sql (drops only the objects created here; WARNING: deletes any contributions saved after this ran).
+-- Undo: db/rollback/012_down.sql (removes only the objects created here; it REFUSES while any contribution, sector choice or added sector exists).
 --
 -- NUMBERING: a different, not yet merged change also uses the number 011 (api_rate_limits). This file is 012 so the two cannot collide.
 --

@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyFile, pickFiles } from "../scripts/migrate.mjs";
+import { migratedClone } from "./helpers/migratedClone";
 
 const read = (p: string) => readFileSync(resolve(p), "utf8");
 const runner = (pg: PGlite) => ({ setExpected: (n: string) => pg.query("select set_config('rv.expected_db', $1, false)", [n]), exec: (sql: string) => pg.exec(sql) });
@@ -15,10 +16,7 @@ const HASH = (c: string) => c.repeat(64);
 
 /** Everything up to 018 applied (as production would be before 020), with two users. */
 async function build(apply020 = true) {
-  const pg = new PGlite();
-  await pg.exec(read("tests/helpers/baseSchema.sql"));
-  const name = String(((await pg.query("select current_database() d")).rows[0] as any).d);
-  for (const f of pickFiles().filter((f) => f.split(/[\\/]/).pop()!.slice(0, 3) < "020")) await applyFile(runner(pg), name, read(f));
+  const { pg, name } = await migratedClone((id) => id < "020"); // built once per file, a fresh copy per test (tests/helpers/migratedClone.ts)
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('Asha','a@example.com','TC','x'),('Ravi','r@example.com','TC','x')");
   if (apply020) await applyFile(runner(pg), name, read(UP));
   return { pg, name };
@@ -121,6 +119,16 @@ describe("rollback 020", () => {
     expect(await tables(pg)).toEqual(before);
     expect(await cols(pg)).toEqual(colsBefore);
     expect(await n(pg, "select count(*) n from users where password_changed_at is not null")).toBe(1);
+    await pg.close();
+  });
+
+  it("looks only at the users table it changes: a users table in another schema (even with a reset recorded) neither blocks nor breaks it", async () => {
+    const { pg, name } = await build();
+    await pg.exec("CREATE SCHEMA other; CREATE TABLE other.users (id int, password_changed_at timestamptz); INSERT INTO other.users VALUES (1, now())");
+    await applyFile(runner(pg), name, read(DOWN)); // no reset in THIS users table: it goes ahead
+    expect(await n(pg, "select count(*) n from information_schema.columns where table_schema = 'public' and table_name = 'users' and column_name = 'password_changed_at'")).toBe(0);
+    await applyFile(runner(pg), name, read(DOWN)); // again, with the column gone here but present in other.users: harmless (it used to fail on the missing column)
+    expect(await n(pg, "select count(*) n from other.users where password_changed_at is not null")).toBe(1); // the other schema is untouched
     await pg.close();
   });
 

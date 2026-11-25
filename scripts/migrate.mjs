@@ -18,33 +18,81 @@
 // Local database (explicitly loading .env.local):
 //   node --env-file=.env.local scripts/migrate.mjs --expect-db <database name> --only 003
 //
-// Options:  --only <prefix>   run only files whose name starts with this (e.g. 003)
-//           --file <path>     run one specific SQL file (e.g. db/rollback/003_down.sql)
+// Options:  --only <number>   run only that one migration (e.g. 003; "3" also means 003). Exact: "01" is refused, it does not mean 010-019
+//           --file <path>     run one specific SQL file (e.g. db/rollback/003_down.sql). A file in db/migrations gets the same checks
+//                             as --only <its number> (skipped when applied, refused when a migration it needs or an earlier one is missing)
 //           --apply           actually execute (default is a dry run)
 //           --status          READ-ONLY: connect and report which migrations are applied / missing / partial (never applies anything)
 //           --force           with --apply: run a migration even though its objects already exist (normally skipped)
 //           --allow-gaps      with --only: run it even though an EARLIER migration is missing or partly applied (normally refused,
 //                             with the list of what is missing; apply those first, lowest number first)
 //           --expect-host <endpoint ID>   refuse unless DATABASE_URL points to this Neon endpoint (shown in the Neon console)
+// Every option that takes a value refuses to start without one (an empty value, or the option last on the line).
+// Fails closed on the migration files too: a .sql file in db/migrations that is not named NNN_name.sql, two files with the same
+// number, or a migration file without an entry in scripts/migration-status.mjs stop the run instead of being skipped or run blind.
 
 import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { earlierGaps, formatStatus, migrationStatus, statusOf } from "./migration-status.mjs";
+import { DISABLED_NOTE, earlierGaps, formatStatus, migrationStatus, statusOf } from "./migration-status.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const MIGRATIONS_DIR = resolve(here, "..", "db", "migrations");
 
+/** How a migration file must be named: three digits, an underscore, a name, ".sql" (e.g. 024_sector_robot_types.sql). */
+export const MIGRATION_NAME = /^\d{3}_.+\.sql$/;
+
 /**
- * Migration files in order. `only` filters by filename prefix; `file` selects exactly one file.
+ * The migration files among the names in db/migrations, in order. Fails closed (throws, so nothing runs) when a .sql file does not
+ * follow the naming rule (it would otherwise be skipped without a word) or when two files share a number (both would run, and the
+ * status check could not tell them apart). Files that are not .sql (a README, .gitkeep) are ignored.
+ * @param {string[]} names file names in the folder
+ * @returns {string[]}
+ */
+export function checkMigrationNames(names) {
+  const sqlFiles = names.filter((f) => /\.sql$/i.test(f)).sort();
+  const misnamed = sqlFiles.filter((f) => !MIGRATION_NAME.test(f));
+  if (misnamed.length) {
+    throw new Error(`db/migrations holds .sql files that are not named NNN_name.sql (three digits, underscore, name, lower-case .sql): ${misnamed.join(", ")}. Rename or move them first; nothing was run.`);
+  }
+  const byNumber = new Map();
+  for (const f of sqlFiles) byNumber.set(f.slice(0, 3), [...(byNumber.get(f.slice(0, 3)) ?? []), f]);
+  const shared = [...byNumber.values()].filter((group) => group.length > 1);
+  if (shared.length) {
+    throw new Error(`Migration numbers must be used once, but ${shared.map((group) => group.join(" and ")).join("; ")} share one. Renumber one of them first; nothing was run.`);
+  }
+  return sqlFiles;
+}
+
+/**
+ * Migration files in order. `only` filters by filename prefix; `file` selects exactly one file. The folder is always checked first
+ * (see checkMigrationNames), so a misnamed or duplicate migration stops every run, including a --file run.
  * @param {{ dir?: string, only?: string, file?: string }} [opts]
  * @returns {string[]}
  */
 export function pickFiles({ dir = MIGRATIONS_DIR, only, file } = {}) {
+  const all = checkMigrationNames(readdirSync(dir));
   if (file) return [resolve(file)];
-  const all = readdirSync(dir).filter((f) => /^\d{3}_.+\.sql$/.test(f)).sort();
   const chosen = only ? all.filter((f) => f.startsWith(only)) : all;
   return chosen.map((f) => join(dir, f));
+}
+
+/**
+ * For --file: the file name when the path is a migration in db/migrations (it then gets the same checks as --only), or null for any
+ * other file (a rollback in db/rollback, for example, which runs without the status checks). A path inside db/migrations that is not
+ * a correctly named file directly in that folder is refused.
+ * @param {string} file the --file value
+ * @param {string} [dir]
+ * @returns {string | null}
+ */
+export function forwardMigrationName(file, dir = MIGRATIONS_DIR) {
+  const rel = relative(dir, resolve(file));
+  if (rel === "" || rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel)) return null;
+  const name = basename(rel);
+  if (rel !== name || !MIGRATION_NAME.test(name)) {
+    throw new Error(`${file} is inside db/migrations but is not a migration file (NNN_name.sql directly in that folder). Nothing was run.`);
+  }
+  return name;
 }
 
 /**
@@ -110,9 +158,11 @@ export function hintFor(e) {
 /**
  * What to do with one migration file before applying it, from the database's real schema (read-only). A decision only, no writes.
  *   skip   - it is already applied (unless --force)
- *   refuse - a migration it needs is missing (always), or, for a --only run, an earlier migration is missing or partly applied
- *            (unless --allow-gaps); the message lists them
- *   run    - go ahead (note: what to tell the operator first, e.g. "partly applied")
+ *   refuse - it has no entry in scripts/migration-status.mjs (always: its state and prerequisites cannot be checked); it is not yet
+ *            fully applied and a migration it needs is missing OR only partly applied (even with --allow-gaps; an already-applied
+ *            migration run again with --force is not checked against its prerequisites and still runs); or, for a --only run, an
+ *            earlier migration is missing or partly applied (unless --allow-gaps); the message lists them
+ *   run    - go ahead (note: what to tell the operator first, e.g. "partly applied", or a disabled trigger to enable by hand)
  * @param {(sql: string) => Promise<{ rows: any[] }>} query
  * @param {string} fileName e.g. "024_sector_robot_types.sql"
  * @param {{ force?: boolean, only?: boolean, allowGaps?: boolean, expectDb?: string }} opts
@@ -122,14 +172,87 @@ export async function preflight(query, fileName, opts = {}) {
   const id = fileName.slice(0, 3);
   const results = await migrationStatus(query);
   const st = statusOf(results, id);
-  if (st && st.status === "applied" && !opts.force) return { action: "skip", message: `Skipping ${fileName} (already applied; --force runs it again)` };
-  if (st && st.blockedBy.length) return { action: "refuse", message: `${fileName} needs migration ${st.blockedBy.join(", ")} first (its tables are not in this database). Run --status to see the state.` };
+  if (!st) return { action: "refuse", message: `${fileName} has no entry in scripts/migration-status.mjs, so the runner cannot tell whether it is already applied or what it needs. Add its entry there first.` };
+  if (st.status === "applied" && !opts.force) return { action: "skip", message: `Skipping ${fileName} (already applied; --force runs it again)` };
+  if (st.blockedBy.length) return { action: "refuse", message: prerequisiteMessage(fileName, st.blockedBy, results) };
   if (opts.only && !opts.allowGaps) {
     const gaps = earlierGaps(results, id);
     if (gaps.length) return { action: "refuse", message: gapMessage(fileName, gaps, opts.expectDb) };
   }
-  const note = st && st.status === "partial" ? `Note: ${fileName} is partly applied (${st.absent.join(", ")} missing); running it completes it.` : undefined;
+  const note = st.status === "partial" ? partialNote(fileName, st.absent) : undefined;
   return { action: "run", note };
+}
+
+/**
+ * The note before running a partly applied migration. A disabled trigger is not missing, and running the migration again does not
+ * enable it (the files only create what does not exist), so it is named on its own line with what a person has to do.
+ * @param {string} fileName
+ * @param {string[]} absent the status check's list for this migration
+ */
+function partialNote(fileName, absent) {
+  const isDisabled = (a) => a.endsWith(` ${DISABLED_NOTE}`);
+  const notThere = absent.filter((a) => !isDisabled(a));
+  const off = absent.filter(isDisabled).map((a) => a.slice(0, -(DISABLED_NOTE.length + 1)));
+  if (!off.length) return `Note: ${fileName} is partly applied (${notThere.join(", ")} missing); running it completes it.`;
+  const one = off.length === 1;
+  return [
+    `Note: ${fileName} is partly applied.`,
+    ...(notThere.length ? [`  Not in the database yet: ${notThere.join(", ")}. Running the migration adds ${notThere.length === 1 ? "it" : "them"}.`] : []),
+    `  Disabled: ${off.join(", ")}. ${one ? "This trigger exists but is" : "These triggers exist but are"} switched off, and running the migration again will NOT enable ${one ? "it" : "them"}.`,
+    `  Find out why ${one ? "it was" : "they were"} disabled, then enable ${one ? "it" : "them"} by hand: ALTER TABLE <table> ENABLE TRIGGER <trigger>.`,
+  ].join("\n");
+}
+
+/**
+ * The decision for one file of a run. Every migration from db/migrations gets preflight, including one named with --file (as if it
+ * were --only <its number>, so --force, a missing prerequisite and earlier gaps are handled the same way). Any other --file (a rollback)
+ * runs without the status checks: its own SQL refuses what it must not do.
+ * @param {(sql: string) => Promise<{ rows: any[] }>} query
+ * @param {string} filePath the file about to run
+ * @param {{ file?: string, only?: string, force?: boolean, allowGaps?: boolean, expectDb?: string }} args the command-line options
+ * @returns {Promise<{ action: 'skip'|'run'|'refuse', message?: string, note?: string }>}
+ */
+export async function decideFile(query, filePath, args) {
+  const name = args.file ? forwardMigrationName(args.file) : basename(filePath);
+  if (!name) return { action: "run" };
+  return preflight(query, name, { force: args.force, only: Boolean(args.only) || Boolean(args.file), allowGaps: args.allowGaps, expectDb: args.expectDb });
+}
+
+/**
+ * The refusal for a migration whose prerequisite is not fully applied: each prerequisite, whether it is missing or partly applied,
+ * and for a partly applied one exactly which objects are missing. --allow-gaps never overrides it. No connection details.
+ */
+export function prerequisiteMessage(fileName, blockedBy, results) {
+  const detail = blockedBy.map((id) => {
+    const p = statusOf(results, id);
+    return p.status === "partial" ? `${id} is partly applied (missing: ${p.absent.join(", ")})` : `${id} is missing (none of its objects are in this database)`;
+  });
+  return [
+    `${fileName} needs migration ${blockedBy.join(", ")} first, fully applied:`,
+    ...detail.map((d) => `    ${d}`),
+    `  Apply ${blockedBy.length === 1 ? "it" : "them"} first (a dry run, then --apply), for example: node scripts/migrate.mjs --expect-db <database name> --only ${blockedBy[0]} --apply`,
+    "  Run --status to see the state.",
+  ].join("\n");
+}
+
+/**
+ * The --only value as one exact migration number, from the names in db/migrations. Accepted: three digits ("011"), or one or two
+ * digits without a leading zero ("11" means 011, "7" means 007), which cannot mean anything else. Refused, so that nothing runs:
+ * any other form (several numbers, letters, four digits), a short number with a leading zero ("01" used to select 010-019 as a name
+ * prefix, so reading it as 001 now would silently change what runs), and a number that has no migration file.
+ * @param {string} value
+ * @param {string[]} names the migration file names (see checkMigrationNames)
+ * @returns {string} the three-digit number
+ */
+export function parseOnly(value, names) {
+  const v = String(value).trim();
+  let id;
+  if (/^\d{3}$/.test(v)) id = v;
+  else if (/^[1-9]\d?$/.test(v)) id = v.padStart(3, "0");
+  else if (/^0\d?$/.test(v)) throw new Error(`--only ${value} is ambiguous: write the full three-digit migration number (for example --only 010). --only selects exactly one migration; it is not a name prefix. Nothing was run.`);
+  else throw new Error(`--only takes one migration number, for example --only 024 (got "${value}"). Nothing was run.`);
+  if (!names.some((f) => f.slice(0, 3) === id)) throw new Error(`There is no migration ${id} in db/migrations (--only ${value}). Nothing was run.`);
+  return id;
 }
 
 /** The refusal for a --only run that would skip earlier migrations: what is missing, and what to run instead. No connection details. */
@@ -144,18 +267,26 @@ export function gapMessage(fileName, gaps, expectDb = "<database name>") {
   ].join("\n");
 }
 
+const VALUE_EXAMPLE = { "--expect-db": "--expect-db neondb", "--expect-host": "--expect-host ep-cool-darkness-123456", "--only": "--only 024", "--file": "--file db/rollback/024_down.sql" };
+
 function parseArgs(argv) {
   const a = { apply: false, status: false, force: false, allowGaps: false, expectDb: undefined, expectHost: undefined, only: undefined, file: undefined };
+  // An option that takes a value must get one. Without this, "--only" or "--file" as the last word became a run of EVERY migration,
+  // and a bare "--expect-host" silently switched the endpoint check off.
+  const value = (t, v) => {
+    if (v === undefined || v.trim() === "" || v.startsWith("--")) throw new Error(`${t} needs a value, for example ${VALUE_EXAMPLE[t]}. Nothing was run.`);
+    return v;
+  };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
     if (t === "--status") a.status = true;
     else if (t === "--force") a.force = true;
     else if (t === "--allow-gaps") a.allowGaps = true;
     else if (t === "--apply") a.apply = true;
-    else if (t === "--expect-db") a.expectDb = argv[++i];
-    else if (t === "--expect-host") a.expectHost = argv[++i];
-    else if (t === "--only") a.only = argv[++i];
-    else if (t === "--file") a.file = argv[++i];
+    else if (t === "--expect-db") a.expectDb = value(t, argv[++i]);
+    else if (t === "--expect-host") a.expectHost = value(t, argv[++i]);
+    else if (t === "--only") a.only = value(t, argv[++i]);
+    else if (t === "--file") a.file = value(t, argv[++i]);
     else throw new Error(`Unknown option: ${t}`);
   }
   return a;
@@ -174,6 +305,8 @@ async function main() {
   const isLocal = /^(localhost|127\.0\.0\.1|\[?::1\]?)$/.test(new URL(url).hostname);
   if (args.status && (args.apply || args.force || args.allowGaps || args.only || args.file)) fail("--status only reads the database. It cannot be combined with --apply, --force, --allow-gaps, --only or --file.");
   if (args.allowGaps && !args.only) fail("--allow-gaps only goes with --only <number> (a full run applies every migration in order, so it cannot skip one).");
+  if (args.only) args.only = parseOnly(args.only, checkMigrationNames(readdirSync(MIGRATIONS_DIR))); // exact number, or refused here
+  const forward = args.file ? forwardMigrationName(args.file) : null; // a --file in db/migrations is checked like --only (refused here if misnamed)
   const files = args.status ? [] : pickFiles({ only: args.only, file: args.file });
   if (!args.status && !files.length) fail("No migration files matched.");
 
@@ -190,7 +323,7 @@ async function main() {
   if (!args.apply && !args.status) {
     console.log("\nDRY RUN: nothing was connected or changed. Add --apply to run these files.");
     console.log("To see which of them the database already has, run the same command with --status (read-only).");
-    if (args.only && !args.allowGaps) console.log("With --apply, it first checks that every earlier migration is applied, and refuses (listing them) if one is not.");
+    if ((args.only || forward) && !args.allowGaps) console.log("With --apply, it first checks that every earlier migration is applied, and refuses (listing them) if one is not.");
     return;
   }
 
@@ -211,14 +344,13 @@ async function main() {
     };
     for (const f of files) {
       const name = f.split(/[\\/]/).pop();
-      // Skip what the database already has; refuse to start one whose prerequisite is missing, or (for --only) one that comes after a
-      // migration that is not fully applied, unless --allow-gaps. A --file run (e.g. a rollback) is exempt.
-      if (!args.file) {
-        const p = await preflight((sql) => client.query(sql), name, { force: args.force, only: Boolean(args.only), allowGaps: args.allowGaps, expectDb: args.expectDb });
-        if (p.action === "skip") { console.log(p.message); continue; }
-        if (p.action === "refuse") fail(p.message);
-        if (p.note) console.log(p.note);
-      }
+      // Skip what the database already has; refuse to start one without a status entry, one whose prerequisite is missing, or (for
+      // --only, and for --file on a migration) one that comes after a migration that is not fully applied, unless --allow-gaps.
+      // A --file run of anything outside db/migrations (e.g. a rollback) is exempt: decideFile returns "run" for it.
+      const p = await decideFile((sql) => client.query(sql), f, args);
+      if (p.action === "skip") { console.log(p.message); continue; }
+      if (p.action === "refuse") fail(p.message);
+      if (p.note) console.log(p.note);
       process.stdout.write(`Applying ${name} ... `);
       try {
         await applyFile(run, args.expectDb, readFileSync(f, "utf8"));

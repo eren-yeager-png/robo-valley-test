@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyFile, pickFiles } from "../scripts/migrate.mjs";
 import { contributionDbError } from "../src/lib/contributions";
+import { migratedClone } from "./helpers/migratedClone";
 
 const read = (p: string) => readFileSync(resolve(p), "utf8");
 const runner = (pg: PGlite) => ({
@@ -21,10 +22,7 @@ const NEW = ["contribution_scopes", "contributions", "sectors"];
 const PHOTOS = ["contribution_contacts", "contribution_photo_blobs", "contribution_photos", "contribution_title_keys"]; // later migrations that depend on contributions (013, 014, 018)
 
 async function build() {
-  const pg = new PGlite();
-  await pg.exec(read("tests/helpers/baseSchema.sql"));
-  const name = String(((await pg.query("select current_database() d")).rows[0] as any).d);
-  for (const f of pickFiles()) await applyFile(runner(pg), name, read(f));
+  const { pg, name } = await migratedClone(); // built once per file, a fresh copy per test (tests/helpers/migratedClone.ts)
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('Asha','a@example.com','TC','x'),('Ravi','r@example.com','TC','x')");
   await pg.exec("insert into sectors (slug,name) values ('education','Education'),('healthcare','Healthcare')"); // agriculture-dairy is already there (id 1): migration 016 adds it
   return { pg, name };
@@ -172,20 +170,27 @@ describe("migration 012", () => {
   });
 });
 
+/** Undoes the later migrations whose tables point at 012's, newest first. Their tables are empty here, so none of them refuses. */
+async function undoLater(pg: PGlite, name: string) {
+  await applyFile(runner(pg), name, read("db/rollback/026_down.sql")); // newest first (026: questions point at sectors)
+  await applyFile(runner(pg), name, read("db/rollback/025_down.sql")); // 025 points at 024, and 024 at sectors
+  await applyFile(runner(pg), name, read("db/rollback/024_down.sql")); // 024: robot types point at sectors
+  await applyFile(runner(pg), name, read("db/rollback/019_down.sql"));
+  await applyFile(runner(pg), name, read("db/rollback/018_down.sql"));
+  await applyFile(runner(pg), name, read("db/rollback/017_down.sql"));
+  await applyFile(runner(pg), name, read("db/rollback/014_down.sql"));
+  await applyFile(runner(pg), name, read("db/rollback/013_down.sql"));
+}
+
 describe("rollback 012", () => {
   it("removes exactly the new objects, keeps everything else, and the migration can be applied again", async () => {
     const { pg, name } = await build();
     const P019 = ["contribution_replies", "contribution_notes", "contribution_views", "contribution_categories", "contribution_category_links", "contribution_work_log"];
     const before = (await tables(pg)).filter((t) => !NEW.includes(t) && !PHOTOS.includes(t) && t !== "contribution_reviews" && !P019.includes(t) && t !== "sector_robot_types" && t !== "sector_questions");
-    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(); // 013 (photos), 014 (contacts), 017 (reviews) depend on contributions, 024 (robot types) on sectors: undo them first
+    await pg.exec("delete from sectors where slug in ('education','healthcare')"); // the owner decided the added sectors may go (otherwise it refuses: next test)
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(/depend/); // 013 (photos), 014 (contacts), 017 (reviews) depend on contributions, 024 (robot types) and 026 (questions) on sectors: undo them first
     await pg.exec("ROLLBACK");
-    await applyFile(runner(pg), name, read("db/rollback/025_down.sql")); // newest first (025 points at 024, and 024 at sectors)
-    await applyFile(runner(pg), name, read("db/rollback/024_down.sql")); // 024: robot types point at sectors; the table is empty here
-    await applyFile(runner(pg), name, read("db/rollback/019_down.sql"));
-    await applyFile(runner(pg), name, read("db/rollback/018_down.sql"));
-    await applyFile(runner(pg), name, read("db/rollback/017_down.sql"));
-    await applyFile(runner(pg), name, read("db/rollback/014_down.sql"));
-    await applyFile(runner(pg), name, read("db/rollback/013_down.sql"));
+    await undoLater(pg, name);
     await applyFile(runner(pg), name, read(DOWN));
     const after = await tables(pg);
     for (const n of NEW) expect(after).not.toContain(n);
@@ -198,6 +203,79 @@ describe("rollback 012", () => {
     await applyFile(runner(pg), name, read("db/migrations/014_contribution_contacts.sql"));
     await applyFile(runner(pg), name, read("db/migrations/017_review_statuses.sql"));
     expect(await tables(pg)).toContain("contributions");
+    await pg.close();
+  });
+
+  it("REFUSES while any contribution, sector choice or added sector exists, and changes nothing; the sector 016 seeds does not count", async () => {
+    const { pg, name } = await build();
+    await undoLater(pg, name);
+    const before = await tables(pg);
+    // build() added Education and Healthcare: they are the owner's sectors, not a seed
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(/sectors holds 2 sector\(s\) besides the seeded Agriculture & Dairy/);
+    await pg.exec("ROLLBACK").catch(() => undefined);
+    expect(await tables(pg)).toEqual(before);
+    expect(await count(pg, "select count(*) n from sectors")).toBe(3);
+    await pg.exec("delete from sectors where slug in ('education','healthcare')");
+    const id = await newDraft(pg);
+    await pg.exec(`insert into contribution_scopes (contribution_id, sector_id) select ${id}, id from sectors where slug = 'agriculture-dairy'`);
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(/contributions holds 1 row\(s\)/);
+    await pg.exec("ROLLBACK").catch(() => undefined);
+    expect(await tables(pg)).toEqual(before);
+    expect(await count(pg, "select count(*) n from contributions")).toBe(1);
+    expect(await count(pg, "select count(*) n from contribution_scopes")).toBe(1);
+    await pg.exec("delete from contributions"); // someone decided the members' work may go (its sector choice goes with it)
+    expect(await count(pg, "select count(*) n from sectors where slug = 'agriculture-dairy'")).toBe(1); // only 016's seed is left
+    await applyFile(runner(pg), name, read(DOWN)); // the seed alone never blocks the undo
+    for (const t of NEW) expect(await tables(pg)).not.toContain(t);
+    await pg.close();
+  });
+
+  // The agriculture-dairy row counts as 016's seed only when it passes rollback 016's own test (exactly 016's values, and written
+  // together with 016's index). A row that rollback 016 kept is someone's, so this undo must refuse instead of dropping it.
+  const AGRI = "select slug, name, sort_order, is_active, is_demo from sectors";
+  const D016 = "db/rollback/016_down.sql";
+  const seedRefusal = /sectors holds 1 sector\(s\) that are not migration 016's untouched seed: agriculture-dairy\. .*cannot be proven to be the one 016 inserted.*Nothing was changed/;
+
+  it("REFUSES when the seeded row was edited after 016: with 016's index still there, and after rollback 016 kept it (review probe P1a)", async () => {
+    const { pg, name } = await migratedClone(); // 001-026: 016's untouched seed is the only sector
+    await pg.exec("update sectors set sort_order = 20 where slug = 'agriculture-dairy'"); // an administrator moved it: it is theirs now
+    await undoLater(pg, name);
+    const before = await tables(pg);
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(seedRefusal); // 016's index is there, but the values differ
+    await pg.exec("ROLLBACK").catch(() => undefined);
+    await applyFile(runner(pg), name, read(D016)); // rollback 016 keeps the edited row (NOTICE) and removes its index
+    expect((await pg.query(AGRI)).rows).toEqual([{ slug: "agriculture-dairy", name: "Agriculture & Dairy", sort_order: 20, is_active: true, is_demo: false }]);
+    expect(await count(pg, "select count(*) n from pg_indexes where indexname = 'sectors_name_lower_uq'")).toBe(0);
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(seedRefusal);
+    await pg.exec("ROLLBACK").catch(() => undefined);
+    expect(await tables(pg)).toEqual(before); // nothing was dropped: sectors, contributions and contribution_scopes are all still there
+    expect((await pg.query(AGRI)).rows).toEqual([{ slug: "agriculture-dairy", name: "Agriculture & Dairy", sort_order: 20, is_active: true, is_demo: false }]);
+    await pg.close();
+  });
+
+  it("REFUSES when the owner's agriculture-dairy row existed before 016, even with exactly 016's values (review probe P1b)", async () => {
+    const { pg, name } = await migratedClone((id) => id < "016"); // 001-015
+    await pg.exec("insert into sectors (slug, name, sort_order, is_active, is_demo) values ('agriculture-dairy', 'Agriculture & Dairy', 10, true, false)");
+    for (const f of pickFiles().filter((x: string) => x.replace(/\\/g, "/").split("/").pop()!.slice(0, 3) >= "016")) await applyFile(runner(pg), name, read(f)); // then 016-026
+    await undoLater(pg, name);
+    await applyFile(runner(pg), name, read(D016)); // 016 did not make the row (its insert did nothing), so rollback 016 keeps it
+    expect((await pg.query(AGRI)).rows).toEqual([{ slug: "agriculture-dairy", name: "Agriculture & Dairy", sort_order: 10, is_active: true, is_demo: false }]);
+    const before = await tables(pg);
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(seedRefusal); // a matching slug and matching values prove nothing
+    await pg.exec("ROLLBACK").catch(() => undefined);
+    expect(await tables(pg)).toEqual(before);
+    for (const t of NEW) expect(before).toContain(t);
+    expect((await pg.query(AGRI)).rows).toEqual([{ slug: "agriculture-dairy", name: "Agriculture & Dairy", sort_order: 10, is_active: true, is_demo: false }]);
+    await pg.close();
+  });
+
+  it("an untouched 016 seed: rollback 016 removes it, then this undo goes ahead (the normal newest-first order still works)", async () => {
+    const { pg, name } = await migratedClone();
+    await undoLater(pg, name);
+    await applyFile(runner(pg), name, read(D016)); // removes 016's own row and its index
+    expect(await count(pg, "select count(*) n from sectors")).toBe(0);
+    await applyFile(runner(pg), name, read(DOWN));
+    for (const t of NEW) expect(await tables(pg)).not.toContain(t);
     await pg.close();
   });
 

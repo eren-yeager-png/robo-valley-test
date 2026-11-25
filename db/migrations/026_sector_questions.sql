@@ -49,7 +49,9 @@ CREATE TABLE IF NOT EXISTS sector_questions (
   CONSTRAINT sector_questions_kind_ck CHECK (kind IN ('text', 'choice')),
   CONSTRAINT sector_questions_options_ck CHECK (
     (kind = 'text' AND options IS NULL) OR
-    (kind = 'choice' AND options IS NOT NULL AND jsonb_typeof(options) = 'array' AND jsonb_array_length(options) BETWEEN 2 AND 10) -- IS NOT NULL: a CHECK that is NULL would pass
+    (kind = 'choice' AND CASE WHEN jsonb_typeof(options) = 'array' THEN jsonb_array_length(options) BETWEEN 2 AND 10 ELSE false END)
+    -- CASE: the length is only ever read from an array, whatever order the database evaluates the parts in. SQL NULL and JSON null
+    -- options fall to ELSE false, so a choice question without choices is refused (a CHECK that came out NULL would pass).
   ),
   CONSTRAINT sector_questions_required_on_ck CHECK (is_active OR NOT is_required) -- a switched-off question is never required
 );

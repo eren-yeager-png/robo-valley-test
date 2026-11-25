@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyFile, pickFiles } from "../scripts/migrate.mjs";
 import { MIGRATIONS, migrationStatus, statusOf } from "../scripts/migration-status.mjs";
+import { migratedClone } from "./helpers/migratedClone";
 
 const read = (p: string) => readFileSync(resolve(p), "utf8");
 const runner = (pg: PGlite) => ({ setExpected: (n: string) => pg.query("select set_config('rv.expected_db', $1, false)", [n]), exec: (sql: string) => pg.exec(sql) });
@@ -13,10 +14,7 @@ const DOWN = "db/rollback/026_down.sql";
 
 /** Every migration before 026, and one administrator. */
 async function build(apply026 = true) {
-  const pg = new PGlite();
-  await pg.exec(read("tests/helpers/baseSchema.sql"));
-  const name = String(((await pg.query("select current_database() d")).rows[0] as any).d);
-  for (const f of pickFiles().filter((f) => f.split(/[\\/]/).pop()!.slice(0, 3) < "026")) await applyFile(runner(pg), name, read(f));
+  const { pg, name } = await migratedClone((id) => id < "026"); // built once per file, a fresh copy per test (tests/helpers/migratedClone.ts)
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('Boss','boss@example.com','admin','x')");
   if (apply026) await applyFile(runner(pg), name, read(UP));
   return { pg, name };
@@ -59,6 +57,26 @@ describe("migration 026", () => {
     await expect(add(pg, s, "How many animals?", "number", null)).rejects.toThrow(/sector_questions_kind_ck/);
     await expect(add(pg, 999999, "How many animals?", "text", null)).rejects.toThrow(/foreign key/);
     expect((await pg.query("select count(*)::int n from sector_questions")).rows[0]).toEqual({ n: 2 });
+    await pg.close();
+  });
+
+  it("options, every shape for both kinds: text takes only SQL NULL; choice only an array of 2 to 10; every refusal is the check (23514), never a JSON error", async () => {
+    const { pg } = await build(true);
+    const s = await agri(pg);
+    const arr = (n: number) => JSON.stringify(Array.from({ length: n }, (_, i) => `C${i}`));
+    // [shape, options as SQL] : the same 20 cases recorded on the unchanged 026 before the CASE rewrite (behaviour must not change)
+    const shapes: Array<[string, string]> = [["object", `'{"a":1}'::jsonb`], ["string", `'"abc"'::jsonb`], ["number", "'7'::jsonb"], ["JSON null", "'null'::jsonb"],
+      ["SQL NULL", "NULL"], ["[]", "'[]'::jsonb"], ["1 item", `'${arr(1)}'::jsonb`], ["2 items", `'${arr(2)}'::jsonb`], ["10 items", `'${arr(10)}'::jsonb`], ["11 items", `'${arr(11)}'::jsonb`]];
+    const accepted = { text: ["SQL NULL"], choice: ["2 items", "10 items"] } as const;
+    for (const kind of ["text", "choice"] as const) for (const [shape, v] of shapes) {
+      const insert = pg.exec(`insert into sector_questions (sector_id, label, kind, options) values (${s}, 'Which one is it?', '${kind}', ${v})`);
+      if ((accepted[kind] as readonly string[]).includes(shape)) await insert;
+      else await expect(insert, `${kind} ${shape}`).rejects.toMatchObject({ code: "23514", message: expect.stringMatching(/sector_questions_options_ck/) });
+    }
+    expect((await pg.query("select kind, jsonb_array_length(coalesce(options, '[]'::jsonb))::int n from sector_questions order by id")).rows)
+      .toEqual([{ kind: "text", n: 0 }, { kind: "choice", n: 2 }, { kind: "choice", n: 10 }]);
+    // the length is read only inside CASE ... WHEN jsonb_typeof(options) = 'array', so it no longer depends on evaluation order
+    expect(String((await pg.query("select pg_get_constraintdef(oid) d from pg_constraint where conname = 'sector_questions_options_ck'")).rows[0]!["d" as never])).toMatch(/CASE\s+WHEN \(jsonb_typeof\(options\) = 'array'::text\) THEN/);
     await pg.close();
   });
 

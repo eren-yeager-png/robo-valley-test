@@ -57,11 +57,40 @@ ALTER TABLE upload_audit_log
   ADD COLUMN IF NOT EXISTS attachment_id bigint      REFERENCES upload_attachments(id) ON DELETE SET NULL;
 
 -- A link to a stored file only makes sense on an attachment row.
+-- Looked up on upload_audit_log itself ('upload_audit_log'::regclass: one table in one schema, the one the ALTER TABLE reaches), so a
+-- constraint of the same name elsewhere does not count. One of that name on upload_audit_log must be EXACTLY this rule: PostgreSQL
+-- writes out (pg_get_constraintdef) the existing constraint and this file's rule, made on a throwaway copy of the two columns, and the
+-- two texts must be identical apart from spacing. Both come from the same server, so the comparison does not depend on the PostgreSQL
+-- version. Anything else (kind <> 'attachment', another column, NOT VALID) was not made by this file: it stops the migration. The copy
+-- is a temporary table made inside an inner block that is always undone (as in 007: RAISE SQLSTATE 'RV000', caught only there, rolls
+-- back just that block while the variable keeps the text it read). Nothing is left behind and nothing is removed.
 DO $$
+DECLARE
+  found text;  -- the existing constraint of that name on upload_audit_log, as PostgreSQL writes it
+  wanted text; -- this file's rule, as the same server writes it
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'upload_audit_log_attachment_kind_ck') THEN
+  SELECT pg_get_constraintdef(c.oid) INTO found FROM pg_constraint c
+   WHERE c.conrelid = 'upload_audit_log'::regclass AND c.conname = 'upload_audit_log_attachment_kind_ck';
+  IF found IS NULL THEN
     ALTER TABLE upload_audit_log
       ADD CONSTRAINT upload_audit_log_attachment_kind_ck CHECK (attachment_id IS NULL OR kind = 'attachment');
+  ELSE
+    BEGIN
+      EXECUTE format('CREATE TEMPORARY TABLE rv_expected_009 (attachment_id %s, kind %s)',
+        (SELECT format_type(a.atttypid, a.atttypmod) FROM pg_attribute a
+          WHERE a.attrelid = 'upload_audit_log'::regclass AND a.attname = 'attachment_id' AND NOT a.attisdropped),
+        (SELECT format_type(a.atttypid, a.atttypmod) FROM pg_attribute a
+          WHERE a.attrelid = 'upload_audit_log'::regclass AND a.attname = 'kind' AND NOT a.attisdropped));
+      ALTER TABLE pg_temp.rv_expected_009
+        ADD CONSTRAINT upload_audit_log_attachment_kind_ck CHECK (attachment_id IS NULL OR kind = 'attachment');
+      SELECT pg_get_constraintdef(c.oid) INTO wanted FROM pg_constraint c WHERE c.conrelid = 'pg_temp.rv_expected_009'::regclass;
+      RAISE SQLSTATE 'RV000'; -- undo this inner block (the temporary table); wanted keeps its value
+    EXCEPTION WHEN SQLSTATE 'RV000' THEN
+      NULL;
+    END;
+    IF regexp_replace(btrim(found), '[[:space:]]+', ' ', 'g') IS DISTINCT FROM regexp_replace(btrim(wanted), '[[:space:]]+', ' ', 'g') THEN
+      RAISE EXCEPTION 'upload_audit_log already has a constraint named upload_audit_log_attachment_kind_ck that is not the attachment/kind rule (it reads: %). This migration did not make it; look at it before running 009 again. Nothing was changed.', found;
+    END IF;
   END IF;
 END $$;
 

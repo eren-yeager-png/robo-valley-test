@@ -32,9 +32,56 @@ BEGIN
   END IF;
 END $$;
 
-ALTER TABLE contributions DROP CONSTRAINT IF EXISTS contributions_status_ck;
-ALTER TABLE contributions ADD CONSTRAINT contributions_status_ck
-  CHECK (status IN ('draft','pending_review','changes_requested','published','rejected','unpublished'));
+-- Widen the status rule. 018 later widens the same rule again (with 'removed'), so running this file once more after 018 must leave
+-- that wider rule as it is, never narrow it back. The existing rule (on contributions itself) is compared EXACTLY, spacing aside, with
+-- the three rules these files make, all written out by PostgreSQL (pg_get_constraintdef) on a throwaway copy of the status column (a
+-- temporary table inside an inner block that is always undone, as in 007: RAISE SQLSTATE 'RV000', caught only there, rolls back just
+-- that block while the variables keep the texts read); both sides come from the same server, so this does not depend on its version:
+--   012's four statuses (also what 017_down restores)  -> widened to the six below
+--   this file's six (also what 018_down restores)      -> left as it is
+--   018's seven                                        -> left as it is
+-- No rule at all: the six are added. Any other rule of that name (one that names all six statuses but forbids one, another list,
+-- NOT VALID) was not made by these files: it stops the migration, and nothing is changed.
+DO $$
+DECLARE
+  found text; -- the existing rule, as PostgreSQL writes it (spacing normalised)
+  col text;   -- the type of contributions.status
+  four text; six text; seven text; -- the three known rules, as the same server writes them (spacing normalised)
+BEGIN
+  SELECT pg_get_constraintdef(c.oid) INTO found FROM pg_constraint c
+   WHERE c.conrelid = 'contributions'::regclass AND c.conname = 'contributions_status_ck';
+  IF found IS NULL THEN
+    ALTER TABLE contributions ADD CONSTRAINT contributions_status_ck
+      CHECK (status IN ('draft','pending_review','changes_requested','published','rejected','unpublished'));
+    RETURN;
+  END IF;
+  SELECT format_type(a.atttypid, a.atttypmod) INTO col FROM pg_attribute a
+   WHERE a.attrelid = 'contributions'::regclass AND a.attname = 'status' AND NOT a.attisdropped;
+  IF col IS NOT NULL THEN -- without a status column no rule of these files can be there; four, six and seven stay empty and it stops below
+    BEGIN
+      EXECUTE format('CREATE TEMPORARY TABLE rv_expected_017 (status %s)', col);
+      ALTER TABLE pg_temp.rv_expected_017
+        ADD CONSTRAINT four  CHECK (status IN ('draft','pending_review','changes_requested','published')),
+        ADD CONSTRAINT six   CHECK (status IN ('draft','pending_review','changes_requested','published','rejected','unpublished')),
+        ADD CONSTRAINT seven CHECK (status IN ('draft','pending_review','changes_requested','published','rejected','unpublished','removed'));
+      SELECT max(d) FILTER (WHERE conname = 'four'), max(d) FILTER (WHERE conname = 'six'), max(d) FILTER (WHERE conname = 'seven')
+        INTO four, six, seven
+        FROM (SELECT c.conname, regexp_replace(btrim(pg_get_constraintdef(c.oid)), '[[:space:]]+', ' ', 'g') AS d
+                FROM pg_constraint c WHERE c.conrelid = 'pg_temp.rv_expected_017'::regclass) x;
+      RAISE SQLSTATE 'RV000'; -- undo this inner block (the temporary table); four, six and seven keep their values
+    EXCEPTION WHEN SQLSTATE 'RV000' THEN
+      NULL;
+    END;
+  END IF;
+  found := regexp_replace(btrim(found), '[[:space:]]+', ' ', 'g');
+  IF four IS NOT NULL AND found = four THEN
+    ALTER TABLE contributions DROP CONSTRAINT IF EXISTS contributions_status_ck;
+    ALTER TABLE contributions ADD CONSTRAINT contributions_status_ck
+      CHECK (status IN ('draft','pending_review','changes_requested','published','rejected','unpublished'));
+  ELSIF found IS DISTINCT FROM six AND found IS DISTINCT FROM seven THEN
+    RAISE EXCEPTION 'contributions already has a status rule named contributions_status_ck that is none of the rules these migrations make (012''s four statuses, 017''s six, 018''s seven); it reads: %. This migration did not make it; look at it before running 017 again. Nothing was changed.', found;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS contribution_reviews (
   id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

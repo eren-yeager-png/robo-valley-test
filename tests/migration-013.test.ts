@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { applyFile, pickFiles } from "../scripts/migrate.mjs";
 import { PHOTO_META_SQL, addPhoto, getPhotoBytes, listPhotoMeta, validatePhoto } from "../src/lib/contributionPhotos";
 import { CONTRIBUTION_LIMITS } from "../src/lib/contributions";
+import { migratedClone } from "./helpers/migratedClone";
 
 const read = (p: string) => readFileSync(resolve(p), "utf8");
 const runner = (pg: PGlite) => ({
@@ -26,10 +27,7 @@ const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from("J
 const sha = (b: Buffer) => createHash("sha256").update(b).digest("hex");
 
 async function build() {
-  const pg = new PGlite();
-  await pg.exec(read("tests/helpers/baseSchema.sql"));
-  const name = String(((await pg.query("select current_database() d")).rows[0] as any).d);
-  for (const f of pickFiles()) await applyFile(runner(pg), name, read(f));
+  const { pg, name } = await migratedClone(); // built once per file, a fresh copy per test (tests/helpers/migratedClone.ts)
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('Asha','a@example.com','TC','x'),('Ravi','r@example.com','TC','x')");
   await pg.exec("insert into sectors (slug,name) values ('education','Education')");
   return { pg, name };
@@ -246,11 +244,27 @@ describe("code and database use the same photo limits", () => {
 });
 
 describe("rollback 013", () => {
-  it("removes exactly the photo tables and function, keeps contributions and their data, and the migration comes back", async () => {
+  it("REFUSES while any photo exists (metadata and bytes are both in this database), and changes nothing", async () => {
     const { pg, name } = await build();
     const c = await newContribution(pg);
     const id = Number(((await pg.query(meta(c, 1))).rows[0] as any).id);
     await pg.query("insert into contribution_photo_blobs (photo_id,data) values ($1,$2)", [id, PNG_1x1]);
+    const before = await tables(pg);
+    await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(/contribution_photos holds 1 photo\(s\)/);
+    await pg.exec("ROLLBACK").catch(() => undefined);
+    expect(await tables(pg)).toEqual(before);
+    expect(await count(pg, "select count(*) n from contribution_photos")).toBe(1);
+    expect(await count(pg, "select count(*) n from contribution_photo_blobs")).toBe(1); // the bytes too
+    expect(await count(pg, "select count(*) n from pg_proc where proname='rv_photo_blob_matches'")).toBe(1);
+    await pg.close();
+  });
+
+  it("with no photo left it removes exactly the photo tables and function, keeps contributions and their data, and the migration comes back", async () => {
+    const { pg, name } = await build();
+    const c = await newContribution(pg);
+    const id = Number(((await pg.query(meta(c, 1))).rows[0] as any).id);
+    await pg.query("insert into contribution_photo_blobs (photo_id,data) values ($1,$2)", [id, PNG_1x1]);
+    await pg.exec("delete from contribution_photos"); // someone decided the photos may go (their bytes go with them)
     const before = (await tables(pg)).filter((t) => !NEW.includes(t));
     await applyFile(runner(pg), name, read(DOWN));
     expect(await tables(pg)).toEqual(before);
