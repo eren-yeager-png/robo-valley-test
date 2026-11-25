@@ -19,7 +19,7 @@ import { getDashboardContext } from "../src/lib/dashboardContext";
 import { requireReviewerPage } from "../src/lib/reviewerPage";
 import { GET as queue } from "../src/app/api/review/queue/route";
 import { POST as changePassword } from "../src/app/api/review/change-password/route";
-import ChangePasswordPage from "../src/app/moderation/change-password/page";
+import ChangePasswordPage from "../src/app/(reviewer)/admin/moderation/change-password/page";
 import { MODERATOR_ROLE, REVIEWER_HOME, reviewerLanding } from "../src/lib/reviewerHome";
 
 const q = (sql: string, p: unknown[] = []) => testDb().raw.query(sql, p as never);
@@ -103,7 +103,7 @@ describe("a temporary password must be changed first", () => {
     expect(await bcrypt.compare("a brand new pass", row.password_hash)).toBe(true);
     expect((await queue(get("/api/review/queue"))).status).toBe(200);
     expect(await redirectOf(requireReviewerPage())).toBeNull();
-    expect(await redirectOf(ChangePasswordPage() as Promise<unknown>)).toBe("/moderation"); // nothing left to do there
+    expect(await redirectOf(ChangePasswordPage() as Promise<unknown>)).toBe("/admin/moderation"); // nothing left to do there
   });
   it("change-password is for reviewers only: a member gets 403, a visitor 401", async () => {
     signIn(await person("ST"));

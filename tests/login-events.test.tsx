@@ -272,6 +272,34 @@ describe("login activity page", () => {
     expect(await page({ range: "bogus", type: "x'; drop table users; --" })).toContain("Last 30 days");
   });
 
+  // A2: the cards filter like the chips do; ?event= is the address, ?type= (older links) still works
+  it("the cards, the chips and the address agree on the event type, and the period is kept", async () => {
+    await q("insert into login_events (event_type) values ('logout'), ('login_success'), ('login_success')");
+    const h = await page({ range: "7", event: "login_success" });
+    expect((h.match(/<tr>/g) ?? []).length - 1).toBe(2);
+    expect(h.match(/aria-pressed="true"/g)).toHaveLength(1);
+    expect(h).toMatch(/<button type="button" class="adm-card stat" aria-pressed="true"[^>]*><span class="lbl">Successful login<\/span><span class="val">2<\/span><\/button>/);
+    expect(h.match(/<button type="button" class="adm-card stat"/g)).toHaveLength(7);
+    expect(h).toMatch(/<a aria-current="page" href="\/admin\/login-activity\?event=login_success&amp;range=7">Successful login<\/a>/); // the chip
+    expect(h).toContain('href="/admin/login-activity?event=login_success&amp;range=90"'); // the period tabs keep the type
+    expect(h).toContain('href="/admin/login-activity?range=7"'); // All events keeps the period
+    expect(h).toContain("Successful login, last 7 days: 2 events");
+    expect(await page({ range: "7", type: "login_success" })).toBe(h); // an older link shows the same page
+    expect(await page({ event: "nonsense" })).not.toContain('aria-pressed="true"');
+  });
+
+  it("a card at 0 can be chosen and says so", async () => {
+    await q("insert into login_events (event_type) values ('logout')");
+    const h = await page({ event: "otp_failed", range: "30" });
+    expect(h).toContain("No OTP failed events in this period.");
+    expect(h).toMatch(/aria-pressed="true"[^>]*><span class="lbl">OTP failed<\/span><span class="val">0<\/span>/);
+  });
+
+  it("the pager keeps the event type and the period", async () => {
+    await q("insert into login_events (event_type) select 'logout' from generate_series(1, 30)");
+    expect(await page({ event: "logout", range: "90" })).toContain('href="/admin/login-activity?event=logout&amp;range=90&amp;page=2"');
+  });
+
   it("paginates and shows an empty state", async () => {
     expect(await page()).toContain("No activity in this period.");
     await q("insert into login_events (event_type) select 'logout' from generate_series(1, 30)");

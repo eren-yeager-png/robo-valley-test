@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoboValley Contribution (v2)
  * Description: The new Contribute form for the Contribution and Contributor pages. It only renders the form and talks to the RoboValley app; it stores nothing in WordPress. Nothing changes until RV_CONTRIBUTION_V2 is set to true in wp-config.php.
- * Version: 0.1.11
+ * Version: 0.1.12
  * Requires PHP: 7.4
  * Author: RoboValley
  *
@@ -27,6 +27,8 @@
  *   * Sign Out on the Contribute page (0.1.6): the form pages show the member banner WITHOUT its Sign Out button (the button is taken out
  *     of the markup on the server, so it is not in the page at all). The site header's account menu keeps Sign out on every page.
  *     The shortcode keeps the button unless it is written as [rv_contribution_v2 sign_out="no"].
+ *   * Site styles (0.1.12): assets/rv-site.css, on every public page after the theme's own stylesheet: the space around Astra's entry
+ *     header, and the .rv-rt block. Only while the switch is on.
  *   * Members contribute, administrators review (0.1.4): WordPress administrators never see the buttons, and on the form pages they
  *     see a short note with a link to the app's Moderation page instead of the form. Signed in to the app as an administrator or
  *     moderator, the form shows the same kind of note (the app refuses their submissions anyway). Display only: the app decides.
@@ -35,7 +37,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const RV_C2_VERSION = '0.1.11';
+const RV_C2_VERSION = '0.1.12';
 
 /** A WordPress administrator? They review contributions in the app, so the form and the buttons are hidden from them (display only). */
 function rv_c2_is_wp_admin() {
@@ -115,6 +117,19 @@ function rv_c2_enqueue() {
 		'before'
 	);
 }
+
+/* 0.1.12: the site styles, after Astra's stylesheet (a dependency when Astra is the theme, and late in any case). */
+add_action(
+	'wp_enqueue_scripts',
+	function () {
+		if ( ! rv_c2_enabled() ) {
+			return;
+		}
+		$after = wp_style_is( 'astra-theme-css', 'registered' ) ? array( 'astra-theme-css' ) : array();
+		wp_enqueue_style( 'rv-c2-site', plugins_url( 'assets/rv-site.css', __FILE__ ), $after, RV_C2_VERSION );
+	},
+	1000
+);
 
 /* Replace the displayed content of the switched pages (late, so it also wins over page builders). */
 add_filter(

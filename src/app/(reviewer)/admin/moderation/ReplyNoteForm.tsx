@@ -45,7 +45,7 @@ export default function ReplyNoteForm({ id, kind }: { id: number; kind: "reply" 
       <textarea id={fid} ref={box} maxLength={t.max} aria-invalid={err ? "true" : undefined} aria-describedby={`${fid}-err`} />
       <div id={`${fid}-err`} className="mod-msg mod-msg--err" role="alert" hidden={!err}>{err}</div>
       <div className="mod-row">
-        <button type="button" className={"mod-btn" + (kind === "reply" ? " mod-btn--primary" : "")} disabled={busy} onClick={send}>{t.button}</button>
+        <button type="button" className={"btn" + (kind === "reply" ? " primary" : "")} disabled={busy} onClick={send}>{t.button}</button>
       </div>
       <div className={"mod-msg " + (msg?.kind === "err" ? "mod-msg--err" : "mod-msg--ok")} role="status" aria-live="polite" hidden={!msg}>{msg?.text}</div>
     </div>

@@ -52,7 +52,7 @@ export default function DecisionForm({ id, actions, isAdmin = false, hasDuplicat
     } finally { setBusy(false); }
   }
 
-  if (actions.length === 0) return <p className="mod-note">No decision can be made on this contribution in its current state.</p>;
+  if (actions.length === 0) return <p className="adm-note info">No decision can be made on this contribution in its current state.</p>;
   return (
     <div className="mod-act">
       <label htmlFor={`note-${id}`}>Note for the contributor: the reason for not accepting (at least 5 characters), or what to change; also needed to unpublish or remove</label>
@@ -68,7 +68,7 @@ export default function DecisionForm({ id, actions, isAdmin = false, hasDuplicat
       )}
       <div className="mod-row">
         {actions.map((a) => (
-          <button key={a} type="button" disabled={busy} className={"mod-btn" + (a === "approve" || a === "republish" ? " mod-btn--primary" : a === "reject" || a === "unpublish" ? " mod-btn--danger" : "")} onClick={() => go(a)}>{LABEL[a] ?? a}</button>
+          <button key={a} type="button" disabled={busy} className={"btn" + (a === "approve" || a === "republish" ? " primary" : a === "reject" || a === "unpublish" ? " danger" : "")} onClick={() => go(a)}>{LABEL[a] ?? a}</button>
         ))}
       </div>
       <div className={"mod-msg " + (msg?.kind === "err" ? "mod-msg--err" : "mod-msg--ok")} role="status" aria-live="polite" hidden={!msg}>{msg?.text}</div>

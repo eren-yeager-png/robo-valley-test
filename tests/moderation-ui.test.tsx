@@ -5,15 +5,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedUser, testDb } from "./helpers";
 
 vi.mock("../src/lib/db", async () => { const c = await import("./helpers/currentPool"); return { get pool() { return c.getPool(); } }; });
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh() {} }), redirect: (to: string) => { throw new Error("REDIRECT:" + to); }, usePathname: () => "/moderation" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh() {} }), redirect: (to: string) => { throw new Error("REDIRECT:" + to); }, usePathname: () => "/admin/moderation" }));
 vi.mock("next/font/google", () => ({ Bricolage_Grotesque: () => ({ variable: "f1" }), Mulish: () => ({ variable: "f2" }) }));
 const state: { viewer: number | null; guard: "ok" | "redirect"; isAdmin: boolean } = { viewer: null, guard: "ok", isAdmin: true };
 vi.mock("../src/lib/reviewerPage", () => ({ requireReviewerPage: async () => { if (state.guard === "redirect") throw new Error("REDIRECT:/dashboard"); return { userId: state.viewer, email: "r@example.com", isAdmin: state.isAdmin }; } }));
 
-import Overview from "../src/app/moderation/page";
-import SectorPage from "../src/app/moderation/sector/[slug]/page";
-import Detail from "../src/app/moderation/[id]/page";
-import Layout from "../src/app/moderation/layout";
+import Overview from "../src/app/(reviewer)/admin/moderation/page";
+import SectorPage from "../src/app/(reviewer)/admin/moderation/sector/[slug]/page";
+import Detail from "../src/app/(reviewer)/admin/moderation/[id]/page";
+import Layout from "../src/app/(reviewer)/admin/moderation/layout";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -50,12 +50,11 @@ describe("page 1: Contributions by Sector", () => {
     await make(a, "draft", "A private draft");
     const h = await overview();
     expect(h).toContain("Contributions by Sector");
-    expect(h).toMatch(/<b>4<\/b><span>All contributions<\/span>/);
-    expect(h).toMatch(/<b>2<\/b><span>Pending review<\/span>/);
-    expect(h).toMatch(/<b>1<\/b><span>Published<\/span>/);
-    expect(h).toMatch(/<b>1<\/b><span>Not accepted<\/span>/);
+    // the four numbers are the admin portal's own stat cards
+    for (const [label, n] of [["All contributions", 4], ["Pending review", 2], ["Published", 1], ["Not accepted", 1]] as const)
+      expect(h).toContain(`<div class="adm-card stat"><div class="lbl">${label}</div><div class="val">${n}</div></div>`);
     expect(h).toContain("Contributors for Agriculture &amp; Dairy →");
-    expect(h).toContain('href="/moderation/sector/agriculture-dairy"');
+    expect(h).toContain('href="/admin/moderation/sector/agriculture-dairy"');
     expect(h).toContain("4 contributions · 2 contributors");
     expect(h).toContain("Contributors for Education →"); expect(h).toContain("1 contribution · 1 contributor");
     expect(h).toContain("Contributors for Healthcare →"); expect(h).toContain("0 contributions · 0 contributors");
@@ -70,7 +69,7 @@ describe("page 1: Contributions by Sector", () => {
   });
   it("an older link /moderation?item=12 opens the new detail page", async () => {
     state.viewer = 1;
-    await expect(overview({ item: "12" })).rejects.toThrow("REDIRECT:/moderation/12");
+    await expect(overview({ item: "12" })).rejects.toThrow("REDIRECT:/admin/moderation/12");
   });
   it("with no contributions at all it says so (the numbers loaded, every sector at 0), not an error", async () => {
     state.viewer = await person("admin", "Ola Admin");
@@ -106,7 +105,7 @@ describe("page 2: one sector's list", () => {
     expect(h).toContain("Asha R."); expect(h).not.toContain("Kumari"); expect(h).toContain("Teacher / lab in-charge");
     expect(h).toContain("Also in: Education");
     expect(h).toContain(">Projects<"); expect(h).toContain(">Labs &amp; Makerspaces<");
-    expect(h).toContain(`href="/moderation/${x}?from=agriculture-dairy&amp;tab=new"`);
+    expect(h).toContain(`href="/admin/moderation/${x}?from=agriculture-dairy&amp;tab=new"`);
     expect(h).toContain('href="/api/review/export?sector=agriculture-dairy&amp;tab=new&amp;sort=new"');
     expect(h).not.toMatch(/@example\.com/);
   });
@@ -116,7 +115,7 @@ describe("page 2: one sector's list", () => {
     for (let i = 1; i <= 23; i++) await make(a, "published", `Published item number ${String(i).padStart(2, "0")}`);
     const h1 = await sector("agriculture-dairy", { tab: "published" });
     expect(h1).toContain("Page 1 of 2 · 23 contributions"); expect(h1).toContain("Published item number 23"); expect(h1).not.toContain("Published item number 03");
-    expect(h1).toContain('href="/moderation/sector/agriculture-dairy?tab=published&amp;page=2"');
+    expect(h1).toContain('href="/admin/moderation/sector/agriculture-dairy?tab=published&amp;page=2"');
     const h2 = await sector("agriculture-dairy", { tab: "published", page: "2" });
     expect(h2).toContain("Published item number 01"); expect(h2).toContain("Page 2 of 2");
     const old = await sector("agriculture-dairy", { tab: "published", sort: "old" });
@@ -135,7 +134,7 @@ describe("page 2: one sector's list", () => {
     const yes = await sector("agriculture-dairy", { tab: "all", verified: "1" });
     expect(yes).toContain("Checked pending item"); expect(yes).not.toContain("Unchecked pending item"); expect(yes).not.toContain("Published, also verified");
     expect(yes).toContain("Showing only pending contributions a reviewer has verified.");
-    expect(yes).toContain('href="/moderation/sector/agriculture-dairy?tab=all"'); // "Show everything" drops the filter
+    expect(yes).toContain('href="/admin/moderation/sector/agriculture-dairy?tab=all"'); // "Show everything" drops the filter
     expect(yes).toContain("verified=1"); // kept by the CSV link and the View form links
     expect(yes).toContain('<input type="hidden" name="verified" value="1"/>'); // and by the search form
     const no = await sector("agriculture-dairy", { tab: "all", verified: "0" });
@@ -144,7 +143,7 @@ describe("page 2: one sector's list", () => {
     expect(await sector("agriculture-dairy", { tab: "all", verified: "maybe" })).toContain("Published, also verified"); // anything else: no filter
     const d = await detail(checked, { from: "agriculture-dairy", tab: "all", verified: "1" });
     expect(d).toContain("1 of 1"); // Previous / Next stay inside the filtered list
-    expect(d).toContain('href="/moderation/sector/agriculture-dairy?tab=all&amp;verified=1"'); // and so does the way back
+    expect(d).toContain('href="/admin/moderation/sector/agriculture-dairy?tab=all&amp;verified=1"'); // and so does the way back
   });
   it("an unknown or malformed sector says so", async () => {
     state.viewer = 1;
@@ -210,7 +209,7 @@ describe("page 3: one contribution with the Review panel", () => {
     const b = await make(author, "pending_review", "Solar-powered milking robots");
     const h = await detail(b);
     expect(h).toContain("Possible duplicate already live in the same sector");
-    expect(h).toContain(`href="/moderation/${a}"`);
+    expect(h).toContain(`href="/admin/moderation/${a}"`);
     expect(h).toContain("Only an administrator can approve, publish, unpublish or remove.");
     expect(h).not.toContain("Approve &amp; Publish"); expect(h).not.toContain("Remove (duplicate or unsuitable)"); expect(h).not.toContain("I checked the possible duplicate");
     for (const t of ["Mark as verified", "Request changes", "Not accept"]) expect(h).toContain(t);
@@ -235,10 +234,10 @@ describe("page 3: one contribution with the Review panel", () => {
     const second = await make(author, "pending_review", "Second pending item");
     const third = await make(author, "pending_review", "Third pending item");
     const h = await detail(second, { from: "agriculture-dairy", tab: "new" }); // opening it moves it to In review, but it stays in the New list it came from
-    expect(h).toContain(`href="/moderation/${third}?from=agriculture-dairy&amp;tab=new"`); // newest first: the third was submitted last
-    expect(h).toContain(`href="/moderation/${first}?from=agriculture-dairy&amp;tab=new"`);
+    expect(h).toContain(`href="/admin/moderation/${third}?from=agriculture-dairy&amp;tab=new"`); // newest first: the third was submitted last
+    expect(h).toContain(`href="/admin/moderation/${first}?from=agriculture-dairy&amp;tab=new"`);
     expect(h).toContain("2 of 3");
-    expect(h).toContain('href="/moderation/sector/agriculture-dairy?tab=new"'); // the breadcrumb goes back to the same list
+    expect(h).toContain('href="/admin/moderation/sector/agriculture-dairy?tab=new"'); // the breadcrumb goes back to the same list
   });
   it("your own item has no decision, reply or note boxes; a missing, draft or malformed item says so", async () => {
     const admin = await person("admin", "Ola Admin"); state.viewer = admin;
@@ -257,18 +256,27 @@ describe("the layout and the forms", () => {
     await expect(Overview({ searchParams: Promise.resolve({}) })).rejects.toThrow(/REDIRECT/);
     state.guard = "ok"; state.isAdmin = false;
     const h = renderToStaticMarkup(await Layout({ children: null }));
-    expect(h).toContain("RoboValley · Admin Portal"); expect(h).toContain("Signed in as a moderator"); expect(h).not.toContain('href="/admin/dashboard"');
+    // the admin portal's shell; a moderator's sidebar holds Moderation only, marked as the current page
+    expect(h).toContain('class="adm-side"'); expect(h).toContain('class="adm-top"'); expect(h).toContain("<small>Moderator</small>");
+    expect(h.match(/href="\/admin\/[^"]*"/g)).toEqual(['href="/admin/moderation"']);
+    expect(h).toMatch(/<a aria-current="page" class="active" href="\/admin\/moderation">/);
+    state.isAdmin = true;
+    const a = renderToStaticMarkup(await Layout({ children: null }));
+    expect(a.match(/href="\/admin\/[^"]*"/g)).toHaveLength(12); expect(a).toContain("<small>Admin</small>"); expect(a.match(/aria-current="page"/g)).toHaveLength(1);
     expect(h).not.toMatch(/Sign Out|sign-out|logout/i);
-    for (const f of ["page.tsx", "DecisionForm.tsx", "ReplyNoteForm.tsx", "layout.tsx", "sector/[slug]/page.tsx", "[id]/page.tsx"]) expect(fs.readFileSync(path.join(__dirname, "../src/app/moderation", f), "utf8"), f).not.toMatch(/dangerouslySetInnerHTML|innerHTML/);
+    for (const f of ["page.tsx", "DecisionForm.tsx", "ReplyNoteForm.tsx", "layout.tsx", "sector/[slug]/page.tsx", "[id]/page.tsx"]) expect(fs.readFileSync(path.join(__dirname, "../src/app/(reviewer)/admin/moderation", f), "utf8"), f).not.toMatch(/dangerouslySetInnerHTML|innerHTML/);
   });
-  it("a link styled as a primary button keeps white text (the sector cards' buttons): its rule beats \".mod a\"", () => {
-    const css = fs.readFileSync(path.join(__dirname, "../src/app/moderation/moderation.css"), "utf8");
-    expect(css).toContain(".mod a{color:var(--mod-brand)}");
-    expect(css).toContain(".mod .mod-btn--primary{color:#fff;");
-    expect(css).not.toMatch(/(^|\n|\})\.mod-btn--primary\{/); // never the weaker selector alone
+  it("a link styled as a primary button keeps white text (the sector cards' buttons): its rule beats \".rv .adm a\"", () => {
+    const admin = fs.readFileSync(path.join(__dirname, "../src/app/admin/admin.css"), "utf8");
+    expect(admin).toContain(".rv .adm a{color:var(--brand)}");
+    expect(admin).toContain(".rv .adm .btn.primary{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}");
+    // and Moderation's own stylesheet stays inside the admin shell: every rule is scoped, and it brings no colours or bar of its own
+    const css = fs.readFileSync(path.join(__dirname, "../src/app/(reviewer)/admin/moderation/moderation.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const s of css.replace(/@media[^{]*\{/g, "").split("}").map((r) => r.split("{")[0].trim()).filter(Boolean)) for (const one of s.split(",")) expect(one.trim(), s).toMatch(/^\.rv \.adm /);
+    expect(css).not.toMatch(/--mod-|mod-bar/);
   });
   it("the decision form explains the note (5 characters to not accept) and has a plain alert; no actions means a plain message", async () => {
-    const { default: DecisionForm } = await import("../src/app/moderation/DecisionForm");
+    const { default: DecisionForm } = await import("../src/app/(reviewer)/admin/moderation/DecisionForm");
     const h = renderToStaticMarkup(<DecisionForm id={7} actions={["approve", "request_changes", "reject"]} isAdmin />);
     expect(h).toContain("the reason for not accepting (at least 5 characters)"); expect(h).toContain("The contributor sees this under My Contributions.");
     expect(h).toContain('role="alert"'); expect(h).toContain(">Approve &amp; Publish<"); expect(h).toContain(">Not accept<");

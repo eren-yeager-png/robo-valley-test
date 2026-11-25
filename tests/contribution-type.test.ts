@@ -23,7 +23,7 @@ import * as mine from "../src/app/api/contributions/mine/route";
 import * as review from "../src/app/api/review/[id]/route";
 import * as queue from "../src/app/api/review/queue/route";
 import * as exportRoute from "../src/app/api/review/export/route";
-import Detail from "../src/app/moderation/[id]/page";
+import Detail from "../src/app/(reviewer)/admin/moderation/[id]/page";
 import { readTypeChosen } from "../src/lib/contributionApi";
 import { FORM_TYPES, TYPE_NOT_ASKED, typeShown } from "../src/lib/contributions";
 

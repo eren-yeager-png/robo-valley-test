@@ -81,7 +81,7 @@ add("Information leaks", "GET /api/db-test says only success/failure and message
 });
 
 // 4. admin and moderation pages send signed-out visitors to /login
-for (const p of ["/admin/dashboard", "/admin/users", "/admin/upload", "/admin/datasets", "/admin/reports", "/admin/settings", "/moderation"]) {
+for (const p of ["/admin/dashboard", "/admin/users", "/admin/upload", "/admin/datasets", "/admin/reports", "/admin/settings", "/admin/moderation"]) {
   add("Signed-out visitors cannot open admin pages", `GET ${p} redirects to /login`, APP + p, (r) => {
     if (![302, 303, 307, 308].includes(r.status)) return `expected a redirect, got ${r.status}`;
     return locationPath(r) === "/login" ? null : `redirects to ${r.headers.get("location")}`;

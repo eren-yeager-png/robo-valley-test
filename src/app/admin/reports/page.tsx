@@ -53,7 +53,7 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
           {otp ? <Chart kind="bar" xKey="day" label={`One-time codes per day, last ${days} days`} data={otp} series={[{ key: "sent", label: "Sent", color: NAVY }, { key: "verified", label: "Verified", color: TEAL }, { key: "failed", label: "Failed", color: RED }]} /> : <SetupNotice what="One-time code reports" migration="008" />}
         </section>
         <section className="adm-card"><h3>Upload activity</h3>
-          <Chart kind="bar" xKey="day" label={`Uploads per day, last ${days} days`} data={uploads} series={[{ key: "accepted", label: "Accepted", color: NAVY }, { key: "rejected", label: "Rejected", color: AMBER }]} />
+          <Chart kind="bar" stacked xKey="day" label={`Uploads per day, last ${days} days`} data={uploads} series={[{ key: "accepted", label: "Accepted", color: NAVY }, { key: "rejected", label: "Rejected", color: AMBER }]} />
         </section>
         <section className="adm-card"><h3>Accounts by role (all time)</h3>
           <Chart kind="bar" angled xKey="label" label="Number of accounts for each role" data={roles.map((r) => ({ label: r.label, accounts: r.count }))} series={[{ key: "accounts", label: "Accounts", color: TEAL }]} />

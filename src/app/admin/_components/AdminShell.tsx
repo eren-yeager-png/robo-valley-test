@@ -3,15 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ADMIN_NAV, titleFor } from "./nav";
+import { ADMIN_NAV, MODERATOR_NAV, titleFor } from "./nav";
 import HeaderMenuSlot from "../../_components/HeaderMenuSlot";
 
 /**
  * Sidebar (a slide-in drawer on small screens) + top bar. `locked` hides the navigation until the password is changed.
  * The only account control is the shared header account menu (the avatar, public/rv-header-menu.js), with Sign Out at the end.
  * It stays in the top bar while a password change is forced, so Sign Out is always there.
+ * `role` only decides what the sidebar shows (Moderation is open to moderators too); every page and API checks access on the server.
  */
-export default function AdminShell({ landingUrl, locked, children }: { landingUrl: string; locked: boolean; children: React.ReactNode }) {
+export default function AdminShell({ landingUrl, locked, role = "admin", children }: { landingUrl: string; locked: boolean; role?: "admin" | "moderator"; children: React.ReactNode }) {
+  const nav = role === "admin" ? ADMIN_NAV : MODERATOR_NAV;
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   // Close the drawer when the page changes. (Adjusting state while rendering, not in an effect: same result without an extra render pass.)
@@ -28,9 +30,9 @@ export default function AdminShell({ landingUrl, locked, children }: { landingUr
     <div className={"adm" + (open ? " open" : "")}>
       {!locked && (
         <aside className="adm-side" id="adm-side" aria-label="Admin navigation">
-          <div className="adm-brand"><span className="adm-mark" aria-hidden="true">RV</span><span>RoboValley<small>Admin</small></span></div>
+          <div className="adm-brand"><span className="adm-mark" aria-hidden="true">RV</span><span>RoboValley<small>{role === "admin" ? "Admin" : "Moderator"}</small></span></div>
           <nav>
-            {ADMIN_NAV.map((n) => {
+            {nav.map((n) => {
               const active = pathname === n.href || pathname?.startsWith(n.href + "/");
               return (
                 <Link key={n.href} href={n.href} aria-current={active ? "page" : undefined} className={active ? "active" : undefined}>

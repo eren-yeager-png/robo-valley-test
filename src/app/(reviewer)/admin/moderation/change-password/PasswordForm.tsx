@@ -26,7 +26,7 @@ export default function PasswordForm() {
         body: JSON.stringify({ currentPassword: current, newPassword: next }),
       });
       const data = await res.json().catch(() => ({}));
-      if (data.success) { router.replace("/moderation"); router.refresh(); return; } // the server renders the portal (and its links) again
+      if (data.success) { router.replace("/admin/moderation"); router.refresh(); return; } // the server renders the portal (and its links) again
       setError(data.message ?? "Something went wrong. Please try again.");
       setCurrent(""); setNext(""); setConfirm("");
     } catch {
@@ -36,7 +36,7 @@ export default function PasswordForm() {
   }
 
   return (
-    <form className="mod-card mod-act" method="post" onSubmit={onSubmit} noValidate aria-busy={busy} style={{ maxWidth: 460 }}>
+    <form className="adm-card mod-act" method="post" onSubmit={onSubmit} noValidate aria-busy={busy} style={{ maxWidth: 460 }}>
       <label htmlFor="pw-current">Current (temporary) password</label>
       <input id="pw-current" className="mod-input" type="password" autoComplete="current-password" maxLength={128} value={current} onChange={(e) => { setCurrent(e.target.value); setError(""); }} />
       <label htmlFor="pw-new">New password</label>
@@ -44,8 +44,8 @@ export default function PasswordForm() {
       <p id="pw-hint" className="mod-small">At least 8 characters.</p>
       <label htmlFor="pw-confirm">Confirm the new password</label>
       <input id="pw-confirm" className="mod-input" type="password" autoComplete="new-password" maxLength={128} value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(""); }} />
-      {error && <p role="alert" className="mod-note">{error}</p>}
-      <button type="submit" className="mod-btn mod-btn--primary" disabled={busy}>{busy ? "Saving…" : "Save and open the Admin Portal"}</button>
+      {error && <p role="alert" className="adm-note error">{error}</p>}
+      <button type="submit" className="btn primary" disabled={busy}>{busy ? "Saving…" : "Save and open Moderation"}</button>
     </form>
   );
 }
