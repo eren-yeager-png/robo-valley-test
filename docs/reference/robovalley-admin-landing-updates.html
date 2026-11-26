@@ -590,7 +590,7 @@ video {
 /* The rich-text block. THE one place for it: anything inside an element with the class rv-rt gets this look, whenever it was added.
    Give the class to the container that all fields are rendered into, never to single fields. */
 .rv-rt {
-	max-width: 1080px;
+	max-width: 880px;
 	margin: 24px 0;
 	padding: 24px;
 	border: 1px solid #e1e4ea;
@@ -857,7 +857,7 @@ export const MAX_BAR = 28;</script>
 /* The rich-text block. THE one place for it: anything inside an element with the class rv-rt gets this look, whenever it was added.
    Give the class to the container that all fields are rendered into, never to single fields. */
 .rv-rt {
-	max-width: 1080px;
+	max-width: 880px;
 	margin: 24px 0;
 	padding: 24px;
 	border: 1px solid #e1e4ea;
@@ -1074,7 +1074,7 @@ function sectorForms() {
 /* ---------- 4. the landing page CSS (B1-B3, D) ---------- */
 var FIELDS = [["Which robot is it about?", "Milking robots"]];
 function stage(body, id) { return '<div class="ref-stage"><div class="' + body + '"><div class="ref-margins" id="' + id + '"><header class="entry-header ast-no-thumbnail ast-header-without-markup rv-c2-has-sector-cta"><h1 class="entry-title">Agriculture &amp; Dairy</h1><div class="rv-c2-sector-cta"><span class="rv-c2-sector-btn">+ Contribute to this sector</span></div></header></div></div><div class="ref-after-content">The page content starts here.</div></div>'; }
-function half(which, inner) { return '<div class="ref-half"><span class="ref-tag ' + which + '">' + (which === "after" ? "After: 1080px" : "Before: 880px") + '</span><div class="ref-scale"><div class="ref-page' + (which === "before" ? " ref-before-css" : "") + '">' + inner + '</div></div><p class="ref-count" data-measure="1"></p></div>'; }
+function half(which, inner) { return '<div class="ref-half"><span class="ref-tag ' + which + '">' + (which === "after" ? "After: 880px" : "Before: 880px") + '</span><div class="ref-scale"><div class="ref-page' + (which === "before" ? " ref-before-css" : "") + '">' + inner + '</div></div><p class="ref-count" data-measure="1"></p></div>'; }
 function block(label, value) { return '<div class="rv-rt"><h3>' + esc(label) + "</h3><p>" + esc(value) + "</p></div>"; }
 function fitPages() {
   Array.prototype.forEach.call(app.querySelectorAll(".ref-scale"), function (box) {
@@ -1090,12 +1090,12 @@ function fitPages() {
   });
 }
 function landing() {
-  var text = block("About this sector", "A rich-text block on a sector page. Its box is 880px wide before and 1080px after; on a narrow screen it is as wide as the screen allows, and nothing inside pushes the page sideways.") ;
+  var text = block("About this sector", "A rich-text block on a sector page. Its box is 880px wide, before and after; on a narrow screen it is as wide as the screen allows, and nothing inside pushes the page sideways.") ;
   var fields = function () { return FIELDS.map(function (f) { return block(f[0], f[1]); }).join(""); };
   app.innerHTML = '<div class="rv"><div class="adm ref-plain"><main class="ref-land"><h1>Landing page CSS</h1><p>Live previews with the exact stylesheet that ships: rv-contribution-v2/assets/rv-site.css. The striped area is the margin.</p>' +
-    note("The entry header has more room (B1, B2), the rich-text block is 1080px wide instead of 880px (B3), and <b>new fields added by admins automatically use .rv-rt at 1080px</b> (D): the class is on the container that all fields are put into, not on single fields. The stylesheet loads after Astra's, so it wins without !important.") +
+    note("The entry header has more room (B1, B2), the rich-text block stays 880px wide (B3 was taken back in plugin 0.1.14), and <b>new fields added by admins automatically use .rv-rt at 880px</b> (D): the class is on the container that all fields are put into, not on single fields. The stylesheet loads after Astra's, so it wins without !important.") +
     '<div class="ref-two"><div><h2>B1: single post, 35px above, 25px below</h2>' + stage("ast-single-post", "b1") + '</div><div><h2>B2: page-builder page, 25px above, 15px below</h2>' + stage("ast-single-post ast-page-builder-template", "b2") + "</div></div>" +
-    '<h2>B3: the rich-text block</h2><div class="ref-two">' + half("before", text) + half("after", text) + "</div>" +
+    '<h2>B3: the rich-text block</h2><div class="ref-two">' + half("before", text) + half("after", text) + "</div>" + '<p class="ref-count">Width reverted to 880px in 0.1.14; Before and After are now the same.</p>' +
     '<h2>D: an admin adds a new field</h2><p>Type a label and a value. Each field appears as a new .rv-rt block on both sides; no CSS is added for it.</p><form class="ref-form" id="add"><label>Field label<input id="f-label" maxlength="80" required value="Village or district"></label><label>Value<textarea id="f-value" maxlength="2000" required>Guntur district, Andhra Pradesh</textarea></label><button class="btn primary" type="submit">Add field</button><button class="btn" type="button" id="long">Add a very long one</button></form><p class="sr" role="status" id="said"></p>' +
     '<div class="ref-two" id="demo">' + half("before", fields()) + half("after", fields()) + "</div>" +
     '<h2>The CSS that ships</h2><pre class="ref-code">' + esc(code("code-css")) + "</pre></main></div></div>";

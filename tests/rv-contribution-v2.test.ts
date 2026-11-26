@@ -239,8 +239,8 @@ describe("?sector= preselects sectors (the Contribute to this sector link)", () 
     const create = calls.find((c) => c.method === "POST" && c.path === "/api/contributions");
     expect(create?.body.sectors).toEqual(["education"]);
   });
-  it("the plugin version moved to 0.1.12 so browsers fetch the new styles and markup", () => {
-    expect(PHP).toMatch(/Version: 0\.1\.12/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.12'/);
+  it("the plugin version moved to 0.1.14 so browsers fetch the new styles", () => {
+    expect(PHP).toMatch(/Version: 0\.1\.14/); expect(PHP).toMatch(/RV_C2_VERSION = '0\.1\.14'/);
   });
 });
 

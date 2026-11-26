@@ -1,4 +1,4 @@
-RoboValley Contribution (v2) - WordPress plugin, version 0.1.12
+RoboValley Contribution (v2) - WordPress plugin, version 0.1.14
 
 WHAT IT IS
 The new Contribute form for the Contribution and Contributor pages. It only shows the form and talks to the RoboValley app.
@@ -136,3 +136,6 @@ NEW IN 0.1.12
     added later appear in it by themselves. Its width is the form's own column (800px); .rv-rt is 1080px wherever there is room.
   * If an older .rv-rt rule exists somewhere else in WordPress (Additional CSS, a code snippet, another plugin), delete it there:
     this file is the only place for it.
+
+NEW IN 0.1.14
+  * Reverts the responsive changes from 0.1.13 (#86); the .rv-rt block is 880px wide again.
