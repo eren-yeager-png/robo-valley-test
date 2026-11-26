@@ -33,7 +33,8 @@ body.robovalley-landing-page {
 		top: var(--wp-admin--admin-bar--height, 32px);
 	}
 
-	/* At 600px and below WordPress lets the admin bar scroll away, so the header returns to the top. */
+	/* At 600px and below WordPress lets the admin bar scroll away, so the header returns to the top.
+	   600/601 are WordPress core admin-bar widths, not layout breakpoints: they are used in the admin-bar rules only. */
 	@media (max-width: 600px) {
 		body.admin-bar.robovalley-landing-page:not(.elementor-editor-active) #masthead {
 			top: 0;
@@ -1237,8 +1238,17 @@ body.robovalley-landing-page .robovalley-home .robovalley-pause {
 	}
 }
 
-/* Tablet */
-@media (max-width: 980px) {
+/*
+ * Breakpoints (responsive PR 4): the page follows Astra, whose header switches to the mobile header at 921px and whose mobile
+ * width is 544px; the one step in between is the shared 768px. Mobile first everywhere else; only these widths are used:
+ *   max-width: 921px    Astra tablet: grids 4 -> 2, the hero slide in one column
+ *   max-width: 767.98px small tablets and phones in landscape: the two-column sections in one column, the slider controls wrap
+ *   max-width: 544px    Astra mobile: the remaining grids in one column, full-width buttons
+ * (600px/601px above are WordPress core admin-bar widths, used for the admin bar only.)
+ */
+
+/* Tablet (Astra: 921px and below) */
+@media (max-width: 921px) {
 	body.robovalley-landing-page .robovalley-home .robovalley-cols-4,
 	body.robovalley-landing-page .robovalley-home .robovalley-cols-3 {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1255,9 +1265,7 @@ body.robovalley-landing-page .robovalley-home .robovalley-pause {
 	body.robovalley-landing-page .robovalley-home .robovalley-vision-grid {
 		grid-template-columns: repeat(3, minmax(0, 1fr));
 	}
-}
 
-@media (max-width: 860px) {
 	body.robovalley-landing-page .robovalley-home .robovalley-stage {
 		padding: 40px 14px 18px;
 	}
@@ -1271,7 +1279,8 @@ body.robovalley-landing-page .robovalley-home .robovalley-pause {
 	}
 }
 
-@media (max-width: 760px) {
+/* Small tablets and phones in landscape (the shared 768px breakpoint) */
+@media (max-width: 767.98px) {
 	body.robovalley-landing-page .robovalley-home {
 		padding-top: 56px !important;
 		padding-bottom: 56px !important;
@@ -1303,15 +1312,18 @@ body.robovalley-landing-page .robovalley-home .robovalley-pause {
 	body.robovalley-landing-page .robovalley-home .robovalley-streams em {
 		text-align: left;
 	}
-}
 
-@media (max-width: 640px) {
 	body.robovalley-landing-page .robovalley-home .robovalley-cm-row {
 		gap: 4px;
 	}
 
 	body.robovalley-landing-page .robovalley-home .robovalley-cm-hex b {
 		font-size: 0.74rem;
+	}
+
+	/* Taller hexes: each zone button stays at least 44px tall with six in a row (down to 545px). */
+	body.robovalley-landing-page .robovalley-home .robovalley-cm-hex {
+		aspect-ratio: 7 / 4;
 	}
 
 	/* The caption wraps on narrow screens: keep it in the flow above the slide instead of over the eyebrow. */
@@ -1339,7 +1351,8 @@ body.robovalley-landing-page .robovalley-home .robovalley-pause {
 	}
 }
 
-@media (max-width: 520px) {
+/* Phones (Astra mobile: 544px and below) */
+@media (max-width: 544px) {
 	body.robovalley-landing-page .robovalley-home .robovalley-zones,
 	body.robovalley-landing-page .robovalley-home .robovalley-ladder,
 	body.robovalley-landing-page .robovalley-home .robovalley-opps,
@@ -1367,6 +1380,17 @@ body.robovalley-landing-page .robovalley-home .robovalley-pause {
 		grid-column: auto;
 	}
 
+	/* The six zone buttons in two rows of three: six in one row cannot all be 44px wide on a phone. */
+	body.robovalley-landing-page .robovalley-home .robovalley-cm-row {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 6px 8px;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-cm-row::before {
+		left: calc(100% / 6);
+		right: calc(100% / 6);
+	}
+
 	body.robovalley-landing-page .robovalley-home .robovalley-guide {
 		padding: 18px !important;
 	}
@@ -1385,5 +1409,57 @@ body.robovalley-landing-page .robovalley-home .robovalley-pause {
 	body.robovalley-landing-page .robovalley-home .robovalley-slide .robovalley-button {
 		flex: 1 1 100%;
 		justify-content: center;
+	}
+}
+
+/*
+ * Touch screens (phones and tablets, portrait and landscape): everything that is tapped is at least 44 by 44px, and body copy is at
+ * least 16px. max(1rem, 16px) because Astra sets the root size from its typography setting (smaller than 16px on phones by default).
+ * The mono labels, tags and status chips stay as they are: they are labels, not body text.
+ */
+@media (pointer: coarse) {
+	body.robovalley-landing-page #masthead .menu-toggle {
+		min-width: 44px;
+		min-height: 44px;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-arrow {
+		width: 44px;
+		height: 44px;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-pause {
+		min-height: 44px;
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-cm-city {
+		padding-top: 12px;
+		padding-bottom: 12px;
+	}
+
+	/* The story card (its own Elementor HTML widget): its close and pause buttons keep their size and look; an invisible layer
+	   around each makes the area that answers a tap at least 44 by 44px. */
+	body.robovalley-landing-page .rv-animation-root .rv-animation-close::after,
+	body.robovalley-landing-page .rv-animation-root .rv-animation-pause::after {
+		content: "";
+		position: absolute;
+		inset: min(-6px, calc((100% - 44px) / 2));
+	}
+
+	body.robovalley-landing-page .rv-animation-root .rv-animation-btn {
+		min-height: max(44px, calc(25px / var(--rv-animation-scale, 1)));
+	}
+
+	body.robovalley-landing-page .robovalley-home .robovalley-lede,
+	body.robovalley-landing-page .robovalley-home .robovalley-small,
+	body.robovalley-landing-page .robovalley-home .robovalley-note,
+	body.robovalley-landing-page .robovalley-home .robovalley-zone-sub,
+	body.robovalley-landing-page .robovalley-home .robovalley-streams li,
+	body.robovalley-landing-page .robovalley-home .robovalley-mcard li,
+	body.robovalley-landing-page .robovalley-home .robovalley-fact .robovalley-small,
+	body.robovalley-landing-page .robovalley-home .robovalley-zone .robovalley-small,
+	body.robovalley-landing-page .robovalley-home .robovalley-rung .robovalley-small,
+	body.robovalley-landing-page .robovalley-home .robovalley-opp .robovalley-small {
+		font-size: max(1rem, 16px);
 	}
 }

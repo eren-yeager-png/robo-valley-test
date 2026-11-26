@@ -8,7 +8,8 @@ const DIR = "frontend/wordpress/plugins/rv-contribution-v2/";
 const read = (f: string) => readFileSync(f, "utf8").replace(/\r\n/g, "\n");
 const CSS = read(DIR + "assets/rv-site.css"), PHP = read(DIR + "rv-contribution-v2.php"), HTML = read(DIR + "assets/rv-contribution-v2.html"), JS = read(DIR + "assets/rv-contribution-v2.js");
 const walk = (d: string): string[] => readdirSync(d).flatMap((f) => { const p = join(d, f); return statSync(p).isDirectory() ? walk(p) : [p]; });
-const rules = CSS.replace(/\/\*[\s\S]*?\*\//g, "").split("}").map((r) => r.split("{")).filter((r) => r.length === 2).map(([s, b]) => ({ sel: s.trim().split(/\s*,\s*/), body: b.trim().split(/;\s*/).filter(Boolean) }));
+// top-level rules only: the phone rules inside @media (responsive, 0.1.13) are checked in tests/responsive-wordpress.test.ts
+const rules = CSS.replace(/\/\*[\s\S]*?\*\//g, "").replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, "").split("}").map((r) => r.split("{")).filter((r) => r.length === 2).map(([s, b]) => ({ sel: s.trim().split(/\s*,\s*/), body: b.trim().split(/;\s*/).filter(Boolean) }));
 const ruleOf = (sel: string) => rules.filter((r) => r.sel.includes(sel));
 
 describe("B1 and B2: the space around the entry header", () => {
