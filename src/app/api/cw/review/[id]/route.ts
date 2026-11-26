@@ -18,8 +18,8 @@ const METHODS = "GET, POST, OPTIONS";
 export const OPTIONS = (req: Request) => preflight(req, METHODS);
 const notFound = { ok: false as const, status: 404, error: "NOT_FOUND", message: "We could not find that contribution." };
 
-/** The actions this API accepts so far (the workspace's; the Admin Approval Dashboard's come in later phases). */
-const ACCEPTED = new Set<string>([...R.WORKSPACE_ACTIONS]);
+/** The actions this API accepts: the workspace's and the Admin Approval Dashboard's (administrator-only ones answer 403 to others). */
+const ACCEPTED = new Set<string>([...R.WORKSPACE_ACTIONS, ...R.ADMIN_ACTIONS.filter((a: string) => a !== "publish")]);
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const g = await guardReviewer(req, METHODS);
@@ -49,7 +49,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const r = await applyAction(pool as never, { id, actor, action, payload: p });
     if (!r.ok) return failed(req, r as Fail, METHODS);
     if (action === "send_request") notifyAfter("sent", id);
-    if (action === "decline") notifyAfter("rejected", id);
+    if (action === "decline" || action === "reject") notifyAfter("rejected", id);
+    if (action === "request_changes") notifyAfter("changes", id);
     return ok(req, { item: r.detail, ...(r.message ? { message: r.message } : {}), ...(r.record ? { record: r.record } : {}) }, METHODS);
   } catch (e) {
     return crashed(req, e, METHODS, "review action");

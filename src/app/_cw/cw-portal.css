@@ -7,6 +7,8 @@
 .rv .adm .cw-muted { color: var(--muted); font-size: .88rem; }
 .rv .adm .cw-earlier { margin: 8px 0 0; font-size: .9rem; color: var(--fg); }
 .rv .adm .cw-earlier a { color: var(--brand); font-weight: 700; }
+.rv .adm .cw-demo-toggle { display: flex; gap: 8px; align-items: center; font-size: .85rem; margin-top: 8px; }
+.rv .adm .cw-boxes { margin-bottom: 12px; }
 .rv .adm .cw-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 14px; align-items: start; }
 .rv .adm .cw-grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
 .rv .adm .cw-grid2.cw-tight { gap: 4px 14px; }

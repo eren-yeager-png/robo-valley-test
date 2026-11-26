@@ -97,6 +97,15 @@ export const PARITY = [
   "Moderator Workspace: Save Draft, Reset to Original, Submit Publishing Request to Admin, Decline Idea (dialog, reason required) and the helper text",
   "Moderator Workspace: messages \"Draft saved. Nothing has been published.\" / \"Request sent to Admin. Status: ... It is still not public.\" and both send rules",
   "Moderator Workspace: activity history, newest first; read-only once with Admin, published or rejected",
+  "Admin Approval Dashboard: intro text; filters Awaiting me (default, with count), With Moderators, Changes Requested, Published, Rejected, All",
+  "Admin Approval Dashboard: list card = status badge, RV number, title, kind · contributor · sector · by moderator",
+  "Admin Approval Dashboard: Contributor box and Moderator box (Not yet assigned / Request vN sent ... / Edited by Moderator or Approved as-is)",
+  "Admin Approval Dashboard: the same read-only Request box; Original vs. version to publish with a word-level diff and \"changed\" tags; Moderator notes or \"No notes.\"",
+  "Admin Approval Dashboard: preview notice (amber, then green \"You have reviewed the publish preview for this version.\"); Publish disabled until the current version is previewed",
+  "Admin Approval Dashboard: Open Publish Preview, Publish to Website / Retry Publish, Edit Before Publishing (title and description), Request Changes and Reject (dialogs, text required)",
+  "Admin Approval Dashboard: banners Publication failed (safe retry), Published successfully (verified), Publishing in progress, still with the Moderator; previous versions; history",
+  "Publish Preview: modal \"Publish Preview\", meta RV-xxxx · version N · <sector> section, yellow PREVIEW ONLY banner, dark RoboValley › Community Ideas › <Sector> header, the shared card",
+  "Publish Preview: Download preview (.html) works offline, Open in new tab (\"Your browser blocked the new tab. Use Download instead.\"), Done reviewing",
 ];
 
 /** The standalone demo: every built screen with mock data, plus the parity checklist. */

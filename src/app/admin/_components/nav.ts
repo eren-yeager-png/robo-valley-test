@@ -11,6 +11,7 @@ export const ADMIN_NAV = [
   { href: "/admin/sector-forms", label: "Sector Forms", icon: "✎" },
   { href: "/admin/moderation", label: "Moderation", icon: "✓" },
   { href: "/admin/workspace", label: "Moderator Workspace", icon: "✍" },
+  { href: "/admin/approvals", label: "Admin Approval Dashboard", icon: "★" },
   { href: "/admin/settings", label: "Settings", icon: "⚙" },
 ] as const;
 
