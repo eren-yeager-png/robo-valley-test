@@ -290,6 +290,7 @@ const canModeratorEdit = (status) => MOD_EDITABLE.includes(status);
 const canAdminAct = (status) => ADMIN_ACTIONABLE.includes(status);
 const ADMIN_ACTIONS = ["preview", "admin_edit", "request_changes", "reject", "publish"];
 const MODERATOR_ACTIONS = ["open", "save_draft", "reset", "send_request", "decline"];
+const WORKSPACE_ACTIONS = MODERATOR_ACTIONS; // the same list, named after the workspace
 
 /**
  * The ONE transition function. `c` = { status, versions: n } (n = number of versions so far). Returns { ok: true, to } or
@@ -384,7 +385,7 @@ function sniffType(bytes) {
 }
 const attachmentAllowed = (mime) => ATTACHMENT_TYPES.includes(mime);
 const codeOf = (id) => `RV-${id}`;
-Object.assign(exports, { slug, isUrl, resourceId, showsResource, validateSubmission, validateSend, cleanProposed, sameValue, changedFields, isModified, MOD_EDITABLE, ADMIN_ACTIONABLE, canModeratorEdit, canAdminAct, ADMIN_ACTIONS, MODERATOR_ACTIONS, nextStatus, history, firstNameOf, publicContributor, sectorLabel, robotLabel, toPublicRecord, ideaBy, sniffType, attachmentAllowed, codeOf });
+Object.assign(exports, { slug, isUrl, resourceId, showsResource, validateSubmission, validateSend, cleanProposed, sameValue, changedFields, isModified, MOD_EDITABLE, ADMIN_ACTIONABLE, canModeratorEdit, canAdminAct, ADMIN_ACTIONS, MODERATOR_ACTIONS, WORKSPACE_ACTIONS, nextStatus, history, firstNameOf, publicContributor, sectorLabel, robotLabel, toPublicRecord, ideaBy, sniffType, attachmentAllowed, codeOf });
 });
 __def("api.js", function (exports, __req) {
 // Contribution workflow: the data adapters. Every screen talks to ONE interface:
@@ -504,7 +505,7 @@ class MockAdapter {
     };
   }
   async list(view, filter) {
-    const filters = view === "admin" ? ADM_FILTERS : MOD_FILTERS;
+    const filters = view === "approvals" ? ADM_FILTERS : MOD_FILTERS;
     const statuses = Object.prototype.hasOwnProperty.call(filters, filter) ? filters[filter] : filters[Object.keys(filters)[0]];
     const items = this.items.filter((x) => !statuses || statuses.includes(x.status)).map((c) => ({
       id: c.id, code: c.code, status: c.status, statusLabel: STATUS_LABEL[c.status], title: c.proposed.title, kind: c.kind,

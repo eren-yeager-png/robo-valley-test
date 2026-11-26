@@ -108,6 +108,7 @@ export const canModeratorEdit = (status) => MOD_EDITABLE.includes(status);
 export const canAdminAct = (status) => ADMIN_ACTIONABLE.includes(status);
 export const ADMIN_ACTIONS = ["preview", "admin_edit", "request_changes", "reject", "publish"];
 export const MODERATOR_ACTIONS = ["open", "save_draft", "reset", "send_request", "decline"];
+export const WORKSPACE_ACTIONS = MODERATOR_ACTIONS; // the same list, named after the workspace
 
 /**
  * The ONE transition function. `c` = { status, versions: n } (n = number of versions so far). Returns { ok: true, to } or

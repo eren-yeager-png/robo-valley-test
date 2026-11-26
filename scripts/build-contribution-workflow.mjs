@@ -86,12 +86,23 @@ export const PARITY = [
   "Contribution Form: all six validation messages shown together in one red notice; submit blocked",
   "Contribution Form: success message \"Thank you! Your <kind> RV-xxxx has been submitted for review. It is not public until an Admin publishes it.\"",
   "Contribution Form: sign-in required; administrators and moderators are told they review",
+  "Moderator Workspace: intro text; list with filters Open (default, with count), Awaiting Admin, Changes Requested, Decided, All; \"Nothing here.\"",
+  "Moderator Workspace: \"Earlier contributions (old form): N, open in Moderation\"",
+  "Moderator Workspace: list card = status badge, RV number, working title, kind · contributor · type · sector",
+  "Moderator Workspace: first open of a Submitted idea moves it to Under Moderator Review and records the moderator",
+  "Moderator Workspace: header, submitted-by line, attachment chip; banners for Changes Requested, with Admin, Published, Rejected",
+  "Moderator Workspace: read-only Request box (kind, resource fields and ID, link, what should change, reference links)",
+  "Moderator Workspace: Original submission (read-only) next to Version for publishing (Edited / Unchanged) with every field editable",
+  "Moderator Workspace: Internal notes for Admin (never shown publicly)",
+  "Moderator Workspace: Save Draft, Reset to Original, Submit Publishing Request to Admin, Decline Idea (dialog, reason required) and the helper text",
+  "Moderator Workspace: messages \"Draft saved. Nothing has been published.\" / \"Request sent to Admin. Status: ... It is still not public.\" and both send rules",
+  "Moderator Workspace: activity history, newest first; read-only once with Admin, published or rejected",
 ];
 
 /** The standalone demo: every built screen with mock data, plus the parity checklist. */
 export function demoHtml() {
   const screens = ["form.js", "moderator.js", "admin.js", "site.js"].filter(has);
-  const extra = ["dialog.js", "preview.js"].filter(has);
+  const extra = ["dialog.js", "review.js", "preview.js"].filter(has);
   const css = [read(join(SRC, "contribution-workflow.css"))];
   const portalCss = [join(ROOT, "src", "app", "admin", "admin.css"), join(ROOT, "src", "app", "_cw", "cw-portal.css")].filter(existsSync).map(read);
   const tabs = [

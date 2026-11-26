@@ -115,7 +115,7 @@ export class MockAdapter {
     };
   }
   async list(view, filter) {
-    const filters = view === "admin" ? ADM_FILTERS : MOD_FILTERS;
+    const filters = view === "approvals" ? ADM_FILTERS : MOD_FILTERS;
     const statuses = Object.prototype.hasOwnProperty.call(filters, filter) ? filters[filter] : filters[Object.keys(filters)[0]];
     const items = this.items.filter((x) => !statuses || statuses.includes(x.status)).map((c) => ({
       id: c.id, code: c.code, status: c.status, statusLabel: STATUS_LABEL[c.status], title: c.proposed.title, kind: c.kind,

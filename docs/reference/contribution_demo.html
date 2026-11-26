@@ -15,6 +15,17 @@
     [x] Contribution Form: all six validation messages shown together in one red notice; submit blocked
     [x] Contribution Form: success message "Thank you! Your <kind> RV-xxxx has been submitted for review. It is not public until an Admin publishes it."
     [x] Contribution Form: sign-in required; administrators and moderators are told they review
+    [x] Moderator Workspace: intro text; list with filters Open (default, with count), Awaiting Admin, Changes Requested, Decided, All; "Nothing here."
+    [x] Moderator Workspace: "Earlier contributions (old form): N, open in Moderation"
+    [x] Moderator Workspace: list card = status badge, RV number, working title, kind · contributor · type · sector
+    [x] Moderator Workspace: first open of a Submitted idea moves it to Under Moderator Review and records the moderator
+    [x] Moderator Workspace: header, submitted-by line, attachment chip; banners for Changes Requested, with Admin, Published, Rejected
+    [x] Moderator Workspace: read-only Request box (kind, resource fields and ID, link, what should change, reference links)
+    [x] Moderator Workspace: Original submission (read-only) next to Version for publishing (Edited / Unchanged) with every field editable
+    [x] Moderator Workspace: Internal notes for Admin (never shown publicly)
+    [x] Moderator Workspace: Save Draft, Reset to Original, Submit Publishing Request to Admin, Decline Idea (dialog, reason required) and the helper text
+    [x] Moderator Workspace: messages "Draft saved. Nothing has been published." / "Request sent to Admin. Status: ... It is still not public." and both send rules
+    [x] Moderator Workspace: activity history, newest first; read-only once with Admin, published or rejected
 -->
 <html lang="en">
 <head>
@@ -287,6 +298,93 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
   .rv .adm-note.setup a{margin-left:0}
 }
 
+/* RoboValley contribution workflow inside the admin portal (Moderator Workspace, Admin Approval Dashboard, Publish Preview).
+   Scoped under .rv .adm like every admin page, using admin.css's colours (--brand, --line, --muted ...). No Bootstrap.
+   The demo's layout, badge colours and diff highlighting. */
+.rv .adm .rv-cw-root { display: block; }
+.rv .adm .cw-intro { margin-bottom: 14px; }
+.rv .adm .cw-intro h2 { margin: 0 0 6px; font: 800 1.35rem var(--display); color: var(--fg); }
+.rv .adm .cw-muted { color: var(--muted); font-size: .88rem; }
+.rv .adm .cw-earlier { margin: 8px 0 0; font-size: .9rem; color: var(--fg); }
+.rv .adm .cw-earlier a { color: var(--brand); font-weight: 700; }
+.rv .adm .cw-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 14px; align-items: start; }
+.rv .adm .cw-grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.rv .adm .cw-grid2.cw-tight { gap: 4px 14px; }
+.rv .adm .cw-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.rv .adm .cw-chip { border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; min-height: 34px; }
+.rv .adm .cw-chip.on { background: var(--hero); border-color: var(--hero); color: #fff; }
+.rv .adm .cw-count { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--tint); color: var(--brand); font-size: .75rem; margin-left: 4px; }
+.rv .adm .cw-chip.on .cw-count { background: #fff; }
+.rv .adm .cw-item { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 11px; margin-bottom: 8px; cursor: pointer; }
+.rv .adm .cw-item:hover { border-color: var(--brand); }
+.rv .adm .cw-item.sel { border-color: var(--brand); box-shadow: 0 0 0 2px var(--tint); }
+.rv .adm .cw-item .cw-t { display: block; font-weight: 700; margin: 4px 0; font-size: .92rem; }
+.rv .adm .cw-item .cw-meta { display: block; font-size: .8rem; }
+.rv .adm .cw-empty { color: var(--muted); font-style: italic; font-size: .9rem; }
+.rv .adm .cw-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+.rv .adm .cw-head h3 { margin: 0 0 6px; font-size: 1.1rem; }
+.rv .adm .cw-h4, .rv .adm .cw-box h4 { margin: 14px 0 8px; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.rv .adm .cw-box { background: #f8faf9; border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: .9rem; min-width: 0; }
+.rv .adm .cw-box h4 { margin-top: 0; }
+.rv .adm .cw-request { margin-bottom: 12px; }
+.rv .adm .cw-field { margin-bottom: 8px; overflow-wrap: anywhere; }
+.rv .adm .cw-k { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; display: flex; gap: 6px; align-items: center; }
+.rv .adm .cw-links a, .rv .adm .cw-ref a { color: var(--brand); word-break: break-all; }
+.rv .adm .cw-tag { display: inline-block; font-size: .72rem; background: var(--tint); color: var(--brand); padding: 2px 8px; border-radius: 10px; margin: 0 4px 4px 0; font-weight: 700; text-decoration: none; }
+.rv .adm .cw-detail label, .rv .adm .cw-fs legend { display: block; font-size: .82rem; font-weight: 700; margin: 0; padding: 0; color: var(--fg); }
+.rv .adm .cw-fs { border: 0; margin: 0; padding: 0; min-width: 0; }
+.rv .adm .cw-detail input:not([type="checkbox"]):not([type="radio"]), .rv .adm .cw-detail select, .rv .adm .cw-detail textarea, .rv .adm .rv-dlg textarea {
+	display: block; width: 100%; padding: 8px 10px; margin: 5px 0 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit; font-size: .9rem; background: #fff; color: var(--fg); min-height: 40px; box-sizing: border-box;
+}
+.rv .adm .cw-detail textarea, .rv .adm .rv-dlg textarea { min-height: 84px; resize: vertical; }
+.rv .adm .cw-detail [readonly], .rv .adm .cw-detail select:disabled { background: #f6f8f7; color: var(--muted); }
+.rv .adm input:focus-visible, .rv .adm select:focus-visible, .rv .adm textarea:focus-visible, .rv .adm .cw-item:focus-visible, .rv .adm .cw-chip:focus-visible,
+.rv .adm .btn:focus-visible, .rv .adm .rv-pill input:focus-visible + span { outline: 3px solid var(--blue); outline-offset: 2px; }
+.rv .adm .cw-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.rv .adm .btn.danger { border-color: var(--red); color: var(--red); }
+.rv .adm .btn.danger:hover:not(:disabled) { background: var(--red-soft); }
+.rv .adm .btn.warn { border-color: var(--amber); background: var(--amber-soft); color: var(--amber-ink); }
+.rv .adm .btn.success { background: #15803d; border-color: #15803d; color: #fff; }
+.rv .adm .btn:disabled { opacity: .5; cursor: not-allowed; }
+.rv .adm .cw-history { border-left: 3px solid var(--tint); padding: 2px 0 2px 12px; margin: 8px 0; font-size: .85rem; overflow-wrap: anywhere; }
+.rv .adm .cw-when { color: var(--muted); font-size: .75rem; }
+.rv .adm .cw-notice { padding: 10px 12px; border-radius: 10px; font-size: .88rem; margin: 10px 0; border: 1px solid; }
+.rv .adm .cw-n-info { background: #eff6ff; color: #1e3a8a; border-color: #bfdbfe; }
+.rv .adm .cw-n-warn { background: #fff7ed; color: #7c2d12; border-color: #fed7aa; }
+.rv .adm .cw-n-ok { background: #f0fdf4; color: #14532d; border-color: #bbf7d0; }
+.rv .adm .cw-n-err { background: #fef2f2; color: #7f1d1d; border-color: #fecaca; }
+.rv .adm .cw-diff ins { background: #bbf7d0; text-decoration: none; padding: 0 2px; border-radius: 3px; }
+.rv .adm .cw-diff del { background: #fecaca; color: #7f1d1d; padding: 0 2px; border-radius: 3px; }
+.rv .adm .cw-spin { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: cw-spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+@keyframes cw-spin { to { transform: rotate(360deg); } }
+/* pills (same markup as the form) */
+.rv .adm .rv-pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 12px; }
+.rv .adm .rv-pill { position: relative; display: inline-block; font-weight: 400; font-size: .82rem; cursor: pointer; margin: 0; }
+.rv .adm .rv-pill input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; padding: 0; }
+.rv .adm .rv-pill span { display: inline-block; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); background: #fff; }
+.rv .adm .rv-pill input:checked + span { background: var(--tint); border: 1.5px solid var(--brand); color: var(--brand); font-weight: 700; }
+.rv .adm .rv-pill input:disabled + span { opacity: .65; cursor: not-allowed; }
+/* status badges: the demo's colours */
+.rv .adm .rv-badge { display: inline-block; padding: 4px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; background: #e2e8f0; color: #334155; white-space: nowrap; }
+.rv .adm .rv-s-submitted { background: #e0e7ff; color: #3730a3; } .rv .adm .rv-s-review { background: #fef3c7; color: #92400e; }
+.rv .adm .rv-s-draft { background: #f1f5f9; color: #475569; } .rv .adm .rv-s-pending { background: #ffedd5; color: #9a3412; }
+.rv .adm .rv-s-changes { background: #fce7f3; color: #9d174d; } .rv .adm .rv-s-publishing { background: #dbeafe; color: #1e40af; }
+.rv .adm .rv-s-published { background: #dcfce7; color: #166534; } .rv .adm .rv-s-failed, .rv .adm .rv-s-rejected { background: #fee2e2; color: #991b1b; }
+/* the reason dialog and the Publish Preview modal */
+.rv .adm .rv-dlg-bg, .rv .adm .cw-modal-bg { position: fixed; inset: 0; background: rgba(15, 23, 42, .55); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+.rv .adm .rv-dlg { background: #fff; border-radius: 16px; width: min(520px, 100%); padding: 18px; box-shadow: var(--shadow); }
+.rv .adm .rv-dlg-title { margin: 0 0 10px; font-size: 1.05rem; }
+.rv .adm .rv-dlg-label { display: block; font-size: .85rem; font-weight: 700; }
+.rv .adm .rv-dlg-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.rv .adm .cw-modal { background: #fff; border-radius: 16px; width: min(860px, 100%); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
+.rv .adm .cw-modal-h { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.rv .adm .cw-modal-h h3 { margin: 0; font-size: 1.05rem; }
+.rv .adm .cw-modal iframe { border: 0; width: 100%; height: min(470px, 60vh); background: #f1f5f9; }
+.rv .adm .cw-modal-f { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 860px) {
+	.rv .adm .cw-layout, .rv .adm .cw-grid2 { grid-template-columns: minmax(0, 1fr); }
+}
+
 </style>
 </head>
 <body>
@@ -299,11 +397,13 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 <main class="demo-wrap">
   <div class="demo-tabs" role="tablist" aria-label="Roles">
       <button type="button" class="tab" role="tab" data-tab="form" aria-selected="false">Contribution Form</button>
+      <button type="button" class="tab" role="tab" data-tab="moderator" aria-selected="false">Moderator Workspace <span class="count" id="c-mod">0</span></button>
   </div>
     <section data-view="form" hidden><div class="rv-cw-root"><div data-mount></div></div></section>
+    <section data-view="moderator" hidden><div class="rv"><div class="adm rv-cw-root"><div data-mount></div></div></div></section>
 </main>
 <script>
-/* RoboValley contribution workflow - GENERATED by scripts/build-contribution-workflow.mjs from public/cw/js (lists.js, utils.js, rules.js, api.js, card.js, dialog.js, form.js, demo-seed.js). Do not edit. */
+/* RoboValley contribution workflow - GENERATED by scripts/build-contribution-workflow.mjs from public/cw/js (lists.js, utils.js, rules.js, api.js, card.js, dialog.js, review.js, form.js, moderator.js, demo-seed.js). Do not edit. */
 (function () {
 "use strict";
 var __mods = {}, __cache = {};
@@ -595,6 +695,7 @@ const canModeratorEdit = (status) => MOD_EDITABLE.includes(status);
 const canAdminAct = (status) => ADMIN_ACTIONABLE.includes(status);
 const ADMIN_ACTIONS = ["preview", "admin_edit", "request_changes", "reject", "publish"];
 const MODERATOR_ACTIONS = ["open", "save_draft", "reset", "send_request", "decline"];
+const WORKSPACE_ACTIONS = MODERATOR_ACTIONS; // the same list, named after the workspace
 
 /**
  * The ONE transition function. `c` = { status, versions: n } (n = number of versions so far). Returns { ok: true, to } or
@@ -689,7 +790,7 @@ function sniffType(bytes) {
 }
 const attachmentAllowed = (mime) => ATTACHMENT_TYPES.includes(mime);
 const codeOf = (id) => `RV-${id}`;
-Object.assign(exports, { slug, isUrl, resourceId, showsResource, validateSubmission, validateSend, cleanProposed, sameValue, changedFields, isModified, MOD_EDITABLE, ADMIN_ACTIONABLE, canModeratorEdit, canAdminAct, ADMIN_ACTIONS, MODERATOR_ACTIONS, nextStatus, history, firstNameOf, publicContributor, sectorLabel, robotLabel, toPublicRecord, ideaBy, sniffType, attachmentAllowed, codeOf });
+Object.assign(exports, { slug, isUrl, resourceId, showsResource, validateSubmission, validateSend, cleanProposed, sameValue, changedFields, isModified, MOD_EDITABLE, ADMIN_ACTIONABLE, canModeratorEdit, canAdminAct, ADMIN_ACTIONS, MODERATOR_ACTIONS, WORKSPACE_ACTIONS, nextStatus, history, firstNameOf, publicContributor, sectorLabel, robotLabel, toPublicRecord, ideaBy, sniffType, attachmentAllowed, codeOf });
 });
 __def("api.js", function (exports, __req) {
 // Contribution workflow: the data adapters. Every screen talks to ONE interface:
@@ -809,7 +910,7 @@ class MockAdapter {
     };
   }
   async list(view, filter) {
-    const filters = view === "admin" ? ADM_FILTERS : MOD_FILTERS;
+    const filters = view === "approvals" ? ADM_FILTERS : MOD_FILTERS;
     const statuses = Object.prototype.hasOwnProperty.call(filters, filter) ? filters[filter] : filters[Object.keys(filters)[0]];
     const items = this.items.filter((x) => !statuses || statuses.includes(x.status)).map((c) => ({
       id: c.id, code: c.code, status: c.status, statusLabel: STATUS_LABEL[c.status], title: c.proposed.title, kind: c.kind,
@@ -1029,6 +1130,62 @@ function askReason({ title, label, confirmText = "Confirm", tone = "danger", max
 }
 Object.assign(exports, { askReason });
 });
+__def("review.js", function (exports, __req) {
+// Contribution workflow: pieces shared by the Moderator Workspace and the Admin Approval Dashboard (both inside the admin portal).
+const { esc, fmtDate } = __req("utils.js");
+const { FIELDS, FIELD_LABELS, STATUS_CLASS, STATUS_LABEL } = __req("lists.js");
+const { robotLabel, sectorLabel } = __req("rules.js");
+
+const badge = (status) => `<span class="rv-badge ${STATUS_CLASS[status] || ""}">${esc(STATUS_LABEL[status] || status)}</span>`;
+const notSet = '<span class="cw-muted">Not set</span>';
+
+/** A field's value as text (sector and robot type by name, lists joined); "" when empty. */
+function fieldText(f, v, all, sectors) {
+  if (f === "sector") return v ? sectorLabel(v, sectors) : "";
+  if (f === "robotType") return v ? robotLabel(all.sector, v, sectors) : "";
+  if (Array.isArray(v)) return v.join(", ");
+  return String(v ?? "");
+}
+const fieldHtml = (f, v, all, sectors) => { const t = fieldText(f, v, all, sectors); return t ? esc(t) : notSet; };
+
+/** The read-only list of the seven fields of a version (original or proposed). */
+const fieldsHtml = (version, sectors) => FIELDS.map((f) =>
+  `<div class="cw-field"><div class="cw-k">${FIELD_LABELS[f]}</div><div class="cw-v">${fieldHtml(f, version[f], version, sectors)}</div></div>`).join("");
+
+const link = (u) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u)}</a>`;
+function refsHtml(refs) {
+  if (!refs || !refs.length) return '<span class="cw-muted">None</span>';
+  return refs.map((r) => `<div class="cw-ref">${link(r.url)}${r.remarks ? ` <span class="cw-muted">– ${esc(r.remarks)}</span>` : ""}</div>`).join("");
+}
+
+/** The request (type, the RoboValley resource it refers to, reference links): read-only for Moderators and Admins. */
+function requestHtml(it) {
+  const r = it.resource;
+  return `<div class="cw-box cw-request"><h4>Request</h4><span class="cw-tag">${esc(it.kind)}</span>
+  ${r ? `<div class="cw-grid2 cw-tight">
+      <div class="cw-field"><div class="cw-k">Feature</div>${esc(r.feature)}</div>
+      <div class="cw-field"><div class="cw-k">Resource type</div>${esc(r.type)}</div>
+      <div class="cw-field"><div class="cw-k">Resource path</div>${esc(r.path)}</div>
+      <div class="cw-field"><div class="cw-k">Resource ID</div>${r.id ? esc(r.id) : notSet}</div>
+    </div>
+    <div class="cw-field cw-links"><div class="cw-k">Link to that page</div>${r.url ? link(r.url) : '<span class="cw-muted">Not given</span>'}</div>
+    <div class="cw-field"><div class="cw-k">What should change</div>${r.change ? esc(r.change) : notSet}</div>`
+    : '<div class="cw-muted">Does not refer to an existing RoboValley resource.</div>'}
+  <div class="cw-field cw-links"><div class="cw-k">Reference links</div>${refsHtml(it.references)}</div></div>`;
+}
+
+/** Activity history, newest first. */
+const historyHtml = (it) => (it.history || []).slice().reverse().map((h) =>
+  `<div class="cw-history"><b>${esc(h.actor)}</b>: ${esc(h.text)}<div class="cw-when">${esc(fmtDate(h.at))}</div></div>`).join("");
+
+/** The attachment chip (a private download for reviewers). */
+const attachmentHtml = (it, adapter) => (it.attachment
+  ? `<a class="cw-tag cw-attach" href="${esc(adapter.attachmentUrl(it.id))}" download>📎 ${esc(it.attachment.name)}</a>` : "");
+
+const notice = (kind, html, role = "status") => `<div class="cw-notice cw-n-${kind}" role="${role}">${html}</div>`;
+const lastFeedback = (it, type) => (it.feedback || []).filter((f) => !type || f.type === type).slice(-1)[0];
+Object.assign(exports, { badge, fieldText, fieldHtml, fieldsHtml, refsHtml, requestHtml, historyHtml, attachmentHtml, notice, lastFeedback });
+});
 __def("form.js", function (exports, __req) {
 // Contribution workflow: the contributor's "Share Your Idea" form (WordPress page, shortcode [rv_contribution_form], and the demo).
 // Same fields, labels, order and messages as the demo. Name and type come from the signed-in profile and are read-only. Sector is
@@ -1203,6 +1360,154 @@ async function submit(form, ctx, h) {
   }
 }
 Object.assign(exports, { SAMPLE, mount });
+});
+__def("moderator.js", function (exports, __req) {
+// Contribution workflow: the Moderator Workspace (admin portal, /admin/workspace; and the demo). The demo's screen, through the adapter:
+// list with filters, open (Submitted -> Under Moderator Review), edit the version for publishing, Save Draft, Reset to Original, Submit
+// Publishing Request to Admin, Decline Idea (a real dialog with a required reason). Moderators never publish. The server decides
+// every step; this screen only shows what it says.
+const { $, $$, checkedValues, esc, fmtDate, options, pills } = __req("utils.js");
+const { CATEGORIES, LEVELS, MESSAGES, MOD_FILTERS, NOT_SURE, NOT_SURE_LABEL, PATHS, STATUS } = __req("lists.js");
+const { canModeratorEdit, isModified } = __req("rules.js");
+const { RestAdapter } = __req("api.js");
+const { askReason } = __req("dialog.js");
+const { attachmentHtml, badge, fieldsHtml, historyHtml, lastFeedback, notice, requestHtml } = __req("review.js");
+
+const INTRO = "Verify each idea. If it is good as it is, send it to Admin unchanged. If it needs improvement, edit it first, including category, suitable for and path. The original submission is always kept. Moderators cannot publish.";
+
+async function mount(el, opts = {}) {
+  const adapter = opts.adapter || new RestAdapter(opts.base || "");
+  const st = { filter: "Open", selected: null, item: null, sectors: [], msg: "" };
+  el.classList.add("rv-cw-root");
+  el.innerHTML = `<section class="adm-card cw-intro" aria-labelledby="cw-mod-h"><h2 id="cw-mod-h">Moderator Workspace</h2><p class="cw-muted">${esc(INTRO)}</p><p class="cw-earlier" data-earlier hidden></p></section>
+  <div class="cw-layout"><div class="cw-listcol"><div class="cw-filters" role="group" aria-label="Filter" data-filters></div><div data-list aria-live="polite"></div></div><div data-detail></div></div>`;
+  try { st.sectors = (await adapter.formConfig()).sectors || []; } catch { st.sectors = []; }
+
+  const say = (html) => { const m = $(el, "[data-msg]"); if (m) m.innerHTML = html; };
+  const fail = async (e) => {
+    if (e && e.status === 409 && e.error === "STALE") { await openItem(st.selected, false); say(notice("err", esc(MESSAGES.stale), "alert")); return; }
+    say(notice("err", esc((e && e.message) || MESSAGES.failed), "alert"));
+  };
+
+  async function renderList() {
+    let r;
+    try { r = await adapter.list("workspace", st.filter); } catch (e) { $(el, "[data-list]").innerHTML = notice("err", esc(e.status === 503 ? "The contribution workflow is not set up yet." : MESSAGES.failed), "alert"); return; }
+    $(el, "[data-filters]").innerHTML = Object.keys(MOD_FILTERS).map((k) =>
+      `<button type="button" class="cw-chip${k === st.filter ? " on" : ""}" aria-pressed="${k === st.filter}" data-filter="${esc(k)}">${esc(k)}${k === "Open" ? ` <span class="cw-count">${r.counts.open}</span>` : ""}</button>`).join("");
+    $$(el, "[data-filter]").forEach((b) => b.addEventListener("click", () => { st.filter = b.getAttribute("data-filter"); renderList(); }));
+    const earlier = $(el, "[data-earlier]");
+    if (typeof r.earlier === "number") {
+      earlier.hidden = false;
+      earlier.innerHTML = `Earlier contributions (old form): <b>${r.earlier}</b>, <a href="/admin/moderation">open in Moderation</a>`;
+    }
+    $(el, "[data-list]").innerHTML = r.items.length ? r.items.map((i) => `<button type="button" class="cw-item${i.id === st.selected ? " sel" : ""}" data-id="${i.id}" aria-current="${i.id === st.selected}">
+      ${badge(i.status)} <span class="cw-muted">${esc(i.code)}</span>
+      <span class="cw-t">${esc(i.title)}</span>
+      <span class="cw-muted cw-meta">${esc(i.kind)} · ${esc(i.contributorName)} · ${esc(i.contributorType)} · ${esc(i.sectorName)}</span></button>`).join("")
+      : '<div class="cw-empty">Nothing here.</div>';
+    $$(el, "[data-id]").forEach((b) => b.addEventListener("click", () => openItem(Number(b.getAttribute("data-id")), true)));
+    if (opts.onChange) opts.onChange(r.counts);
+  }
+
+  async function openItem(id, markOpened) {
+    if (!id) return;
+    st.selected = id;
+    try {
+      st.item = markOpened ? (await adapter.act(id, "open", {})).item : (await adapter.detail(id)).item;
+    } catch (e) { $(el, "[data-detail]").innerHTML = notice("err", esc((e && e.message) || MESSAGES.failed), "alert"); return; }
+    renderDetail();
+    await renderList();
+  }
+
+  function readForm() {
+    const d = $(el, "[data-detail]");
+    return {
+      proposed: {
+        title: $(d, "#cw-m-title").value, description: $(d, "#cw-m-desc").value, sector: $(d, "#cw-m-sector").value, robotType: $(d, "#cw-m-robot").value,
+        categories: checkedValues(d, "cw-m-cat"), suitableFor: checkedValues(d, "cw-m-lvl"), learningPath: $(d, "#cw-m-path").value,
+      },
+      notes: $(d, "#cw-m-notes").value,
+    };
+  }
+
+  function renderDetail() {
+    const it = st.item, d = $(el, "[data-detail]");
+    if (!it) { d.innerHTML = '<div class="adm-card"><div class="cw-empty">Select a contribution to review.</div></div>'; return; }
+    const editable = canModeratorEdit(it.status), dis = editable ? "" : " disabled", ro = editable ? "" : " readonly";
+    const fb = lastFeedback(it, "changes"), rej = lastFeedback(it);
+    const p = it.proposed;
+    const sectorOptions = [[NOT_SURE, NOT_SURE_LABEL], ...st.sectors.map((s) => [s.slug, s.name])];
+    if (p.sector && !sectorOptions.some((o) => o[0] === p.sector)) sectorOptions.push([p.sector, p.sector]);
+    d.innerHTML = `<article class="adm-card cw-detail" aria-labelledby="cw-d-h">
+      <div class="cw-head"><h3 id="cw-d-h">${esc(it.code)} – ${esc(it.original.title)}</h3>${badge(it.status)}</div>
+      <p class="cw-muted">Submitted by <b>${esc(it.contributor.name)}</b> (${esc(it.contributor.typeLabel)}) on ${esc(fmtDate(it.submittedAt))}${it.attachment ? ` · Attachment: ${attachmentHtml(it, adapter)}` : ""}</p>
+      ${it.status === STATUS.CHANGES && fb ? notice("warn", `<b>Admin requested changes:</b> ${esc(fb.text)}<br><span class="cw-muted">${esc(fb.by)} · ${esc(fmtDate(fb.at))}</span>`) : ""}
+      ${[STATUS.PENDING, STATUS.RESUBMITTED].includes(it.status) ? notice("info", "Publishing request is with Admin. You can't edit it until Admin responds.") : ""}
+      ${it.status === STATUS.PUBLISHED ? notice("ok", `Published by Admin on ${esc(fmtDate(it.publishedAt))}.`) : ""}
+      ${it.status === STATUS.REJECTED ? notice("err", `Rejected. Reason: ${esc((rej && rej.text) || "")}`) : ""}
+      ${requestHtml(it)}
+      <div class="cw-grid2">
+        <div class="cw-box"><h4>Original submission (read-only)</h4>${fieldsHtml(it.original, st.sectors)}</div>
+        <div>
+          <h4 class="cw-h4">Version for publishing <span class="cw-tag">${isModified(it) ? "Edited" : "Unchanged"}</span></h4>
+          <label for="cw-m-title">Title</label><input id="cw-m-title" maxlength="150" value="${esc(p.title)}"${ro}>
+          <label for="cw-m-desc">Description</label><textarea id="cw-m-desc" rows="5" maxlength="3000"${ro}>${esc(p.description)}</textarea>
+          <div class="cw-grid2 cw-tight">
+            <div><label for="cw-m-sector">Sector</label><select id="cw-m-sector"${dis}>${options(sectorOptions, p.sector || NOT_SURE)}</select></div>
+            <div><label for="cw-m-robot">Robot type</label><select id="cw-m-robot"${dis}></select></div>
+          </div>
+          <fieldset class="cw-fs"><legend>Category</legend>${pills("cw-m-cat", CATEGORIES, p.categories || [], { disabled: !editable })}</fieldset>
+          <fieldset class="cw-fs"><legend>Suitable for</legend>${pills("cw-m-lvl", LEVELS, p.suitableFor || [], { disabled: !editable })}</fieldset>
+          <label for="cw-m-path">Suggested path</label><select id="cw-m-path"${dis}>${options([["", "Not set"], ...PATHS], p.learningPath || "")}</select>
+        </div>
+      </div>
+      <label for="cw-m-notes">Internal notes for Admin (never shown publicly)</label>
+      <textarea id="cw-m-notes" rows="3" maxlength="2000" placeholder="What did you change and why? Or why it is good as-is."${ro}>${esc(it.notes)}</textarea>
+      ${editable ? `<div class="cw-actions">
+        <button type="button" class="btn" data-act="save">Save Draft</button>
+        <button type="button" class="btn" data-act="reset">Reset to Original</button>
+        <button type="button" class="btn primary" data-act="send">Submit Publishing Request to Admin</button>
+        <button type="button" class="btn danger" data-act="decline">Decline Idea</button>
+      </div>
+      <p class="cw-muted">If you made no changes, the original idea is sent to Admin as-is. None of these actions publish anything.</p>` : ""}
+      <div data-msg aria-live="polite"></div>
+      <h4 class="cw-h4">Activity history</h4>${historyHtml(it)}
+    </article>`;
+    const robots = () => {
+      const s = st.sectors.find((x) => x.slug === $(d, "#cw-m-sector").value);
+      const list = [[NOT_SURE, NOT_SURE_LABEL], ...((s && s.robots) || []).map((r) => [r.slug, r.name])];
+      const keep = list.some((o) => o[0] === p.robotType) && $(d, "#cw-m-sector").value === (p.sector || NOT_SURE) ? p.robotType : NOT_SURE;
+      $(d, "#cw-m-robot").innerHTML = options(list, keep);
+    };
+    robots();
+    $(d, "#cw-m-sector").addEventListener("change", robots);
+    if (!editable) return;
+    const run = async (action, extra, after) => {
+      $$(d, "[data-act]").forEach((b) => { b.disabled = true; });
+      try {
+        const r = await adapter.act(it.id, action, { rowVersion: it.rowVersion, ...extra });
+        st.item = r.item;
+        renderDetail();
+        await renderList();
+        if (after) say(after(r));
+      } catch (e) {
+        $$(d, "[data-act]").forEach((b) => { b.disabled = false; });
+        await fail(e);
+      }
+    };
+    $(d, '[data-act="save"]').addEventListener("click", () => run("save_draft", readForm(), () => notice("ok", esc(MESSAGES.draftSaved))));
+    $(d, '[data-act="reset"]').addEventListener("click", () => run("reset", {}));
+    $(d, '[data-act="send"]').addEventListener("click", () => run("send_request", readForm(), (r) => notice("ok", `Request sent to Admin. Status: <b>${esc(r.item.statusLabel)}</b>. It is still not public.`)));
+    $(d, '[data-act="decline"]').addEventListener("click", async () => {
+      const reason = await askReason({ title: "Decline Idea", label: "Reason for declining this idea (recorded in history)", confirmText: "Decline Idea" });
+      if (reason) run("decline", { ...readForm(), reason });
+    });
+  }
+
+  renderDetail();
+  await renderList();
+}
+Object.assign(exports, { mount });
 });
 __def("demo-seed.js", function (exports, __req) {
 // Contribution workflow: the STANDALONE DEMO's sample data only (never used by the plugin or the app). The demo's three samples plus

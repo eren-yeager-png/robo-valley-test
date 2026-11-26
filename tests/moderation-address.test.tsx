@@ -32,11 +32,11 @@ describe("old addresses", () => {
 });
 
 describe("the new address", () => {
-  it("is in the sidebar, titled Moderation; a moderator's sidebar holds nothing else", () => {
+  it("is in the sidebar, titled Moderation; a moderator's sidebar holds Moderation and the Moderator Workspace only", () => {
     expect(ADMIN_NAV.find((n) => n.label === "Moderation")?.href).toBe("/admin/moderation");
     expect(ADMIN_NAV.some((n) => n.href.startsWith("/moderation"))).toBe(false);
     expect(titleFor("/admin/moderation/sector/agriculture-dairy")).toBe("Moderation");
-    expect(MODERATOR_NAV.map((n) => n.href)).toEqual(["/admin/moderation"]);
+    expect(MODERATOR_NAV.map((n) => n.href)).toEqual(["/admin/moderation", "/admin/workspace"]);
   });
   it("is outside src/app/admin (administrators only), and every page still runs the unchanged reviewer guard", () => {
     const dir = "src/app/(reviewer)/admin/moderation";
