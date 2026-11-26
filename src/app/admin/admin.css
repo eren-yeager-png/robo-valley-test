@@ -10,7 +10,8 @@
   --display:var(--rv-display),"Bricolage Grotesque",ui-sans-serif,system-ui,"Segoe UI",Arial,sans-serif;
   --font:var(--rv-body),"Mulish",ui-sans-serif,system-ui,"Segoe UI",Arial,sans-serif;
   --shadow:0 1px 2px rgba(21,48,42,.06),0 4px 14px rgba(21,48,42,.05);
-  color-scheme:light;min-height:100vh;display:flex;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;line-height:1.5}
+  color-scheme:light;min-height:var(--vh,100vh);display:flex;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.5}
+@media (min-width:768px) and (pointer:fine){.rv .adm{font-size:15px}} /* 16px on every touch screen (phones also in landscape); 15px with a mouse from 768px */
 .rv .adm h1,.rv .adm h2,.rv .adm h3{font-family:var(--display);color:var(--fg);letter-spacing:-.01em}
 .rv .adm .btn{border-radius:999px;border-color:var(--line);background:var(--surface);color:var(--fg);font-family:var(--font)}
 .rv .adm .btn:hover:not(:disabled){border-color:var(--brand);color:var(--brand)}
@@ -22,8 +23,10 @@
 .rv .adm .auth-card{max-width:none;width:100%;margin:0!important;border-radius:18px;box-shadow:var(--shadow)}
 
 /* sidebar */
-.rv .adm-side{position:sticky;top:0;align-self:flex-start;height:100vh;width:256px;flex:none;background:var(--hero);color:var(--hero-fg);display:flex;flex-direction:column;padding:18px 12px;overflow-y:auto}
+.rv .adm-side{position:sticky;top:0;align-self:flex-start;height:var(--vh,100vh);width:256px;flex:none;background:var(--hero);color:var(--hero-fg);display:flex;flex-direction:column;
+  padding:calc(18px + var(--safe-t)) 12px calc(18px + var(--safe-b)) max(12px,var(--safe-l));overflow-y:auto;overscroll-behavior:contain}
 .rv .adm-brand{display:flex;align-items:center;gap:11px;font:800 1.2rem var(--display);padding:4px 10px 20px;color:#fff}
+.rv .adm-close{display:none;margin-left:auto;flex:none;width:var(--touch);height:var(--touch);place-items:center;border:1px solid rgba(255,255,255,.25);border-radius:12px;background:transparent;color:#fff;font-size:1.1rem;cursor:pointer}
 .rv .adm-brand small{display:block;font:600 .68rem var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--hero-muted)}
 .rv .adm-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:var(--brand);color:#fff;font:800 .85rem var(--display);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
 .rv .adm-side nav{display:flex;flex-direction:column;gap:3px}
@@ -34,14 +37,14 @@
 
 /* top bar */
 .rv .adm-body{flex:1;min-width:0;display:flex;flex-direction:column}
-.rv .adm-top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:10px clamp(12px,3vw,28px);background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.rv .adm-top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:calc(10px + var(--safe-t)) max(clamp(12px,3vw,28px),var(--safe-r)) 10px max(clamp(12px,3vw,28px),var(--safe-l));background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
 .rv .adm-logo{font:800 1.05rem var(--display);color:var(--hero);display:none;white-space:nowrap}
 .rv .adm-title{margin:0;font-size:1.15rem;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rv .adm-burger{display:none;width:44px;height:44px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font-size:1.2rem;cursor:pointer}
+.rv .adm-burger{display:none;flex:none;width:var(--touch);height:var(--touch);border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font-size:1.2rem;cursor:pointer}
 .rv .adm-scrim{display:none}
 
 /* content */
-.rv .adm-main{flex:1;padding:clamp(16px,3vw,32px);max-width:1200px;width:100%;margin:0 auto}
+.rv .adm-main{flex:1;padding:var(--page-pad);padding-left:max(var(--page-pad),var(--safe-l));padding-right:max(var(--page-pad),var(--safe-r));padding-bottom:calc(var(--page-pad) + var(--safe-b));max-width:1200px;width:100%;margin:0 auto}
 .rv .adm-head h1{margin:0 0 4px;font-size:1.65rem;font-weight:800}
 .rv .adm-head p{margin:0 0 20px;color:var(--muted)}
 .rv .adm-main h3{margin:0 0 10px;font-size:1.02rem}
@@ -131,10 +134,10 @@
 .rv .adm-preview label{display:flex;flex-direction:column;gap:4px;font-weight:700}
 .rv .adm-preview input,.rv .adm-preview select{min-height:42px;padding:6px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font:inherit}
 .rv .adm-preview small{font-weight:400;color:var(--muted)}
-@media (max-width:640px){ /* phone: a question spans the card width; its order buttons and actions share the last row */
+@media (max-width:767.98px){ /* phone: a question spans the card width; its order buttons and actions share the last row */
   .rv .adm-robots.adm-questions tbody tr{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"name name" "status status" "code code" "order actions"}
 }
-@media (max-width:640px){ /* phone: each robot type is a small card, so the buttons are on screen without scrolling sideways */
+@media (max-width:767.98px){ /* phone: each robot type is a small card, so the buttons are on screen without scrolling sideways */
   .rv .adm-robots thead{display:none}
   .rv .adm-robots table,.rv .adm-robots tbody{display:block}
   .rv .adm-robots tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name status" "code code" "order actions";gap:8px 10px;padding:12px 14px;border-bottom:1px solid var(--line)}
@@ -148,16 +151,18 @@
 @media (prefers-reduced-motion:reduce){.rv .adm-skel .bar,.rv .adm-skel .box{animation:none}.rv .adm-progress>i,.rv .adm-side{transition:none}}
 @media (prefers-reduced-motion:reduce){.rv .adm button.adm-card.stat{transition:none}}
 
-/* Tablet and phone: the sidebar becomes a drawer opened from the menu button. */
-@media (max-width:900px){
-  .rv .adm-side{position:fixed;z-index:20;left:0;top:0;transform:translateX(-100%);transition:transform .2s;box-shadow:none}
-  .rv .adm.open .adm-side{transform:none;box-shadow:0 0 30px rgba(0,0,0,.35)}
+/* Tablets and phones (below 1024px): the sidebar becomes an off-canvas drawer opened from the Menu button. Hidden with visibility
+   when closed, so its links are not in the Tab order. One pattern for every width below 1024px (no icon-only rail). */
+@media (max-width:1023.98px){
+  .rv .adm-side{position:fixed;z-index:20;left:0;top:0;width:min(280px,86vw);transform:translateX(-100%);visibility:hidden;transition:transform .2s,visibility 0s .2s;box-shadow:none}
+  .rv .adm.open .adm-side{transform:none;visibility:visible;transition:transform .2s;box-shadow:0 0 30px rgba(0,0,0,.35)}
+  .rv .adm-close{display:grid}
   .rv .adm-burger{display:grid;place-items:center}
   .rv .adm-logo{display:inline}
   .rv .adm-scrim{display:block;position:fixed;inset:0;z-index:15;background:rgba(18,63,51,.5);border:0;cursor:pointer}
   .rv .adm-title{font-size:1rem}
 }
-@media (max-width:600px){
+@media (max-width:767.98px){
   .rv .adm-logo{display:none}
   .rv .adm-head h1{font-size:1.4rem}
   .rv .adm-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}

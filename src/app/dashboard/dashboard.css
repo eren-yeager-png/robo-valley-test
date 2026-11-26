@@ -1,28 +1,39 @@
 /* Dashboard shell + pages. Tokens and base form/button styles come from ../join/join.css (.rv scope). */
-.rv.dshell{margin:-32px;min-height:100vh;display:flex;flex-direction:column}
+.rv.dshell{margin:-32px;min-height:var(--vh,100vh);display:flex;flex-direction:column}
 .rv .skip{position:absolute;left:-9999px;top:8px;background:var(--navy);color:var(--surface);padding:8px 14px;border-radius:8px;z-index:50}
 .rv .skip:focus{left:8px}
-.rv .dtop{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px clamp(12px,3vw,24px);background:var(--surface);border-bottom:1px solid var(--line)}
+.rv .dtop{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border-bottom:1px solid var(--line);
+  padding:calc(10px + var(--safe-t)) max(clamp(12px,3vw,24px),var(--safe-r)) 10px max(clamp(12px,3vw,24px),var(--safe-l))}
 .rv .dtop .brand{font-weight:800;font-size:1.15rem;color:var(--navy);line-height:1.2}
 .rv .dtop .brand small{display:block;font:400 .66rem var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .rv .dtop-right{display:flex;align-items:center;gap:12px;min-width:0}
 .rv .who{font-size:.9rem;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rv .btn.menu{padding:8px 16px}
+.rv .btn.menu{padding:8px 16px;flex:none}
 .rv .dbody{flex:1;display:grid;grid-template-columns:minmax(0,1fr);align-items:start}
-.rv .dside{display:none;background:var(--surface);border-bottom:1px solid var(--line);padding:12px clamp(12px,3vw,24px) 16px;box-shadow:0 18px 30px -24px rgba(0,0,0,.5)}
-.rv .dside.open{display:block}
+/* Phones and tablets (below 1024px): the navigation is an off-canvas drawer. Hidden with visibility when closed, so its links are
+   not in the Tab order; the safe-area insets keep it clear of the notch and the home bar. */
+.rv .dside{position:fixed;z-index:40;top:0;bottom:0;left:0;width:min(300px,86vw);display:flex;flex-direction:column;overflow-y:auto;overscroll-behavior:contain;
+  background:var(--surface);border-right:1px solid var(--line);padding:calc(12px + var(--safe-t)) 14px calc(16px + var(--safe-b)) max(14px,var(--safe-l));
+  transform:translateX(-100%);visibility:hidden;transition:transform .2s,visibility 0s .2s}
+.rv .dside.open{transform:none;visibility:visible;transition:transform .2s;box-shadow:0 0 30px rgba(0,0,0,.35)}
+.rv .dside-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 0 12px;margin-bottom:8px;border-bottom:1px solid var(--line)}
+.rv .dside-head .brand{font-weight:800;font-size:1.05rem;color:var(--navy);line-height:1.2}
+.rv .dside-head .brand small{display:block;font:400 .66rem var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.rv .dclose{flex:none;width:var(--touch);height:var(--touch);display:grid;place-items:center;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font-size:1.1rem;cursor:pointer}
+.rv .dscrim{position:fixed;inset:0;z-index:35;border:0;background:rgba(19,33,59,.45);cursor:pointer}
 .rv .dside ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
-.rv .dside a{display:block;padding:10px 12px;border-radius:10px;color:var(--fg);text-decoration:none;font-weight:600;font-size:.94rem}
+.rv .dside a{display:flex;align-items:center;min-height:var(--touch);padding:10px 12px;border-radius:10px;color:var(--fg);text-decoration:none;font-weight:600;font-size:.94rem}
 .rv .dside a:hover{background:var(--bg)}
 .rv .dside a.active{background:var(--teal-soft);color:var(--teal)}
-.rv .dside-foot{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);display:flex}
-.rv .dmain{padding:clamp(16px,3vw,32px);display:flex;flex-direction:column;gap:22px;min-width:0;max-width:1100px;width:100%}
+.rv .dside-foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);display:flex}
+.rv .dmain{padding:var(--page-pad);padding-left:max(var(--page-pad),var(--safe-l));padding-right:max(var(--page-pad),var(--safe-r));padding-bottom:calc(var(--page-pad) + var(--safe-b));
+  display:flex;flex-direction:column;gap:22px;min-width:0;max-width:1100px;width:100%}
 .rv .dmain:focus{outline:none}
-@media (min-width:900px){
+/* Tablets landscape and desktops (1024px and wider): a fixed sidebar beside the page, no Menu button. */
+@media (min-width:1024px){
   .rv .dbody{grid-template-columns:260px minmax(0,1fr)}
-  .rv .btn.menu{display:none}
-  .rv .dside{display:flex;flex-direction:column;position:sticky;top:58px;height:calc(100vh - 58px);overflow-y:auto;border-bottom:0;border-right:1px solid var(--line);box-shadow:none;padding:16px 14px}
-  .rv .dside-foot{margin-top:auto}
+  .rv .btn.menu,.rv .dside-head,.rv .dscrim{display:none}
+  .rv .dside{position:sticky;z-index:auto;top:58px;bottom:auto;width:auto;height:calc(var(--vh,100vh) - 58px);transform:none;visibility:visible;transition:none;box-shadow:none;padding:16px 14px}
 }
 .rv .dhead{display:flex;flex-direction:column;gap:6px}
 .rv .badge{display:inline-block;font:600 .7rem var(--mono);text-transform:uppercase;letter-spacing:.06em;border-radius:999px;padding:3px 10px;background:var(--teal-soft);color:var(--teal);width:max-content}
@@ -61,3 +72,6 @@
 .rv .ok-msg{color:var(--teal);font-weight:600;min-height:1.2em}
 .rv .retry{font-size:.9rem}
 @media (prefers-reduced-motion:no-preference){.rv .bar i{transition:width .3s}}
+@media (prefers-reduced-motion:reduce){.rv .dside,.rv .dside.open{transition:none}}
+/* Touch screens: the skip link and the sample's toggle are 44px tall too. */
+@media (pointer:coarse){.rv .skip{display:inline-flex;align-items:center;min-height:var(--touch)} .rv details.sample summary{padding-block:10px}}
