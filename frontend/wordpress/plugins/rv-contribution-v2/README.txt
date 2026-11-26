@@ -1,4 +1,4 @@
-RoboValley Contribution (v2) - WordPress plugin, version 0.1.13
+RoboValley Contribution (v2) - WordPress plugin, version 0.1.12
 
 WHAT IT IS
 The new Contribute form for the Contribution and Contributor pages. It only shows the form and talks to the RoboValley app.
@@ -136,12 +136,3 @@ NEW IN 0.1.12
     added later appear in it by themselves. Its width is the form's own column (800px); .rv-rt is 1080px wherever there is room.
   * If an older .rv-rt rule exists somewhere else in WordPress (Additional CSS, a code snippet, another plugin), delete it there:
     this file is the only place for it.
-
-NEW IN 0.1.13
-  * Phones (544px and below, Astra's mobile width): less space around the entry header (20px above / 15px below; the desktop
-    values above stay) and 16px inside the .rv-rt block (24px elsewhere).
-  * "Contribute to this sector" sits under the page heading at full width on phones, and beside it from 545px up.
-  * Videos, maps and other frames inside an .rv-rt block (and raw YouTube, Vimeo, Google Maps or OpenStreetMap frames in a page)
-    are full width with the height from an aspect ratio (16:9, maps 4:3), so they never stick out or get squashed. Frames that
-    WordPress, Astra or Elementor already wrap are left alone.
-  * Styles only: no settings, markup, form or script changes.
