@@ -166,6 +166,25 @@ export const MIGRATIONS = [
     { kind: "constraint", name: "sector_questions_options_ck" },
     { kind: "index", name: "sector_questions_order_idx" },
   ] },
+  { id: "027", title: "contribution workflow", feature: "The Contribution Publishing Workflow: Share Your Idea, Moderator Workspace, Admin Approval Dashboard with Publish Preview, and Community Ideas", requires: [], checks: [
+    { kind: "table", table: "cw_contributions" },
+    { kind: "table", table: "cw_contribution_versions" },
+    { kind: "table", table: "cw_contribution_feedback" },
+    { kind: "table", table: "cw_contribution_history" },
+    { kind: "table", table: "cw_contribution_attachments" },
+    { kind: "table", table: "cw_public_contributions" },
+    { kind: "constraint", name: "cw_contributions_status_ck" },
+    { kind: "constraint", name: "cw_contribution_attachments_ck" },
+    { kind: "index", name: "cw_contributions_status_idx" },
+    { kind: "index", name: "cw_public_contributions_sector_idx" },
+    fn("cw_write_once"),
+    fn("cw_append_only"),
+    trigger("cw_contributions", "cw_contributions_write_once", "cw_write_once()"),
+    trigger("cw_contribution_history", "cw_contribution_history_append_only", "cw_append_only()"),
+    trigger("cw_contribution_versions", "cw_contribution_versions_append_only", "cw_append_only()"),
+    trigger("cw_contribution_feedback", "cw_contribution_feedback_append_only", "cw_append_only()"),
+    trigger("cw_contribution_attachments", "cw_contribution_attachments_append_only", "cw_append_only()"),
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */

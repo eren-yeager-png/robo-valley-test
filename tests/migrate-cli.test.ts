@@ -47,7 +47,7 @@ describe("scripts/migrate.mjs (fails closed)", () => {
   it("dry run lists all migrations in order when no filter is given, and never the rollback file", () => {
     const r = run(["--expect-db", "never_connects"]);
     const order = [...r.out.matchAll(/(\d{3})_\w+\.sql/g)].map((m) => m[1]);
-    expect(order).toEqual(["001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013", "014", "015", "016", "017", "018", "019", "020", "021", "022", "023", "024", "025", "026"]);
+    expect(order).toEqual(["001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013", "014", "015", "016", "017", "018", "019", "020", "021", "022", "023", "024", "025", "026", "027"]);
     expect(r.out).not.toMatch(/down/);
   });
 
@@ -121,7 +121,7 @@ describe("--only selects exactly one migration", () => {
   it("several numbers, letters, four digits or a number with no migration are refused with a clear message and exit code 1", () => {
     const cases: Array<[string, RegExp]> = [["011,012", /--only takes one migration number/], ["011 012", /--only takes one migration number/],
       ["abc", /--only takes one migration number/], ["0011", /--only takes one migration number/], ["-1", /--only takes one migration number/],
-      ["0", /is ambiguous/], ["027", /There is no migration 027 in db\/migrations/], ["99", /There is no migration 099 in db\/migrations/]];
+      ["0", /is ambiguous/], ["028", /There is no migration 028 in db\/migrations/], ["99", /There is no migration 099 in db\/migrations/]];
     for (const [value, msg] of cases) {
       const r = run(["--expect-db", "never_connects", "--only", value]);
       expect(r.code, value).toBe(1);
@@ -153,8 +153,8 @@ describe("the migrations folder (fails closed)", () => {
       expect(() => checkMigrationNames(["001_a.sql", bad]), bad).toThrow(new RegExp(`not named NNN_name\\.sql.*${bad.replace(/[.]/g, "\\.")}`));
     }
   });
-  it("the real folder passes, so every run still sees 001 to 026", () => {
-    expect(checkMigrationNames(readdirSync(MIGRATIONS_DIR))).toHaveLength(26);
+  it("the real folder passes, so every run still sees 001 to 027", () => {
+    expect(checkMigrationNames(readdirSync(MIGRATIONS_DIR))).toHaveLength(27);
   });
   it("forwardMigrationName: a migration in db/migrations gives its name; a rollback gives null; anything else there is refused", () => {
     expect(forwardMigrationName("db/migrations/017_review_statuses.sql")).toBe("017_review_statuses.sql");
