@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoboValley Contribution (v2)
  * Description: The new Contribute form for the Contribution and Contributor pages. It only renders the form and talks to the RoboValley app; it stores nothing in WordPress. Nothing changes until RV_CONTRIBUTION_V2 is set to true in wp-config.php.
- * Version: 0.1.13
+ * Version: 0.1.14
  * Requires PHP: 7.4
  * Author: RoboValley
  *
@@ -28,9 +28,7 @@
  *     of the markup on the server, so it is not in the page at all). The site header's account menu keeps Sign out on every page.
  *     The shortcode keeps the button unless it is written as [rv_contribution_v2 sign_out="no"].
  *   * Site styles (0.1.12): assets/rv-site.css, on every public page after the theme's own stylesheet: the space around Astra's entry
- *     header, and the .rv-rt block. Only while the switch is on. Responsive (0.1.13): less space around the entry header and in
- *     .rv-rt on phones (Astra mobile, 544px and below), embedded frames keep an aspect ratio, and "Contribute to this sector" sits
- *     under the heading at full width on phones (beside it from 545px).
+ *     header, and the .rv-rt block. Only while the switch is on.
  *   * Members contribute, administrators review (0.1.4): WordPress administrators never see the buttons, and on the form pages they
  *     see a short note with a link to the app's Moderation page instead of the form. Signed in to the app as an administrator or
  *     moderator, the form shows the same kind of note (the app refuses their submissions anyway). Display only: the app decides.
@@ -39,7 +37,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const RV_C2_VERSION = '0.1.13';
+const RV_C2_VERSION = '0.1.14';
 
 /** A WordPress administrator? They review contributions in the app, so the form and the buttons are hidden from them (display only). */
 function rv_c2_is_wp_admin() {
@@ -241,7 +239,7 @@ add_action(
 			. '.rv-c2-sector-btn svg{flex:none}'
 			. '.rv-c2-has-sector-cta{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px}'
 			. '.rv-c2-has-sector-cta .rv-c2-sector-cta{margin:0}'
-			. '@media (max-width:544px){.rv-c2-has-sector-cta{display:block}.rv-c2-has-sector-cta .rv-c2-sector-cta{margin:12px 0 0}.rv-c2-sector-cta{display:block}.rv-c2-sector-btn{display:flex;width:100%;justify-content:center;white-space:normal;text-align:center}}'
+			. '@media (max-width:600px){.rv-c2-sector-cta{justify-content:flex-start}}'
 			. '</style>' . "\n";
 	},
 	99
