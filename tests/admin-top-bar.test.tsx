@@ -91,9 +91,10 @@ describe("admin shell", () => {
 describe("responsive stylesheet", () => {
   const css = readFileSync("src/app/admin/admin.css", "utf8");
   it("turns the sidebar into a drawer on tablets and phones and keeps it on desktop", () => {
-    expect(css).toMatch(/@media \(max-width:900px\)\{[^@]*\.adm-side\{position:fixed;[^}]*translateX\(-100%\)/);
+    // below 1024px (the shared lg breakpoint) the sidebar is a drawer; from 1024px it stays (responsive PR 1)
+    expect(css).toMatch(/@media \(max-width:1023\.98px\)\{[^@]*\.adm-side\{position:fixed;[^}]*translateX\(-100%\)/);
     expect(css).toMatch(/\.rv \.adm-side\{position:sticky/);
-    expect(css).toMatch(/@media \(max-width:600px\)/);
+    expect(css).toMatch(/@media \(max-width:767\.98px\)/);
   });
   it("has no rules left for the old profile button and its menu (the avatar menu brings its own stylesheet)", () => {
     expect(css).not.toMatch(OLD_BUTTON);

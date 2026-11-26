@@ -73,6 +73,7 @@ describe("DashboardShell navigation", () => {
     shell();
     await user.tab(); expect(document.activeElement?.textContent).toMatch(/Skip to main/);
     await user.tab(); expect(document.activeElement?.textContent).toMatch(/Menu/);
+    await user.tab(); expect(document.activeElement?.getAttribute("aria-label")).toBe("Close menu"); // the drawer's Close button: shown below 1024px only (display:none from 1024px, which jsdom does not apply)
     await user.tab(); expect(document.activeElement?.textContent).toBe("Home");
     await user.tab(); expect(document.activeElement?.textContent).toBe("Projects");
   });
@@ -80,10 +81,10 @@ describe("DashboardShell navigation", () => {
 
 describe("responsive stylesheet (static check only; jsdom does not lay out CSS)", () => {
   const css = readFileSync("src/app/dashboard/dashboard.css", "utf8");
-  it("hides the sidebar on small screens and shows it permanently from 900px; no horizontal overflow rules are needed", () => {
-    expect(css).toMatch(/\.rv \.dside\{display:none/);
-    expect(css).toMatch(/@media \(min-width:900px\)/);
-    expect(css).toMatch(/\.btn\.menu\{display:none\}/);
+  it("below 1024px the sidebar is an off-canvas drawer (hidden when closed); from 1024px it is shown permanently (responsive PR 1)", () => {
+    expect(css).toMatch(/\.rv \.dside\{position:fixed;[^}]*visibility:hidden/);
+    expect(css).toMatch(/@media \(min-width:1024px\)/);
+    expect(css).toMatch(/\.rv \.btn\.menu,\.rv \.dside-head,\.rv \.dscrim\{display:none\}/);
     expect(css).toMatch(/grid-template-columns:repeat\(auto-fit,minmax\(210px,1fr\)\)/);
     expect(css).toMatch(/min-width:0/); // lets grid children shrink instead of overflowing on phones
   });

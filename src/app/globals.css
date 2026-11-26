@@ -1,6 +1,36 @@
+/* Shared responsive foundations for every page of the app.
+   Breakpoints (mobile first: base styles are for phones, then min-width steps up). They are defined once, here and in
+   src/lib/breakpoints.ts (the same numbers for scripts). CSS cannot read custom properties inside @media, so a media query writes
+   the number itself: (min-width:480px|768px|1024px|1280px), or for "below" (max-width:479.98px|767.98px|1023.98px|1279.98px).
+   tests/responsive-foundations.test.ts fails on any other width. */
+:root {
+  --bp-sm: 480px;  /* large phones */
+  --bp-md: 768px;  /* iPad mini and tablets, portrait */
+  --bp-lg: 1024px; /* tablets landscape, small laptops: the sidebars are fixed from here */
+  --bp-xl: 1280px; /* desktop */
+  --page-pad: clamp(16px, 4vw, 40px);
+  --h1: clamp(24px, 5vw, 32px);
+  --touch: 44px;     /* smallest touch target */
+  --touch-gap: 8px;  /* space between touch targets */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --vh: 100vh; /* full height; 100dvh where supported, so iPhone toolbars do not cut the bottom off */
+}
+@supports (height: 100dvh) {
+  :root { --vh: 100dvh; }
+}
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html,
@@ -12,4 +42,20 @@ body {
 
 body {
   padding: 32px;
+}
+
+/* Media never makes a page wider than the screen. */
+img,
+picture,
+video,
+canvas,
+svg,
+iframe,
+embed,
+object {
+  max-width: 100%;
+}
+img,
+video {
+  height: auto;
 }

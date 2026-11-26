@@ -73,5 +73,5 @@
 .rv .adm .mod-msg[hidden]{display:none}
 .rv .adm .mod-msg--err{background:var(--red-soft);color:var(--red)}
 .rv .adm .mod-msg--ok{background:var(--tint);color:var(--brand)}
-@media (max-width:1080px){.rv .adm .mod-detail{grid-template-columns:minmax(0,1fr)}.rv .adm .mod-side{position:static}}
-@media (max-width:600px){.rv .adm .mod-photos{grid-template-columns:1fr 1fr}.rv .adm .mod-sectors{grid-template-columns:minmax(0,1fr)}.rv .adm .adm-filters .mod-end{margin-left:0}}
+@media (max-width:1023.98px){.rv .adm .mod-detail{grid-template-columns:minmax(0,1fr)}.rv .adm .mod-side{position:static}}
+@media (max-width:767.98px){.rv .adm .mod-photos{grid-template-columns:1fr 1fr}.rv .adm .mod-sectors{grid-template-columns:minmax(0,1fr)}.rv .adm .adm-filters .mod-end{margin-left:0}}

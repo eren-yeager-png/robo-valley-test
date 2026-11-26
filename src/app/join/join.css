@@ -5,8 +5,9 @@
   --font:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Telugu",Arial,sans-serif;
   --mono:ui-monospace,Menlo,Consolas,monospace;
   margin:-32px; /* cancels the 32px body padding from globals.css so the design is full-bleed */
-  min-height:100vh;background:var(--bg);color:var(--fg);font:15.5px/1.55 var(--font);
+  min-height:var(--vh,100vh);background:var(--bg);color:var(--fg);font:16px/1.55 var(--font);overflow-wrap:break-word;
 }
+@media (min-width:768px) and (pointer:fine){.rv{font-size:15.5px}} /* body text is 16px on every touch screen (phones also in landscape); 15.5px with a mouse from 768px */
 @media (prefers-color-scheme:dark){.rv{
   --bg:#0d1420;--surface:#152033;--line:#26344c;--fg:#e8edf5;--muted:#9aa8bd;
   --navy:#9fb8e8;--teal:#46c2c2;--teal-soft:#123536;--amber:#f0a840;--amber-soft:#3a2a10;--red:#ff8a80;color-scheme:dark}}
@@ -15,7 +16,7 @@
 .rv .top{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;justify-content:space-between}
 .rv .brand{font-weight:800;font-size:1.35rem;color:var(--navy)}
 .rv .brand small{display:block;font:400 .68rem var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.rv h1{font-size:clamp(1.4rem,3vw,1.9rem);line-height:1.2;margin:0;color:var(--navy)}
+.rv h1{font-size:var(--h1);line-height:1.2;margin:0;color:var(--navy)}
 .rv h1:focus{outline:none}
 .rv h2{font-size:1.3rem;margin:0;color:var(--navy)}
 .rv p{margin:0}
@@ -60,14 +61,15 @@
 .rv .vlist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
 .rv .vlist li{border:1px solid var(--line);border-left:3px solid var(--teal);border-radius:8px;padding:8px 10px;font-size:.9rem}
 .rv .first{margin:0;padding-left:20px;font-size:.88rem;color:var(--muted)}
-@media (max-width:560px){.rv .rhead{grid-template-columns:auto minmax(0,1fr)}.rv .vbtn{grid-column:2;justify-self:start}}
+@media (max-width:479.98px){.rv .rhead{grid-template-columns:auto minmax(0,1fr)}.rv .vbtn{grid-column:2;justify-self:start}}
 /* page frame */
 .rv .frame{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 10px 30px -22px rgba(0,0,0,.4)}
 .rv .page{padding:24px clamp(16px,4vw,40px) 28px;display:flex;flex-direction:column;gap:18px;max-width:760px;margin:0 auto}
 .rv .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 16px}
 .rv label.f{display:flex;flex-direction:column;gap:5px;font-weight:600;font-size:.88rem}
 .rv label.f small{font-weight:400;color:var(--muted)}
-.rv input,.rv select,.rv textarea{font:inherit;font-size:.95rem;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);width:100%}
+.rv input,.rv select,.rv textarea{font:inherit;font-size:16px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);width:100%;max-width:100%}
+@media (min-width:768px) and (pointer:fine){.rv input,.rv select,.rv textarea{font-size:.95rem}} /* 16px on every touch screen: iOS zooms into smaller inputs (an iPhone in landscape is wider than 768px) */
 .rv input[aria-invalid="true"],.rv select[aria-invalid="true"]{border-color:var(--red)}
 .rv input:focus-visible,.rv select:focus-visible,.rv textarea:focus-visible,.rv button:focus-visible,.rv a:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 .rv .full{grid-column:1/-1}
@@ -99,5 +101,14 @@
 .rv .levels span{padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
 .rv .levels span.on{background:var(--teal);border-color:var(--teal);color:#fff}
 .rv .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-@media (max-width:520px){.rv .otp input{width:40px;height:48px}}
+@media (max-width:479.98px){.rv .otp input{width:40px;height:48px}}
+/* Touch screens: everything that is tapped is at least 44 by 44 pixels, with at least 8px between neighbours. */
+@media (pointer:coarse){
+  .rv .btn,.rv .vbtn,.rv .chip{min-height:var(--touch)}
+  .rv .btn.link{min-width:var(--touch)}
+  .rv .chips,.rv .actions,.rv .actions-row{gap:var(--touch-gap)}
+  .rv .check{min-height:var(--touch);align-items:center}
+  .rv .check input,.rv .chip input,.rv .rhead input{width:20px;height:20px}
+  .rv input:not([type=checkbox]):not([type=radio]),.rv select{min-height:var(--touch)}
+}
 @media (prefers-reduced-motion:reduce){.rv *{transition:none!important}}
