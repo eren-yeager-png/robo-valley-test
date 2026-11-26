@@ -1,4 +1,4 @@
-/* RoboValley site styles (plugin 0.1.12). Loaded on every public page, after Astra's own stylesheet, while RV_CONTRIBUTION_V2 is on.
+/* RoboValley site styles (plugin 0.1.13; responsive rules added in 0.1.13). Loaded on every public page, after Astra's own stylesheet, while RV_CONTRIBUTION_V2 is on.
    Astra's rules for the same elements have the same weight, so being later is enough: no !important. */
 
 /* Space around the entry header. B1 before B2: a page-builder page matches both, and the later one counts. */
@@ -62,13 +62,78 @@
 	display: block;
 	width: 100%;
 	overflow-x: auto;
+	overflow-wrap: normal;
 }
 .rv-rt pre {
 	white-space: pre-wrap;
+}
+/* Videos, maps and other embedded frames: full width, the height from an aspect ratio, so they never stick out or get squashed.
+   Raw frames only: frames inside the wrappers of WordPress, Astra and Elementor are already sized by them. */
+.rv-rt iframe,
+.rv-rt embed,
+.rv-rt object,
+.entry-content iframe:is([src*="youtube.com"], [src*="youtube-nocookie.com"], [src*="vimeo.com"], [src*="google.com/maps"], [src*="openstreetmap.org"]):not(:is(.wp-has-aspect-ratio, .ast-oembed-container, .elementor-widget-video, .elementor-widget-google_maps) iframe) {
+	width: 100%;
+	height: auto;
+	aspect-ratio: 16 / 9;
+}
+.rv-rt iframe:is([src*="google.com/maps"], [src*="openstreetmap.org"]),
+.entry-content iframe:is([src*="google.com/maps"], [src*="openstreetmap.org"]):not(:is(.wp-has-aspect-ratio, .ast-oembed-container, .elementor-widget-google_maps) iframe) {
+	aspect-ratio: 4 / 3;
 }
 .rv-rt > :first-child {
 	margin-top: 0;
 }
 .rv-rt > :last-child {
 	margin-bottom: 0;
+}
+
+/* Phones (Astra mobile: 544px and below; responsive, 0.1.13). The desktop values above stay as they are. */
+@media (max-width: 544px) {
+	.ast-single-post .entry-header.ast-header-without-markup,
+	.ast-single-post .entry-header.ast-no-title.ast-no-thumbnail,
+	.ast-page-builder-template .entry-header.ast-header-without-markup {
+		margin-top: 20px;
+		margin-bottom: 15px;
+	}
+	/* again after the rule above (same weight as its second selector): a header with nothing in it still gets no space */
+	.ast-single-post .entry-header.ast-no-title.ast-header-without-markup:not(:has(*)) {
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+	.rv-rt {
+		padding: 16px;
+	}
+}
+
+/* Touch screens (0.1.13): the header's menu button, the comment form and the previous/next post links are at least 44px tall; the
+   text in .rv-rt and in the comment form, and the paragraphs of text written in the editor, are at least 16px (Astra's own size on
+   phones is smaller by default; page-builder content and the landing page are not touched). Nothing changes with a mouse. */
+@media (pointer: coarse) {
+	#masthead .menu-toggle {
+		min-width: 44px;
+		min-height: 44px;
+	}
+	.rv-rt {
+		font-size: max(1em, 16px);
+	}
+	/* text written in the editor (posts and pages without a page builder): its paragraphs, lists and tables */
+	.entry-content > :is(p, ul, ol, dl, blockquote, table) {
+		font-size: max(1em, 16px);
+	}
+	.comment-form input:not([type="checkbox"]):not([type="radio"]),
+	.comment-form textarea {
+		min-height: 44px;
+		font-size: max(1em, 16px);
+	}
+	.comment-form .comment-form-cookies-consent label {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
+	.post-navigation .nav-links a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
 }
