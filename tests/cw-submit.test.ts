@@ -66,7 +66,7 @@ describe("submitting (acceptance 1)", () => {
     const h = (await q("SELECT actor, text FROM cw_contribution_history WHERE contribution_id = 1025")).rows;
     expect(h).toEqual([{ actor: "Ananya Rao (Teacher / lab in-charge)", text: "Submitted through the contribution form: New idea." }]);
     expect(Number(((await q("SELECT count(*)::int n FROM cw_public_contributions")).rows[0] as any).n)).toBe(0);
-    expect((await send(good())).b.code).toBe("RV-1026");
+    expect((await send(good({ title: "Another idea from the same member" }))).b.code).toBe("RV-1026");
   });
   it("a change to something existing stores the resource (with its auto ID) and the references, and says so in history", async () => {
     await member();
@@ -109,7 +109,7 @@ describe("the attachment (4 MB, JPEG, PNG or PDF, real type from the bytes, priv
   it("stores a real PNG and a real PDF with their real type and a hash", async () => {
     await member();
     const a = await send(good(), { bytes: PNG, name: "sketch.png", type: "image/png" });
-    const b = await send(good(), { bytes: PDF, name: "../../etc/plan.pdf", type: "text/plain" });
+    const b = await send(good({ title: "A second idea with a plan" }), { bytes: PDF, name: "../../etc/plan.pdf", type: "text/plain" });
     expect([a.status, b.status]).toEqual([201, 201]);
     const rows = (await q("SELECT contribution_id, file_name, mime, byte_size, file_sha256 FROM cw_contribution_attachments ORDER BY contribution_id")).rows as any[];
     expect(rows.map((x) => [x.file_name, x.mime, x.byte_size])).toEqual([["sketch.png", "image/png", PNG.length], ["plan.pdf", "application/pdf", PDF.length]]);

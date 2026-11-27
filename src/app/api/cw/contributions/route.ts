@@ -8,7 +8,7 @@ import { preflight } from "../../../../lib/cors";
 import { pool } from "../../../../lib/db";
 import { guardContributorWrite, isBot } from "../../../../lib/contributorGuard";
 import { contributorProfile, loadSectors } from "../../../../lib/cw/lookups";
-import { createContribution } from "../../../../lib/cw/store";
+import { createContribution, recentSubmissions } from "../../../../lib/cw/store";
 import { notifyAfter } from "../../../../lib/cw/notify";
 import * as R from "../../../../lib/cw/shared";
 import { crashed, failed, ok } from "../../../../lib/cw/respond";
@@ -53,6 +53,11 @@ export async function POST(req: Request) {
       }
     }
     if (errors.length) return failed(req, bad(errors.join("\n")), METHODS);
+
+    // spam protection: the same idea again within minutes (a double click or a resend), and a daily cap per member
+    const recent = await recentSubmissions(pool as never, g.userId, value.title);
+    if (recent.same > 0) return failed(req, { ok: false, status: 409, error: "DUPLICATE", message: R.MESSAGES.duplicate }, METHODS);
+    if (recent.day >= R.LIMITS.perDay) return failed(req, { ok: false, status: 429, error: "DAILY_LIMIT", message: R.MESSAGES.dailyLimit }, METHODS);
 
     const created = await createContribution(pool as never, { userId: g.userId, profile, value, attachment });
     notifyAfter("submitted", created.id);

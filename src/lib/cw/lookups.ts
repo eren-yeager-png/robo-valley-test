@@ -1,5 +1,6 @@
 // Read-only lookups for the contribution workflow: the sectors and robot types from Sector Forms, the contributor's profile and the
 // number of older (old form) contributions still waiting in Moderation. Each one tolerates a database without the older migrations.
+import { activeRobotsBySector } from "../contributionRobots";
 import { ROLES } from "../roles";
 
 type Db = { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }> };
@@ -16,15 +17,11 @@ export async function loadSectors(db: Db): Promise<SectorOption[]> {
     if (missing(e)) return [];
     throw e;
   }
-  let robots: any[] = [];
-  try {
-    robots = (await db.query("SELECT sector_id, slug, name FROM sector_robot_types WHERE is_active ORDER BY sort_order, name")).rows;
-  } catch (e) {
-    if (!missing(e)) throw e;
-  }
+  // the same reader (and order) as the current form: robot types that are ON, empty before migration 024
+  const robots = await activeRobotsBySector(db);
   return sectors.map((s) => ({
     slug: String(s.slug), name: String(s.name),
-    robots: robots.filter((r) => String(r.sector_id) === String(s.id)).map((r) => ({ slug: String(r.slug), name: String(r.name) })),
+    robots: (robots.get(Number(s.id)) ?? []).map((r) => ({ slug: String(r.slug), name: String(r.name) })),
   }));
 }
 

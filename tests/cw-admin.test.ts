@@ -120,7 +120,7 @@ describe("who may do what", () => {
     const id = await pending();
     as(mod);
     for (const a of ["preview", "admin_edit", "request_changes", "reject"]) expect((await step(id, a, { reason: "r", feedback: "f", title: "T", description: "D" })).status, a).toBe(403);
-    const fresh = await submit();
+    const fresh = await submit({ title: "Another idea, still with the moderators" });
     as(admin);
     for (const a of ["preview", "admin_edit", "request_changes", "reject"]) expect((await step(fresh, a, { reason: "r", feedback: "f", title: "T", description: "Long enough description." })).status, a).toBe(409);
   });

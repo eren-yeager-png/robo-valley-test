@@ -134,6 +134,29 @@ describe("publishing (acceptance 12, 13, 15)", () => {
     expect(await publicItems()).toEqual(before);
     expect(await cards()).toBe(1);
   });
+  it("any failure after the attempt started ends as Publication Failed with a plain message (never stuck In Progress); Retry works", async () => {
+    const id = await readyToPublish();
+    testDb().failOn((sql) => (/FROM cw_public_contributions/.test(sql) ? Object.assign(new Error('relation "cw_public_contributions" does not exist'), { code: "42P01" }) : undefined));
+    const f = await step(id, "publish");
+    testDb().failOn(undefined);
+    expect(f.status).toBe(200);
+    expect(f.b.item).toMatchObject({ status: "failed", publishError: "The public website could not be updated." });
+    expect(JSON.stringify(f.b.item)).not.toMatch(/relation|does not exist|42P01/); // never the database's own words
+    const r = await step(id, "publish");
+    expect(r.b.item.status).toBe("published");
+    expect(await cards()).toBe(1);
+  });
+  it("an attempt left In Progress for more than 2 minutes (the server stopped mid-way) counts as timed out, and Retry publishes it", async () => {
+    const id = await readyToPublish();
+    await q("UPDATE cw_contributions SET status = 'publishing', updated_at = now() - interval '5 minutes' WHERE id = $1", [id]);
+    const r = await step(id, "publish");
+    expect(r.b.item.status).toBe("published");
+    expect(r.b.item.history.slice(-3).map((h: any) => h.text)).toEqual([
+      "Publication FAILED: The website did not confirm the update within the time limit. Public website unchanged.",
+      "Clicked Publish (attempt 1).",
+      'Published v1 to the public "Healthcare" section, refreshed the page and verified it shows the approved content.',
+    ]);
+  });
   it("a second click while the publish is in progress is refused (nothing happens twice)", async () => {
     const id = await readyToPublish();
     await q("UPDATE cw_contributions SET status = 'publishing' WHERE id = $1", [id]);
@@ -148,7 +171,7 @@ describe("publishing (acceptance 12, 13, 15)", () => {
     expect((await publicItems())[0].contributor).toEqual({ name: "Asha", type: "" });
   });
   it("drafts and pending requests are never public; the public API needs no sign-in and is never cached", async () => {
-    await submit(); const pend = await submit(); as(mod); await step(pend, "send_request");
+    await submit({ title: "A draft idea" }); const pend = await submit({ title: "A pending idea" }); as(mod); await step(pend, "send_request");
     who.id = null;
     const r = await publicRoute.GET(new Request("http://localhost/api/cw/public"));
     expect(r.status).toBe(200);

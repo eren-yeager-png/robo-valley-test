@@ -83,6 +83,6 @@
 .rv .adm .cw-modal-h h3 { margin: 0; font-size: 1.05rem; }
 .rv .adm .cw-modal iframe { border: 0; width: 100%; height: min(470px, 60vh); background: #f1f5f9; }
 .rv .adm .cw-modal-f { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-@media (max-width: 860px) {
+@media (max-width: 1023.98px) { /* the app's breakpoints (src/lib/breakpoints.ts): one column below lg, where the sidebar becomes a drawer */
 	.rv .adm .cw-layout, .rv .adm .cw-grid2 { grid-template-columns: minmax(0, 1fr); }
 }

@@ -12,6 +12,7 @@ export const SERVICE_RATE_LIMITS = {
   modIp: 240, // reviewers: requests per visitor address per minute
   modUser: 120, // reviewers: requests per reviewer per minute
   modDecision: 30, // reviewers: decisions per reviewer per minute
+  cwPublic: 60, // contribution workflow: public reads (form settings, Community Ideas, who is signed in) per visitor address per minute
 } as const;
 export const RATE_WINDOW_SECONDS = 60;
 

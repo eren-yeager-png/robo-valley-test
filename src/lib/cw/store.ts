@@ -120,6 +120,17 @@ export async function listContributions(db: Q, statuses: string[] | null, sector
   });
 }
 
+/** Spam protection: this member's ideas in the last 24 hours, and how many of them had the same title in the last few minutes. */
+export async function recentSubmissions(db: Q, userId: number, title: string) {
+  return guarded(async () => {
+    const r = (await db.query(
+      `SELECT count(*) FILTER (WHERE submitted_at > now() - interval '24 hours')::int AS day,
+              count(*) FILTER (WHERE submitted_at > now() - make_interval(mins => $3::int) AND lower(btrim(original->>'title')) = lower(btrim($2::text)))::int AS same
+         FROM cw_contributions WHERE user_id = $1`, [userId, title, R.LIMITS.duplicateMinutes])).rows[0];
+    return { day: Number(r?.day ?? 0), same: Number(r?.same ?? 0) };
+  });
+}
+
 /** A contributor's own ideas, newest first, with the status a contributor sees. */
 export async function listMine(db: Q, userId: number) {
   return guarded(async () => (await db.query(

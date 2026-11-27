@@ -73,6 +73,7 @@ const ADM_FILTERS = {
 const LIMITS = {
   title: 150, description: 3000, notes: 2000, remark: 200, url: 2048, path: 300, change: 2000, references: 10, reason: 2000,
   sendDescriptionMin: 20, attachmentBytes: 4 * 1024 * 1024, fileName: 200,
+  perDay: 10, duplicateMinutes: 10, // spam protection: ideas per member per 24 hours; the same title again within this many minutes
 };
 const ATTACHMENT_TYPES = ["image/jpeg", "image/png", "application/pdf"];
 
@@ -107,6 +108,8 @@ const MESSAGES = {
   publicEmpty: "No contributions have been published yet. Moderator drafts and pending requests are never shown here.",
   // general
   signIn: "Please sign in with your RoboValley member account to share an idea.",
+  dailyLimit: "You have shared many ideas today. Please try again tomorrow.",
+  duplicate: "You sent this idea a moment ago. It is already with the reviewers.",
   reviewerCannot: "Administrators and moderators review contributions. Please use a member account to share an idea.",
   failed: "Something went wrong. Nothing was changed. Please try again.",
 };
@@ -284,6 +287,10 @@ const changedFields = (now, base) => FIELDS.filter((f) => !sameValue(now[f], bas
 const isModified = (c) => changedFields(c.proposed, c.original).length > 0;
 
 // ---------------------------------------------------------------- the status machine (spec section 5)
+// TODO (open decisions, spec section 15; not built on purpose, decide before adding):
+//   * unpublish or edit after publishing        * appeal or resubmission after Rejected
+//   * age enforcement for the Earn (18+) path    * whether a Moderator's decline is visible to / reversible by an Admin
+//   * whether Admins may edit fields beyond Title and Description
 const MOD_EDITABLE = [S.SUBMITTED, S.REVIEW, S.DRAFT, S.CHANGES];
 const ADMIN_ACTIONABLE = [S.PENDING, S.RESUBMITTED, S.FAILED];
 const canModeratorEdit = (status) => MOD_EDITABLE.includes(status);

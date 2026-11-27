@@ -102,6 +102,10 @@ export const changedFields = (now, base) => FIELDS.filter((f) => !sameValue(now[
 export const isModified = (c) => changedFields(c.proposed, c.original).length > 0;
 
 // ---------------------------------------------------------------- the status machine (spec section 5)
+// TODO (open decisions, spec section 15; not built on purpose, decide before adding):
+//   * unpublish or edit after publishing        * appeal or resubmission after Rejected
+//   * age enforcement for the Earn (18+) path    * whether a Moderator's decline is visible to / reversible by an Admin
+//   * whether Admins may edit fields beyond Title and Description
 export const MOD_EDITABLE = [S.SUBMITTED, S.REVIEW, S.DRAFT, S.CHANGES];
 export const ADMIN_ACTIONABLE = [S.PENDING, S.RESUBMITTED, S.FAILED];
 export const canModeratorEdit = (status) => MOD_EDITABLE.includes(status);

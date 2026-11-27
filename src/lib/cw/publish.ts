@@ -9,9 +9,19 @@
 //        failed with publish_error, history by "System". Status becomes Published only after the read-back matched.
 import * as R from "./shared";
 import { loadSectors } from "./lookups";
-import { getContribution, guarded, readPublic, type Actor, type Detail, type Fail, type Pool, type Q } from "./store";
+import { getContribution, guarded, NotSetUp, readPublic, type Actor, type Detail, type Fail, type Pool, type Q } from "./store";
 
 const TIMEOUT = "30s";
+const STALE = "2 minutes"; // an attempt still "In Progress" after this never finished
+const TIMED_OUT = "The website did not confirm the update within the time limit.";
+const UNREACHABLE = "The public website could not be updated."; // the screen and the history add "nothing was changed" themselves
+
+/** What the Admin reads after a failure: our own sentences as they are; a database or system error as one plain sentence. */
+function plainError(e: unknown): string {
+  const err = e as { code?: string; message?: string } | null;
+  if (!err || err instanceof NotSetUp || typeof err.code === "string") return UNREACHABLE;
+  return String(err.message || TIMED_OUT).slice(0, 400);
+}
 const fail = (status: number, error: string, message: string): Fail => ({ ok: false, status, error, message });
 
 // A fault for tests (spec: "a server-side test hook that exists only in non-production environments"). It cannot be armed in production.
@@ -46,11 +56,18 @@ export async function publish(pool: Pool, input: { id: number; actor: Actor; row
   return guarded(async () => {
     // 1-3: check and mark "Publication In Progress"
     const started = await tx(pool, async (c): Promise<Fail | { ok: true; versions: number }> => {
-      const row = (await c.query("SELECT status, row_version, previewed_version, publish_attempts FROM cw_contributions WHERE id = $1 FOR UPDATE", [id])).rows[0];
+      const row = (await c.query(`SELECT status, row_version, previewed_version, publish_attempts, updated_at < now() - interval '${STALE}' AS stale FROM cw_contributions WHERE id = $1 FOR UPDATE`, [id])).rows[0];
       if (!row) return fail(404, "NOT_FOUND", "We could not find that contribution.");
       if (Number(input.rowVersion) !== Number(row.row_version)) return fail(409, "STALE", R.MESSAGES.stale);
       const versions = Number((await c.query("SELECT count(*)::int AS n FROM cw_contribution_versions WHERE contribution_id = $1", [id])).rows[0].n);
-      const step = R.nextStatus("publish", { status: row.status, versions });
+      let status = String(row.status);
+      if (status === R.STATUS.PUBLISHING && row.stale === true) {
+        // an attempt that never finished (the server stopped mid-way): it timed out, so it counts as failed and may be retried
+        await c.query("UPDATE cw_contributions SET status = 'failed', publish_error = $2, updated_at = now() WHERE id = $1", [id, TIMED_OUT]);
+        await c.query("INSERT INTO cw_contribution_history (contribution_id, actor, text) VALUES ($1, 'System', $2)", [id, R.history.failed(TIMED_OUT)]);
+        status = R.STATUS.FAILED;
+      }
+      const step = R.nextStatus("publish", { status, versions });
       if (!step.ok) return fail(409, "NOT_ALLOWED", R.MESSAGES.notAllowed); // includes a second click while In Progress
       if (versions < 1 || Number(row.previewed_version) !== versions) return fail(409, "PREVIEW_FIRST", R.MESSAGES.previewFirst);
       const attempt = Number(row.publish_attempts) + 1;
@@ -61,12 +78,15 @@ export async function publish(pool: Pool, input: { id: number; actor: Actor; row
     if (!started.ok) return started as Fail;
 
     const n = (started as { versions: number }).versions;
-    const sectors = await loadSectors(pool);
-    const before = await readPublic(pool, id); // what the public site shows now, to put back on failure
-    const detail = (await getContribution(pool, id))!;
-    const rec = R.toPublicRecord({ ...detail, version: n }, { sectors, version: n });
-    let error: string | null = null;
+    // From here on every failure ends as Publication Failed (never stuck In Progress), and the public site is left as it was.
+    let error: string | null = null, wrote = false;
+    let before: Awaited<ReturnType<typeof readPublic>> = null, sectorName = "";
     try {
+      const sectors = await loadSectors(pool);
+      before = await readPublic(pool, id); // what the public site shows now, to put back on failure
+      const detail = (await getContribution(pool, id))!;
+      const rec = R.toPublicRecord({ ...detail, version: n }, { sectors, version: n });
+      sectorName = rec.sectorName;
       // 4: upsert by contribution id
       await tx(pool, async (c) => {
         takeFault("upsert");
@@ -83,6 +103,7 @@ export async function publish(pool: Pool, input: { id: number; actor: Actor; row
             rec.learningPath, rec.kind, rec.resource ? JSON.stringify(rec.resource) : null, JSON.stringify(rec.references),
             detail.contributor.firstName, detail.contributor.typeLabel, detail.contributor.minor]);
       });
+      wrote = true;
       // 6: read back through the public API's reader and compare with the approved version
       takeFault("verify");
       const back = await readPublic(pool, id);
@@ -90,15 +111,15 @@ export async function publish(pool: Pool, input: { id: number; actor: Actor; row
         throw new Error("The public website did not show the approved content after the update.");
       }
     } catch (e) {
-      error = String((e as Error)?.message || "The website did not confirm the update.").slice(0, 400);
-      await restore(pool, id, before).catch(() => undefined);
+      error = plainError(e);
+      if (wrote) await restore(pool, id, before).catch(() => undefined); // only an update of THIS attempt is undone
     }
 
     // 7 / 8
     await tx(pool, async (c) => {
       if (error === null) {
         await c.query("UPDATE cw_contributions SET status = 'published', published_version = $2, published_at = now(), publish_error = NULL, row_version = row_version + 1, updated_at = now() WHERE id = $1", [id, n]);
-        await c.query("INSERT INTO cw_contribution_history (contribution_id, actor, text) VALUES ($1, 'System', $2)", [id, R.history.published(n, rec.sectorName)]);
+        await c.query("INSERT INTO cw_contribution_history (contribution_id, actor, text) VALUES ($1, 'System', $2)", [id, R.history.published(n, sectorName)]);
       } else {
         await c.query("UPDATE cw_contributions SET status = 'failed', publish_error = $2, row_version = row_version + 1, updated_at = now() WHERE id = $1", [id, error]);
         await c.query("INSERT INTO cw_contribution_history (contribution_id, actor, text) VALUES ($1, 'System', $2)", [id, R.history.failed(error)]);

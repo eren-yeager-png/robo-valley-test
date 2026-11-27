@@ -121,7 +121,7 @@ describe("settings page", () => {
     expect(h.toLowerCase()).toContain('autocomplete="current-password"');
     expect(h).toContain('id="profile"');
     expect(h).toContain('id="database-setup"');
-    expect((h.match(/>Applied</g) ?? []).length).toBe(26); // 001 to 026
+    expect((h.match(/>Applied</g) ?? []).length).toBe(27); // 001 to 027
     expect(h).toContain("Everything is applied");
     expect(h).not.toContain("For the developer");
     expect(h).not.toMatch(/password_hash|SESSION_SECRET|DATABASE_URL/);
@@ -163,7 +163,7 @@ describe("every admin page guards itself, and charts load on demand", () => {
 
   it("every page.tsx calls requireAdminPage (layouts are not re-run between pages)", () => {
     const pages = files.filter((f) => f.endsWith("/page.tsx"));
-    expect(pages.length).toBe(12); // Sector Counts, then Sector forms and one sector's form (P2); every page calls requireAdminPage() like the rest
+    expect(pages.length).toBe(13); // Sector Counts, then Sector forms and one sector's form (P2), then the Admin Approval Dashboard (contribution workflow); every page calls requireAdminPage() like the rest
     for (const p of pages) expect(readFileSync(p, "utf8"), p).toContain("requireAdminPage()");
   });
 

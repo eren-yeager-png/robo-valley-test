@@ -58,6 +58,20 @@ export async function moderatorFlags(db: Db, userIds: string[]): Promise<{ ready
   }
 }
 
+/**
+ * The email addresses of the moderators who are not administrators, for the contribution workflow's notifications (lib/cw/notify.ts).
+ * Read-only. Empty if migration 015 has not been applied yet (the column does not exist).
+ */
+export async function moderatorEmails(db: Db): Promise<string[]> {
+  try {
+    const { rows } = await db.query("SELECT email FROM users WHERE is_moderator = true AND role <> 'admin' ORDER BY id");
+    return rows.map((r) => String(r.email ?? ""));
+  } catch (e) {
+    if ((e as { code?: string })?.code === "42703") return [];
+    throw e;
+  }
+}
+
 export type ModeratorChangeRow = { when: string; by: string; person: string; granted: boolean };
 
 /** The last few changes of the flag, for the admin Users page (names only: no email, no id). Empty if migration 015 is not applied. */
