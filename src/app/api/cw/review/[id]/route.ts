@@ -7,6 +7,7 @@ import { pool } from "../../../../../lib/db";
 import { guardReviewer } from "../../../../../lib/reviewerGuard";
 import { parseId } from "../../../../../lib/contributorGuard";
 import { applyAction, getContribution, type Fail } from "../../../../../lib/cw/store";
+import { publish, type Published } from "../../../../../lib/cw/publish";
 import { actorOf } from "../../../../../lib/cw/reviewApi";
 import { notifyAfter } from "../../../../../lib/cw/notify";
 import * as R from "../../../../../lib/cw/shared";
@@ -19,7 +20,7 @@ export const OPTIONS = (req: Request) => preflight(req, METHODS);
 const notFound = { ok: false as const, status: 404, error: "NOT_FOUND", message: "We could not find that contribution." };
 
 /** The actions this API accepts: the workspace's and the Admin Approval Dashboard's (administrator-only ones answer 403 to others). */
-const ACCEPTED = new Set<string>([...R.WORKSPACE_ACTIONS, ...R.ADMIN_ACTIONS.filter((a: string) => a !== "publish")]);
+const ACCEPTED = new Set<string>([...R.WORKSPACE_ACTIONS, ...R.ADMIN_ACTIONS]);
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const g = await guardReviewer(req, METHODS);
@@ -46,6 +47,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!ACCEPTED.has(action)) return failed(req, { ok: false, status: 400, error: "UNKNOWN_ACTION", message: R.MESSAGES.notAllowed }, METHODS);
   try {
     const actor = await actorOf(g);
+    if (action === "publish") {
+      const pr = await publish(pool as never, { id, actor, rowVersion: p.rowVersion });
+      if (!pr.ok) return failed(req, pr as Fail, METHODS);
+      const done = pr as Published;
+      if (done.published) notifyAfter("published", id);
+      return ok(req, { item: done.detail, published: done.published }, METHODS);
+    }
     const r = await applyAction(pool as never, { id, actor, action, payload: p });
     if (!r.ok) return failed(req, r as Fail, METHODS);
     if (action === "send_request") notifyAfter("sent", id);

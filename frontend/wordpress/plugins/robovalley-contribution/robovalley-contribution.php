@@ -1,15 +1,15 @@
 <?php
 /**
  * Plugin Name: RoboValley Contribution
- * Description: The Contribution Publishing Workflow on the website: the "Share Your Idea" form ([rv_contribution_form]). A thin shell: the screens are plain HTML, CSS and JavaScript, and all data lives in the RoboValley app (no WordPress tables, no WordPress roles). The Moderator Workspace and the Admin Approval Dashboard are in the app's admin portal.
- * Version: 1.0.0
+ * Description: The Contribution Publishing Workflow on the website: the "Share Your Idea" form ([rv_contribution_form]) and the public "Community Ideas" page ([rv_community_ideas]). A thin shell: the screens are plain HTML, CSS and JavaScript, and all data lives in the RoboValley app (no WordPress tables, no WordPress roles). The Moderator Workspace and the Admin Approval Dashboard are in the app's admin portal.
+ * Version: 1.3.0
  * Requires at least: 6.4
  * Requires PHP: 7.4
  * Author: RoboValley
  * License: GPL-2.0-or-later
  * Text Domain: robovalley-contribution
  *
- * Zero manual setup: on activation (and whenever this file's version changes) it creates its page if missing, as PRIVATE (visible
+ * Zero manual setup: on activation (and whenever this file's version changes) it creates its pages if missing, as PRIVATE (visible
  * to WordPress administrators only), and never touches a page someone edited or the pages of the current Contribute form
  * (plugin rv-contribution-v2), which stays exactly as it is.
  *
@@ -21,13 +21,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const RV_CONTRIB_VERSION = '1.0.0';
+const RV_CONTRIB_VERSION = '1.3.0';
 const RV_CONTRIB_OPTION  = 'rv_contrib_setup_version';
 
 /** The pages this plugin owns: option name => [slug, title, shortcode]. */
 function rv_contrib_pages() {
 	return array(
-		'rv_contrib_page_form' => array( 'share-your-idea', 'Share Your Idea', '[rv_contribution_form]' ),
+		'rv_contrib_page_form'  => array( 'share-your-idea', 'Share Your Idea', '[rv_contribution_form]' ),
+		'rv_contrib_page_ideas' => array( 'community-ideas', 'Community Ideas', '[rv_community_ideas]' ),
 	);
 }
 
@@ -128,6 +129,13 @@ add_shortcode(
 	'rv_contribution_form',
 	function () {
 		return rv_contrib_container( 'form' );
+	}
+);
+
+add_shortcode(
+	'rv_community_ideas',
+	function () {
+		return rv_contrib_container( 'site' );
 	}
 );
 

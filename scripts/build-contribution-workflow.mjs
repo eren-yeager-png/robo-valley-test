@@ -106,6 +106,11 @@ export const PARITY = [
   "Admin Approval Dashboard: banners Publication failed (safe retry), Published successfully (verified), Publishing in progress, still with the Moderator; previous versions; history",
   "Publish Preview: modal \"Publish Preview\", meta RV-xxxx · version N · <sector> section, yellow PREVIEW ONLY banner, dark RoboValley › Community Ideas › <Sector> header, the shared card",
   "Publish Preview: Download preview (.html) works offline, Open in new tab (\"Your browser blocked the new tab. Use Download instead.\"), Done reviewing",
+  "Publishing: Clicked Publish (attempt N); Publication In Progress notice; Published only after the public record reads back the approved content",
+  "Publishing: a failure shows \"Publication failed: ...\" and Retry Publish; the public page is unchanged; a retry never makes a second card",
+  "Community Ideas: \"RoboValley – Community Ideas\" with its subtitle; grouped by sector in Sector Forms order, Not sure last as \"Other ideas\"",
+  "Community Ideas: each card = sector · robot type, title, <kind> for <resource path> (linked), description, chips, Idea by <first name> (<type>), Further reading, Published <date>",
+  "Community Ideas: empty state \"No contributions have been published yet. Moderator drafts and pending requests are never shown here.\"",
 ];
 
 /** The standalone demo: every built screen with mock data, plus the parity checklist. */

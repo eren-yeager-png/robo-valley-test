@@ -22,6 +22,11 @@ describe("identity and version", () => {
 });
 
 describe("zero manual setup, never touching what exists", () => {
+  it("owns two pages, Share Your Idea and Community Ideas, each with its shortcode", () => {
+    expect(code).toContain("'rv_contrib_page_form'  => array( 'share-your-idea', 'Share Your Idea', '[rv_contribution_form]' )");
+    expect(code).toContain("'rv_contrib_page_ideas' => array( 'community-ideas', 'Community Ideas', '[rv_community_ideas]' )");
+    expect(code).toMatch(/add_shortcode\(\s*'rv_community_ideas'/);
+  });
   it("creates its pages as PRIVATE, only when missing, never duplicating or overwriting one", () => {
     expect(code).toContain("'post_status'  => 'private'");
     expect(code).toContain("get_page_by_path( $slug, OBJECT, 'page' )");
@@ -44,6 +49,7 @@ describe("loading and caching", () => {
     const hook = code.slice(code.indexOf("'wp_enqueue_scripts'"), code.indexOf("function rv_contrib_container"));
     expect(hook).toMatch(/if \( ! rv_contrib_on_our_page\(\) \) \{\s*return;/);
     expect(code).toContain("has_shortcode( $post->post_content, 'rv_contribution_form' )");
+    expect(code).toContain("has_shortcode( $post->post_content, 'rv_community_ideas' )");
   });
   it("its pages are never cached (WordPress caches and LiteSpeed): DONOTCACHEPAGE and no-cache headers", () => {
     expect(code).toContain("define( 'DONOTCACHEPAGE', true )");

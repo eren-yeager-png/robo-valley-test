@@ -9,7 +9,7 @@
 //        failed with publish_error, history by "System". Status becomes Published only after the read-back matched.
 import * as R from "./shared";
 import { loadSectors } from "./lookups";
-import { getContribution, guarded, readPublic, type Actor, type Fail, type Pool, type Q } from "./store";
+import { getContribution, guarded, readPublic, type Actor, type Detail, type Fail, type Pool, type Q } from "./store";
 
 const TIMEOUT = "30s";
 const fail = (status: number, error: string, message: string): Fail => ({ ok: false, status, error, message });
@@ -38,12 +38,14 @@ async function tx<T>(pool: Pool, fn: (c: Q) => Promise<T>): Promise<T> {
   }
 }
 
-export async function publish(pool: Pool, input: { id: number; actor: Actor; rowVersion: unknown }) {
+export type Published = { ok: true; published: boolean; detail: Detail };
+
+export async function publish(pool: Pool, input: { id: number; actor: Actor; rowVersion: unknown }): Promise<Fail | Published> {
   const { id, actor } = input;
   if (!actor.isAdmin) return fail(403, "ADMIN_ONLY", R.MESSAGES.adminOnly);
   return guarded(async () => {
     // 1-3: check and mark "Publication In Progress"
-    const started = await tx(pool, async (c) => {
+    const started = await tx(pool, async (c): Promise<Fail | { ok: true; versions: number }> => {
       const row = (await c.query("SELECT status, row_version, previewed_version, publish_attempts FROM cw_contributions WHERE id = $1 FOR UPDATE", [id])).rows[0];
       if (!row) return fail(404, "NOT_FOUND", "We could not find that contribution.");
       if (Number(input.rowVersion) !== Number(row.row_version)) return fail(409, "STALE", R.MESSAGES.stale);
@@ -56,9 +58,9 @@ export async function publish(pool: Pool, input: { id: number; actor: Actor; row
       await c.query("INSERT INTO cw_contribution_history (contribution_id, actor, actor_user_id, text) VALUES ($1, $2, $3, $4)", [id, actor.name, actor.userId, R.history.publishClick(attempt)]);
       return { ok: true as const, versions };
     });
-    if (!started.ok) return started;
+    if (!started.ok) return started as Fail;
 
-    const n = started.versions;
+    const n = (started as { versions: number }).versions;
     const sectors = await loadSectors(pool);
     const before = await readPublic(pool, id); // what the public site shows now, to put back on failure
     const detail = (await getContribution(pool, id))!;
