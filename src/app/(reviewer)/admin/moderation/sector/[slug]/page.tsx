@@ -6,6 +6,8 @@ import { DISPLAY_LABELS, STATUS_TONE, type DisplayStatus } from "../../../../../
 import { DIRECTORY_CATEGORIES } from "../../../../../../lib/directoryCategories";
 import { logDbError } from "../../../../../../lib/dbError";
 import { Notice } from "../../../../../admin/_components/ui";
+import SectorHeader from "../../../../../_cw/SectorHeader";
+import "../../../../../../../public/cw/sector.css";
 
 type SP = { tab?: string; q?: string; cat?: string; sort?: string; page?: string; verified?: string };
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
@@ -45,10 +47,7 @@ export default async function SectorPage({ params, searchParams }: { params: Pro
   return (
     <>
       <p className="mod-crumb"><Link href="/admin/moderation">Moderation</Link> / {l.sector.name}</p>
-      <div className="adm-head">
-        <h1>Contributors for {l.sector.name}</h1>
-        <p>{l.contributions} contribution{l.contributions === 1 ? "" : "s"} from {l.contributors} contributor{l.contributors === 1 ? "" : "s"}. Open one to read the full form and review it.</p>
-      </div>
+      <SectorHeader title={`Contributors for ${l.sector.name}`} sub={`${l.contributions} contribution${l.contributions === 1 ? "" : "s"} from ${l.contributors} contributor${l.contributors === 1 ? "" : "s"}. Open one to read the full form and review it.`} sector={slug} returnPath={`/admin/moderation/sector/${slug}`} />
         <div className="adm-tabs" role="tablist" aria-label="Status">
           {PORTAL_TAB_LIST.map((t) => (
             <a key={t} role="tab" aria-selected={t === l.tab ? "true" : "false"} aria-controls="mod-list" href={href(slug, l, { tab: t, page: undefined })}>{tabLabel(t)} ({l.counts[t]})</a>

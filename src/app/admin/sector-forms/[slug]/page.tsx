@@ -6,6 +6,8 @@ import { requireAdminPage } from "../../../../lib/adminPage";
 import { parseSectorSlug, sectorForm, type SectorForm } from "../../../../lib/sectorForms";
 import { logDbError } from "../../../../lib/dbError";
 import { Notice, PageHeader } from "../../_components/ui";
+import SectorHeader from "../../../_cw/SectorHeader";
+import "../../../../../public/cw/sector.css";
 import RobotTypesEditor from "./RobotTypesEditor";
 import QuestionsEditor from "./QuestionsEditor";
 import { QUESTIONS_ON_MAX, REQUIRED_MAX, TEXT_ANSWER_MAX, questionsOf, type Question } from "../../../../lib/sectorQuestions";
@@ -42,7 +44,7 @@ export default async function SectorFormPage({ params }: { params?: Promise<{ sl
   return (
     <>
       <p><Link href="/admin/sector-forms">← Sector forms</Link></p>
-      <PageHeader title={`Sector form: ${form.sector.name}`} lead="What the Contribute form asks for this sector: the robot types members can pick, and up to five questions." />
+      <SectorHeader title={`Sector form: ${form.sector.name}`} sub="What the Contribute form asks for this sector: the robot types members can pick, and up to five questions." sector={form.sector.slug} returnPath={`/admin/sector-forms/${form.sector.slug}`} />
       {!form.sector.active && (
         <div style={{ marginBottom: 14 }}>
           <Notice kind="info" title="This sector is not offered on the Contribute form right now">You can still prepare its robot types; they are used once the sector is offered.</Notice>

@@ -181,4 +181,4 @@ export const sectionOf = (role: unknown, slug: string): Section | null =>
 export const isKnownSectionSlug = (slug: string) => Object.values(ROLE_DASHBOARDS).some((r) => r.sections.some((x) => x.slug === slug));
 
 /** Fixed (non role-specific) dashboard pages. Section slugs must never collide with these. */
-export const RESERVED_SLUGS = ["profile", "notifications"] as const;
+export const RESERVED_SLUGS = ["profile", "notifications", "sectors", "contributions"] as const; // pages of every Member portal
