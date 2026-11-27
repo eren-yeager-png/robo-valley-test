@@ -1427,7 +1427,9 @@ const notice = (kind, html, role = "status") => `<div class="rv-notice rv-n-${ki
 
 async function mount(el, opts = {}) {
   const adapter = opts.adapter || new RestAdapter(el.getAttribute("data-api-base") || "");
-  const query = opts.query || new URLSearchParams(typeof location !== "undefined" ? location.search : "");
+  const loc = opts.location || (typeof location !== "undefined" ? location : null);
+  const storage = opts.storage !== undefined ? opts.storage : sessionStore();
+  let query = opts.query || new URLSearchParams(loc ? loc.search : "");
   el.classList.add("rv-app");
   el.innerHTML = `<section class="rv-panel" aria-labelledby="rv-form-h"><h2 id="rv-form-h">Share Your Idea</h2><p class="rv-muted">${esc(INTRO)}</p><div class="rv-body" aria-live="polite"><p class="rv-muted">Loading…</p></div></section>`;
   const body = $(el, ".rv-body");
@@ -1439,12 +1441,56 @@ async function mount(el, opts = {}) {
     return;
   }
   if (!me.signedIn) {
-    const back = typeof location !== "undefined" ? location.href : "";
+    stashQuery(query, storage); // the field, the kind and the way back survive the trip to the sign-in page
+    const back = loginBack(loc, query, cfg.sectors || []);
     body.innerHTML = notice("info", esc(MESSAGES.signIn)) + `<p><a class="rv-btn rv-btn-primary" href="${esc(adapter.loginUrl(back))}">Sign in</a></p>`;
     return;
   }
   if (me.reviewer) { body.innerHTML = notice("info", esc(MESSAGES.reviewerCannot)); return; }
-  renderForm(body, { adapter, me, sectors: cfg.sectors || [], query, sample: opts.sample === true });
+  query = restoreQuery(query, storage);
+  const origins = [loc && /^https?:/.test(loc.protocol || "") ? loc.origin : "", originOf(adapter.base)].filter(Boolean);
+  renderForm(body, { adapter, me, sectors: cfg.sectors || [], query, origins, sample: opts.sample === true });
+}
+
+// ---- signing in from the form and coming back ----
+// The app sends a visitor back after signing in only to this form's address with ?sector= (and one ?robot=); any other parameter, or an
+// encoded character, and it sends them to their portal instead. So the sign-in link comes back with just those, and the rest of what
+// the page passed (the field, the kind, the way back, the resource path) waits in this tab's sessionStorage for the return.
+const STASH = "rv-cw-form-return";
+const STASH_MS = 30 * 60 * 1000;
+function sessionStore() { try { return typeof sessionStorage !== "undefined" ? sessionStorage : null; } catch { return null; } }
+const originOf = (u) => { try { return u && /^https?:/i.test(u) ? new URL(u).origin : ""; } catch { return ""; } };
+
+/** The address the sign-in page sends the visitor back to: this page with ?sector= (and ?robot= for a robot type), nothing else. */
+function loginBack(loc, query, sectors = []) {
+  if (!loc || !/^https?:/.test(loc.protocol || "")) return "";
+  const sector = R.slug(query.get("sector") || ""), field = R.slug(query.get("field") || query.get("robot") || "");
+  const s = sectors.find((x) => x.slug === sector);
+  if (!s) return loc.origin + loc.pathname;
+  const robot = field && (s.robots || []).some((r) => r.slug === field) ? `&robot=${field}` : "";
+  return `${loc.origin}${loc.pathname}?sector=${sector}${robot}`;
+}
+/** Keeps what the page passed (only when there is more than the sector) for the return from the sign-in page. */
+function stashQuery(query, storage) {
+  if (!storage) return;
+  const keep = new URLSearchParams();
+  for (const k of ["sector", "field", "kind", "return_to", "resource_path", "resource_url"]) if (query.get(k)) keep.set(k, query.get(k).slice(0, 2048));
+  try {
+    if ([...keep.keys()].some((k) => k !== "sector")) storage.setItem(STASH, JSON.stringify({ q: keep.toString(), at: Date.now() }));
+    else storage.removeItem(STASH);
+  } catch { /* storage blocked: the sector still comes back */ }
+}
+/** After signing in: the kept parameters of the same sector (at most 30 minutes old) are used again, once. */
+function restoreQuery(query, storage) {
+  if (!storage) return query;
+  let saved = null;
+  try { saved = JSON.parse(storage.getItem(STASH) || "null"); storage.removeItem(STASH); } catch { return query; }
+  if (!saved || typeof saved.q !== "string" || !(Date.now() - Number(saved.at) < STASH_MS)) return query;
+  const keys = [...query.keys()];
+  if (keys.some((k) => k !== "sector" && k !== "robot")) return query; // the page was opened with its own parameters: those win
+  const kept = new URLSearchParams(saved.q);
+  if (R.slug(kept.get("sector") || "") !== R.slug(query.get("sector") || "")) return query;
+  return kept;
 }
 
 function renderForm(body, ctx) {
@@ -1455,7 +1501,7 @@ function renderForm(body, ctx) {
   const url0 = query.get("resource_url") || (sample ? SAMPLE.resourceUrl : "");
   const minor = me.minor === true;
   // pressed on a sector page: the field (a robot type of that sector, or another section of the page) is what it refers to
-  const field = R.slug(query.get("field") || "");
+  const field = R.slug(query.get("field") || query.get("robot") || "");
   const presetRobot = field && ((sectors.find((s) => s.slug === presetSector) || {}).robots || []).some((r) => r.slug === field) ? field : "";
   const presetType = field ? (presetRobot ? "Robot type" : "Button or section on a page") : "Robot type";
   const presetKind = KINDS.includes(query.get("kind")) ? query.get("kind") : NEW_IDEA; // "Suggest a field" opens a Suggestion
@@ -1541,12 +1587,13 @@ function renderForm(body, ctx) {
   form.addEventListener("submit", (e) => { e.preventDefault(); submit(form, ctx, { kind, refers, addRef, updateKind, updateId, updateRobots }); });
 }
 
-/** The page the visitor came from (return_to): only an http(s) address or a path of this site, never anything else. */
-function safeBack(raw) {
+/** The page the visitor came from (return_to): a path of this site, or an http(s) address on this site or the app (`origins`); never
+ *  anything else, so a link to this form cannot turn "Back to the page you came from" into a link to another website. */
+function safeBack(raw, origins = []) {
   const v = String(raw || "").trim();
   if (!v || v.length > 2048) return "";
-  if (/^\/(?!\/)/.test(v)) return v; // a path on this site
-  try { const u = new URL(v); return /^https?:$/.test(u.protocol) ? u.toString() : ""; } catch { return ""; }
+  if (/^\/(?![/\\])/.test(v)) return v; // a path on this site (not //host or /\host)
+  try { const u = new URL(v); return /^https?:$/.test(u.protocol) && origins.includes(u.origin) ? u.toString() : ""; } catch { return ""; }
 }
 
 async function fileProblem(file) {
@@ -1570,7 +1617,7 @@ async function submit(form, ctx, h) {
   };
   const file = $(form, "#rv-f-file").files && $(form, "#rv-f-file").files[0] ? $(form, "#rv-f-file").files[0] : null;
   const { errors } = R.validateSubmission(data, { sectors: ctx.sectors, name: ctx.me.name, minor: ctx.me.minor === true });
-  const back = safeBack(ctx.query.get("return_to"));
+  const back = safeBack(ctx.query.get("return_to"), ctx.origins || []);
   const fp = await fileProblem(file);
   if (fp) errors.push(fp);
   if (errors.length) {
@@ -1596,7 +1643,7 @@ async function submit(form, ctx, h) {
     const n = msg.querySelector(".rv-notice"); if (n) { n.setAttribute("tabindex", "-1"); n.focus(); }
   }
 }
-Object.assign(exports, { SAMPLE, mount, safeBack });
+Object.assign(exports, { SAMPLE, mount, loginBack, stashQuery, restoreQuery, safeBack });
 });
 __def("moderator.js", function (exports, __req) {
 // Contribution workflow: the Moderator Workspace (admin portal, /admin/workspace; and the demo). The demo's screen, through the adapter:
