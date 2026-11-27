@@ -27,17 +27,23 @@ describe("zero manual setup, never touching what exists", () => {
     expect(code).toContain("'rv_contrib_page_ideas' => array( 'community-ideas', 'Community Ideas', '[rv_community_ideas]' )");
     expect(code).toMatch(/add_shortcode\(\s*'rv_community_ideas'/);
   });
-  it("creates its pages as PRIVATE, only when missing, never duplicating or overwriting one", () => {
-    expect(code).toContain("'post_status'  => 'private'");
+  it("creates its pages as PRIVATE (public only once switched over), only when missing, never duplicating or overwriting one", () => {
+    expect(code).toContain("'post_status'  => rv_contrib_switched() ? 'publish' : 'private'");
     expect(code).toContain("get_page_by_path( $slug, OBJECT, 'page' )");
+    expect(code).toContain("if ( $existing && has_shortcode( $existing->post_content, trim( $shortcode, '[]' ) ) )"); // someone else's page is never adopted
     expect(code).toMatch(/if \( \$id && get_post\( \$id \) \) \{\s*continue;/);
-    expect(code).not.toMatch(/wp_update_post|wp_delete_post|wp_trash_post/);
+    expect(code).not.toMatch(/wp_delete_post|wp_trash_post/);
+    // the ONLY change it ever makes to a page: the visibility of its own pages, for the switch-over
+    expect(code.match(/wp_update_post\(/g)).toHaveLength(1);
+    expect(code).toContain("wp_update_post( array( 'ID' => $id, 'post_status' => $want ) )");
+    expect(code).toContain("|| ! has_shortcode( $post->post_content, trim( $page[2], '[]' ) )");
     expect(code).toContain("register_activation_hook( __FILE__, 'rv_contrib_setup' )");
     expect(code).toContain("get_option( RV_CONTRIB_OPTION ) !== RV_CONTRIB_VERSION");
   });
-  it("uses the app address the current form already uses; no new setting", () => {
+  it("uses the app address the current form already uses; its ONE setting is the switch-over", () => {
     expect(code).toContain("defined( 'RV_CONTRIBUTION_APP_URL' )");
-    expect(code).not.toMatch(/add_options_page|register_setting/.source === "" ? /$^/ : /register_setting\(/);
+    expect(code.match(/register_setting\(/g)).toHaveLength(1);
+    expect(code).toMatch(/register_setting\(\s*'rv_contrib',\s*RV_CONTRIB_SWITCH,/);
   });
   it("no WordPress tables, no WordPress roles or capabilities, no page builder, no theme files", () => {
     expect(code).not.toMatch(/dbDelta|CREATE TABLE|\$wpdb->query|add_role|add_cap|elementor|get_template_part|locate_template/i);
@@ -84,7 +90,41 @@ describe("the current Contribute form (rv-contribution-v2) is untouched", () => 
       expect(createHash("sha256").update(raw).digest("hex"), f).toBe(sha);
     }
   });
-  it("the new plugin never touches the current form's pages or functions", () => {
-    expect(code).not.toMatch(/rv_c2_|contribute-now|'contribution'|'contributor'/);
+  it("the new plugin never calls the current form's code or edits its pages; it only names their addresses for the switch-over", () => {
+    expect(code).not.toMatch(/rv_c2_/);
+    const named = code.split("\n").filter((l) => /contribute-now|'contribution'|'contributor'/.test(l)).map((l) => l.trim());
+    expect(named).toEqual(["$raw = defined( 'RV_CONTRIBUTION_PAGES' ) ? (string) RV_CONTRIBUTION_PAGES : 'contribute-now,contribution,contributor';"]);
+  });
+});
+
+describe("the switch-over (one setting, OFF by default; turning it off restores today's behaviour)", () => {
+  const tail = code.slice(code.indexOf("function rv_contrib_old_slugs"));
+  it("is OFF unless an administrator turned it on; the setting is saved only as '1' or '0'", () => {
+    expect(code).toContain("return '1' === (string) get_option( RV_CONTRIB_SWITCH, '0' );");
+    expect(code).toContain("const RV_CONTRIB_SWITCH  = 'rv_contrib_switch_over';");
+    expect(code).toContain("return '1' === (string) $v ? '1' : '0';");
+    expect(code).toContain("add_options_page( 'Contribution workflow', 'Contribution workflow', 'manage_options'");
+  });
+  it("ON: the current form's pages redirect to Share Your Idea with 301, keeping a cleaned ?sector=, never cached; OFF: nothing", () => {
+    const hook = tail.slice(tail.indexOf("'template_redirect'"), tail.indexOf("'the_content'"));
+    expect(hook).toMatch(/if \( ! rv_contrib_switched\(\) \|\| is_admin\(\) \|\| wp_doing_ajax\(\) \|\| is_preview\(\) \) \{\s*return;/);
+    expect(hook).toContain("! is_page( $slugs )");
+    expect(hook).toContain("rv_contrib_sector_arg( wp_unslash( (string) $_GET['sector'] ) )");
+    expect(hook).toContain("wp_safe_redirect( $to, 301, 'RoboValley Contribution' );");
+    expect(hook).toContain("header( 'Cache-Control: no-store, max-age=0', true );");
+    expect(hook).toContain("define( 'DONOTCACHEPAGE', true );");
+    expect(code).toContain("return sanitize_title( $first[0] );");
+    expect(code).toContain("array( 'contact-us', 'contact', 'share-your-idea', 'community-ideas' )"); // never a contact page, never a loop
+  });
+  it("ON: the sector page's button points straight at the new form (after the current plugin printed it, priority 1000); OFF: untouched", () => {
+    const f = tail.slice(tail.indexOf("'the_content'"), tail.indexOf("'admin_init'"));
+    expect(f).toMatch(/if \( ! rv_contrib_switched\(\) \|\| false === strpos\( \(string\) \$content, 'rv-c2-sector-btn' \) \) \{\s*return \$content;/);
+    expect(f).toContain("'#(<a class=\"rv-c2-sector-btn\" href=\")([^\"]*)(\")#'");
+    expect(f).toMatch(/\},\s*1001\s*\);/);
+  });
+  it("the pages follow the setting when it is saved; deactivating the plugin makes them private again", () => {
+    expect(code).toContain("add_action( 'update_option_' . RV_CONTRIB_SWITCH, 'rv_contrib_apply_visibility_after_save' );");
+    expect(code).toContain("add_action( 'add_option_' . RV_CONTRIB_SWITCH, 'rv_contrib_apply_visibility_after_save' );");
+    expect(code).toMatch(/register_deactivation_hook\(\s*__FILE__,\s*function \(\) \{\s*rv_contrib_apply_visibility\( false \);/);
   });
 });
