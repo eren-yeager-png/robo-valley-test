@@ -1,0 +1,76 @@
+/* RoboValley contribution workflow: the WordPress pages (Share Your Idea, Community Ideas) and the demo's public tabs.
+   Every rule is scoped under .rv-app (a container only our shortcodes print), so nothing here can restyle the theme. No Bootstrap.
+   Today's look: the Contribute form's green palette; the demo's layout. */
+.rv-app {
+	--rv-ink: #17312f; --rv-muted: #506864; --rv-line: #cbdad6; --rv-green: #11634d; --rv-green-ink: #ffffff; --rv-pale: #edf7f2;
+	--rv-bg: #f3f7f6; --rv-blue-bg: #eef4ff; --rv-blue-line: #c7d6f5; --rv-blue-ink: #1e3a8a; --rv-focus: #1d4ed8;
+	color-scheme: light; color: var(--rv-ink); font: 16px/1.5 system-ui, "Segoe UI", Arial, sans-serif; text-align: left;
+	box-sizing: border-box; max-width: 1080px; margin: 0 auto;
+}
+.rv-app *, .rv-app *::before, .rv-app *::after { box-sizing: border-box; }
+.rv-app .rv-panel { background: #fff; border: 1px solid var(--rv-line); border-radius: 14px; padding: 20px; margin: 0 0 16px; }
+.rv-app h2 { font-size: 1.5rem; line-height: 1.25; margin: 0 0 6px; color: var(--rv-ink); }
+.rv-app .rv-muted { color: var(--rv-muted); font-size: .92rem; margin: 0 0 14px; }
+.rv-app .rv-tight { margin: 2px 0 8px; }
+.rv-app .rv-opt { font-weight: 400; color: var(--rv-muted); }
+.rv-app .rv-hint { color: var(--rv-muted); font-size: .82rem; margin: -6px 0 12px; }
+.rv-app label, .rv-app .rv-lbl { display: block; font-size: .9rem; font-weight: 700; margin: 0; padding: 0; color: var(--rv-ink); }
+.rv-app .rv-fs { border: 0; margin: 0 0 6px; padding: 0; min-width: 0; }
+.rv-app input, .rv-app select, .rv-app textarea {
+	display: block; width: 100%; padding: 9px 11px; margin: 5px 0 12px; border: 1px solid var(--rv-line); border-radius: 8px;
+	font: inherit; font-size: .95rem; background: #fff; color: var(--rv-ink); min-height: 42px;
+}
+.rv-app input[type="file"] { display: block; width: auto; min-height: 0; padding: 0; border: 0; margin: 6px 0 10px; font: inherit; font-size: .9rem; max-width: 100%; }
+.rv-app textarea { min-height: 90px; resize: vertical; }
+.rv-app input[readonly] { background: #f6f9f8; color: var(--rv-muted); }
+.rv-app input:focus-visible, .rv-app select:focus-visible, .rv-app textarea:focus-visible, .rv-app button:focus-visible, .rv-app a:focus-visible {
+	outline: 3px solid var(--rv-focus); outline-offset: 2px;
+}
+.rv-app .rv-grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 18px; }
+.rv-app .rv-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; padding: 9px 16px; border: 1px solid transparent;
+	border-radius: 9px; font: inherit; font-weight: 700; font-size: .95rem; cursor: pointer; text-decoration: none; }
+.rv-app .rv-btn:disabled { opacity: .55; cursor: not-allowed; }
+.rv-app .rv-btn-primary { background: var(--rv-green); color: var(--rv-green-ink); }
+.rv-app .rv-btn-secondary { background: var(--rv-pale); color: var(--rv-ink); border-color: var(--rv-line); }
+.rv-app .rv-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.rv-app .rv-toggle { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: -2px 0 14px; }
+.rv-app .rv-toggle input { display: inline-block; width: 18px; height: 18px; min-height: 0; padding: 0; margin: 0; accent-color: var(--rv-green); }
+.rv-app .rv-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
+.rv-app .rv-pill { position: relative; display: inline-block; font-weight: 400; font-size: .9rem; cursor: pointer; }
+.rv-app .rv-pill input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; padding: 0; }
+.rv-app .rv-pill span { display: inline-block; padding: 8px 13px; border-radius: 999px; border: 1px solid var(--rv-line); background: #fff; min-height: 38px; }
+.rv-app .rv-pill input:checked + span { background: var(--rv-pale); border: 1.5px solid var(--rv-green); color: var(--rv-green); font-weight: 700; }
+.rv-app .rv-pill input:focus-visible + span { outline: 3px solid var(--rv-focus); outline-offset: 2px; }
+.rv-app .rv-pill input:disabled + span { opacity: .6; cursor: not-allowed; }
+.rv-app .rv-refbox { background: var(--rv-blue-bg); border: 1px solid var(--rv-blue-line); border-radius: 10px; padding: 14px 16px 2px; margin: 4px 0 16px; }
+.rv-app .rv-ttl { font-size: .95rem; font-weight: 800; color: var(--rv-blue-ink); margin-bottom: 10px; }
+.rv-app .rv-refrow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 46px; gap: 8px; align-items: start; }
+.rv-app .rv-refrow input { margin: 0 0 8px; }
+.rv-app .rv-refrow .rv-btn { padding: 0; height: 42px; }
+.rv-app .rv-notice { padding: 10px 12px; border-radius: 8px; font-size: .92rem; margin: 10px 0; border: 1px solid; }
+.rv-app .rv-n-info { background: #eff6ff; color: #1e3a8a; border-color: #bfdbfe; }
+.rv-app .rv-n-warn { background: #fff7ed; color: #7c2d12; border-color: #fed7aa; }
+.rv-app .rv-n-ok { background: #f0fdf4; color: #14532d; border-color: #bbf7d0; }
+.rv-app .rv-n-err { background: #fef2f2; color: #7f1d1d; border-color: #fecaca; }
+.rv-app .rv-trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+/* Community Ideas */
+.rv-app .rv-site-head { background: #0f172a; color: #fff; border-radius: 12px 12px 0 0; padding: 16px 20px; }
+.rv-app .rv-site-head h2 { color: #fff; margin: 0; }
+.rv-app .rv-site-head p { opacity: .85; font-size: .9rem; margin: 2px 0 0; }
+.rv-app .rv-site-body { background: #fff; border: 1px solid #e2e8f0; border-top: 0; border-radius: 0 0 12px 12px; padding: 18px 20px; }
+.rv-app .rv-sector h3 { border-bottom: 2px solid #1d4ed8; padding-bottom: 6px; display: inline-block; margin: 8px 0 12px; font-size: 1.15rem; }
+.rv-app .rv-pub-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+.rv-app .rv-empty { color: #64748b; font-style: italic; }
+/* status badges (the same colours as the demo) */
+.rv-app .rv-badge { display: inline-block; padding: 4px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; background: #e2e8f0; color: #334155; white-space: nowrap; }
+.rv-app .rv-s-submitted { background: #e0e7ff; color: #3730a3; } .rv-app .rv-s-review { background: #fef3c7; color: #92400e; }
+.rv-app .rv-s-draft { background: #f1f5f9; color: #475569; } .rv-app .rv-s-pending { background: #ffedd5; color: #9a3412; }
+.rv-app .rv-s-changes { background: #fce7f3; color: #9d174d; } .rv-app .rv-s-publishing { background: #dbeafe; color: #1e40af; }
+.rv-app .rv-s-published { background: #dcfce7; color: #166534; } .rv-app .rv-s-failed, .rv-app .rv-s-rejected { background: #fee2e2; color: #991b1b; }
+.rv-app [hidden], .rv-app .rv-refbox[hidden], .rv-app .rv-toggle[hidden] { display: none; } /* last: [hidden] always wins over the display rules above */
+@media (max-width: 921px) { /* Astra's tablet breakpoint, like the rest of the WordPress styles */
+	.rv-app .rv-grid2 { grid-template-columns: minmax(0, 1fr); }
+	.rv-app .rv-refrow { grid-template-columns: minmax(0, 1fr) 46px; }
+	.rv-app .rv-refrow .rv-ref-remark { grid-column: 1; }
+	.rv-app .rv-panel { padding: 16px; }
+}

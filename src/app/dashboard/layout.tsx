@@ -28,6 +28,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const items = [
     { href: "/dashboard", label: "Home" },
     ...dash.sections.map((s) => ({ href: `/dashboard/${s.slug}`, label: s.label })),
+    { href: "/dashboard/contributions", label: "My contributions" },
     { href: "/dashboard/notifications", label: "Notifications" },
     { href: "/dashboard/profile", label: "Profile & settings" },
   ];

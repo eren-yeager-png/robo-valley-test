@@ -256,13 +256,13 @@ describe("the layout and the forms", () => {
     await expect(Overview({ searchParams: Promise.resolve({}) })).rejects.toThrow(/REDIRECT/);
     state.guard = "ok"; state.isAdmin = false;
     const h = renderToStaticMarkup(await Layout({ children: null }));
-    // the admin portal's shell; a moderator's sidebar holds Moderation only, marked as the current page
+    // the admin portal's shell; a moderator's sidebar holds Moderation and the Moderator Workspace only, Moderation marked as the current page
     expect(h).toContain('class="adm-side"'); expect(h).toContain('class="adm-top"'); expect(h).toContain("<small>Moderator</small>");
-    expect(h.match(/href="\/admin\/[^"]*"/g)).toEqual(['href="/admin/moderation"']);
+    expect(h.match(/href="\/admin\/[^"]*"/g)).toEqual(['href="/admin/moderation"', 'href="/admin/workspace"']);
     expect(h).toMatch(/<a aria-current="page" class="active" href="\/admin\/moderation">/);
     state.isAdmin = true;
     const a = renderToStaticMarkup(await Layout({ children: null }));
-    expect(a.match(/href="\/admin\/[^"]*"/g)).toHaveLength(12); expect(a).toContain("<small>Admin</small>"); expect(a.match(/aria-current="page"/g)).toHaveLength(1);
+    expect(a.match(/href="\/admin\/[^"]*"/g)).toHaveLength(14); expect(a).toContain("<small>Admin</small>"); expect(a.match(/aria-current="page"/g)).toHaveLength(1);
     expect(h).not.toMatch(/Sign Out|sign-out|logout/i);
     for (const f of ["page.tsx", "DecisionForm.tsx", "ReplyNoteForm.tsx", "layout.tsx", "sector/[slug]/page.tsx", "[id]/page.tsx"]) expect(fs.readFileSync(path.join(__dirname, "../src/app/(reviewer)/admin/moderation", f), "utf8"), f).not.toMatch(/dangerouslySetInnerHTML|innerHTML/);
   });

@@ -25,7 +25,11 @@ describe("function and trigger checks: what the registry asks for", () => {
     expect(of("018", "function")).toEqual(["rv_title_key(text)", "rv_sync_title_keys(bigint)", "rv_title_keys_from_contribution()", "rv_title_keys_from_scope()"]);
     expect(of("019", "trigger")).toEqual(["contribution_replies.contribution_replies_append_only -> rv_portal_append_only()",
       "contribution_notes.contribution_notes_append_only -> rv_portal_append_only()", "contributions.contributions_review_round -> rv_review_round()"]);
-    for (const m of MIGRATIONS) if (!["012", "013", "015", "017", "018", "019"].includes(m.id)) expect(m.checks.some((c: any) => c.kind === "function" || c.kind === "trigger"), m.id).toBe(false);
+    expect(of("027", "function")).toEqual(["cw_write_once()", "cw_append_only()"]);
+    expect(of("027", "trigger")).toEqual(["cw_contributions.cw_contributions_write_once -> cw_write_once()", "cw_contribution_history.cw_contribution_history_append_only -> cw_append_only()",
+      "cw_contribution_versions.cw_contribution_versions_append_only -> cw_append_only()", "cw_contribution_feedback.cw_contribution_feedback_append_only -> cw_append_only()",
+      "cw_contribution_attachments.cw_contribution_attachments_append_only -> cw_append_only()"]);
+    for (const m of MIGRATIONS) if (!["012", "013", "015", "017", "018", "019", "027"].includes(m.id)) expect(m.checks.some((c: any) => c.kind === "function" || c.kind === "trigger"), m.id).toBe(false);
     // and every name in the registry is really in the migration file it belongs to
     for (const m of MIGRATIONS) for (const c of m.checks as any[]) {
       if (c.kind === "function") expect(fileOf(m.id), `${m.id} ${c.name}`).toMatch(new RegExp(`CREATE OR REPLACE FUNCTION ${c.name}\\(`));
@@ -124,7 +128,8 @@ describe("function and trigger checks on a database", () => {
     for (const t of internal) expect(counted).not.toContain(t.tgname);
     expect(counted.sort()).toEqual(["contribution_notes_append_only", "contribution_photo_blobs_match", "contribution_replies_append_only", "contribution_reviews_append_only",
       "contribution_scopes_keep_last", "contribution_scopes_title_keys", "contributions_needs_scope", "contributions_review_round", "contributions_title_keys",
-      "users_moderator_audit_ins", "users_moderator_audit_upd"]);
+      "cw_contribution_attachments_append_only", "cw_contribution_feedback_append_only", "cw_contribution_history_append_only", "cw_contribution_versions_append_only",
+      "cw_contributions_write_once", "users_moderator_audit_ins", "users_moderator_audit_upd"]);
     await pg.close();
   });
 

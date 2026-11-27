@@ -147,9 +147,15 @@ export function contributionPagePaths(env: NodeJS.ProcessEnv = process.env): str
   return list.length ? list.map((x) => (x.endsWith("/") ? x : x + "/")) : ["/contribution/", "/contributor/"];
 }
 
+/** The new contribution form ("Share Your Idea", plugin robovalley-contribution), another page "returnTo" may point at. CW_FORM_PATH overrides the default. */
+export function workflowFormPath(env: NodeJS.ProcessEnv = process.env): string {
+  const raw = env.CW_FORM_PATH?.trim();
+  return raw && /^\/[A-Za-z0-9/_-]*$/.test(raw) && !raw.includes("//") && raw !== "/" ? (raw.endsWith("/") ? raw : raw + "/") : "/share-your-idea/";
+}
+
 export const resolveReturnTo = (raw: unknown, env: NodeJS.ProcessEnv = process.env): string | null => {
   const site = siteUrl(env);
   let hit = validateReturnTo(raw, site, projectsReturnPath(env)) ?? validateContributeReturn(raw, site, contributeReturnPath(env)) ?? validateContributeReturn(raw, site, mineReturnPath(env));
   for (const path of contributionPagePaths(env)) hit = hit ?? validateContributeReturn(raw, site, path);
-  return hit;
+  return hit ?? validateContributeReturn(raw, site, workflowFormPath(env));
 };

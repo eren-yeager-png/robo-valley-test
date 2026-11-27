@@ -130,3 +130,11 @@ export function sendReplyNoticeEmail(
 }
 
 
+
+/**
+ * A notice of the contribution workflow (lib/cw/notify.ts builds the words; links are built by the server from APP_URL). Sent like
+ * every transactional email: through Resend in production, a mock in development without a key, never with Resend's test sender.
+ */
+export function sendWorkflowEmail(to: string, subject: string, text: string, html: string, env: NodeJS.ProcessEnv = process.env) {
+  return sendTransactional(to, subject, text, shell(html), env);
+}
