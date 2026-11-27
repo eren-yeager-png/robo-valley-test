@@ -156,7 +156,7 @@ describe("reading", () => {
     expect((await get(meRoute.GET, "/api/cw/me")).b).toEqual({ success: true, signedIn: false });
     await member({ fullName: "Meera K.", role: "PA" });
     const m = await get(meRoute.GET, "/api/cw/me");
-    expect(m.b).toEqual({ success: true, signedIn: true, name: "Meera K.", type: "Parent / guardian", reviewer: false });
+    expect(m.b).toEqual({ success: true, signedIn: true, name: "Meera K.", type: "Parent / guardian", minor: false, reviewer: false });
     expect(m.cache).toBe("no-store");
   });
   it("form settings: active sectors with their active robot types, names only", async () => {

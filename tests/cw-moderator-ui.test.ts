@@ -33,7 +33,7 @@ describe("the Moderator Workspace", () => {
     expect(open.textContent).toContain(String((await mock.list("workspace", "Open")).counts.open));
     expect(el.querySelectorAll(".cw-item").length).toBe((await mock.list("workspace", "Open")).items.length);
     await click(q('[data-filter="Decided"]'));
-    expect(Array.from(el.querySelectorAll(".cw-item .rv-badge")).map((b) => b.textContent).sort()).toEqual(["Published", "Published", "Rejected"]);
+    expect(Array.from(el.querySelectorAll(".cw-item .rv-badge")).map((b) => b.textContent).sort()).toEqual(["Published", "Published", "Rejected", "Rejected", "Unpublished"]);
     expect(el.textContent).toContain("Select a contribution to review.");
   });
   it("opening a Submitted idea moves it to Under Moderator Review and shows the original, the version for publishing and the buttons", async () => {
@@ -82,7 +82,7 @@ describe("the Moderator Workspace", () => {
     await click(ok);
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(q(".cw-detail .rv-badge").textContent).toBe("Rejected");
-    expect(el.textContent).toContain("Rejected. Reason: Already covered by another idea.");
+    expect(el.textContent).toMatch(/Declined by Moderator User \(Moderator\) on .+\. Reason: Already covered by another idea\./);
   });
   it("an idea Admin sent back shows the feedback banner and can be edited again", async () => {
     await click(itemButton("robot arm kit guide"));

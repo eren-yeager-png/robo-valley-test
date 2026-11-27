@@ -16,7 +16,9 @@
 //              (ALTER TABLE ... DISABLE TRIGGER, tgenabled = 'D'): it does not fire, so its migration is partial and the trigger is
 //              listed as "exists but is disabled". Running the migration again does not enable it (the files only create a missing one).
 
-/** @typedef {{ kind: 'table', table: string } | { kind: 'column', table: string, column: string } | { kind: 'index', name: string } | { kind: 'constraint', name: string } | { kind: 'old-index-removed', name: string, table: string } | { kind: 'function', name: string, args: string[] } | { kind: 'trigger', table: string, name: string, calls: string }} Check */
+/** @typedef {{ kind: 'table', table: string } | { kind: 'column', table: string, column: string } | { kind: 'index', name: string } | { kind: 'constraint', name: string } | { kind: 'constraint-allows', name: string, value: string } | { kind: 'old-index-removed', name: string, table: string } | { kind: 'function', name: string, args: string[] } | { kind: 'trigger', table: string, name: string, calls: string }} Check */
+// `constraint-allows` (028): a CHECK constraint that a later migration widened under the SAME name; it holds when the constraint's
+// definition (pg_get_constraintdef) names the value, e.g. 'unpublished'.
 // `calls` is the function the trigger runs, written as in a function check: "name(argument types)", e.g. "rv_review_round()".
 const fn = (name, args = []) => ({ kind: "function", name, args });
 const trigger = (table, name, calls) => ({ kind: "trigger", table, name, calls });
@@ -185,6 +187,11 @@ export const MIGRATIONS = [
     trigger("cw_contribution_feedback", "cw_contribution_feedback_append_only", "cw_append_only()"),
     trigger("cw_contribution_attachments", "cw_contribution_attachments_append_only", "cw_append_only()"),
   ] },
+  { id: "028", title: "contribution workflow decisions", feature: "Unpublish, Reopen and a Moderator's decline in the contribution workflow (the spec's decided open points)", requires: ["027"], checks: [
+    { kind: "constraint-allows", name: "cw_contributions_status_ck", value: "'unpublished'" },
+    { kind: "constraint-allows", name: "cw_contributions_published_ck", value: "'unpublished'" },
+    { kind: "constraint-allows", name: "cw_contribution_feedback_ck", value: "'reopen'" },
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */
@@ -194,6 +201,7 @@ export function describeCheck(c) {
     case "column": return `column ${c.table}.${c.column}`;
     case "index": return `index ${c.name}`;
     case "constraint": return `constraint ${c.name}`;
+    case "constraint-allows": return `constraint ${c.name} allows ${c.value}`;
     case "old-index-removed": return `old index ${c.name} replaced`;
     case "function": return `function ${c.name}(${c.args.join(", ")})`;
     case "trigger": return `trigger ${c.name} on ${c.table} calling ${c.calls}`;
@@ -213,12 +221,13 @@ const ARG_TYPES = (procAlias) =>
  *            function is written with its schema when that is not current_schema(), so a trigger calling a same-named function elsewhere
  *            does not match.
  * disabledTriggers: the same, for the triggers that are there but disabled (tgenabled = 'D'). They do not count as present.
- * @returns {Promise<{ tables: Set<string>, columns: Set<string>, indexes: Set<string>, constraints: Set<string>, functions: Set<string>, triggers: Set<string>, disabledTriggers: Set<string> }>}
+ * constraintDefs: each constraint's definition (pg_get_constraintdef), for the constraint-allows checks (028).
+ * @returns {Promise<{ tables: Set<string>, columns: Set<string>, indexes: Set<string>, constraints: Set<string>, constraintDefs: Map<string, string>, functions: Set<string>, triggers: Set<string>, disabledTriggers: Set<string> }>}
  */
 export async function readSnapshot(query) {
   const cols = await query("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = current_schema()");
   const idx = await query("SELECT indexname FROM pg_indexes WHERE schemaname = current_schema()");
-  const con = await query("SELECT c.conname FROM pg_constraint c JOIN pg_namespace n ON n.oid = c.connamespace WHERE n.nspname = current_schema()");
+  const con = await query("SELECT c.conname, pg_get_constraintdef(c.oid) AS def FROM pg_constraint c JOIN pg_namespace n ON n.oid = c.connamespace WHERE n.nspname = current_schema()");
   const fns = await query(`SELECT p.proname, ${ARG_TYPES("p")} AS args FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = current_schema()`);
   const trg = await query(
     `SELECT c.relname AS table_name, t.tgname, CASE WHEN fn.nspname = current_schema() THEN '' ELSE fn.nspname || '.' END || p.proname AS calls, ${ARG_TYPES("p")} AS args,
@@ -232,6 +241,7 @@ export async function readSnapshot(query) {
     columns: new Set(cols.rows.map((r) => `${r.table_name}.${r.column_name}`)),
     indexes: new Set(idx.rows.map((r) => r.indexname)),
     constraints: new Set(con.rows.map((r) => r.conname)),
+    constraintDefs: new Map(con.rows.map((r) => [r.conname, String(r.def ?? "")])),
     functions: new Set(fns.rows.map((r) => `${r.proname}(${r.args})`)),
     triggers: new Set(trg.rows.filter((r) => r.enabled !== "D").map(triggerKey)),
     disabledTriggers: new Set(trg.rows.filter((r) => r.enabled === "D").map(triggerKey)),
@@ -244,6 +254,7 @@ function holds(snap, c) {
     case "column": return snap.columns.has(`${c.table}.${c.column}`);
     case "index": return snap.indexes.has(c.name);
     case "constraint": return snap.constraints.has(c.name);
+    case "constraint-allows": return (snap.constraintDefs?.get(c.name) ?? "").includes(c.value);
     case "old-index-removed": return !snap.indexes.has(c.name);
     case "function": return snap.functions.has(`${c.name}(${c.args.join(", ")})`);
     case "trigger": return snap.triggers.has(`${c.table}.${c.name} -> ${c.calls}`);

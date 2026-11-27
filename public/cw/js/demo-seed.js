@@ -1,5 +1,7 @@
 // Contribution workflow: the STANDALONE DEMO's sample data only (never used by the plugin or the app). The demo's three samples plus
-// more, one per status, created through the mock adapter's own actions so every history line is what production would write.
+// more, one per status (including Unpublished, a published idea with an Admin edit that is not public yet, a Moderator's decline, an
+// Admin's rejection and a reopened idea), created through the mock adapter's own actions so every history line is what production
+// would write.
 export async function seed(mock) {
   const mod = mock.as("moderator"), adm = mock.as("admin");
   const base = { refers: false, sector: "not-sure", robotType: "not-sure", categories: [], suitableFor: [], learningPath: "", references: [] };
@@ -75,5 +77,27 @@ export async function seed(mock) {
   await open(neha); await send(neha); await preview(neha); await publish(neha);                            // Published (Other ideas)
   await open(imran); await send(imran); await preview(imran); mock.failNext = true; await publish(imran);   // Publication Failed
   await open(sam);
-  { const it = await item(sam); await mod.act(sam, "decline", { rowVersion: it.rowVersion, reason: "Not a contribution to RoboValley: it asks for a robot to do homework." }); } // Rejected
+  { const it = await item(sam); await mod.act(sam, "decline", { rowVersion: it.rowVersion, reason: "Not a contribution to RoboValley: it asks for a robot to do homework." }); } // Rejected (declined by the Moderator)
+
+  // after publishing and after Rejected (spec section 15, decided 27-11-2026)
+  const lata = await add({ name: "Lata V.", type: "Teacher / lab in-charge" }, {
+    kind: "New idea", title: "Library book-return robot", sector: "education", categories: ["Robotics"], suitableFor: ["K9–K10"], learningPath: "Make",
+    description: "A small robot that collects returned books from the library desk and sorts them onto a trolley by shelf number.",
+  });
+  const omar = await add({ name: "Omar F.", type: "Parent / guardian" }, {
+    kind: "New idea", title: "Robot that drives the school bus", sector: "education", categories: ["Physical AI and AI"],
+    description: "A robot that drives the school bus every morning so the school does not need a driver.",
+  });
+  const priya = await add({ name: "Priya D.", type: "Student" }, {
+    kind: "New idea", title: "Water-quality robot boat for the village pond", sector: "environment", robotType: "beach-cleaners", categories: ["STEAM", "Robotics"], suitableFor: ["K9–K10"], learningPath: "Make",
+    description: "A small floating robot that measures how clean the pond water is and sends the readings to the school.",
+  });
+  { const it = await item(asha); await adm.act(asha, "admin_edit", { rowVersion: it.rowVersion, title: "Delivery robot for hospital corridors and wards (pilot)", description: it.proposed.description }); } // Published, with an edit not yet public
+  await open(lata); await send(lata); await preview(lata); await publish(lata);
+  { const it = await item(lata); await adm.act(lata, "unpublish", { rowVersion: it.rowVersion }); }       // Unpublished
+  await open(omar); await send(omar, {}, "Sent for an Admin decision.");
+  { const it = await item(omar); await adm.act(omar, "reject", { rowVersion: it.rowVersion, reason: "A robot must not drive a school bus with children on board; not safe to suggest." }); } // Rejected (by the Admin)
+  await open(priya);
+  { const it = await item(priya); await mod.act(priya, "decline", { rowVersion: it.rowVersion, reason: "Looks like a duplicate of an earlier idea." }); }
+  { const it = await item(priya); await adm.act(priya, "reopen", { rowVersion: it.rowVersion, reason: "Not a duplicate: the earlier idea was about beaches. Please review it again." }); } // Under Moderator Review, reopened
 }

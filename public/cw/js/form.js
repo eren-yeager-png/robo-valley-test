@@ -1,10 +1,11 @@
 // Contribution workflow: the contributor's "Share Your Idea" form (WordPress page, shortcode [rv_contribution_form], and the demo).
 // Same fields, labels, order and messages as the demo. Name and type come from the signed-in profile and are read-only. Sector is
-// optional (Sector Forms + "Not sure") and the robot type list follows the sector. The attachment's real type is checked from its
-// first bytes before it is sent; the app checks everything again.
+// optional (Sector Forms + "Not sure") and the robot type list follows the sector. The Earn (18+) path is not offered to a minor
+// (users.age_category; the app refuses it anyway). The attachment's real type is checked from its first bytes before it is sent; the
+// app checks everything again.
 import { $, $$, checkedValues, esc, options, pills } from "./utils.js";
 import * as R from "./rules.js";
-import { CATEGORIES, FEATURES, KINDS, LEVELS, LIMITS, MESSAGES, NEW_IDEA, NOT_SURE, NOT_SURE_LABEL, PATHS, RESOURCE_TYPES } from "./lists.js";
+import { CATEGORIES, EARN, FEATURES, KINDS, LEVELS, LIMITS, MESSAGES, NEW_IDEA, NOT_SURE, NOT_SURE_LABEL, PATHS, RESOURCE_TYPES } from "./lists.js";
 import { RestAdapter } from "./api.js";
 
 const INTRO = "Students, parents, guardians, teachers and anyone else can suggest a new idea or improve something already on RoboValley. Submissions are reviewed before anything is made public.";
@@ -47,6 +48,9 @@ function renderForm(body, ctx) {
   const sectorOptions = [[NOT_SURE, NOT_SURE_LABEL], ...sectors.map((s) => [s.slug, s.name])];
   const path0 = query.get("resource_path") || (sample ? SAMPLE.resourcePath : "");
   const url0 = query.get("resource_url") || (sample ? SAMPLE.resourceUrl : "");
+  const minor = me.minor === true;
+  const paths = minor ? PATHS.filter((x) => x !== EARN) : PATHS; // the Earn (18+) path is for learners 18 and above
+  const pathPick = sample && paths.includes(SAMPLE.learningPath) ? [SAMPLE.learningPath] : [];
   body.innerHTML = `<form class="rv-form" novalidate>
   <fieldset class="rv-fs"><legend class="rv-lbl">What would you like to do?</legend>${pills("rv-kind", KINDS, [NEW_IDEA], { type: "radio" })}</fieldset>
   <label class="rv-toggle" data-refers-row><input type="checkbox" name="rv-refers"> This idea refers to something already on the RoboValley website</label>
@@ -88,8 +92,8 @@ function renderForm(body, ctx) {
     <button type="button" class="rv-btn rv-btn-secondary" data-add-ref>+ Add another link</button>
   </fieldset>
   <fieldset class="rv-fs"><legend class="rv-lbl">Suitable for <span class="rv-opt">(optional, pick any)</span></legend>${pills("rv-lvl", LEVELS, sample ? SAMPLE.suitableFor : [])}</fieldset>
-  <fieldset class="rv-fs"><legend class="rv-lbl">Suggested path <span class="rv-opt">(optional)</span></legend>${pills("rv-path", PATHS, sample ? [SAMPLE.learningPath] : [], { type: "radio" })}
-    <p class="rv-muted rv-tight">Earn path is for learners 18 and above. Not sure? Leave it: the moderator will set it.</p></fieldset>
+  <fieldset class="rv-fs"><legend class="rv-lbl">Suggested path <span class="rv-opt">(optional)</span></legend>${pills("rv-path", paths, pathPick, { type: "radio" })}
+    <p class="rv-muted rv-tight">${minor ? "Not sure? Leave it: the moderator will set it." : "Earn path is for learners 18 and above. Not sure? Leave it: the moderator will set it."}</p></fieldset>
   <div class="rv-trap" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div>
   <div class="rv-actions"><button type="submit" class="rv-btn rv-btn-primary">Submit Idea</button></div>
   <div class="rv-msg" data-msg></div>
@@ -145,7 +149,7 @@ async function submit(form, ctx, h) {
     website: $(form, 'input[name="website"]').value,
   };
   const file = $(form, "#rv-f-file").files && $(form, "#rv-f-file").files[0] ? $(form, "#rv-f-file").files[0] : null;
-  const { errors } = R.validateSubmission(data, { sectors: ctx.sectors, name: ctx.me.name });
+  const { errors } = R.validateSubmission(data, { sectors: ctx.sectors, name: ctx.me.name, minor: ctx.me.minor === true });
   const fp = await fileProblem(file);
   if (fp) errors.push(fp);
   if (errors.length) {

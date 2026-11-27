@@ -121,7 +121,7 @@ describe("settings page", () => {
     expect(h.toLowerCase()).toContain('autocomplete="current-password"');
     expect(h).toContain('id="profile"');
     expect(h).toContain('id="database-setup"');
-    expect((h.match(/>Applied</g) ?? []).length).toBe(27); // 001 to 027
+    expect((h.match(/>Applied</g) ?? []).length).toBe(28); // 001 to 028
     expect(h).toContain("Everything is applied");
     expect(h).not.toContain("For the developer");
     expect(h).not.toMatch(/password_hash|SESSION_SECRET|DATABASE_URL/);

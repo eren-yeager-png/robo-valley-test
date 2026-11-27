@@ -72,9 +72,9 @@ export class MockAdapter {
   // ---- contributor
   loginUrl() { return "#"; }
   async formConfig() { return { sectors: clone(this.sectors) }; }
-  async me() { return { signedIn: true, name: this.meInfo.name, type: this.meInfo.type, reviewer: false }; }
+  async me() { return { signedIn: true, name: this.meInfo.name, type: this.meInfo.type, minor: this.meInfo.minor === true, reviewer: false }; }
   async submit(data, file, who = this.meInfo) {
-    const { errors, value } = R.validateSubmission(data, { sectors: this.sectors, name: who.name });
+    const { errors, value } = R.validateSubmission(data, { sectors: this.sectors, name: who.name, minor: who.minor === true });
     if (file) {
       if (file.size > 4 * 1024 * 1024) errors.push(MESSAGES.attachmentSize);
       else if (!R.attachmentAllowed(file.type)) errors.push(MESSAGES.attachmentType);
@@ -117,11 +117,15 @@ export class MockAdapter {
   async list(view, filter) {
     const filters = view === "approvals" ? ADM_FILTERS : MOD_FILTERS;
     const statuses = Object.prototype.hasOwnProperty.call(filters, filter) ? filters[filter] : filters[Object.keys(filters)[0]];
-    const items = this.items.filter((x) => !statuses || statuses.includes(x.status)).map((c) => ({
-      id: c.id, code: c.code, status: c.status, statusLabel: STATUS_LABEL[c.status], title: c.proposed.title, kind: c.kind,
-      contributorName: c.contributor.name, contributorType: c.contributor.typeLabel, sector: c.proposed.sector,
-      sectorName: R.sectorLabel(c.proposed.sector, this.sectors), moderator: c.moderator,
-    }));
+    const items = this.items.filter((x) => !statuses || statuses.includes(x.status)).map((c) => {
+      const d = c.status === STATUS.REJECTED ? c.feedback.filter((f) => f.type === "decline" || f.type === "reject").slice(-1)[0] : null;
+      return {
+        id: c.id, code: c.code, status: c.status, statusLabel: STATUS_LABEL[c.status], title: c.proposed.title, kind: c.kind,
+        contributorName: c.contributor.name, contributorType: c.contributor.typeLabel, sector: c.proposed.sector,
+        sectorName: R.sectorLabel(c.proposed.sector, this.sectors), moderator: c.moderator,
+        ...(d ? { decision: { type: d.type, by: d.by, text: d.text, at: d.at } } : {}),
+      };
+    });
     const counts = {
       open: this.items.filter((x) => MOD_FILTERS.Open.includes(x.status)).length,
       awaiting: this.items.filter((x) => ADM_FILTERS["Awaiting me"].includes(x.status)).length,
@@ -137,9 +141,10 @@ export class MockAdapter {
     if (!R.MODERATOR_ACTIONS.includes(action) && !R.ADMIN_ACTIONS.includes(action)) throw new ApiError(400, "UNKNOWN_ACTION", MESSAGES.notAllowed);
     if (action !== "open" && Number(payload.rowVersion) !== it.rowVersion) throw stale();
     const versions = it.versions.length;
-    const step = R.nextStatus(action, { status: it.status, versions });
+    const step = R.nextStatus(action, { status: it.status, versions, publishedVersion: it.publishedVersion });
     if (!step.ok) throw new ApiError(409, "NOT_ALLOWED", MESSAGES.notAllowed);
     const bump = () => { it.rowVersion++; it.statusLabel = STATUS_LABEL[it.status]; };
+    const clean = (proposed) => R.cleanProposed(proposed, { sectors: this.sectors, minor: it.contributor.minor === true });
     const reason = String(payload.reason ?? payload.feedback ?? "").trim();
     let message, record;
     switch (action) {
@@ -147,7 +152,7 @@ export class MockAdapter {
         if (it.status === STATUS.SUBMITTED) { it.status = step.to; it.moderator = actor.name; this.log(it, actor.name, R.history.opened()); bump(); }
         break;
       case "save_draft": {
-        const { error, value } = R.cleanProposed(payload.proposed, { sectors: this.sectors });
+        const { error, value } = clean(payload.proposed);
         if (error) throw new ApiError(400, "VALIDATION_FAILED", error);
         const ch = R.changedFields(value, it.proposed);
         it.proposed = value; it.notes = String(payload.notes ?? it.notes).trim(); it.status = step.to; it.moderator = it.moderator || actor.name;
@@ -158,7 +163,7 @@ export class MockAdapter {
         it.proposed = clone(it.original); this.log(it, actor.name, R.history.reset()); bump();
         break;
       case "send_request": {
-        const { error, value } = R.cleanProposed(payload.proposed, { sectors: this.sectors });
+        const { error, value } = clean(payload.proposed);
         if (error) throw new ApiError(400, "VALIDATION_FAILED", error);
         const sendError = R.validateSend(value);
         if (sendError) throw new ApiError(400, "VALIDATION_FAILED", sendError);
@@ -172,14 +177,15 @@ export class MockAdapter {
       }
       case "decline": {
         if (!reason) throw new ApiError(400, "VALIDATION_FAILED", MESSAGES.reasonRequired);
-        if (payload.proposed) { const pr = R.cleanProposed(payload.proposed, { sectors: this.sectors }); if (pr.error) throw new ApiError(400, "VALIDATION_FAILED", pr.error); it.proposed = pr.value; }
+        if (payload.proposed) { const pr = clean(payload.proposed); if (pr.error) throw new ApiError(400, "VALIDATION_FAILED", pr.error); it.proposed = pr.value; }
         if (typeof payload.notes === "string") it.notes = payload.notes.trim();
-        it.status = step.to; it.feedback.push({ type: "reject", text: reason, by: actor.name, at: this.now() });
+        it.status = step.to; it.feedback.push({ type: "decline", text: reason, by: actor.name, at: this.now() });
         this.log(it, actor.name, R.history.declined(reason)); bump();
         break;
       }
       case "preview":
         if (Number(payload.version) !== versions) throw stale();
+        if (R.earnBlocked(it.contributor.minor, it.proposed.learningPath)) throw new ApiError(409, "EARN_MINOR", MESSAGES.earnMinorPublish);
         if (it.previewedVersion !== versions) { it.previewedVersion = versions; this.log(it, actor.name, R.history.previewed(versions)); bump(); }
         record = R.toPublicRecord({ ...it, version: versions }, { sectors: this.sectors, version: versions });
         break;
@@ -191,7 +197,7 @@ export class MockAdapter {
         if (ch.length) {
           it.versions.push({ v: versions + 1, by: actor.name, role: "Admin", data: clone(next), notes: it.notes, at: this.now() });
           it.proposed = next; it.previewedVersion = null;
-          this.log(it, actor.name, R.history.adminEdit(ch, versions + 1)); bump();
+          this.log(it, actor.name, R.AFTER_PUBLISHING.includes(it.status) ? R.history.adminEditAfter(ch, versions + 1) : R.history.adminEdit(ch, versions + 1)); bump();
         }
         break;
       }
@@ -201,6 +207,17 @@ export class MockAdapter {
         it.status = step.to;
         it.feedback.push({ type: action === "reject" ? "reject" : "changes", text: reason, by: actor.name, at: this.now() });
         this.log(it, actor.name, action === "reject" ? R.history.rejected(reason) : R.history.changes(reason)); bump();
+        break;
+      case "unpublish":
+        this.public.delete(it.id); // the card goes and the status changes together
+        it.status = step.to; it.previewedVersion = null; it.publishError = null;
+        this.log(it, actor.name, R.history.unpublished()); bump(); message = MESSAGES.unpublished;
+        break;
+      case "reopen":
+        if (!reason) throw new ApiError(400, "VALIDATION_FAILED", MESSAGES.reasonRequired);
+        it.status = step.to; it.previewedVersion = null;
+        it.feedback.push({ type: "reopen", text: reason, by: actor.name, at: this.now() });
+        this.log(it, actor.name, R.history.reopened(reason)); bump();
         break;
       default:
         throw new ApiError(400, "UNKNOWN_ACTION", MESSAGES.notAllowed);
@@ -213,9 +230,10 @@ export class MockAdapter {
     if (!actor.isAdmin) throw new ApiError(403, "ADMIN_ONLY", MESSAGES.adminOnly);
     if (Number(payload.rowVersion) !== it.rowVersion) throw stale();
     const n = it.versions.length;
-    const step = R.nextStatus("publish", { status: it.status, versions: n });
-    if (!step.ok) throw new ApiError(409, "NOT_ALLOWED", MESSAGES.notAllowed);
+    const step = R.nextStatus("publish", { status: it.status, versions: n, publishedVersion: it.publishedVersion });
+    if (!step.ok) throw it.status === STATUS.PUBLISHED ? new ApiError(409, "NOTHING_NEW", MESSAGES.nothingNew) : new ApiError(409, "NOT_ALLOWED", MESSAGES.notAllowed);
     if (n < 1 || it.previewedVersion !== n) throw new ApiError(409, "PREVIEW_FIRST", MESSAGES.previewFirst);
+    if (R.earnBlocked(it.contributor.minor, it.proposed.learningPath)) throw new ApiError(409, "EARN_MINOR", MESSAGES.earnMinorPublish);
     it.status = STATUS.PUBLISHING; it.publishAttempts++; it.rowVersion++; it.statusLabel = STATUS_LABEL[it.status];
     this.log(it, actor.name, R.history.publishClick(it.publishAttempts));
     if (this.onChange) this.onChange();
@@ -236,7 +254,9 @@ export class MockAdapter {
       it.status = STATUS.PUBLISHED; it.publishedVersion = n; it.publishedAt = this.now(); it.publishError = null;
       this.log(it, "System", R.history.published(n, rec.sectorName));
     } else {
-      it.status = STATUS.FAILED; it.publishError = error;
+      // a failed update of a published idea leaves the earlier card live: it stays Published (with the error shown)
+      const live = Boolean(before) && it.publishedVersion !== null && before.version === it.publishedVersion;
+      it.status = R.nextStatus("publish_fail", { status: STATUS.PUBLISHING, live }).to; it.publishError = error;
       this.log(it, "System", R.history.failed(error));
     }
     it.rowVersion++; it.statusLabel = STATUS_LABEL[it.status];

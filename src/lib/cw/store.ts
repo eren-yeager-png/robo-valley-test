@@ -12,10 +12,15 @@ export type Actor = { userId: number; name: string; isAdmin: boolean };
 export type Fail = { ok: false; status: number; error: string; message: string };
 
 export class NotSetUp extends Error {
-  constructor() { super("The contribution workflow is not set up yet (migration 027)."); }
+  constructor() { super("The contribution workflow is not set up yet (migration 027 or 028)."); }
 }
-const notSetUp = (e: unknown) => ["42P01", "42703"].includes((e as { code?: string })?.code ?? "");
-/** Runs fn; a missing workflow table (migration 027 not applied) becomes NotSetUp. */
+// The checks migration 028 widened: refusing a new value means the database has 027 but not 028 yet (not a fault of the request).
+const WIDENED_BY_028 = ["cw_contributions_status_ck", "cw_contributions_published_ck", "cw_contribution_feedback_ck"];
+const notSetUp = (e: unknown) => {
+  const err = (e ?? {}) as { code?: string; constraint?: string };
+  return ["42P01", "42703"].includes(err.code ?? "") || (err.code === "23514" && WIDENED_BY_028.includes(err.constraint ?? ""));
+};
+/** Runs fn; a missing workflow table (027 not applied) or a check 028 widens (028 not applied) becomes NotSetUp. */
 export async function guarded<T>(fn: () => Promise<T>): Promise<T> {
   try { return await fn(); } catch (e) { if (notSetUp(e)) throw new NotSetUp(); throw e; }
 }
@@ -108,12 +113,23 @@ export async function listContributions(db: Q, statuses: string[] | null, sector
     const counts = (await db.query(
       `SELECT count(*) FILTER (WHERE status = ANY($1::varchar[]))::int AS open, count(*) FILTER (WHERE status = ANY($2::varchar[]))::int AS awaiting FROM cw_contributions`,
       [R.MOD_FILTERS.Open, R.ADM_FILTERS["Awaiting me"]])).rows[0];
+    // who declined (a Moderator) or rejected (an Admin) each Rejected idea, the reason and when: shown in the Admin's Rejected filter
+    const rejectedIds = rows.filter((r) => r.status === R.STATUS.REJECTED).map((r) => Number(r.id));
+    const decisions = new Map<number, { type: string; by: string; text: string; at: string | null }>();
+    if (rejectedIds.length) {
+      for (const f of (await db.query(
+        `SELECT DISTINCT ON (contribution_id) contribution_id, type, text, by_name, created_at FROM cw_contribution_feedback
+          WHERE contribution_id = ANY($1::bigint[]) AND type IN ('decline', 'reject') ORDER BY contribution_id, id DESC`, [rejectedIds])).rows) {
+        decisions.set(Number(f.contribution_id), { type: String(f.type), by: String(f.by_name), text: String(f.text), at: iso(f.created_at) });
+      }
+    }
     const items = rows.map((row) => {
       const c = toContribution(row);
       return {
         id: c.id, code: c.code, status: c.status, statusLabel: c.statusLabel, title: c.proposed.title, kind: c.kind,
         contributorName: c.contributor.name, contributorType: c.contributor.typeLabel,
         sector: c.proposed.sector, sectorName: R.sectorLabel(c.proposed.sector, sectors), moderator: c.moderator,
+        ...(decisions.has(c.id) ? { decision: decisions.get(c.id) } : {}),
       };
     });
     return { items, counts: { open: Number(counts.open), awaiting: Number(counts.awaiting) } };
@@ -137,7 +153,8 @@ export async function listMine(db: Q, userId: number) {
     "SELECT id, kind, original, status, submitted_at, published_at FROM cw_contributions WHERE user_id = $1 ORDER BY submitted_at DESC, id DESC", [userId])).rows
     .map((r) => ({
       id: Number(r.id), code: R.codeOf(r.id), kind: String(r.kind), title: String(j(r.original).title), status: String(r.status),
-      statusLabel: R.CONTRIBUTOR_STATUS_LABEL[r.status] ?? "In review", submittedAt: iso(r.submitted_at), publishedAt: iso(r.published_at),
+      statusLabel: R.CONTRIBUTOR_STATUS_LABEL[r.status] ?? "In review", submittedAt: iso(r.submitted_at),
+      publishedAt: r.status === R.STATUS.PUBLISHED ? iso(r.published_at) : null, // shown only while the idea is public
     })));
 }
 
@@ -150,6 +167,8 @@ export async function getAttachment(db: Q, id: number) {
 }
 
 const reasonOf = (p: any) => (typeof p?.reason === "string" ? p.reason.trim() : typeof p?.feedback === "string" ? p.feedback.trim() : "");
+/** The reason an action needs (decline, reject, request changes, reopen): required, at most LIMITS.reason characters. */
+const reasonProblem = (reason: string) => (!reason ? R.MESSAGES.reasonRequired : reason.length > R.LIMITS.reason ? R.MESSAGES.tooLong : null);
 const versionCount = async (c: Q, id: number) => Number((await c.query("SELECT count(*)::int AS n FROM cw_contribution_versions WHERE contribution_id = $1", [id])).rows[0].n);
 
 /**
@@ -174,7 +193,7 @@ export async function applyAction(pool: Pool, input: { id: number; actor: Actor;
       const cur = toContribution(row);
       if (action !== "open" && Number(p.rowVersion) !== cur.rowVersion) { await c.query("ROLLBACK"); return fail(409, "STALE", R.MESSAGES.stale); }
       const versions = await versionCount(c, id);
-      const step = R.nextStatus(action, { status: cur.status, versions });
+      const step = R.nextStatus(action, { status: cur.status, versions, publishedVersion: cur.publishedVersion });
       if (!step.ok) { await c.query("ROLLBACK"); return fail(409, "NOT_ALLOWED", R.MESSAGES.notAllowed); }
       const log = (text: string, who = actor.name, whoId: number | null = actor.userId) =>
         c.query("INSERT INTO cw_contribution_history (contribution_id, actor, actor_user_id, text) VALUES ($1, $2, $3, $4)", [id, who, whoId, text]);
@@ -182,7 +201,19 @@ export async function applyAction(pool: Pool, input: { id: number; actor: Actor;
         c.query(`UPDATE cw_contributions SET ${sets}, row_version = row_version + 1, updated_at = now() WHERE id = $1`, [id, ...params]);
       const feedback = (type: string, text: string) =>
         c.query("INSERT INTO cw_contribution_feedback (contribution_id, type, text, by_user_id, by_name) VALUES ($1, $2, $3, $4, $5)", [id, type, text, actor.userId, actor.name]);
-      const proposedFromPayload = () => R.cleanProposed(p.proposed, { sectors });
+      // a Moderator's decline: kept as 'decline' (migration 028); a database without 028 only knows 'reject', so it is stored as that
+      const declineFeedback = async (text: string) => {
+        await c.query("SAVEPOINT cw_decline");
+        try {
+          await feedback("decline", text);
+          await c.query("RELEASE SAVEPOINT cw_decline");
+        } catch (e) {
+          if ((e as { code?: string })?.code !== "23514") throw e;
+          await c.query("ROLLBACK TO SAVEPOINT cw_decline");
+          await feedback("reject", text);
+        }
+      };
+      const proposedFromPayload = () => R.cleanProposed(p.proposed, { sectors, minor: cur.contributor.minor });
       const notesFromPayload = () => (typeof p.notes === "string" ? p.notes.trim().slice(0, R.LIMITS.notes) : cur.notes);
 
       switch (action) {
@@ -223,18 +254,18 @@ export async function applyAction(pool: Pool, input: { id: number; actor: Actor;
           break;
         }
         case "decline": {
-          const reason = reasonOf(p);
-          if (!reason) { await c.query("ROLLBACK"); return fail(400, "VALIDATION_FAILED", R.MESSAGES.reasonRequired); }
-          if (reason.length > R.LIMITS.reason) { await c.query("ROLLBACK"); return fail(400, "VALIDATION_FAILED", R.MESSAGES.tooLong); }
+          const reason = reasonOf(p), problem = reasonProblem(reason);
+          if (problem) { await c.query("ROLLBACK"); return fail(400, "VALIDATION_FAILED", problem); }
           const pr = p.proposed ? proposedFromPayload() : { error: null, value: cur.proposed };
           if (pr.error) { await c.query("ROLLBACK"); return fail(400, "VALIDATION_FAILED", pr.error); }
           await update("status = $2, proposed = $3::jsonb, notes = $4", [step.to, JSON.stringify(pr.value), notesFromPayload()]);
-          await feedback("reject", reason);
+          await declineFeedback(reason); // a Moderator's decline: Admins see who, why and when in the Rejected filter
           await log(R.history.declined(reason));
           break;
         }
         case "preview": {
           if (Number(p.version) !== versions) { await c.query("ROLLBACK"); return fail(409, "STALE", R.MESSAGES.stale); }
+          if (R.earnBlocked(cur.contributor.minor, cur.proposed.learningPath)) { await c.query("ROLLBACK"); return fail(409, "EARN_MINOR", R.MESSAGES.earnMinorPublish); }
           if (cur.previewedVersion !== versions) {
             await update("previewed_version = $2", [versions]);
             await log(R.history.previewed(versions));
@@ -253,18 +284,36 @@ export async function applyAction(pool: Pool, input: { id: number; actor: Actor;
             await c.query("INSERT INTO cw_contribution_versions (contribution_id, v, by_user_id, by_name, role, data, notes) VALUES ($1, $2, $3, $4, 'Admin', $5::jsonb, $6)",
               [id, n, actor.userId, actor.name, JSON.stringify(next), cur.notes]);
             await update("proposed = $2::jsonb, previewed_version = NULL", [JSON.stringify(next)]);
-            await log(R.history.adminEdit(ch, n));
+            // after publishing the live card stays as it is until the Admin previews and publishes this new version
+            await log(R.AFTER_PUBLISHING.includes(cur.status) ? R.history.adminEditAfter(ch, n) : R.history.adminEdit(ch, n));
           }
           break;
         }
         case "request_changes":
         case "reject": {
-          const reason = reasonOf(p);
-          if (!reason) { await c.query("ROLLBACK"); return fail(400, "VALIDATION_FAILED", R.MESSAGES.reasonRequired); }
-          if (reason.length > R.LIMITS.reason) { await c.query("ROLLBACK"); return fail(400, "VALIDATION_FAILED", R.MESSAGES.tooLong); }
+          const reason = reasonOf(p), problem = reasonProblem(reason);
+          if (problem) { await c.query("ROLLBACK"); return fail(400, "VALIDATION_FAILED", problem); }
           await update("status = $2", [step.to]);
           await feedback(action === "reject" ? "reject" : "changes", reason);
           await log(action === "reject" ? R.history.rejected(reason) : R.history.changes(reason));
+          break;
+        }
+        case "unpublish": {
+          // one transaction: the card goes and the status changes together, so the two can never disagree
+          await c.query("DELETE FROM cw_public_contributions WHERE contribution_id = $1", [id]);
+          const left = (await c.query("SELECT count(*)::int AS n FROM cw_public_contributions WHERE contribution_id = $1", [id])).rows[0];
+          if (Number(left.n) !== 0) throw new Error("The public card was not removed.");
+          await update("status = $2, previewed_version = NULL, publish_error = NULL", [step.to]); // publishing again needs a new preview
+          await log(R.history.unpublished());
+          message = R.MESSAGES.unpublished;
+          break;
+        }
+        case "reopen": {
+          const reason = reasonOf(p), problem = reasonProblem(reason);
+          if (problem) { await c.query("ROLLBACK"); return fail(400, "VALIDATION_FAILED", problem); }
+          await update("status = $2, previewed_version = NULL", [step.to]); // back to the Moderator who had it (if any)
+          await feedback("reopen", reason);
+          await log(R.history.reopened(reason));
           break;
         }
       }

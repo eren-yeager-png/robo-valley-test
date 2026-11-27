@@ -83,31 +83,38 @@ export const PARITY = [
   "Contribution Form: Idea title, Describe your idea, Photo / attachment (JPEG, PNG or PDF, 4 MB, type read from the file)",
   "Contribution Form: Reference links rows, + Add another link, removing the last row leaves one empty row",
   "Contribution Form: Suitable for pills, Suggested path pills with the Earn (18+) helper text",
+  "Contribution Form: a contributor under 18 is not offered the Earn (18+) path (and the app refuses it if sent anyway)",
   "Contribution Form: all six validation messages shown together in one red notice; submit blocked",
   "Contribution Form: success message \"Thank you! Your <kind> RV-xxxx has been submitted for review. It is not public until an Admin publishes it.\"",
   "Contribution Form: sign-in required; administrators and moderators are told they review",
-  "Moderator Workspace: intro text; list with filters Open (default, with count), Awaiting Admin, Changes Requested, Decided, All; \"Nothing here.\"",
+  "Moderator Workspace: intro text; list with filters Open (default, with count), Awaiting Admin, Changes Requested, Decided (with Unpublished), All; \"Nothing here.\"",
   "Moderator Workspace: \"Earlier contributions (old form): N, open in Moderation\"",
   "Moderator Workspace: list card = status badge, RV number, working title, kind · contributor · type · sector",
   "Moderator Workspace: first open of a Submitted idea moves it to Under Moderator Review and records the moderator",
-  "Moderator Workspace: header, submitted-by line, attachment chip; banners for Changes Requested, with Admin, Published, Rejected",
+  "Moderator Workspace: header, submitted-by line, attachment chip; banners for Changes Requested, Reopened by Admin (with the reason), with Admin, Published, Unpublished, Declined or Rejected (who, when, why)",
   "Moderator Workspace: read-only Request box (kind, resource fields and ID, link, what should change, reference links)",
   "Moderator Workspace: Original submission (read-only) next to Version for publishing (Edited / Unchanged) with every field editable",
   "Moderator Workspace: Internal notes for Admin (never shown publicly)",
+  "Moderator Workspace: Earn (18+) cannot be chosen for a minor's idea (the option is disabled with a note; the app refuses it with a clear message)",
   "Moderator Workspace: Save Draft, Reset to Original, Submit Publishing Request to Admin, Decline Idea (dialog, reason required) and the helper text",
   "Moderator Workspace: messages \"Draft saved. Nothing has been published.\" / \"Request sent to Admin. Status: ... It is still not public.\" and both send rules",
   "Moderator Workspace: activity history, newest first; read-only once with Admin, published or rejected",
-  "Admin Approval Dashboard: intro text; filters Awaiting me (default, with count), With Moderators, Changes Requested, Published, Rejected, All",
-  "Admin Approval Dashboard: list card = status badge, RV number, title, kind · contributor · sector · by moderator",
+  "Admin Approval Dashboard: intro text; filters Awaiting me (default, with count), With Moderators, Changes Requested, Published (with Unpublished, own badge), Rejected, All",
+  "Admin Approval Dashboard: list card = status badge, RV number, title, kind · contributor · sector · by moderator; in Rejected also who declined or rejected, and when",
   "Admin Approval Dashboard: Contributor box and Moderator box (Not yet assigned / Request vN sent ... / Edited by Moderator or Approved as-is)",
   "Admin Approval Dashboard: the same read-only Request box; Original vs. version to publish with a word-level diff and \"changed\" tags; Moderator notes or \"No notes.\"",
   "Admin Approval Dashboard: preview notice (amber, then green \"You have reviewed the publish preview for this version.\"); Publish disabled until the current version is previewed",
   "Admin Approval Dashboard: Open Publish Preview, Publish to Website / Retry Publish, Edit Before Publishing (title and description), Request Changes and Reject (dialogs, text required)",
   "Admin Approval Dashboard: banners Publication failed (safe retry), Published successfully (verified), Publishing in progress, still with the Moderator; previous versions; history",
+  "Admin Approval Dashboard: Unpublish on Published items (confirmation): the card is removed, status Unpublished, logged in history",
+  "Admin Approval Dashboard: Edit Before Publishing on Published and Unpublished items makes a new version (\"Version N has changes that are not on the public website yet\"); the live card changes only after a new preview and publish",
+  "Admin Approval Dashboard: Rejected items show who declined (Moderator) or rejected (Admin), the reason and when; Reopen (reason required) sends the idea back to Under Moderator Review",
+  "Admin Approval Dashboard: a version with the Earn (18+) path on a minor's idea cannot be previewed or published (clear message)",
   "Publish Preview: modal \"Publish Preview\", meta RV-xxxx · version N · <sector> section, yellow PREVIEW ONLY banner, dark RoboValley › Community Ideas › <Sector> header, the shared card",
   "Publish Preview: Download preview (.html) works offline, Open in new tab (\"Your browser blocked the new tab. Use Download instead.\"), Done reviewing",
   "Publishing: Clicked Publish (attempt N); Publication In Progress notice; Published only after the public record reads back the approved content",
   "Publishing: a failure shows \"Publication failed: ...\" and Retry Publish; the public page is unchanged; a retry never makes a second card",
+  "Publishing: publishing again after Unpublish or after an edit updates the same card (never a duplicate); a failed update keeps the earlier card live and the idea Published",
   "Community Ideas: \"RoboValley – Community Ideas\" with its subtitle; grouped by sector in Sector Forms order, Not sure last as \"Other ideas\"",
   "Community Ideas: each card = sector · robot type, title, <kind> for <resource path> (linked), description, chips, Idea by <first name> (<type>), Further reading, Published <date>",
   "Community Ideas: empty state \"No contributions have been published yet. Moderator drafts and pending requests are never shown here.\"",
@@ -150,12 +157,15 @@ __req("demo-seed.js").seed(mock).then(function () {
     });
   }
   Array.prototype.forEach.call(document.querySelectorAll("[data-tab]"), function (b) { b.addEventListener("click", function () { show(b.getAttribute("data-tab")); }); });
+  var minorBox = document.querySelector("[data-demo-minor]");
+  if (minorBox) minorBox.addEventListener("change", function () { mock.meInfo.minor = minorBox.checked; mounted.form = false; show("form"); });
   show(location.hash.replace("#", "") || "form");
 });`;
   const fixed = bundle([...BASE, ...extra, ...screens, "demo-seed.js"], entry);
   const tabButtons = tabs.map(([k, label]) => `<button type="button" class="tab" role="tab" data-tab="${k}" aria-selected="false">${label}${k === "moderator" ? ' <span class="count" id="c-mod">0</span>' : k === "admin" ? ' <span class="count" id="c-adm">0</span>' : ""}</button>`).join("\n      ");
+  const minorToggle = `<label class="demo-toggle"><input type="checkbox" data-demo-minor> Demo only: the signed-in contributor is under 18 (the Earn (18+) path is not offered)</label>`;
   const views = tabs.map(([k]) => k === "form" || k === "site"
-    ? `<section data-view="${k}" hidden><div class="rv-cw-root"><div data-mount></div></div></section>`
+    ? `<section data-view="${k}" hidden>${k === "form" ? minorToggle : ""}<div class="rv-cw-root"><div data-mount></div></div></section>`
     : `<section data-view="${k}" hidden><div class="rv"><div class="adm rv-cw-root"><div data-mount></div></div></div></section>`).join("\n    ");
   return `<!DOCTYPE html>
 <!--
@@ -185,6 +195,7 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 .demo-tabs .count { background: #fff; color: #11634d; border-radius: 10px; padding: 1px 7px; margin-left: 6px; font-size: 12px; }
 .demo-tabs .tab:not(.on) .count { background: #11634d; color: #fff; }
 .demo-tabs .tab:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+.demo-toggle { display: flex; gap: 8px; align-items: center; font-size: 13px; margin: 0 0 12px; color: #7c2d12; }
 [hidden] { display: none !important; }
 ${css.join("\n")}
 ${portalCss.join("\n")}

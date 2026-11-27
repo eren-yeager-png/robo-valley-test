@@ -1,13 +1,14 @@
 // Contribution workflow: the Moderator Workspace (admin portal, /admin/workspace; and the demo). The demo's screen, through the adapter:
 // list with filters, open (Submitted -> Under Moderator Review), edit the version for publishing, Save Draft, Reset to Original, Submit
 // Publishing Request to Admin, Decline Idea (a real dialog with a required reason). Moderators never publish. The server decides
-// every step; this screen only shows what it says.
+// every step; this screen only shows what it says. An idea an Admin reopened shows the Admin's reason; the Earn (18+) path cannot be
+// chosen for a minor's idea.
 import { $, $$, checkedValues, esc, fmtDate, options, pills } from "./utils.js";
-import { CATEGORIES, LEVELS, MESSAGES, MOD_FILTERS, NOT_SURE, NOT_SURE_LABEL, PATHS, STATUS } from "./lists.js";
+import { CATEGORIES, EARN, LEVELS, MESSAGES, MOD_FILTERS, NOT_SURE, NOT_SURE_LABEL, PATHS, STATUS } from "./lists.js";
 import { canModeratorEdit, isModified } from "./rules.js";
 import { RestAdapter } from "./api.js";
 import { askReason } from "./dialog.js";
-import { attachmentHtml, badge, fieldsHtml, historyHtml, lastFeedback, notice, requestHtml } from "./review.js";
+import { attachmentHtml, badge, decisionHtml, fieldsHtml, historyHtml, lastDecision, lastFeedback, notice, requestHtml } from "./review.js";
 
 const INTRO = "Verify each idea. If it is good as it is, send it to Admin unchanged. If it needs improvement, edit it first, including category, suitable for and path. The original submission is always kept. Moderators cannot publish.";
 
@@ -70,7 +71,8 @@ export async function mount(el, opts = {}) {
     const it = st.item, d = $(el, "[data-detail]");
     if (!it) { d.innerHTML = '<div class="adm-card"><div class="cw-empty">Select a contribution to review.</div></div>'; return; }
     const editable = canModeratorEdit(it.status), dis = editable ? "" : " disabled", ro = editable ? "" : " readonly";
-    const fb = lastFeedback(it, "changes"), rej = lastFeedback(it);
+    const fb = lastFeedback(it, "changes"), rej = lastDecision(it), latest = lastFeedback(it);
+    const minor = it.contributor.minor === true;
     const p = it.proposed;
     const sectorOptions = [[NOT_SURE, NOT_SURE_LABEL], ...st.sectors.map((s) => [s.slug, s.name])];
     if (p.sector && !sectorOptions.some((o) => o[0] === p.sector)) sectorOptions.push([p.sector, p.sector]);
@@ -78,9 +80,11 @@ export async function mount(el, opts = {}) {
       <div class="cw-head"><h3 id="cw-d-h">${esc(it.code)} – ${esc(it.original.title)}</h3>${badge(it.status)}</div>
       <p class="cw-muted">Submitted by <b>${esc(it.contributor.name)}</b> (${esc(it.contributor.typeLabel)}) on ${esc(fmtDate(it.submittedAt))}${it.attachment ? ` · Attachment: ${attachmentHtml(it, adapter)}` : ""}</p>
       ${it.status === STATUS.CHANGES && fb ? notice("warn", `<b>Admin requested changes:</b> ${esc(fb.text)}<br><span class="cw-muted">${esc(fb.by)} · ${esc(fmtDate(fb.at))}</span>`) : ""}
+      ${editable && latest && latest.type === "reopen" ? notice("warn", `<b>Reopened by Admin:</b> ${esc(latest.text)}<br><span class="cw-muted">${esc(latest.by)} · ${esc(fmtDate(latest.at))}</span>`) : ""}
       ${[STATUS.PENDING, STATUS.RESUBMITTED].includes(it.status) ? notice("info", "Publishing request is with Admin. You can't edit it until Admin responds.") : ""}
       ${it.status === STATUS.PUBLISHED ? notice("ok", `Published by Admin on ${esc(fmtDate(it.publishedAt))}.`) : ""}
-      ${it.status === STATUS.REJECTED ? notice("err", `Rejected. Reason: ${esc((rej && rej.text) || "")}`) : ""}
+      ${it.status === STATUS.UNPUBLISHED ? notice("info", "Unpublished by Admin: it is no longer on the public website.") : ""}
+      ${it.status === STATUS.REJECTED ? notice("err", rej ? decisionHtml(rej) : "Rejected.") : ""}
       ${requestHtml(it)}
       <div class="cw-grid2">
         <div class="cw-box"><h4>Original submission (read-only)</h4>${fieldsHtml(it.original, st.sectors)}</div>
@@ -94,7 +98,8 @@ export async function mount(el, opts = {}) {
           </div>
           <fieldset class="cw-fs"><legend>Category</legend>${pills("cw-m-cat", CATEGORIES, p.categories || [], { disabled: !editable })}</fieldset>
           <fieldset class="cw-fs"><legend>Suitable for</legend>${pills("cw-m-lvl", LEVELS, p.suitableFor || [], { disabled: !editable })}</fieldset>
-          <label for="cw-m-path">Suggested path</label><select id="cw-m-path"${dis}>${options([["", "Not set"], ...PATHS], p.learningPath || "")}</select>
+          <label for="cw-m-path">Suggested path</label><select id="cw-m-path"${dis}${minor ? ' aria-describedby="cw-m-path-hint"' : ""}>${options([["", "Not set"], ...PATHS], p.learningPath || "", { disabled: minor ? [EARN] : [] })}</select>
+          ${minor ? `<p class="cw-muted cw-hint" id="cw-m-path-hint">${esc(MESSAGES.earnMinorHint)}</p>` : ""}
         </div>
       </div>
       <label for="cw-m-notes">Internal notes for Admin (never shown publicly)</label>

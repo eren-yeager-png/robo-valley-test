@@ -19,6 +19,7 @@ const RESOURCE_TYPES = {
 const CATEGORIES = ["STEAM", "Robotics", "Physical AI and AI", "Re-engineering"];
 const LEVELS = ["K1–K5", "K6–K8", "K9–K10", "K11–K12", "ITI", "Diploma", "Engineering", "Advanced", "Not sure"];
 const PATHS = ["Learn", "Make", "Present", "Earn (18+)", "Build", "Not sure"];
+const EARN = "Earn (18+)"; // only for learners 18 and above: never for a minor's idea (users.age_category)
 
 // Sectors and robot types come from Sector Forms (the app's database). "Not sure" is always offered as well.
 const NOT_SURE = "not-sure";
@@ -31,20 +32,23 @@ const PUBLIC_NAME_DISPLAY = "first-name-and-type";
 const STATUS = {
   SUBMITTED: "submitted", REVIEW: "under_review", DRAFT: "draft", PENDING: "pending", CHANGES: "changes_requested",
   RESUBMITTED: "resubmitted", PUBLISHING: "publishing", PUBLISHED: "published", FAILED: "failed", REJECTED: "rejected",
+  UNPUBLISHED: "unpublished",
 };
 const STATUS_LABEL = {
   submitted: "Submitted", under_review: "Under Moderator Review", draft: "Moderator Draft", pending: "Pending Admin Approval",
   changes_requested: "Changes Requested", resubmitted: "Resubmitted for Approval", publishing: "Publication In Progress",
-  published: "Published", failed: "Publication Failed", rejected: "Rejected",
+  published: "Published", failed: "Publication Failed", rejected: "Rejected", unpublished: "Unpublished",
 };
 const STATUS_CLASS = {
   submitted: "rv-s-submitted", under_review: "rv-s-review", draft: "rv-s-draft", pending: "rv-s-pending", changes_requested: "rv-s-changes",
   resubmitted: "rv-s-pending", publishing: "rv-s-publishing", published: "rv-s-published", failed: "rv-s-failed", rejected: "rv-s-rejected",
+  unpublished: "rv-s-unpublished",
 };
 // What a contributor sees in "My contributions" (the internal steps are not theirs to follow).
 const CONTRIBUTOR_STATUS_LABEL = {
   submitted: "Submitted", under_review: "In review", draft: "In review", pending: "In review", changes_requested: "In review",
   resubmitted: "In review", publishing: "In review", failed: "In review", published: "Published", rejected: "Not accepted",
+  unpublished: "No longer public",
 };
 
 const FIELDS = ["title", "description", "sector", "robotType", "categories", "suitableFor", "learningPath"];
@@ -58,14 +62,14 @@ const MOD_FILTERS = {
   "Open": [S.SUBMITTED, S.REVIEW, S.DRAFT, S.CHANGES],
   "Awaiting Admin": [S.PENDING, S.RESUBMITTED, S.PUBLISHING, S.FAILED],
   "Changes Requested": [S.CHANGES],
-  "Decided": [S.PUBLISHED, S.REJECTED],
+  "Decided": [S.PUBLISHED, S.UNPUBLISHED, S.REJECTED],
   "All": null,
 };
 const ADM_FILTERS = {
   "Awaiting me": [S.PENDING, S.RESUBMITTED, S.FAILED],
   "With Moderators": [S.SUBMITTED, S.REVIEW, S.DRAFT],
   "Changes Requested": [S.CHANGES],
-  "Published": [S.PUBLISHED],
+  "Published": [S.PUBLISHED, S.UNPUBLISHED], // Unpublished ones keep their own badge
   "Rejected": [S.REJECTED],
   "All": null,
 };
@@ -91,11 +95,14 @@ const MESSAGES = {
   tooManyRefs: "Add at most 10 reference links.",
   attachmentType: "The attachment must be a JPEG or PNG image, or a PDF.",
   attachmentSize: "The attachment must be 4 MB or smaller.",
+  earnMinor: "The Earn (18+) path is for learners 18 and above. Please choose another path.",
   // the Moderator Workspace
   sendLength: "Title is required and description must be at least 20 characters.",
   sendCategory: "Pick at least one category before sending to Admin.",
   draftSaved: "Draft saved. Nothing has been published.",
   reasonRequired: "Please write a reason.",
+  earnMinorReview: "Earn (18+) is not available for this idea: the contributor is under 18. Please choose another path.",
+  earnMinorHint: "Earn (18+) is not available: the contributor is under 18.",
   // the Admin Approval Dashboard
   previewFirst: "Open the publish preview first.",
   previewNotice: "Open the publish preview to see exactly how this will look on the website. Publishing is enabled after you review it.",
@@ -104,6 +111,11 @@ const MESSAGES = {
   stale: "Someone else changed this contribution a moment ago. It has been reloaded; please check it and try again.",
   notAllowed: "This action is not available for this contribution right now.",
   adminOnly: "Only an administrator can do that.",
+  earnMinorPublish: "This version has the Earn (18+) path, but the contributor is under 18. Use Request Changes so the Moderator can choose another path.",
+  nothingNew: "Nothing new to publish: the live card already shows this version.",
+  unpublishText: "The card is removed from the Community Ideas page at once. To publish it again later: open the publish preview, then publish.",
+  unpublished: "Unpublished. The card is no longer on the public website.",
+  reopenLabel: "Why are you reopening this idea? The Moderator will see your reason. (required)",
   // the public website
   publicEmpty: "No contributions have been published yet. Moderator drafts and pending requests are never shown here.",
   // general
@@ -113,7 +125,7 @@ const MESSAGES = {
   reviewerCannot: "Administrators and moderators review contributions. Please use a member account to share an idea.",
   failed: "Something went wrong. Nothing was changed. Please try again.",
 };
-Object.assign(exports, { KINDS, NEW_IDEA, FEATURES, RESOURCE_TYPES, CATEGORIES, LEVELS, PATHS, NOT_SURE, NOT_SURE_LABEL, OTHER_IDEAS, PUBLIC_NAME_DISPLAY, STATUS, STATUS_LABEL, STATUS_CLASS, CONTRIBUTOR_STATUS_LABEL, FIELDS, FIELD_LABELS, MOD_FILTERS, ADM_FILTERS, LIMITS, ATTACHMENT_TYPES, MESSAGES });
+Object.assign(exports, { KINDS, NEW_IDEA, FEATURES, RESOURCE_TYPES, CATEGORIES, LEVELS, PATHS, EARN, NOT_SURE, NOT_SURE_LABEL, OTHER_IDEAS, PUBLIC_NAME_DISPLAY, STATUS, STATUS_LABEL, STATUS_CLASS, CONTRIBUTOR_STATUS_LABEL, FIELDS, FIELD_LABELS, MOD_FILTERS, ADM_FILTERS, LIMITS, ATTACHMENT_TYPES, MESSAGES });
 });
 __def("utils.js", function (exports, __req) {
 // Contribution workflow: small shared helpers (escaping, word diff, dates, DOM). Plain JavaScript, used by every screen and the server.
@@ -160,10 +172,10 @@ const $$ = (root, sel) => Array.from(root.querySelectorAll(sel));
 const checkedValues = (root, name) => $$(root, `input[name="${name}"]:checked`).map((x) => x.value);
 
 /** <option> tags for a list of [value, label] pairs (or plain strings). */
-function options(list, selected) {
+function options(list, selected, { disabled = [] } = {}) {
   return list.map((o) => {
     const [v, l] = Array.isArray(o) ? o : [o, o];
-    return `<option value="${esc(v)}"${v === selected ? " selected" : ""}>${esc(l)}</option>`;
+    return `<option value="${esc(v)}"${v === selected ? " selected" : ""}${disabled.includes(v) ? " disabled" : ""}>${esc(l)}</option>`;
   }).join("");
 }
 
@@ -186,7 +198,7 @@ __def("rules.js", function (exports, __req) {
 // Contribution workflow: the rules. ONE copy, imported by the app's server (src/lib/cw) AND by the browser (the demo's mock data
 // adapter), so the status machine, the validation messages and the history wording can never differ between them.
 const {
-  ATTACHMENT_TYPES, CATEGORIES, FEATURES, FIELDS, FIELD_LABELS, KINDS, LEVELS, LIMITS, MESSAGES, NEW_IDEA, NOT_SURE, NOT_SURE_LABEL,
+  ATTACHMENT_TYPES, CATEGORIES, EARN, FEATURES, FIELDS, FIELD_LABELS, KINDS, LEVELS, LIMITS, MESSAGES, NEW_IDEA, NOT_SURE, NOT_SURE_LABEL,
   PATHS, PUBLIC_NAME_DISPLAY, RESOURCE_TYPES, STATUS,
 } = __req("lists.js");
 
@@ -210,11 +222,15 @@ const str = (v) => (typeof v === "string" ? v.trim() : "");
 const strList = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string").map((x) => x.trim()).filter(Boolean) : []);
 const uniq = (a) => Array.from(new Set(a));
 
+/** The Earn (18+) path is never allowed on a minor's idea (the contributor's users.age_category at submission time). */
+const earnBlocked = (minor, path) => minor === true && path === EARN;
+
 /**
  * Checks a submission exactly as the demo does (all errors together, in this order), then the limits and lists.
- * `sectors`: [{ slug, name, robots: [{ slug, name }] }] from Sector Forms. Returns { errors: string[], value } where value is clean.
+ * `sectors`: [{ slug, name, robots: [{ slug, name }] }] from Sector Forms; `minor`: the contributor is under 18 (from the profile).
+ * Returns { errors: string[], value } where value is clean.
  */
-function validateSubmission(input, { sectors = [], name = "" } = {}) {
+function validateSubmission(input, { sectors = [], name = "", minor = false } = {}) {
   const i = input && typeof input === "object" ? input : {};
   const kind = KINDS.includes(i.kind) ? i.kind : "";
   const refers = i.refers === true;
@@ -248,6 +264,7 @@ function validateSubmission(input, { sectors = [], name = "" } = {}) {
   if (long) errors.push(MESSAGES.tooLong);
   if (references.length > LIMITS.references) errors.push(MESSAGES.tooManyRefs);
   if (!kind || badChoice(value, sectors) || (resource && (!FEATURES.includes(resource.feature) || !RESOURCE_TYPES[resource.type]))) errors.push(MESSAGES.badChoice);
+  if (earnBlocked(minor, value.learningPath)) errors.push(MESSAGES.earnMinor);
   return { errors, value };
 }
 
@@ -268,8 +285,8 @@ function validateSend(p) {
   return null;
 }
 
-/** Cleans a proposed version sent by a Moderator (same shape as the original). Returns { error, value }. */
-function cleanProposed(input, { sectors = [] } = {}) {
+/** Cleans a proposed version sent by a Moderator (same shape as the original). `minor`: the contributor is under 18. Returns { error, value }. */
+function cleanProposed(input, { sectors = [], minor = false } = {}) {
   const i = input && typeof input === "object" ? input : {};
   const value = {
     title: str(i.title), description: str(i.description), sector: str(i.sector) || NOT_SURE, robotType: str(i.robotType) || NOT_SURE,
@@ -277,6 +294,7 @@ function cleanProposed(input, { sectors = [] } = {}) {
   };
   if (value.title.length > LIMITS.title || value.description.length > LIMITS.description) return { error: MESSAGES.tooLong, value };
   if (badChoice(value, sectors)) return { error: MESSAGES.badChoice, value };
+  if (earnBlocked(minor, value.learningPath)) return { error: MESSAGES.earnMinorReview, value };
   return { error: null, value };
 }
 
@@ -287,24 +305,37 @@ const changedFields = (now, base) => FIELDS.filter((f) => !sameValue(now[f], bas
 const isModified = (c) => changedFields(c.proposed, c.original).length > 0;
 
 // ---------------------------------------------------------------- the status machine (spec section 5)
-// TODO (open decisions, spec section 15; not built on purpose, decide before adding):
-//   * unpublish or edit after publishing        * appeal or resubmission after Rejected
-//   * age enforcement for the Earn (18+) path    * whether a Moderator's decline is visible to / reversible by an Admin
-//   * whether Admins may edit fields beyond Title and Description
+// Spec section 15, decided by the owner (27-11-2026):
+//   * Unpublish: Admin only, from Published -> Unpublished (the public card is removed). Publishing again is the normal flow (preview,
+//     then publish) and updates the same card.
+//   * Edit after publishing: the Admin's "Edit Before Publishing" also works on Published and Unpublished items. It makes a new version
+//     that needs a new preview; the live card changes only when the Admin publishes again.
+//   * No appeal by contributors after Rejected (they can always share a new idea). The Admin may Reopen a Rejected item (reason
+//     required) -> Under Moderator Review. This also reverses a Moderator's decline, which Admins see in the Rejected filter.
+//   * Earn (18+) is never allowed on a minor's idea: not in the form, not by the Moderator, not published by the Admin.
+//   * Admins edit Title and Description only, as in the demo.
 const MOD_EDITABLE = [S.SUBMITTED, S.REVIEW, S.DRAFT, S.CHANGES];
 const ADMIN_ACTIONABLE = [S.PENDING, S.RESUBMITTED, S.FAILED];
+const AFTER_PUBLISHING = [S.PUBLISHED, S.UNPUBLISHED];
 const canModeratorEdit = (status) => MOD_EDITABLE.includes(status);
 const canAdminAct = (status) => ADMIN_ACTIONABLE.includes(status);
-const ADMIN_ACTIONS = ["preview", "admin_edit", "request_changes", "reject", "publish"];
+/** May the Admin preview and publish now? A request (Pending, Resubmitted, Failed), an Unpublished item, or a Published item whose
+ *  current version is newer than the one on the live card. */
+function canPublishNext(status, versions, publishedVersion) {
+  if (canAdminAct(status) || status === S.UNPUBLISHED) return true;
+  return status === S.PUBLISHED && (Number(versions) || 0) > (Number(publishedVersion) || 0);
+}
+const ADMIN_ACTIONS = ["preview", "admin_edit", "request_changes", "reject", "publish", "unpublish", "reopen"];
 const MODERATOR_ACTIONS = ["open", "save_draft", "reset", "send_request", "decline"];
 const WORKSPACE_ACTIONS = MODERATOR_ACTIONS; // the same list, named after the workspace
 
 /**
- * The ONE transition function. `c` = { status, versions: n } (n = number of versions so far). Returns { ok: true, to } or
- * { ok: false }. Every transition not listed in the spec is refused.
+ * The ONE transition function. `c` = { status, versions, publishedVersion, live }: versions = number of versions so far,
+ * publishedVersion = the version on the live card (if any), live = a public card exists (used by "publish_fail" only).
+ * Returns { ok: true, to } or { ok: false }. Every transition not listed is refused.
  */
 function nextStatus(action, c) {
-  const st = c.status, versions = Number(c.versions) || 0;
+  const st = c.status, versions = Number(c.versions) || 0, next = canPublishNext(st, versions, c.publishedVersion);
   const ok = (to) => ({ ok: true, to }), no = { ok: false };
   switch (action) {
     case "open": return st === S.SUBMITTED ? ok(S.REVIEW) : ok(st); // only the first open of a Submitted item changes it
@@ -315,13 +346,16 @@ function nextStatus(action, c) {
       if ([S.SUBMITTED, S.REVIEW, S.DRAFT].includes(st)) return ok(versions > 0 ? S.RESUBMITTED : S.PENDING);
       return no;
     case "decline": return canModeratorEdit(st) ? ok(S.REJECTED) : no;
-    case "preview": return canAdminAct(st) && versions > 0 ? ok(st) : no;
-    case "admin_edit": return canAdminAct(st) && versions > 0 ? ok(st) : no;
+    case "preview": return next && versions > 0 ? ok(st) : no;
+    case "admin_edit": return (canAdminAct(st) || AFTER_PUBLISHING.includes(st)) && versions > 0 ? ok(st) : no;
     case "request_changes": return canAdminAct(st) ? ok(S.CHANGES) : no;
     case "reject": return canAdminAct(st) ? ok(S.REJECTED) : no;
-    case "publish": return canAdminAct(st) ? ok(S.PUBLISHING) : no;
+    case "publish": return next ? ok(S.PUBLISHING) : no;
     case "publish_ok": return st === S.PUBLISHING ? ok(S.PUBLISHED) : no;
-    case "publish_fail": return st === S.PUBLISHING ? ok(S.FAILED) : no;
+    // a failed attempt: back to Published when the earlier card is still live (a failed update), otherwise Publication Failed
+    case "publish_fail": return st === S.PUBLISHING ? ok(c.live === true ? S.PUBLISHED : S.FAILED) : no;
+    case "unpublish": return st === S.PUBLISHED ? ok(S.UNPUBLISHED) : no;
+    case "reopen": return st === S.REJECTED ? ok(S.REVIEW) : no;
     default: return no;
   }
 }
@@ -338,6 +372,9 @@ const history = {
   declined: (r) => "Declined the idea. Reason: " + r,
   previewed: (n) => `Opened the publish preview for v${n}.`,
   adminEdit: (ch, n) => `Edited the proposed content (changed: ${ch.join(", ")}). Saved as v${n}; Moderator version kept.`,
+  adminEditAfter: (ch, n) => `Edited the proposed content after publishing (changed: ${ch.join(", ")}). Saved as v${n}; the public card changes only when it is published again.`,
+  unpublished: () => "Unpublished: removed the card from the public website. It can be published again (preview, then publish).",
+  reopened: (r) => "Reopened the idea for Moderator review. Reason: " + r,
   changes: (r) => "Requested changes: " + r,
   rejected: (r) => "Rejected the publishing request. Reason: " + r,
   publishClick: (n) => `Clicked Publish (attempt ${n}).`,
@@ -392,7 +429,7 @@ function sniffType(bytes) {
 }
 const attachmentAllowed = (mime) => ATTACHMENT_TYPES.includes(mime);
 const codeOf = (id) => `RV-${id}`;
-Object.assign(exports, { slug, isUrl, resourceId, showsResource, validateSubmission, validateSend, cleanProposed, sameValue, changedFields, isModified, MOD_EDITABLE, ADMIN_ACTIONABLE, canModeratorEdit, canAdminAct, ADMIN_ACTIONS, MODERATOR_ACTIONS, WORKSPACE_ACTIONS, nextStatus, history, firstNameOf, publicContributor, sectorLabel, robotLabel, toPublicRecord, ideaBy, sniffType, attachmentAllowed, codeOf });
+Object.assign(exports, { slug, isUrl, resourceId, showsResource, earnBlocked, validateSubmission, validateSend, cleanProposed, sameValue, changedFields, isModified, MOD_EDITABLE, ADMIN_ACTIONABLE, AFTER_PUBLISHING, canModeratorEdit, canAdminAct, canPublishNext, ADMIN_ACTIONS, MODERATOR_ACTIONS, WORKSPACE_ACTIONS, nextStatus, history, firstNameOf, publicContributor, sectorLabel, robotLabel, toPublicRecord, ideaBy, sniffType, attachmentAllowed, codeOf });
 });
 __def("api.js", function (exports, __req) {
 // Contribution workflow: the data adapters. Every screen talks to ONE interface:
@@ -469,9 +506,9 @@ class MockAdapter {
   // ---- contributor
   loginUrl() { return "#"; }
   async formConfig() { return { sectors: clone(this.sectors) }; }
-  async me() { return { signedIn: true, name: this.meInfo.name, type: this.meInfo.type, reviewer: false }; }
+  async me() { return { signedIn: true, name: this.meInfo.name, type: this.meInfo.type, minor: this.meInfo.minor === true, reviewer: false }; }
   async submit(data, file, who = this.meInfo) {
-    const { errors, value } = R.validateSubmission(data, { sectors: this.sectors, name: who.name });
+    const { errors, value } = R.validateSubmission(data, { sectors: this.sectors, name: who.name, minor: who.minor === true });
     if (file) {
       if (file.size > 4 * 1024 * 1024) errors.push(MESSAGES.attachmentSize);
       else if (!R.attachmentAllowed(file.type)) errors.push(MESSAGES.attachmentType);
@@ -514,11 +551,15 @@ class MockAdapter {
   async list(view, filter) {
     const filters = view === "approvals" ? ADM_FILTERS : MOD_FILTERS;
     const statuses = Object.prototype.hasOwnProperty.call(filters, filter) ? filters[filter] : filters[Object.keys(filters)[0]];
-    const items = this.items.filter((x) => !statuses || statuses.includes(x.status)).map((c) => ({
-      id: c.id, code: c.code, status: c.status, statusLabel: STATUS_LABEL[c.status], title: c.proposed.title, kind: c.kind,
-      contributorName: c.contributor.name, contributorType: c.contributor.typeLabel, sector: c.proposed.sector,
-      sectorName: R.sectorLabel(c.proposed.sector, this.sectors), moderator: c.moderator,
-    }));
+    const items = this.items.filter((x) => !statuses || statuses.includes(x.status)).map((c) => {
+      const d = c.status === STATUS.REJECTED ? c.feedback.filter((f) => f.type === "decline" || f.type === "reject").slice(-1)[0] : null;
+      return {
+        id: c.id, code: c.code, status: c.status, statusLabel: STATUS_LABEL[c.status], title: c.proposed.title, kind: c.kind,
+        contributorName: c.contributor.name, contributorType: c.contributor.typeLabel, sector: c.proposed.sector,
+        sectorName: R.sectorLabel(c.proposed.sector, this.sectors), moderator: c.moderator,
+        ...(d ? { decision: { type: d.type, by: d.by, text: d.text, at: d.at } } : {}),
+      };
+    });
     const counts = {
       open: this.items.filter((x) => MOD_FILTERS.Open.includes(x.status)).length,
       awaiting: this.items.filter((x) => ADM_FILTERS["Awaiting me"].includes(x.status)).length,
@@ -534,9 +575,10 @@ class MockAdapter {
     if (!R.MODERATOR_ACTIONS.includes(action) && !R.ADMIN_ACTIONS.includes(action)) throw new ApiError(400, "UNKNOWN_ACTION", MESSAGES.notAllowed);
     if (action !== "open" && Number(payload.rowVersion) !== it.rowVersion) throw stale();
     const versions = it.versions.length;
-    const step = R.nextStatus(action, { status: it.status, versions });
+    const step = R.nextStatus(action, { status: it.status, versions, publishedVersion: it.publishedVersion });
     if (!step.ok) throw new ApiError(409, "NOT_ALLOWED", MESSAGES.notAllowed);
     const bump = () => { it.rowVersion++; it.statusLabel = STATUS_LABEL[it.status]; };
+    const clean = (proposed) => R.cleanProposed(proposed, { sectors: this.sectors, minor: it.contributor.minor === true });
     const reason = String(payload.reason ?? payload.feedback ?? "").trim();
     let message, record;
     switch (action) {
@@ -544,7 +586,7 @@ class MockAdapter {
         if (it.status === STATUS.SUBMITTED) { it.status = step.to; it.moderator = actor.name; this.log(it, actor.name, R.history.opened()); bump(); }
         break;
       case "save_draft": {
-        const { error, value } = R.cleanProposed(payload.proposed, { sectors: this.sectors });
+        const { error, value } = clean(payload.proposed);
         if (error) throw new ApiError(400, "VALIDATION_FAILED", error);
         const ch = R.changedFields(value, it.proposed);
         it.proposed = value; it.notes = String(payload.notes ?? it.notes).trim(); it.status = step.to; it.moderator = it.moderator || actor.name;
@@ -555,7 +597,7 @@ class MockAdapter {
         it.proposed = clone(it.original); this.log(it, actor.name, R.history.reset()); bump();
         break;
       case "send_request": {
-        const { error, value } = R.cleanProposed(payload.proposed, { sectors: this.sectors });
+        const { error, value } = clean(payload.proposed);
         if (error) throw new ApiError(400, "VALIDATION_FAILED", error);
         const sendError = R.validateSend(value);
         if (sendError) throw new ApiError(400, "VALIDATION_FAILED", sendError);
@@ -569,14 +611,15 @@ class MockAdapter {
       }
       case "decline": {
         if (!reason) throw new ApiError(400, "VALIDATION_FAILED", MESSAGES.reasonRequired);
-        if (payload.proposed) { const pr = R.cleanProposed(payload.proposed, { sectors: this.sectors }); if (pr.error) throw new ApiError(400, "VALIDATION_FAILED", pr.error); it.proposed = pr.value; }
+        if (payload.proposed) { const pr = clean(payload.proposed); if (pr.error) throw new ApiError(400, "VALIDATION_FAILED", pr.error); it.proposed = pr.value; }
         if (typeof payload.notes === "string") it.notes = payload.notes.trim();
-        it.status = step.to; it.feedback.push({ type: "reject", text: reason, by: actor.name, at: this.now() });
+        it.status = step.to; it.feedback.push({ type: "decline", text: reason, by: actor.name, at: this.now() });
         this.log(it, actor.name, R.history.declined(reason)); bump();
         break;
       }
       case "preview":
         if (Number(payload.version) !== versions) throw stale();
+        if (R.earnBlocked(it.contributor.minor, it.proposed.learningPath)) throw new ApiError(409, "EARN_MINOR", MESSAGES.earnMinorPublish);
         if (it.previewedVersion !== versions) { it.previewedVersion = versions; this.log(it, actor.name, R.history.previewed(versions)); bump(); }
         record = R.toPublicRecord({ ...it, version: versions }, { sectors: this.sectors, version: versions });
         break;
@@ -588,7 +631,7 @@ class MockAdapter {
         if (ch.length) {
           it.versions.push({ v: versions + 1, by: actor.name, role: "Admin", data: clone(next), notes: it.notes, at: this.now() });
           it.proposed = next; it.previewedVersion = null;
-          this.log(it, actor.name, R.history.adminEdit(ch, versions + 1)); bump();
+          this.log(it, actor.name, R.AFTER_PUBLISHING.includes(it.status) ? R.history.adminEditAfter(ch, versions + 1) : R.history.adminEdit(ch, versions + 1)); bump();
         }
         break;
       }
@@ -598,6 +641,17 @@ class MockAdapter {
         it.status = step.to;
         it.feedback.push({ type: action === "reject" ? "reject" : "changes", text: reason, by: actor.name, at: this.now() });
         this.log(it, actor.name, action === "reject" ? R.history.rejected(reason) : R.history.changes(reason)); bump();
+        break;
+      case "unpublish":
+        this.public.delete(it.id); // the card goes and the status changes together
+        it.status = step.to; it.previewedVersion = null; it.publishError = null;
+        this.log(it, actor.name, R.history.unpublished()); bump(); message = MESSAGES.unpublished;
+        break;
+      case "reopen":
+        if (!reason) throw new ApiError(400, "VALIDATION_FAILED", MESSAGES.reasonRequired);
+        it.status = step.to; it.previewedVersion = null;
+        it.feedback.push({ type: "reopen", text: reason, by: actor.name, at: this.now() });
+        this.log(it, actor.name, R.history.reopened(reason)); bump();
         break;
       default:
         throw new ApiError(400, "UNKNOWN_ACTION", MESSAGES.notAllowed);
@@ -610,9 +664,10 @@ class MockAdapter {
     if (!actor.isAdmin) throw new ApiError(403, "ADMIN_ONLY", MESSAGES.adminOnly);
     if (Number(payload.rowVersion) !== it.rowVersion) throw stale();
     const n = it.versions.length;
-    const step = R.nextStatus("publish", { status: it.status, versions: n });
-    if (!step.ok) throw new ApiError(409, "NOT_ALLOWED", MESSAGES.notAllowed);
+    const step = R.nextStatus("publish", { status: it.status, versions: n, publishedVersion: it.publishedVersion });
+    if (!step.ok) throw it.status === STATUS.PUBLISHED ? new ApiError(409, "NOTHING_NEW", MESSAGES.nothingNew) : new ApiError(409, "NOT_ALLOWED", MESSAGES.notAllowed);
     if (n < 1 || it.previewedVersion !== n) throw new ApiError(409, "PREVIEW_FIRST", MESSAGES.previewFirst);
+    if (R.earnBlocked(it.contributor.minor, it.proposed.learningPath)) throw new ApiError(409, "EARN_MINOR", MESSAGES.earnMinorPublish);
     it.status = STATUS.PUBLISHING; it.publishAttempts++; it.rowVersion++; it.statusLabel = STATUS_LABEL[it.status];
     this.log(it, actor.name, R.history.publishClick(it.publishAttempts));
     if (this.onChange) this.onChange();
@@ -633,7 +688,9 @@ class MockAdapter {
       it.status = STATUS.PUBLISHED; it.publishedVersion = n; it.publishedAt = this.now(); it.publishError = null;
       this.log(it, "System", R.history.published(n, rec.sectorName));
     } else {
-      it.status = STATUS.FAILED; it.publishError = error;
+      // a failed update of a published idea leaves the earlier card live: it stays Published (with the error shown)
+      const live = Boolean(before) && it.publishedVersion !== null && before.version === it.publishedVersion;
+      it.status = R.nextStatus("publish_fail", { status: STATUS.PUBLISHING, live }).to; it.publishError = error;
       this.log(it, "System", R.history.failed(error));
     }
     it.rowVersion++; it.statusLabel = STATUS_LABEL[it.status];
@@ -692,11 +749,12 @@ Object.assign(exports, { renderPublicCard, renderListedCard, renderPreviewDocume
 __def("form.js", function (exports, __req) {
 // Contribution workflow: the contributor's "Share Your Idea" form (WordPress page, shortcode [rv_contribution_form], and the demo).
 // Same fields, labels, order and messages as the demo. Name and type come from the signed-in profile and are read-only. Sector is
-// optional (Sector Forms + "Not sure") and the robot type list follows the sector. The attachment's real type is checked from its
-// first bytes before it is sent; the app checks everything again.
+// optional (Sector Forms + "Not sure") and the robot type list follows the sector. The Earn (18+) path is not offered to a minor
+// (users.age_category; the app refuses it anyway). The attachment's real type is checked from its first bytes before it is sent; the
+// app checks everything again.
 const { $, $$, checkedValues, esc, options, pills } = __req("utils.js");
 const R = __req("rules.js");
-const { CATEGORIES, FEATURES, KINDS, LEVELS, LIMITS, MESSAGES, NEW_IDEA, NOT_SURE, NOT_SURE_LABEL, PATHS, RESOURCE_TYPES } = __req("lists.js");
+const { CATEGORIES, EARN, FEATURES, KINDS, LEVELS, LIMITS, MESSAGES, NEW_IDEA, NOT_SURE, NOT_SURE_LABEL, PATHS, RESOURCE_TYPES } = __req("lists.js");
 const { RestAdapter } = __req("api.js");
 
 const INTRO = "Students, parents, guardians, teachers and anyone else can suggest a new idea or improve something already on RoboValley. Submissions are reviewed before anything is made public.";
@@ -739,6 +797,9 @@ function renderForm(body, ctx) {
   const sectorOptions = [[NOT_SURE, NOT_SURE_LABEL], ...sectors.map((s) => [s.slug, s.name])];
   const path0 = query.get("resource_path") || (sample ? SAMPLE.resourcePath : "");
   const url0 = query.get("resource_url") || (sample ? SAMPLE.resourceUrl : "");
+  const minor = me.minor === true;
+  const paths = minor ? PATHS.filter((x) => x !== EARN) : PATHS; // the Earn (18+) path is for learners 18 and above
+  const pathPick = sample && paths.includes(SAMPLE.learningPath) ? [SAMPLE.learningPath] : [];
   body.innerHTML = `<form class="rv-form" novalidate>
   <fieldset class="rv-fs"><legend class="rv-lbl">What would you like to do?</legend>${pills("rv-kind", KINDS, [NEW_IDEA], { type: "radio" })}</fieldset>
   <label class="rv-toggle" data-refers-row><input type="checkbox" name="rv-refers"> This idea refers to something already on the RoboValley website</label>
@@ -780,8 +841,8 @@ function renderForm(body, ctx) {
     <button type="button" class="rv-btn rv-btn-secondary" data-add-ref>+ Add another link</button>
   </fieldset>
   <fieldset class="rv-fs"><legend class="rv-lbl">Suitable for <span class="rv-opt">(optional, pick any)</span></legend>${pills("rv-lvl", LEVELS, sample ? SAMPLE.suitableFor : [])}</fieldset>
-  <fieldset class="rv-fs"><legend class="rv-lbl">Suggested path <span class="rv-opt">(optional)</span></legend>${pills("rv-path", PATHS, sample ? [SAMPLE.learningPath] : [], { type: "radio" })}
-    <p class="rv-muted rv-tight">Earn path is for learners 18 and above. Not sure? Leave it: the moderator will set it.</p></fieldset>
+  <fieldset class="rv-fs"><legend class="rv-lbl">Suggested path <span class="rv-opt">(optional)</span></legend>${pills("rv-path", paths, pathPick, { type: "radio" })}
+    <p class="rv-muted rv-tight">${minor ? "Not sure? Leave it: the moderator will set it." : "Earn path is for learners 18 and above. Not sure? Leave it: the moderator will set it."}</p></fieldset>
   <div class="rv-trap" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div>
   <div class="rv-actions"><button type="submit" class="rv-btn rv-btn-primary">Submit Idea</button></div>
   <div class="rv-msg" data-msg></div>
@@ -837,7 +898,7 @@ async function submit(form, ctx, h) {
     website: $(form, 'input[name="website"]').value,
   };
   const file = $(form, "#rv-f-file").files && $(form, "#rv-f-file").files[0] ? $(form, "#rv-f-file").files[0] : null;
-  const { errors } = R.validateSubmission(data, { sectors: ctx.sectors, name: ctx.me.name });
+  const { errors } = R.validateSubmission(data, { sectors: ctx.sectors, name: ctx.me.name, minor: ctx.me.minor === true });
   const fp = await fileProblem(file);
   if (fp) errors.push(fp);
   if (errors.length) {

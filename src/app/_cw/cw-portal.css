@@ -72,11 +72,15 @@
 .rv .adm .rv-s-draft { background: #f1f5f9; color: #475569; } .rv .adm .rv-s-pending { background: #ffedd5; color: #9a3412; }
 .rv .adm .rv-s-changes { background: #fce7f3; color: #9d174d; } .rv .adm .rv-s-publishing { background: #dbeafe; color: #1e40af; }
 .rv .adm .rv-s-published { background: #dcfce7; color: #166534; } .rv .adm .rv-s-failed, .rv .adm .rv-s-rejected { background: #fee2e2; color: #991b1b; }
+.rv .adm .rv-s-unpublished { background: #ede9fe; color: #5b21b6; }
 /* the reason dialog and the Publish Preview modal */
 .rv .adm .rv-dlg-bg, .rv .adm .cw-modal-bg { position: fixed; inset: 0; background: rgba(15, 23, 42, .55); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
 .rv .adm .rv-dlg { background: #fff; border-radius: 16px; width: min(520px, 100%); padding: 18px; box-shadow: var(--shadow); }
 .rv .adm .rv-dlg-title { margin: 0 0 10px; font-size: 1.05rem; }
 .rv .adm .rv-dlg-label { display: block; font-size: .85rem; font-weight: 700; }
+.rv .adm .rv-dlg-text { margin: 0 0 14px; }
+.rv .adm .cw-hint { margin: 4px 0 10px; font-size: .82rem; }
+.rv .adm .cw-decision { display: block; margin-top: 2px; }
 .rv .adm .rv-dlg-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .rv .adm .cw-modal { background: #fff; border-radius: 16px; width: min(860px, 100%); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
 .rv .adm .cw-modal-h { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 10px; }

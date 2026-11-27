@@ -1,4 +1,4 @@
-RoboValley Contribution - WordPress plugin, version 1.4.0
+RoboValley Contribution - WordPress plugin, version 1.5.0
 
 WHAT IT IS
 The website part of the Contribution Publishing Workflow: the "Share Your Idea" form and the public "Community Ideas" page.
@@ -10,7 +10,7 @@ The current Contribute form (plugin rv-contribution-v2) is not changed by this p
 below is turned on.
 
 NEEDS
-  * The RoboValley app with database migration 027 applied (before it, the pages say they are not available yet).
+  * The RoboValley app with database migrations 027 and 028 applied (before 027 the pages say they are not available yet).
   * The app address the current Contribute form already uses: RV_CONTRIBUTION_APP_URL in wp-config.php (or the
     robovalley_api_base option of the RoboValley Landing plugin). Nothing new to set.
   * WordPress 6.4 or newer, PHP 7.4 or newer.
@@ -43,6 +43,9 @@ UNINSTALL
   wp-config.php are this plugin's own options removed. Pages are never deleted automatically.
 
 CHANGELOG
+  1.5.0  The Earn (18+) path is not offered to contributors under 18 (the app refuses it too). The shared rules and screens now
+         know the owner's decisions on the spec's open points: Unpublish, edit after publishing, Reopen after Rejected (those
+         screens are in the app's admin portal; this plugin only shows the form and the public page).
   1.4.0  Hardening: accessibility pass (labelled fields, announced errors, keyboard pills), spam protection on the app side (the same
          idea twice within minutes, a daily cap per member, rate limits), notifications sent by the app, this README.
   1.3.1  The switch-over setting (OFF by default).

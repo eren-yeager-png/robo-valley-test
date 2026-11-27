@@ -3,6 +3,7 @@
 //   submitted -> the Moderators (if there are none yet: the Admins)
 //   sent      -> the Admins (a publishing request or a resubmission)
 //   changes   -> the Moderator of the idea (if none: the Moderators)
+//   reopened  -> the Moderator of the idea (if none: the Moderators): an Admin reopened a rejected idea
 //   published / rejected -> the contributor, when the account still exists
 // Emails hold the RV number and a link to the right page; the contributor's own email adds the title of their idea.
 import { after } from "next/server";
@@ -12,7 +13,7 @@ import { moderatorEmails } from "../moderators";
 import { appBaseUrl } from "../passwordReset";
 import { esc } from "../../../public/cw/js/utils.js";
 
-export type NotifyEvent = "submitted" | "sent" | "changes" | "published" | "rejected";
+export type NotifyEvent = "submitted" | "sent" | "changes" | "reopened" | "published" | "rejected";
 type Q = { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }> };
 type Send = (to: string, subject: string, text: string, html: string) => Promise<unknown>;
 type Mail = { to: string; subject: string; text: string; html: string };
@@ -44,10 +45,13 @@ export async function buildNotices(event: NotifyEvent, id: number, db: Q = defau
     }
     case "sent":
       return mail(await admins(db), `Publishing request for ${code}`, `A Moderator sent a publishing request for ${code}. It waits for you in the Admin Approval Dashboard.`, "/admin/approvals");
-    case "changes": {
+    case "changes":
+    case "reopened": {
       let to = c.moderator_id ? await emails(db, "SELECT email FROM users WHERE id = $1", [c.moderator_id]) : [];
       if (!to.length) to = await moderators(db);
-      return mail(to, `Changes requested for ${code}`, `An Admin asked for changes to ${code}. It is back in the Moderator Workspace with the Admin's feedback.`, "/admin/workspace");
+      return event === "changes"
+        ? mail(to, `Changes requested for ${code}`, `An Admin asked for changes to ${code}. It is back in the Moderator Workspace with the Admin's feedback.`, "/admin/workspace")
+        : mail(to, `${code} reopened for review`, `An Admin reopened ${code}. It is back in the Moderator Workspace (Under Moderator Review) with the Admin's reason.`, "/admin/workspace");
     }
     case "published":
     case "rejected": {

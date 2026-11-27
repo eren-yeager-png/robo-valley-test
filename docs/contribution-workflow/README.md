@@ -13,7 +13,7 @@ Behaviour follows the implementation prompt (v2) and the demo `RV-Web-Demo-Contr
 | Moderator Workspace | admin portal `/admin/workspace` (administrators and moderators) | `public/cw/js/moderator.js` |
 | Admin Approval Dashboard + Publish Preview | admin portal `/admin/approvals` (administrators only) | `public/cw/js/admin.js`, `preview.js` |
 | My contributions (read-only) | Member Portal `/dashboard/contributions` | React page |
-| Data and rules | the app's database (migration 027, tables `cw_*`) and API routes under `/api/cw/` | `src/lib/cw/*` |
+| Data and rules | the app's database (migrations 027 and 028, tables `cw_*`) and API routes under `/api/cw/` | `src/lib/cw/*` |
 
 Decisions: one source of truth (the app's database, no WordPress tables or roles); admin = `users.role = 'admin'`, moderator = `users.is_moderator`, contributor = a signed-in member; no Bootstrap (one `.rv-`-scoped stylesheet for WordPress, `admin.css` plus `src/app/_cw/cw-portal.css` in the portal); name and type come from the profile (our 12 stakeholder roles); one optional sector from Sector Forms plus "Not sure", with the robot type list following it; attachments up to 4 MB, JPEG/PNG/PDF, type read from the file's bytes; older contributions stay in the existing Moderation page; Request Changes goes back to the Moderator (contributors never edit after submitting).
 
@@ -39,13 +39,15 @@ node scripts/build-contribution-workflow.mjs --check  # fails if any of them is 
 
 `tests/cw-build.test.ts` fails when a generated file is out of date.
 
-## Data (migration 027, additive, safe to run twice)
+## Data (migrations 027 and 028, additive, safe to run twice)
 
 `cw_contributions` (ids from **1025**, shown as `RV-1025`; `original`, `resource`, `reference_links`, `kind` and the contributor are written once and a trigger refuses any change), `cw_contribution_versions`, `cw_contribution_feedback`, `cw_contribution_history` (all append-only), `cw_contribution_attachments` (private), `cw_public_contributions` (one row per published idea, upserted by id; the only table the public page reads). Rollback: `db/rollback/027_down.sql` (refuses while ideas exist).
 
+**028** (the decided open points) widens three of 027's checks under the same names: status `unpublished`, the published rule for Unpublished ideas, and the feedback types `decline` and `reopen`. 027 itself is never edited. Before 028 the app keeps working: a Moderator's decline is stored as a rejection and Unpublish and Reopen answer "not set up yet". Rollback: `db/rollback/028_down.sql` (refuses while an idea is Unpublished or a decline or reopen reason exists).
+
 ## Statuses
 
-Submitted → Under Moderator Review → Moderator Draft → Pending Admin Approval / Resubmitted for Approval → Publication In Progress → Published, plus Changes Requested, Publication Failed and Rejected, exactly as in the spec's table (`rules.js: nextStatus`). Every transition not listed is refused by the server. Every change locks the row and checks `row_version` (409 when someone else changed it first) and appends a history line with the real signed-in person's name.
+Submitted → Under Moderator Review → Moderator Draft → Pending Admin Approval / Resubmitted for Approval → Publication In Progress → Published, plus Changes Requested, Publication Failed, Rejected and **Unpublished**, as in the spec's table with the decisions below (`rules.js: nextStatus`, the one transition function). Every transition not listed is refused by the server. Every change locks the row and checks `row_version` (409 when someone else changed it first) and appends a history line with the real signed-in person's name.
 
 ## API (`src/app/api/cw/`)
 
@@ -56,13 +58,13 @@ Submitted → Under Moderator Review → Moderator Draft → Pending Admin Appro
 | `POST contributions` | signed-in member (not a reviewer) | submit (multipart: `data` + optional `attachment`) |
 | `GET mine` | signed-in member | own ideas, read-only |
 | `GET review?view=workspace\|approvals&filter=` | reviewers / administrators | lists, counts, older-form count |
-| `GET review/[id]`, `POST review/[id]` | reviewers; Admin actions administrators only | detail; actions `open`, `save_draft`, `reset`, `send_request`, `decline`, `preview`, `admin_edit`, `request_changes`, `reject`, `publish` |
+| `GET review/[id]`, `POST review/[id]` | reviewers; Admin actions administrators only | detail; actions `open`, `save_draft`, `reset`, `send_request`, `decline`, `preview`, `admin_edit`, `request_changes`, `reject`, `publish`, `unpublish`, `reopen` |
 | `GET review/[id]/attachment` | reviewers | the private attachment |
 | `GET public` | public (rate limited) | published ideas only |
 
 ## Notifications
 
-Sent through Resend after the change is saved (never blocking it): a new idea → the Moderators (the Admins if there is none); a publishing request or resubmission → the Admins; changes requested → the idea's Moderator; published or rejected → the contributor. Links use `APP_URL`.
+Sent through Resend after the change is saved (never blocking it): a new idea → the Moderators (the Admins if there is none); a publishing request or resubmission → the Admins; changes requested, or an idea reopened → the idea's Moderator; published or rejected → the contributor. Unpublish sends no email. Links use `APP_URL`.
 
 ## Switch-over
 
@@ -70,12 +72,15 @@ WordPress: **Settings > Contribution workflow**, one checkbox, OFF by default. O
 
 ## Tests
 
-`tests/cw-*.test.ts`: rules (unit), migration 027, submit, the Moderator and Admin APIs, publishing (including failure and retry), notifications and spam protection, each screen in a DOM, accessibility, the standalone demo, the generated files and the plugin.
+`tests/cw-*.test.ts`: rules (unit), migrations 027 and 028, submit, the Moderator and Admin APIs, publishing (including failure and retry), notifications and spam protection, each screen in a DOM, accessibility, the standalone demo, the generated files and the plugin.
 
-## Open decisions (not built; marked TODO)
+## The spec's open points, as decided (27-11-2026)
 
-- Unpublish or edit after publishing (not in the demo).
-- Appeal or resubmission after Rejected.
-- Age enforcement for the Earn (18+) path.
-- Whether a Moderator's decline should be visible to or reversible by an Admin (today: straight to Rejected, as in the demo).
-- Whether Admins may edit fields beyond Title and Description (today: no, as in the demo).
+| Point (spec section 15) | Decision | Where |
+|---|---|---|
+| Unpublish | Admin only, on Published items. The public card is removed and the status becomes **Unpublished** (own badge, listed under the Admin's "Published" filter), logged in history. Publishing again is the normal flow (preview, then publish) and updates the same card: never a duplicate. | `nextStatus("unpublish")`, `store.ts` (one transaction), `admin.js` |
+| Edit after publishing | "Edit Before Publishing" also works on Published and Unpublished items. It makes a new version that needs a new preview; the live card changes only when the Admin publishes again. A failed update keeps the earlier card live and the idea Published (with the error shown and Retry). | `nextStatus("admin_edit" / "publish" / "publish_fail")`, `publish.ts` |
+| After Rejected | No appeal by contributors (they can always share a new idea). The Admin may **Reopen** a Rejected item (reason required): back to Under Moderator Review, with a history line, and the Moderator is emailed. | `nextStatus("reopen")`, `store.ts`, `admin.js`, `moderator.js` |
+| A Moderator's decline | Admins see it in the "Rejected" filter (who declined, the reason and when; an Admin's rejection is shown as such) and can reverse it with Reopen. | feedback type `decline`, `listContributions`, `admin.js` |
+| Earn (18+) | Not offered to a minor in the form (`users.age_category`) and refused by the server if sent anyway; a Moderator cannot set it on a minor's idea and an Admin cannot preview or publish such a version, each with a clear message. | `rules.js: earnBlocked`, `form.js`, `moderator.js`, `publish.ts` |
+| Admin edits | Title and Description only, as in the demo. | `store.ts: admin_edit` |

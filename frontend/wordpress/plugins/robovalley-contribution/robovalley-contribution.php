@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoboValley Contribution
  * Description: The Contribution Publishing Workflow on the website: the "Share Your Idea" form ([rv_contribution_form]) and the public "Community Ideas" page ([rv_community_ideas]). A thin shell: the screens are plain HTML, CSS and JavaScript, and all data lives in the RoboValley app (no WordPress tables, no WordPress roles). The Moderator Workspace and the Admin Approval Dashboard are in the app's admin portal.
- * Version: 1.4.0
+ * Version: 1.5.0
  * Requires at least: 6.4
  * Requires PHP: 7.4
  * Author: RoboValley
@@ -26,7 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const RV_CONTRIB_VERSION = '1.4.0';
+const RV_CONTRIB_VERSION = '1.5.0';
 const RV_CONTRIB_OPTION  = 'rv_contrib_setup_version';
 const RV_CONTRIB_SWITCH  = 'rv_contrib_switch_over';
 
