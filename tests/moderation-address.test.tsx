@@ -36,7 +36,7 @@ describe("the new address", () => {
     expect(ADMIN_NAV.find((n) => n.label === "Moderation")?.href).toBe("/admin/moderation");
     expect(ADMIN_NAV.some((n) => n.href.startsWith("/moderation"))).toBe(false);
     expect(titleFor("/admin/moderation/sector/agriculture-dairy")).toBe("Moderation");
-    expect(MODERATOR_NAV.map((n) => n.href)).toEqual(["/admin/moderation", "/admin/workspace"]);
+    expect(MODERATOR_NAV.map((n) => n.href)).toEqual(["/admin/moderation", "/admin/workspace", "/my-contributions"]);
   });
   it("is outside src/app/admin (administrators only), and every page still runs the unchanged reviewer guard", () => {
     const dir = "src/app/(reviewer)/admin/moderation";

@@ -48,7 +48,7 @@ describe("admin layout and navigation", () => {
   it("lists every admin section as a working link; the header account menu slot (the avatar) is the only account control: no green Admin button, no email, no sign-out button", async () => {
     signIn(admin.id);
     const h = await html(AdminLayout({ children: <p>PAGE BODY</p> }));
-    expect(ADMIN_NAV).toHaveLength(14); // Sector Counts, then Sector Forms (P2), then the Moderator Workspace and the Admin Approval Dashboard (contribution workflow) were added
+    expect(ADMIN_NAV).toHaveLength(15); // Sector Counts, then Sector Forms (P2), then the Moderator Workspace and the Admin Approval Dashboard (contribution workflow), then My Contributions (every portal) were added
     for (const n of ADMIN_NAV) { expect(h).toContain(`href="${n.href}"`); expect(h).toContain(n.label.replace("&", "&amp;")); }
     for (const label of ["Overview", "Manage Categories", "Manage Datasets", "Upload Files", "Upload History", "Login Activity", "Reports &amp; Analytics", "User Management", "Settings"]) expect(h).toContain(label);
     expect(h).toContain("RoboValley");

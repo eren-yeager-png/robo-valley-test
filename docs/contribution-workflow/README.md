@@ -12,7 +12,7 @@ Behaviour follows the implementation prompt (v2) and the demo `RV-Web-Demo-Contr
 | Community Ideas (public) | WordPress, same plugin, shortcode `[rv_community_ideas]`, page `/community-ideas/` | `public/cw/js/site.js` |
 | Moderator Workspace | admin portal `/admin/workspace` (administrators and moderators) | `public/cw/js/moderator.js` |
 | Admin Approval Dashboard + Publish Preview | admin portal `/admin/approvals` (administrators only) | `public/cw/js/admin.js`, `preview.js` |
-| My contributions (read-only) | Member Portal `/dashboard/contributions` | React page |
+| My Contributions (read-only, every portal) | `/my-contributions` (`/dashboard/contributions` redirects there), in the navigation of every portal: `src/lib/memberNav.ts` (Member portals) and `src/app/admin/_components/nav.ts` (admin and moderator) | `public/cw/js/mine.js`, `src/lib/cw/mine.ts` |
 | Data and rules | the app's database (migrations 027 and 028, tables `cw_*`) and API routes under `/api/cw/` | `src/lib/cw/*` |
 
 Decisions: one source of truth (the app's database, no WordPress tables or roles); admin = `users.role = 'admin'`, moderator = `users.is_moderator`, contributor = a signed-in member; no Bootstrap (one `.rv-`-scoped stylesheet for WordPress, `admin.css` plus `src/app/_cw/cw-portal.css` in the portal); name and type come from the profile (our 12 stakeholder roles); one optional sector from Sector Forms plus "Not sure", with the robot type list following it; attachments up to 4 MB, JPEG/PNG/PDF, type read from the file's bytes; older contributions stay in the existing Moderation page; Request Changes goes back to the Moderator (contributors never edit after submitting).

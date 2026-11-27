@@ -165,19 +165,20 @@ describe("reading", () => {
     expect(agri.robots).toEqual([{ slug: "weeding-robots", name: "Weeding robots" }]);
     expect(JSON.stringify(r.b)).not.toMatch(/old-robot|"id"/);
   });
-  it("mine: only my own ideas, newest first, with the status a contributor sees", async () => {
+  it("mine: only my own ideas, newest first, with the status a contributor sees (My Contributions)", async () => {
     const other = await member(); await send(good({ title: "Someone else's idea" }));
     await member(); await send(good({ title: "My first idea" })); await send(good({ title: "My second idea" }));
     await q("UPDATE cw_contributions SET status = 'pending' WHERE original->>'title' = 'My first idea'");
     const r = await get(mineRoute.GET, "/api/cw/mine");
-    expect(r.b.items.map((x: any) => [x.title, x.statusLabel])).toEqual([["My second idea", "Submitted"], ["My first idea", "In review"]]);
+    expect(r.b.items.map((x: any) => [x.title, x.statusLabel])).toEqual([["My second idea", "Pending"], ["My first idea", "Approved"]]);
     expect(other).toBeGreaterThan(0);
   });
-  it("before migration 027 the routes answer 'not set up yet' (503) instead of failing", async () => {
+  it("before migration 027 My Contributions still answers (with the current form's items only); the other routes say 'not set up yet'", async () => {
     await member();
     testDb().failOn((sql) => (/cw_contributions/.test(sql) ? Object.assign(new Error("missing"), { code: "42P01" }) : undefined));
     const r = await get(mineRoute.GET, "/api/cw/mine");
-    expect(r.status).toBe(503);
-    expect(r.b.error).toBe("NOT_SET_UP");
+    expect([r.status, r.b.items]).toEqual([200, []]);
+    const s = await send(good({ title: "Before the workflow tables exist" }));
+    expect([s.status, s.b.error]).toEqual([503, "NOT_SET_UP"]);
   });
 });

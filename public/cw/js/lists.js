@@ -37,6 +37,13 @@ export const STATUS_CLASS = {
   resubmitted: "rv-s-pending", publishing: "rv-s-publishing", published: "rv-s-published", failed: "rv-s-failed", rejected: "rv-s-rejected",
   unpublished: "rv-s-unpublished",
 };
+// "My Contributions" (every portal): one status set for the workflow's ideas and for what was sent with the current form.
+export const MINE_STATUS = {
+  workflow: { submitted: "pending", under_review: "pending", draft: "pending", changes_requested: "pending", pending: "approved", resubmitted: "approved",
+    publishing: "approved", failed: "approved", published: "published", unpublished: "unpublished", rejected: "rejected" },
+  form: { draft: "draft", pending_review: "pending", changes_requested: "pending", published: "published", unpublished: "unpublished", rejected: "rejected" },
+};
+export const MINE_LABEL = { draft: "Draft", pending: "Pending", approved: "Approved", published: "Published", unpublished: "Unpublished", rejected: "Rejected" };
 // What a contributor sees in "My contributions" (the internal steps are not theirs to follow).
 export const CONTRIBUTOR_STATUS_LABEL = {
   submitted: "Submitted", under_review: "In review", draft: "In review", pending: "In review", changes_requested: "In review",

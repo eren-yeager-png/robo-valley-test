@@ -61,7 +61,7 @@ export async function buildNotices(event: NotifyEvent, id: number, db: Q = defau
       const line = event === "published"
         ? `Good news: your idea "${title}" (${code}) has been published on RoboValley's Community Ideas page.`
         : `Your idea "${title}" (${code}) was reviewed and will not be published this time. Thank you for sharing it.`;
-      return mail(to, event === "published" ? `Your idea ${code} is published` : `About your idea ${code}`, line, "/dashboard/contributions");
+      return mail(to, event === "published" ? `Your idea ${code} is published` : `About your idea ${code}`, line, "/my-contributions");
     }
     default:
       return [];

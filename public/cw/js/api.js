@@ -4,7 +4,7 @@
 // RestAdapter = production (the app's REST API, credentials included). MockAdapter = in memory, used only by the standalone demo file;
 // it applies the SAME rules (rules.js) as the server, so the demo behaves like production.
 import * as R from "./rules.js";
-import { ADM_FILTERS, CONTRIBUTOR_STATUS_LABEL, MESSAGES, MOD_FILTERS, STATUS, STATUS_LABEL } from "./lists.js";
+import { ADM_FILTERS, MESSAGES, MOD_FILTERS, STATUS, STATUS_LABEL } from "./lists.js";
 
 export class ApiError extends Error {
   constructor(status, error, message) { super(message || MESSAGES.failed); this.status = status; this.error = error || "ERROR"; }
@@ -54,7 +54,7 @@ export class MockAdapter {
    * sectors: [{ slug, name, robots: [{ slug, name }] }]; me: { name, type, minor };
    * actors: { moderator: "Name", admin: "Name" }; earlier: number of older (old form) contributions still open.
    */
-  constructor({ sectors = [], me = { name: "Ananya R.", type: "Student", minor: false }, actors = { moderator: "Moderator User", admin: "Admin User" }, earlier = 0, publishDelay = 900 } = {}) {
+  constructor({ sectors = [], me = { name: "Ananya R.", type: "Student", minor: false }, actors = { moderator: "Moderator User", admin: "Admin User" }, earlier = 0, publishDelay = 900, formItems = [] } = {}) {
     this.sectors = clone(sectors);
     this.meInfo = clone(me);
     this.actors = actors;
@@ -64,6 +64,7 @@ export class MockAdapter {
     this.public = new Map(); // keyed by contribution id: a retry never makes a second card
     this.seq = 1025;
     this.failNext = false; // demo only: the next publish attempt fails (to try error handling and safe retry)
+    this.formItems = clone(formItems); // demo only: what each person sent with the current form ("My Contributions")
   }
   now() { return new Date().toISOString(); }
   find(id) { const it = this.items.find((x) => x.id === Number(id)); if (!it) throw new ApiError(404, "NOT_FOUND", "We could not find that contribution."); return it; }
@@ -95,8 +96,32 @@ export class MockAdapter {
     this.items.unshift(it);
     return { id, code: it.code, kind: value.kind };
   }
-  async mine() {
-    return { items: this.items.filter((x) => x.mine).map((x) => ({ id: x.id, code: x.code, kind: x.kind, title: x.original.title, status: x.status, statusLabel: CONTRIBUTOR_STATUS_LABEL[x.status], submittedAt: x.submittedAt, publishedAt: x.publishedAt })) };
+  /** "My Contributions" of one person (the server's list, made from the same rules): their ideas and their current-form items. */
+  async mine(who = this.meInfo) {
+    const name = who && who.name;
+    const wf = this.items.filter((x) => (name ? x.contributor.name === name : x.mine)).map((x) => {
+      const s = R.mineStatus("workflow", x.status), rej = x.feedback.filter((f) => f.type === "decline" || f.type === "reject").slice(-1)[0];
+      const o = x.original;
+      return { code: x.code, source: "workflow", title: o.title, description: o.description, sector: o.sector, sectorName: R.sectorLabel(o.sector, this.sectors),
+        field: o.robotType && o.robotType !== "not-sure" ? R.robotLabel(o.sector, o.robotType, this.sectors) : "", type: x.kind, submittedAt: x.submittedAt,
+        publishedAt: x.status === STATUS.PUBLISHED ? x.publishedAt : null, status: s.key, statusLabel: s.label, feedback: x.status === STATUS.REJECTED && rej ? rej.text : "", editUrl: "" };
+    });
+    const TYPES = { problem: "Describe a problem", improve: "Share an idea", resource: "Share a video or resource" };
+    const fm = this.formItems.filter((x) => x.user === name).map((x) => {
+      const s = R.mineStatus("form", x.status), at = new Date(Date.now() + (Number(x.at) || 0) * 864e5).toISOString();
+      return { code: `C-${x.id}`, source: "form", title: x.title, description: x.body, sector: x.sector, sectorName: R.sectorLabel(x.sector, this.sectors),
+        field: x.robot ? R.robotLabel(x.sector, x.robot, this.sectors) : "", type: TYPES[x.type] || "Contribution", submittedAt: at, publishedAt: x.status === "published" ? at : null,
+        status: s.key, statusLabel: s.label, feedback: x.reply || "", editUrl: s.key === "pending" || s.key === "draft" ? "#your-contributions" : "" };
+    });
+    return { items: [...wf, ...fm].sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt))), contributeUrl: "#form" };
+  }
+  /** The demo only: an adapter that acts as one member (the form, their own list). */
+  asMember(who) {
+    const self = this;
+    return {
+      me: async () => ({ signedIn: true, name: who.name, type: who.type, minor: who.minor === true, reviewer: false }),
+      formConfig: () => self.formConfig(), submit: (data, file) => self.submit(data, file, who), mine: () => self.mine(who), loginUrl: () => "#",
+    };
   }
 
   // ---- reviewers: a view of the mock acting as one person

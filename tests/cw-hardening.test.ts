@@ -74,7 +74,7 @@ describe("notifications", () => {
     expect(sub.text + sub.html).not.toMatch(/Secret-ish|Meera|Kumar/);
     const pub = (await buildNotices("published", id, testDb().pool, "https://app.example"))[0];
     expect(pub.text).toContain('your idea "Secret-ish idea title"');
-    expect(pub.text).toContain("https://app.example/dashboard/contributions");
+    expect(pub.text).toContain("https://app.example/my-contributions");
   });
   it("with no moderator yet, a new idea goes to the administrators", async () => {
     await q("UPDATE users SET is_moderator = false");

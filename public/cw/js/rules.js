@@ -1,8 +1,8 @@
 // Contribution workflow: the rules. ONE copy, imported by the app's server (src/lib/cw) AND by the browser (the demo's mock data
 // adapter), so the status machine, the validation messages and the history wording can never differ between them.
 import {
-  ATTACHMENT_TYPES, CATEGORIES, EARN, FEATURES, FIELDS, FIELD_LABELS, KINDS, LEVELS, LIMITS, MESSAGES, NEW_IDEA, NOT_SURE, NOT_SURE_LABEL,
-  PATHS, PUBLIC_NAME_DISPLAY, RESOURCE_TYPES, STATUS,
+  ATTACHMENT_TYPES, CATEGORIES, EARN, FEATURES, FIELDS, FIELD_LABELS, KINDS, LEVELS, LIMITS, MESSAGES, MINE_LABEL, MINE_STATUS, NEW_IDEA, NOT_SURE,
+  NOT_SURE_LABEL, PATHS, PUBLIC_NAME_DISPLAY, RESOURCE_TYPES, STATUS,
 } from "./lists.js";
 
 const S = STATUS;
@@ -232,3 +232,8 @@ export function sniffType(bytes) {
 }
 export const attachmentAllowed = (mime) => ATTACHMENT_TYPES.includes(mime);
 export const codeOf = (id) => `RV-${id}`;
+/** "My Contributions": the status a contributor sees, { key, label }; source "workflow" (new ideas) or "form" (the current form). */
+export function mineStatus(source, status) {
+  const key = (MINE_STATUS[source] || {})[status] || "pending";
+  return { key, label: MINE_LABEL[key] };
+}
