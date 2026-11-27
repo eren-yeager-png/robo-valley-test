@@ -49,16 +49,21 @@ function renderForm(body, ctx) {
   const path0 = query.get("resource_path") || (sample ? SAMPLE.resourcePath : "");
   const url0 = query.get("resource_url") || (sample ? SAMPLE.resourceUrl : "");
   const minor = me.minor === true;
+  // pressed on a sector page: the field (a robot type of that sector, or another section of the page) is what it refers to
+  const field = R.slug(query.get("field") || "");
+  const presetRobot = field && ((sectors.find((s) => s.slug === presetSector) || {}).robots || []).some((r) => r.slug === field) ? field : "";
+  const presetType = field ? (presetRobot ? "Robot type" : "Button or section on a page") : "Robot type";
+  const presetKind = KINDS.includes(query.get("kind")) ? query.get("kind") : NEW_IDEA; // "Suggest a field" opens a Suggestion
   const paths = minor ? PATHS.filter((x) => x !== EARN) : PATHS; // the Earn (18+) path is for learners 18 and above
   const pathPick = sample && paths.includes(SAMPLE.learningPath) ? [SAMPLE.learningPath] : [];
   body.innerHTML = `<form class="rv-form" novalidate>
-  <fieldset class="rv-fs"><legend class="rv-lbl">What would you like to do?</legend>${pills("rv-kind", KINDS, [NEW_IDEA], { type: "radio" })}</fieldset>
-  <label class="rv-toggle" data-refers-row><input type="checkbox" name="rv-refers"> This idea refers to something already on the RoboValley website</label>
+  <fieldset class="rv-fs"><legend class="rv-lbl">What would you like to do?</legend>${pills("rv-kind", KINDS, [presetKind], { type: "radio" })}</fieldset>
+  <label class="rv-toggle" data-refers-row><input type="checkbox" name="rv-refers"${field ? " checked" : ""}> This idea refers to something already on the RoboValley website</label>
   <div class="rv-refbox" data-refbox>
     <div class="rv-ttl">RoboValley resource you are referring to</div>
     <div class="rv-grid2">
       <div><label for="rv-f-feature">Feature</label><select id="rv-f-feature">${options(FEATURES, "Robots by Sector")}</select></div>
-      <div><label for="rv-f-rtype">Resource type</label><select id="rv-f-rtype">${options(Object.keys(RESOURCE_TYPES), "Robot type")}</select></div>
+      <div><label for="rv-f-rtype">Resource type</label><select id="rv-f-rtype">${options(Object.keys(RESOURCE_TYPES), presetType)}</select></div>
     </div>
     <label for="rv-f-rpath">Resource path <span class="rv-opt">(filled from where you started; change it if needed)</span></label>
     <input id="rv-f-rpath" maxlength="${LIMITS.path}" value="${esc(path0)}">
@@ -106,9 +111,11 @@ function renderForm(body, ctx) {
     $(form, "[data-refbox]").hidden = !R.showsResource(kind(), refers());
   };
   const updateId = () => { $(form, "#rv-f-rid").value = R.resourceId($(form, "#rv-f-rtype").value, $(form, "#rv-f-rpath").value); };
+  let robot0 = presetRobot; // only for the first fill: changing the sector starts from "Not sure" again
   const updateRobots = () => {
     const s = sectors.find((x) => x.slug === $(form, "#rv-f-sector").value);
-    $(form, "#rv-f-robot").innerHTML = options([[NOT_SURE, NOT_SURE_LABEL], ...((s && s.robots) || []).map((r) => [r.slug, r.name])], NOT_SURE);
+    $(form, "#rv-f-robot").innerHTML = options([[NOT_SURE, NOT_SURE_LABEL], ...((s && s.robots) || []).map((r) => [r.slug, r.name])], robot0 || NOT_SURE);
+    robot0 = "";
   };
   const addRef = () => {
     const row = document.createElement("div");
@@ -127,6 +134,14 @@ function renderForm(body, ctx) {
   $(form, "[data-add-ref]").addEventListener("click", addRef);
   addRef(); updateKind(); updateId(); updateRobots();
   form.addEventListener("submit", (e) => { e.preventDefault(); submit(form, ctx, { kind, refers, addRef, updateKind, updateId, updateRobots }); });
+}
+
+/** The page the visitor came from (return_to): only an http(s) address or a path of this site, never anything else. */
+export function safeBack(raw) {
+  const v = String(raw || "").trim();
+  if (!v || v.length > 2048) return "";
+  if (/^\/(?!\/)/.test(v)) return v; // a path on this site
+  try { const u = new URL(v); return /^https?:$/.test(u.protocol) ? u.toString() : ""; } catch { return ""; }
 }
 
 async function fileProblem(file) {
@@ -150,6 +165,7 @@ async function submit(form, ctx, h) {
   };
   const file = $(form, "#rv-f-file").files && $(form, "#rv-f-file").files[0] ? $(form, "#rv-f-file").files[0] : null;
   const { errors } = R.validateSubmission(data, { sectors: ctx.sectors, name: ctx.me.name, minor: ctx.me.minor === true });
+  const back = safeBack(ctx.query.get("return_to"));
   const fp = await fileProblem(file);
   if (fp) errors.push(fp);
   if (errors.length) {
@@ -163,7 +179,8 @@ async function submit(form, ctx, h) {
     const r = await ctx.adapter.submit(data, file);
     msg.innerHTML = notice("ok", r.code
       ? `Thank you! Your ${esc(data.kind.toLowerCase())} <b>${esc(r.code)}</b> has been submitted for review. It is <b>not public</b> until an Admin publishes it.`
-      : "Thank you! Your idea has been submitted for review. It is <b>not public</b> until an Admin publishes it.");
+      : "Thank you! Your idea has been submitted for review. It is <b>not public</b> until an Admin publishes it.")
+      + (back ? ` <a class="rv-back" href="${esc(back)}">Back to the page you came from</a>` : "");
     form.reset();
     $(form, "#rv-f-name").value = ctx.me.name; $(form, "#rv-f-type").value = ctx.me.type;
     $(form, "[data-refs]").innerHTML = ""; h.addRef(); h.updateKind(); h.updateId(); h.updateRobots();

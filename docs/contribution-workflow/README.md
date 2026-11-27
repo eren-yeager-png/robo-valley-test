@@ -66,6 +66,15 @@ Submitted → Under Moderator Review → Moderator Draft → Pending Admin Appro
 
 Sent through Resend after the change is saved (never blocking it): a new idea → the Moderators (the Admins if there is none); a publishing request or resubmission → the Admins; changes requested, or an idea reopened → the idea's Moderator; published or rejected → the contributor. Unpublish sends no email. Links use `APP_URL`.
 
+## "Contribute to this sector" everywhere (the injection hooks: do not remove)
+
+| Where | What | The hook |
+|---|---|---|
+| Website, every Robots by Sector page (also new ones) | "+ Contribute to this sector" next to the title, sticky top-right; a sticky button on every field | `frontend/wordpress/plugins/robovalley-contribution/sector-buttons.php` (`the_content` at `PHP_INT_MAX - 10`, late enqueue, footer fallback) loading `assets/js/rv-sector.js` |
+| The shared component (one copy) | the header, the sector page, the cards, the field buttons, persistence (MutationObserver) | `public/cw/js/sector.js`, `public/cw/js/fields.js`, `public/cw/sector.css` |
+
+A field is an element with `data-rv-field="<id>"` (the contract for other plugins), a top-level section of the page content (Elementor sections and containers, Gutenberg groups, `<section>`, `.rv-rt`), or a selector added with the `rv_contrib_field_selectors` filter. The buttons open the live contribute flow with `?sector=` and `?field=` (and `resource_path`, `resource_url`, `return_to`); the form fills in the sector, the robot type when the field is one, the resource, and offers the way back after sending. The only way to hide a field's button: Settings > Contribution workflow > "Fields without the button". `tests/cw-fields.test.ts` and `tests/cw-sector.test.ts` fail when a sector page or a rendered field has no button.
+
 ## Switch-over
 
 WordPress: **Settings > Contribution workflow**, one checkbox, OFF by default. ON makes both pages public, redirects the current form's pages to `/share-your-idea/` (301, keeping `?sector=`, never cached) and points "Contribute to this sector" at the new form. OFF (or deactivating the plugin) restores today's behaviour exactly. The current form (`rv-contribution-v2`) is never modified.

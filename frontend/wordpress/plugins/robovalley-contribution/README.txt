@@ -24,6 +24,23 @@ WHAT IT DOES ON ACTIVATION (and whenever its version changes)
   * Its stylesheet and script load only on pages that hold its shortcodes, with ?ver=<plugin version>.
   * Its pages are never cached (DONOTCACHEPAGE and no-cache headers), so LiteSpeed and other caches always serve them fresh.
 
+"CONTRIBUTE TO THIS SECTOR" ON EVERY SECTOR PAGE AND EVERY FIELD (on as soon as the plugin is active)
+  Every Robots by Sector page (every child page of the "Robots by Sector" page, also ones published later) shows
+  "+ Contribute to this sector" next to its title, sticky in the top-right while the page scrolls (below the title at full width on
+  phones), and every field (section) of the page shows a sticky "Contribute to this sector" button (full width at the bottom of the
+  field on phones). For every visitor and every role. They open the contribute flow that is live (the current form; "Share Your Idea"
+  once switched over) with the sector (and the field) filled in, and the visitor can come back to the page afterwards.
+  WHERE IT LIVES (do not remove): sector-buttons.php (the_content at PHP_INT_MAX - 10, the script and stylesheet, a fallback that
+  prints them if another plugin dequeued them) and assets/js/rv-sector.js + assets/css/rv-sector.css (generated from public/cw in the
+  app's repository). The script puts the buttons back after any change to the page, so new fields get theirs automatically.
+  A FIELD is: an element with data-rv-field="<id>" (the way for other plugins), a top-level section of the page content (Elementor
+  sections and containers, Gutenberg groups, <section>, .rv-rt blocks), or a selector added with the rv_contrib_field_selectors filter.
+  Other pages can be made sector pages with the rv_contrib_sector_slug filter.
+  The ONLY way to hide a field's button: Settings > Contribution workflow > "Fields without the button" (one field id per line,
+  optionally <sector>/<field id>). The header button cannot be turned off. The current form's own header button (when it is on) is
+  replaced by this one on these pages.
+  Long words and addresses wrap inside the cards, and wide tables scroll sideways inside their card.
+
 THE SWITCH-OVER (one setting, OFF by default)
   Settings > Contribution workflow > "Switch over to the new contribution workflow".
   ON:  both pages become public; the current form's pages (contribute-now, contribution, contributor, or the slugs in
@@ -43,7 +60,10 @@ UNINSTALL
   wp-config.php are this plugin's own options removed. Pages are never deleted automatically.
 
 CHANGELOG
-  1.5.0  The Earn (18+) path is not offered to contributors under 18 (the app refuses it too). The shared rules and screens now
+  1.5.0  "+ Contribute to this sector" in the header of every Robots by Sector page and a sticky button on every field (existing ones,
+         ones added later through "Suggest a field" or by other plugins), one injection point (sector-buttons.php), a per-field off
+         switch; long words wrap and wide tables scroll inside the cards; the switch-over redirect keeps the field and the way back.
+         The Earn (18+) path is not offered to contributors under 18 (the app refuses it too). The shared rules and screens now
          know the owner's decisions on the spec's open points: Unpublish, edit after publishing, Reopen after Rejected (those
          screens are in the app's admin portal; this plugin only shows the form and the public page).
   1.4.0  Hardening: accessibility pass (labelled fields, announced errors, keyboard pills), spam protection on the app side (the same

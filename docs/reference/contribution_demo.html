@@ -1406,16 +1406,21 @@ function renderForm(body, ctx) {
   const path0 = query.get("resource_path") || (sample ? SAMPLE.resourcePath : "");
   const url0 = query.get("resource_url") || (sample ? SAMPLE.resourceUrl : "");
   const minor = me.minor === true;
+  // pressed on a sector page: the field (a robot type of that sector, or another section of the page) is what it refers to
+  const field = R.slug(query.get("field") || "");
+  const presetRobot = field && ((sectors.find((s) => s.slug === presetSector) || {}).robots || []).some((r) => r.slug === field) ? field : "";
+  const presetType = field ? (presetRobot ? "Robot type" : "Button or section on a page") : "Robot type";
+  const presetKind = KINDS.includes(query.get("kind")) ? query.get("kind") : NEW_IDEA; // "Suggest a field" opens a Suggestion
   const paths = minor ? PATHS.filter((x) => x !== EARN) : PATHS; // the Earn (18+) path is for learners 18 and above
   const pathPick = sample && paths.includes(SAMPLE.learningPath) ? [SAMPLE.learningPath] : [];
   body.innerHTML = `<form class="rv-form" novalidate>
-  <fieldset class="rv-fs"><legend class="rv-lbl">What would you like to do?</legend>${pills("rv-kind", KINDS, [NEW_IDEA], { type: "radio" })}</fieldset>
-  <label class="rv-toggle" data-refers-row><input type="checkbox" name="rv-refers"> This idea refers to something already on the RoboValley website</label>
+  <fieldset class="rv-fs"><legend class="rv-lbl">What would you like to do?</legend>${pills("rv-kind", KINDS, [presetKind], { type: "radio" })}</fieldset>
+  <label class="rv-toggle" data-refers-row><input type="checkbox" name="rv-refers"${field ? " checked" : ""}> This idea refers to something already on the RoboValley website</label>
   <div class="rv-refbox" data-refbox>
     <div class="rv-ttl">RoboValley resource you are referring to</div>
     <div class="rv-grid2">
       <div><label for="rv-f-feature">Feature</label><select id="rv-f-feature">${options(FEATURES, "Robots by Sector")}</select></div>
-      <div><label for="rv-f-rtype">Resource type</label><select id="rv-f-rtype">${options(Object.keys(RESOURCE_TYPES), "Robot type")}</select></div>
+      <div><label for="rv-f-rtype">Resource type</label><select id="rv-f-rtype">${options(Object.keys(RESOURCE_TYPES), presetType)}</select></div>
     </div>
     <label for="rv-f-rpath">Resource path <span class="rv-opt">(filled from where you started; change it if needed)</span></label>
     <input id="rv-f-rpath" maxlength="${LIMITS.path}" value="${esc(path0)}">
@@ -1463,9 +1468,11 @@ function renderForm(body, ctx) {
     $(form, "[data-refbox]").hidden = !R.showsResource(kind(), refers());
   };
   const updateId = () => { $(form, "#rv-f-rid").value = R.resourceId($(form, "#rv-f-rtype").value, $(form, "#rv-f-rpath").value); };
+  let robot0 = presetRobot; // only for the first fill: changing the sector starts from "Not sure" again
   const updateRobots = () => {
     const s = sectors.find((x) => x.slug === $(form, "#rv-f-sector").value);
-    $(form, "#rv-f-robot").innerHTML = options([[NOT_SURE, NOT_SURE_LABEL], ...((s && s.robots) || []).map((r) => [r.slug, r.name])], NOT_SURE);
+    $(form, "#rv-f-robot").innerHTML = options([[NOT_SURE, NOT_SURE_LABEL], ...((s && s.robots) || []).map((r) => [r.slug, r.name])], robot0 || NOT_SURE);
+    robot0 = "";
   };
   const addRef = () => {
     const row = document.createElement("div");
@@ -1484,6 +1491,14 @@ function renderForm(body, ctx) {
   $(form, "[data-add-ref]").addEventListener("click", addRef);
   addRef(); updateKind(); updateId(); updateRobots();
   form.addEventListener("submit", (e) => { e.preventDefault(); submit(form, ctx, { kind, refers, addRef, updateKind, updateId, updateRobots }); });
+}
+
+/** The page the visitor came from (return_to): only an http(s) address or a path of this site, never anything else. */
+function safeBack(raw) {
+  const v = String(raw || "").trim();
+  if (!v || v.length > 2048) return "";
+  if (/^\/(?!\/)/.test(v)) return v; // a path on this site
+  try { const u = new URL(v); return /^https?:$/.test(u.protocol) ? u.toString() : ""; } catch { return ""; }
 }
 
 async function fileProblem(file) {
@@ -1507,6 +1522,7 @@ async function submit(form, ctx, h) {
   };
   const file = $(form, "#rv-f-file").files && $(form, "#rv-f-file").files[0] ? $(form, "#rv-f-file").files[0] : null;
   const { errors } = R.validateSubmission(data, { sectors: ctx.sectors, name: ctx.me.name, minor: ctx.me.minor === true });
+  const back = safeBack(ctx.query.get("return_to"));
   const fp = await fileProblem(file);
   if (fp) errors.push(fp);
   if (errors.length) {
@@ -1520,7 +1536,8 @@ async function submit(form, ctx, h) {
     const r = await ctx.adapter.submit(data, file);
     msg.innerHTML = notice("ok", r.code
       ? `Thank you! Your ${esc(data.kind.toLowerCase())} <b>${esc(r.code)}</b> has been submitted for review. It is <b>not public</b> until an Admin publishes it.`
-      : "Thank you! Your idea has been submitted for review. It is <b>not public</b> until an Admin publishes it.");
+      : "Thank you! Your idea has been submitted for review. It is <b>not public</b> until an Admin publishes it.")
+      + (back ? ` <a class="rv-back" href="${esc(back)}">Back to the page you came from</a>` : "");
     form.reset();
     $(form, "#rv-f-name").value = ctx.me.name; $(form, "#rv-f-type").value = ctx.me.type;
     $(form, "[data-refs]").innerHTML = ""; h.addRef(); h.updateKind(); h.updateId(); h.updateRobots();
@@ -1531,7 +1548,7 @@ async function submit(form, ctx, h) {
     const n = msg.querySelector(".rv-notice"); if (n) { n.setAttribute("tabindex", "-1"); n.focus(); }
   }
 }
-Object.assign(exports, { SAMPLE, mount });
+Object.assign(exports, { SAMPLE, mount, safeBack });
 });
 __def("moderator.js", function (exports, __req) {
 // Contribution workflow: the Moderator Workspace (admin portal, /admin/workspace; and the demo). The demo's screen, through the adapter:
@@ -1993,7 +2010,7 @@ async function seed(mock) {
 Object.assign(exports, { seed });
 });
 var api = __req("api.js");
-var SECTORS = [{"slug":"agriculture-dairy","name":"Agriculture & Dairy","robots":[{"slug":"milking-robots","name":"Milking robots"},{"slug":"weeding-robots","name":"Weeding robots"},{"slug":"drone-sprayers","name":"Drone sprayers"}]},{"slug":"healthcare","name":"Healthcare","robots":[{"slug":"pharmacy-robots","name":"Pharmacy robots"},{"slug":"delivery-robots","name":"Delivery robots"}]},{"slug":"education","name":"Education","robots":[{"slug":"robotic-arms","name":"Robotic arms"},{"slug":"humanoid-tutors","name":"Humanoid tutors"}]},{"slug":"manufacturing","name":"Manufacturing","robots":[{"slug":"cobots","name":"Collaborative robots (cobots)"}]},{"slug":"environment","name":"Environment","robots":[{"slug":"beach-cleaners","name":"Beach-cleaning robots"}]}];
+var SECTORS = [{"slug":"agriculture-dairy","name":"Agriculture & Dairy","pageTitle":"Agriculture and Dairy","description":"Farm and dairy robots: milking, spraying, weeding and sensing.","robots":[{"slug":"milking-robots","name":"Milking robots"},{"slug":"weeding-robots","name":"Weeding robots"},{"slug":"drone-sprayers","name":"Drone sprayers"}],"fields":[{"id":"about-this-sector","title":"About this sector","html":"<p>A rich-text block.</p><p>https://example.com/averyveryveryveryveryveryveryveryveryveryverylongaddresswithoutanyspaceatallinit/more/more/more</p><table><tr><td>one very long cell without wrapping</td><td>two</td><td>three</td><td>four</td><td>five</td><td>six</td></tr></table>"},{"id":"milking-robots","title":"Milking robots","html":"<p>A milking robot lets each cow choose when to be milked, cleans the teats and records the milk of every cow, so the farmer sees early signs of illness.</p><p>A milking robot lets each cow choose when to be milked, cleans the teats and records the milk of every cow, so the farmer sees early signs of illness.</p>"},{"id":"drone-sprayers","title":"Drone sprayers","html":"<p><b>Drones that spray crops from the air, covering a field in minutes with less chemical and no contact for the worker.</b></p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p>"},{"id":"soil-and-water-sensors","title":"Soil and water sensors","source":"suggested","html":"<p>Small sensors in the field report soil moisture and water levels, so farmers water only where and when it is needed.</p><p>Small sensors in the field report soil moisture and water levels, so farmers water only where and when it is needed.</p>"},{"id":"local-dealers","title":"Local dealers and service centres","source":"plugin","html":"<p>A directory plugin lists the dealers and service centres near you for the robots in this sector.</p><p>A directory plugin lists the dealers and service centres near you for the robots in this sector.</p>"}]},{"slug":"healthcare","name":"Healthcare","description":"Robots in hospitals and clinics: pharmacy, delivery and rehabilitation.","robots":[{"slug":"pharmacy-robots","name":"Pharmacy robots"},{"slug":"delivery-robots","name":"Delivery robots"}],"fields":[{"id":"about-this-sector","title":"About this sector","html":"<p>Robots that save nurses' time and help patients recover.</p><table><thead><tr><th>Robot</th><th>Where it works</th><th>Typical cost band</th><th>Training needed</th><th>Power</th><th>Who maintains it</th><th>Where to see one</th></tr></thead><tbody><tr><td>Pharmacy robot</td><td>Hospital pharmacy</td><td>High</td><td>Two weeks</td><td>Mains</td><td>Supplier contract</td><td>District hospital</td></tr><tr><td>Delivery robot</td><td>Corridors and wards</td><td>Medium</td><td>One day</td><td>Battery</td><td>Hospital technician</td><td>Medical college</td></tr></tbody></table>"},{"id":"pharmacy-robots","title":"Pharmacy robots","html":"<p>Robots that pick and pack medicines without mistakes.</p><p>Robots that pick and pack medicines without mistakes.</p>"},{"id":"delivery-robots","title":"Delivery robots","html":"<p>Robots that carry medicines and samples between wards.</p><p>Robots that carry medicines and samples between wards.</p>"}]},{"slug":"education","name":"Education","description":"Robots for classrooms and labs: kits, arms and tutors.","robots":[{"slug":"robotic-arms","name":"Robotic arms"},{"slug":"humanoid-tutors","name":"Humanoid tutors"}],"fields":[{"id":"about-this-sector","title":"About this sector","html":"<p>Kits and robots that schools use to teach STEAM.</p>"},{"id":"robotic-arms","title":"Robotic arms","html":"<p>Small arms students assemble and program.</p><p>Small arms students assemble and program.</p>"},{"id":"humanoid-tutors","title":"Humanoid tutors","html":"<p>Robots that help children practise reading and maths.</p><p>Robots that help children practise reading and maths.</p>"},{"id":"coding-robots","title":"Coding robots for young learners","source":"suggested","html":"<p>Floor robots children program with cards. Guide: https://example.org/guides/coding-robots-for-young-learners-in-government-schools-step-by-step-with-printable-cards</p>"}]},{"slug":"manufacturing","name":"Manufacturing","description":"Robots on the factory floor: cobots, welding and moving parts.","robots":[{"slug":"cobots","name":"Collaborative robots (cobots)"},{"slug":"welding-robots","name":"Welding robots"},{"slug":"agvs","name":"Automated guided vehicles"}],"fields":[{"id":"about-this-sector","title":"About this sector","html":"<p>How small factories start with robots.</p>"},{"id":"cobots","title":"Collaborative robots (cobots)","html":"<p>Robot arms that work safely next to people.</p><p>Robot arms that work safely next to people.</p>"},{"id":"welding-robots","title":"Welding robots","html":"<p>Robots that weld the same joint perfectly all day.</p><p>Robots that weld the same joint perfectly all day.</p>"},{"id":"spare-parts","title":"Spare parts directory","source":"plugin","html":"<p>A parts plugin lists where to buy spare parts for each robot.</p><p>A parts plugin lists where to buy spare parts for each robot.</p>"}]},{"slug":"environment","name":"Environment","description":"Robots that clean beaches, rivers and air.","robots":[{"slug":"beach-cleaners","name":"Beach-cleaning robots"}],"fields":[{"id":"about-this-sector","title":"About this sector","html":"<p>Robots that keep nature clean.</p>"},{"id":"beach-cleaners","title":"Beach-cleaning robots","html":"<p>Robots that sieve plastic out of sand.</p><p>Robots that sieve plastic out of sand.</p>"},{"id":"river-drones","title":"River-cleaning drones","html":"<p>Floating drones that collect rubbish from rivers.</p><p>Floating drones that collect rubbish from rivers.</p>"}]}];
 var mock = new api.MockAdapter({ sectors: SECTORS, me: { name: "Ananya R.", type: "Student", minor: false }, actors: { moderator: "Moderator User", admin: "Admin User" }, earlier: 2, publishDelay: 0 });
 __req("demo-seed.js").seed(mock).then(function () {
   mock.publishDelay = 900;

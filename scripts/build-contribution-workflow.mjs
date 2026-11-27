@@ -2,6 +2,8 @@
 // Builds everything that is GENERATED from the contribution workflow's source files (public/cw), so nothing is ever hand-copied:
 //   frontend/wordpress/plugins/robovalley-contribution/assets/js/robovalley-contribution.js   the WordPress screens, as ONE script
 //   frontend/wordpress/plugins/robovalley-contribution/assets/css/contribution-workflow.css  a byte-identical copy of the stylesheet
+//   frontend/wordpress/plugins/robovalley-contribution/assets/js/rv-sector.js              the sector pages: header button + field buttons
+//   frontend/wordpress/plugins/robovalley-contribution/assets/css/rv-sector.css            their stylesheet (a byte-identical copy)
 //   docs/reference/contribution_demo.html                                                  the standalone demo (double-click, no server)
 // The ES modules are joined by a tiny module bundler (each module keeps its own scope), so one versioned file is served: imports
 // between ES modules would not carry the plugin's ?ver= and could be served stale after an update. tests/cw-build.test.ts checks
@@ -18,6 +20,8 @@ const read = (p) => readFileSync(p, "utf8").replace(/\r\n/g, "\n");
 export const OUT = {
   pluginJs: join(PLUGIN, "assets", "js", "robovalley-contribution.js"),
   pluginCss: join(PLUGIN, "assets", "css", "contribution-workflow.css"),
+  sectorJs: join(PLUGIN, "assets", "js", "rv-sector.js"),
+  sectorCss: join(PLUGIN, "assets", "css", "rv-sector.css"),
   demo: join(ROOT, "docs", "reference", "contribution_demo.html"),
 };
 
@@ -65,12 +69,209 @@ ${mounts}
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();`);
 }
 
+/** The sector pages' script (sector-buttons.php loads it): the header button and a button on every field, kept there. */
+export function sectorScript() {
+  return bundle(["utils.js", "fields.js", "sector.js"], `function go() {
+  var cfg = window.rvContribFields || {};
+  if (cfg.started) return;
+  cfg.started = true;
+  var h = __req("sector.js").startSectorPage(cfg, document);
+  cfg.refresh = h.refresh; // for a plugin that wants its new field handled at once (it is handled anyway on the next change)
+  window.rvContribFields = cfg;
+}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go); else go();`);
+}
+
 export const DEMO_SECTORS = [
-  { slug: "agriculture-dairy", name: "Agriculture & Dairy", robots: [{ slug: "milking-robots", name: "Milking robots" }, { slug: "weeding-robots", name: "Weeding robots" }, { slug: "drone-sprayers", name: "Drone sprayers" }] },
-  { slug: "healthcare", name: "Healthcare", robots: [{ slug: "pharmacy-robots", name: "Pharmacy robots" }, { slug: "delivery-robots", name: "Delivery robots" }] },
-  { slug: "education", name: "Education", robots: [{ slug: "robotic-arms", name: "Robotic arms" }, { slug: "humanoid-tutors", name: "Humanoid tutors" }] },
-  { slug: "manufacturing", name: "Manufacturing", robots: [{ slug: "cobots", name: "Collaborative robots (cobots)" }] },
-  { slug: "environment", name: "Environment", robots: [{ slug: "beach-cleaners", name: "Beach-cleaning robots" }] },
+  {
+    "slug": "agriculture-dairy",
+    "name": "Agriculture & Dairy",
+    "pageTitle": "Agriculture and Dairy",
+    "description": "Farm and dairy robots: milking, spraying, weeding and sensing.",
+    "robots": [
+      {
+        "slug": "milking-robots",
+        "name": "Milking robots"
+      },
+      {
+        "slug": "weeding-robots",
+        "name": "Weeding robots"
+      },
+      {
+        "slug": "drone-sprayers",
+        "name": "Drone sprayers"
+      }
+    ],
+    "fields": [
+      {
+        "id": "about-this-sector",
+        "title": "About this sector",
+        "html": "<p>A rich-text block.</p><p>https://example.com/averyveryveryveryveryveryveryveryveryveryverylongaddresswithoutanyspaceatallinit/more/more/more</p><table><tr><td>one very long cell without wrapping</td><td>two</td><td>three</td><td>four</td><td>five</td><td>six</td></tr></table>"
+      },
+      {
+        "id": "milking-robots",
+        "title": "Milking robots",
+        "html": "<p>A milking robot lets each cow choose when to be milked, cleans the teats and records the milk of every cow, so the farmer sees early signs of illness.</p><p>A milking robot lets each cow choose when to be milked, cleans the teats and records the milk of every cow, so the farmer sees early signs of illness.</p>"
+      },
+      {
+        "id": "drone-sprayers",
+        "title": "Drone sprayers",
+        "html": "<p><b>Drones that spray crops from the air, covering a field in minutes with less chemical and no contact for the worker.</b></p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p>"
+      },
+      {
+        "id": "soil-and-water-sensors",
+        "title": "Soil and water sensors",
+        "source": "suggested",
+        "html": "<p>Small sensors in the field report soil moisture and water levels, so farmers water only where and when it is needed.</p><p>Small sensors in the field report soil moisture and water levels, so farmers water only where and when it is needed.</p>"
+      },
+      {
+        "id": "local-dealers",
+        "title": "Local dealers and service centres",
+        "source": "plugin",
+        "html": "<p>A directory plugin lists the dealers and service centres near you for the robots in this sector.</p><p>A directory plugin lists the dealers and service centres near you for the robots in this sector.</p>"
+      }
+    ]
+  },
+  {
+    "slug": "healthcare",
+    "name": "Healthcare",
+    "description": "Robots in hospitals and clinics: pharmacy, delivery and rehabilitation.",
+    "robots": [
+      {
+        "slug": "pharmacy-robots",
+        "name": "Pharmacy robots"
+      },
+      {
+        "slug": "delivery-robots",
+        "name": "Delivery robots"
+      }
+    ],
+    "fields": [
+      {
+        "id": "about-this-sector",
+        "title": "About this sector",
+        "html": "<p>Robots that save nurses' time and help patients recover.</p><table><thead><tr><th>Robot</th><th>Where it works</th><th>Typical cost band</th><th>Training needed</th><th>Power</th><th>Who maintains it</th><th>Where to see one</th></tr></thead><tbody><tr><td>Pharmacy robot</td><td>Hospital pharmacy</td><td>High</td><td>Two weeks</td><td>Mains</td><td>Supplier contract</td><td>District hospital</td></tr><tr><td>Delivery robot</td><td>Corridors and wards</td><td>Medium</td><td>One day</td><td>Battery</td><td>Hospital technician</td><td>Medical college</td></tr></tbody></table>"
+      },
+      {
+        "id": "pharmacy-robots",
+        "title": "Pharmacy robots",
+        "html": "<p>Robots that pick and pack medicines without mistakes.</p><p>Robots that pick and pack medicines without mistakes.</p>"
+      },
+      {
+        "id": "delivery-robots",
+        "title": "Delivery robots",
+        "html": "<p>Robots that carry medicines and samples between wards.</p><p>Robots that carry medicines and samples between wards.</p>"
+      }
+    ]
+  },
+  {
+    "slug": "education",
+    "name": "Education",
+    "description": "Robots for classrooms and labs: kits, arms and tutors.",
+    "robots": [
+      {
+        "slug": "robotic-arms",
+        "name": "Robotic arms"
+      },
+      {
+        "slug": "humanoid-tutors",
+        "name": "Humanoid tutors"
+      }
+    ],
+    "fields": [
+      {
+        "id": "about-this-sector",
+        "title": "About this sector",
+        "html": "<p>Kits and robots that schools use to teach STEAM.</p>"
+      },
+      {
+        "id": "robotic-arms",
+        "title": "Robotic arms",
+        "html": "<p>Small arms students assemble and program.</p><p>Small arms students assemble and program.</p>"
+      },
+      {
+        "id": "humanoid-tutors",
+        "title": "Humanoid tutors",
+        "html": "<p>Robots that help children practise reading and maths.</p><p>Robots that help children practise reading and maths.</p>"
+      },
+      {
+        "id": "coding-robots",
+        "title": "Coding robots for young learners",
+        "source": "suggested",
+        "html": "<p>Floor robots children program with cards. Guide: https://example.org/guides/coding-robots-for-young-learners-in-government-schools-step-by-step-with-printable-cards</p>"
+      }
+    ]
+  },
+  {
+    "slug": "manufacturing",
+    "name": "Manufacturing",
+    "description": "Robots on the factory floor: cobots, welding and moving parts.",
+    "robots": [
+      {
+        "slug": "cobots",
+        "name": "Collaborative robots (cobots)"
+      },
+      {
+        "slug": "welding-robots",
+        "name": "Welding robots"
+      },
+      {
+        "slug": "agvs",
+        "name": "Automated guided vehicles"
+      }
+    ],
+    "fields": [
+      {
+        "id": "about-this-sector",
+        "title": "About this sector",
+        "html": "<p>How small factories start with robots.</p>"
+      },
+      {
+        "id": "cobots",
+        "title": "Collaborative robots (cobots)",
+        "html": "<p>Robot arms that work safely next to people.</p><p>Robot arms that work safely next to people.</p>"
+      },
+      {
+        "id": "welding-robots",
+        "title": "Welding robots",
+        "html": "<p>Robots that weld the same joint perfectly all day.</p><p>Robots that weld the same joint perfectly all day.</p>"
+      },
+      {
+        "id": "spare-parts",
+        "title": "Spare parts directory",
+        "source": "plugin",
+        "html": "<p>A parts plugin lists where to buy spare parts for each robot.</p><p>A parts plugin lists where to buy spare parts for each robot.</p>"
+      }
+    ]
+  },
+  {
+    "slug": "environment",
+    "name": "Environment",
+    "description": "Robots that clean beaches, rivers and air.",
+    "robots": [
+      {
+        "slug": "beach-cleaners",
+        "name": "Beach-cleaning robots"
+      }
+    ],
+    "fields": [
+      {
+        "id": "about-this-sector",
+        "title": "About this sector",
+        "html": "<p>Robots that keep nature clean.</p>"
+      },
+      {
+        "id": "beach-cleaners",
+        "title": "Beach-cleaning robots",
+        "html": "<p>Robots that sieve plastic out of sand.</p><p>Robots that sieve plastic out of sand.</p>"
+      },
+      {
+        "id": "river-drones",
+        "title": "River-cleaning drones",
+        "html": "<p>Floating drones that collect rubbish from rivers.</p><p>Floating drones that collect rubbish from rivers.</p>"
+      }
+    ]
+  }
 ];
 
 /** The parity checklist: every screen, state, button and message of the build (also in the pull request, ticked). */
@@ -226,6 +427,8 @@ export function outputs() {
   return {
     [OUT.pluginJs]: pluginScript(),
     [OUT.pluginCss]: read(join(SRC, "contribution-workflow.css")),
+    [OUT.sectorJs]: sectorScript(),
+    [OUT.sectorCss]: read(join(SRC, "sector.css")),
     [OUT.demo]: demoHtml(),
   };
 }
