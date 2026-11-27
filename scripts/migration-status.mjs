@@ -192,6 +192,10 @@ export const MIGRATIONS = [
     { kind: "constraint-allows", name: "cw_contributions_published_ck", value: "'unpublished'" },
     { kind: "constraint-allows", name: "cw_contribution_feedback_ck", value: "'reopen'" },
   ] },
+  { id: "029", title: "contribution demo flag", feature: "Demo ideas of the contribution workflow can be told apart (the demo seed for local and preview copies)", requires: ["028"], checks: [
+    { kind: "column", table: "cw_contributions", column: "is_demo" },
+    { kind: "index", name: "cw_contributions_demo_idx" },
+  ] },
 ];
 
 /** A plain-text description of a check, for messages. */

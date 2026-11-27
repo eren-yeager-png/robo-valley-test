@@ -77,6 +77,41 @@ Sent through Resend after the change is saved (never blocking it): a new idea â†
 
 A field is an element with `data-rv-field="<id>"` (the contract for other plugins), a top-level section of the page content (Elementor sections and containers, Gutenberg groups, `<section>`, `.rv-rt`), or a selector added with the `rv_contrib_field_selectors` filter. The buttons open the live contribute flow with `?sector=` and `?field=` (and `resource_path`, `resource_url`, `return_to`); the form fills in the sector, the robot type when the field is one, the resource, and offers the way back after sending. The only way to hide a field's button: Settings > Contribution workflow > "Fields without the button". `tests/cw-fields.test.ts` and `tests/cw-sector.test.ts` fail when a sector page or a rendered field has no button.
 
+## Demo data (local and preview copies only, never production)
+
+`scripts/seed-contribution-demo.mjs` fills a local or preview copy so no page is empty:
+
+- 4 sectors with 3â€“5 fields (robot types);
+- users for every role;
+- at least 2 ideas in every status, with feedback on the rejected ones;
+- current-form items in every status, with replies;
+- the moderation queue, the workspace, the approvals, Community Ideas and every demo user's My Contributions.
+
+```
+# PowerShell: $env:DEMO_MODE = "1"   (bash: export DEMO_MODE=1)
+npm run seed:contribution-demo -- --expect-db <database name>                    # dry run: the plan, connects to nothing
+npm run seed:contribution-demo -- --expect-db <database name> --apply            # add it (safe to repeat); prints the demo passwords once
+npm run seed:contribution-demo -- --expect-db <database name> --reset --apply    # remove ONLY the demo records
+npm run seed:contribution-demo -- --expect-db <database name> --preview-host <host> --apply   # a preview database (that exact host only)
+```
+
+It is never run automatically. It refuses unless every one of these holds:
+
+- `DEMO_MODE=1` is set;
+- neither `NODE_ENV` nor `VERCEL_ENV` is `production`;
+- `--expect-db` matches the database;
+- the database is local, or exactly the `--preview-host`;
+- every migration up to 029 is applied;
+- the database holds at most 25 real accounts (more looks like a live site).
+
+How demo records are told apart:
+
+- users: `@demo.robovalley.test`;
+- new-workflow ideas: `cw_contributions.is_demo` (migration 029; it hides nothing);
+- current-form items: ids from 8,000,000,000,000. `contributions.is_demo` already means "hidden from the counts and the moderation queue", which would leave those pages empty.
+
+The WordPress side of the demo (sector pages with a suggested field, a plugin field, a long address and a wide table) is made by `tools/contribution-e2e` on its own local WordPress. The standalone demo has all of it.
+
 ## Switch-over
 
 WordPress: **Settings > Contribution workflow**, one checkbox, OFF by default. ON makes both pages public, redirects the current form's pages to `/share-your-idea/` (301, keeping `?sector=`, never cached) and points "Contribute to this sector" at the new form. OFF (or deactivating the plugin) restores today's behaviour exactly. The current form (`rv-contribution-v2`) is never modified.
