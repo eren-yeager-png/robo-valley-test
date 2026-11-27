@@ -221,10 +221,10 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 
 /* ---- the header: title on the left, the button on the right, sticky top-right while the page scrolls ---- */
 .rv-sector-title { margin: 0; font-size: 2rem; line-height: 1.2; font-weight: 700; color: #1F2937; overflow-wrap: anywhere; }
-.rv-sector-sub { margin: 6px 0 0; color: #4B5563; }
+.rv-sector-sub { margin: 6px 0 0; color: var(--muted, #4B5563); }
 .rv-sector-cta { visibility: visible !important; opacity: 1 !important; display: block !important; }
 /* a page laid out by sector.js (the app, the demo) */
-.rv-sector-page { color: #1F2937; }
+.rv-sector-page { color: var(--fg, #1F2937); }
 /* the main column is as wide as the website's content cards (their width is set once, in rv-contribution-v2's rv-site.css; 55rem is
    the same at the default text size) */
 .rv-sector-grid { display: grid; grid-template-columns: minmax(0, 55rem) auto; justify-content: space-between; align-items: start; gap: 24px 40px; }
@@ -257,7 +257,8 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 .rv-has-sector-rail .rv-c2-sector-cta { display: none !important; }
 
 /* ---- the content cards and long content ---- */
-.rv-sector-card { background: #FFFFFF; border: 1px solid #E1E4EA; border-radius: 16px; padding: 24px; margin: 0 0 24px; box-sizing: border-box; color: #1B1F3B; }
+/* the page's own colours when it has them (the app's light and dark themes: --surface, --line, --fg, --muted, --teal), else white cards */
+.rv-sector-card { background: var(--surface, #FFFFFF); border: 1px solid var(--line, #E1E4EA); border-radius: 16px; padding: 24px; margin: 0 0 24px; box-sizing: border-box; color: var(--fg, #1B1F3B); }
 .rv-sector-card > h2 { margin: 0 0 12px; font-size: 1.35rem; line-height: 1.3; }
 .rv-sector-card > :last-child { margin-bottom: 0; }
 /* inherited by everything inside, the website's .rv-rt blocks included (their own rule lives in rv-site.css only) */
@@ -266,8 +267,9 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 .rv-table-scroll { display: block; width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 0 16px; }
 .rv-table-scroll > table { margin: 0; }
 .rv-fields-root table td, .rv-fields-root table th { overflow-wrap: normal; }
-.rv-sector-suggest { margin: 8px 0 0; color: #4B5563; font-size: .95rem; }
-.rv-sector-suggest__link { color: #237A33; font-weight: 700; text-decoration: none; }
+.rv-sector-suggest { margin: 8px 0 0; color: var(--muted, #4B5563); font-size: .95rem; }
+/* on the page's own background: its heading colour (at least 4.5:1 in the app's light and dark themes), underlined so it reads as a link */
+.rv-sector-suggest__link { color: var(--navy, #237A33); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
 
 /* ---- the button on every field: sticky INSIDE its field (never fixed to the page) ---- */
 .rv-contribute-field {
@@ -317,17 +319,20 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 }
 
 /* RoboValley contribution workflow: the portal screens' styles (the Member portals' Sectors list and "My Contributions"), shared by the
-   app and the standalone demo. Namespaced (.rv-sectors, .rv-sector-cards, .rv-sector-tile*, .rv-mine*). */
+   app and the standalone demo. Namespaced (.rv-sectors, .rv-sector-cards, .rv-sector-tile*, .rv-mine*). Colours follow the page's own
+   tokens when it has them (the app's light and dark themes: --surface, --bg, --line, --fg, --muted, --teal); the fallbacks are the
+   light colours the demo uses. */
 .rv-sectors > h1, .rv-mine > h1 { margin: 0 0 6px; }
 .rv-sector-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin-top: 14px; }
-.rv-sector-tile { border: 1px solid #E1E4EA; border-radius: 14px; padding: 16px; background: #FFFFFF; overflow-wrap: anywhere; }
+.rv-sector-tile { border: 1px solid var(--line, #E1E4EA); border-radius: 14px; padding: 16px; background: var(--surface, #FFFFFF); color: var(--fg, inherit); overflow-wrap: anywhere; }
 .rv-sector-tile h2 { margin: 0 0 6px; font-size: 1.15rem; }
-.rv-sector-tile__link { color: #237A33; font-weight: 700; text-decoration: none; }
+.rv-sector-tile__link { color: var(--teal, #237A33); font-weight: 700; text-decoration: none; }
 .rv-mine-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 10px 0 14px; }
 .rv-mine-filters label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 .rv-mine-filters select { min-height: 40px; }
 .rv-mine-table { border-collapse: collapse; width: 100%; min-width: 820px; font-size: 14px; }
-.rv-mine-table th, .rv-mine-table td { border-bottom: 1px solid #E2E8F0; padding: 8px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+/* break-word, not anywhere: a long address still wraps, but a column is never squeezed until ordinary words break in the middle */
+.rv-mine-table th, .rv-mine-table td { border-bottom: 1px solid var(--line, #E2E8F0); padding: 8px; text-align: left; vertical-align: top; overflow-wrap: break-word; }
 .rv-mine-status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #E2E8F0; color: #334155; }
 .rv-mine-published { background: #DCFCE7; color: #166534; }
 .rv-mine-rejected { background: #FEE2E2; color: #991B1B; }
@@ -335,10 +340,11 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 .rv-mine-pending { background: #FEF3C7; color: #92400E; }
 .rv-mine-unpublished { background: #EDE9FE; color: #5B21B6; }
 .rv-mine-draft { background: #F1F5F9; color: #475569; }
-.rv-mine-note { font-size: 12px; color: #475569; margin-top: 4px; }
-.rv-mine-detail td { background: #F8FAFC; }
+.rv-mine-note { font-size: 12px; color: var(--muted, #475569); margin-top: 4px; }
+.rv-mine-detail td { background: var(--bg, #F8FAFC); }
 .rv-mine-actions { white-space: nowrap; }
-.rv-mine-clear { border: 0; background: none; color: #237A33; font-weight: 700; cursor: pointer; padding: 0; }
+.rv-mine-new { color: var(--navy, #237A33); font-weight: 700; text-underline-offset: 2px; }
+.rv-mine-clear { border: 0; background: none; color: var(--navy, #237A33); font-weight: 700; text-decoration: underline; cursor: pointer; padding: 0; }
 
 /* Admin area, styled with the RoboValley landing page's own design tokens (robovalley-home.css: --rh-*).
    It still reuses the .btn / form classes from ../join/join.css and ../login/login.css, so those variables are
@@ -2537,7 +2543,7 @@ async function mount(el, opts = {}) {
           ${st.open === i.code ? `<tr class="rv-mine-detail"><td colspan="8"><h2>${esc(i.code)} – ${esc(i.title)}</h2><p>${esc(i.description || "")}</p>
             <p class="cw-muted">${esc(i.type)} · ${esc(i.sectorName || "Not sure")}${i.field ? " · " + esc(i.field) : ""} · sent ${esc(fmtDate(i.submittedAt))}${i.publishedAt ? " · published " + esc(fmtDate(i.publishedAt)) : ""}</p>
             ${i.source === "workflow" ? `<p class="rv-mine-note">${esc(NEW_IDEA_NOTE)}</p>` : ""}</td></tr>` : ""}`).join("")}</tbody></table></div>`}
-      <p class="cw-muted"><a href="${esc(contribute)}">+ Contribute something new</a></p></section>`;
+      <p class="cw-muted"><a class="rv-mine-new" href="${esc(contribute)}">+ Contribute something new</a></p></section>`;
     el.querySelectorAll("[data-f]").forEach((s) => s.addEventListener("change", () => { st[s.getAttribute("data-f")] = s.value; st.open = null; render(); }));
     el.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => { const c = b.getAttribute("data-view"); st.open = st.open === c ? null : c; render(); }));
     const clear = el.querySelector("[data-clear]");

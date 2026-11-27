@@ -43,7 +43,7 @@ export async function mount(el, opts = {}) {
           ${st.open === i.code ? `<tr class="rv-mine-detail"><td colspan="8"><h2>${esc(i.code)} – ${esc(i.title)}</h2><p>${esc(i.description || "")}</p>
             <p class="cw-muted">${esc(i.type)} · ${esc(i.sectorName || "Not sure")}${i.field ? " · " + esc(i.field) : ""} · sent ${esc(fmtDate(i.submittedAt))}${i.publishedAt ? " · published " + esc(fmtDate(i.publishedAt)) : ""}</p>
             ${i.source === "workflow" ? `<p class="rv-mine-note">${esc(NEW_IDEA_NOTE)}</p>` : ""}</td></tr>` : ""}`).join("")}</tbody></table></div>`}
-      <p class="cw-muted"><a href="${esc(contribute)}">+ Contribute something new</a></p></section>`;
+      <p class="cw-muted"><a class="rv-mine-new" href="${esc(contribute)}">+ Contribute something new</a></p></section>`;
     el.querySelectorAll("[data-f]").forEach((s) => s.addEventListener("change", () => { st[s.getAttribute("data-f")] = s.value; st.open = null; render(); }));
     el.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => { const c = b.getAttribute("data-view"); st.open = st.open === c ? null : c; render(); }));
     const clear = el.querySelector("[data-clear]");

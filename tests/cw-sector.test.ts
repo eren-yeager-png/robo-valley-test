@@ -120,8 +120,31 @@ describe("the shared stylesheet (public/cw/sector.css)", () => {
     expect(rule(".rv-fields-root, .rv-sector-card")).toContain("overflow-wrap: anywhere");
     expect(rule(".rv-table-scroll")).toContain("overflow-x: auto");
   });
+  it("follows the page's light or dark theme: the cards, the page text, the intro and \"Suggest a field\" use the page's colour tokens (white cards as the fallback)", () => {
+    expect(rule(".rv-sector-card")).toMatch(/background: var\(--surface, #FFFFFF\);[\s\S]*border: 1px solid var\(--line, #E1E4EA\);[\s\S]*color: var\(--fg, #1B1F3B\)/);
+    expect(rule(".rv-sector-page")).toContain("color: var(--fg, #1F2937)");
+    expect(rule(".rv-sector-sub")).toContain("color: var(--muted, #4B5563)");
+    expect(rule(".rv-sector-suggest")).toContain("color: var(--muted, #4B5563)");
+    expect(rule(".rv-sector-suggest__link")).toContain("color: var(--navy, #237A33)"); // on the page background, not a card
+  });
   it("every selector is namespaced (it cannot restyle the theme)", () => {
     const selectors = (css.match(/(^|[};])\s*([^{}@;]+)\{/g) || []).map((m) => m.replace(/^[};]?\s*/, "").replace(/\{$/, "").trim()).filter(Boolean);
     for (const sel of selectors) for (const one of sel.split(",")) expect(one.trim(), one).toMatch(/^\.(rv-contribute-|rv-sector-|rv-has-|rv-cf-|rv-fields-root|rv-table-scroll)/);
+  });
+});
+
+describe("the portal screens' stylesheet (public/cw/portal.css)", () => {
+  const css = readFileSync("public/cw/portal.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const rule = (sel: string) => (css.match(new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*\\{([^}]*)\\}")) || [])[1] || "";
+  it("follows the page's light or dark theme (its tokens, with the demo's light colours as fallbacks), so no text is dark on dark or light on white", () => {
+    expect(rule(".rv-sector-tile")).toMatch(/border: 1px solid var\(--line, #E1E4EA\);[\s\S]*background: var\(--surface, #FFFFFF\);[\s\S]*color: var\(--fg, inherit\)/);
+    expect(rule(".rv-mine-note")).toContain("color: var(--muted, #475569)");
+    expect(rule(".rv-mine-detail td")).toContain("background: var(--bg, #F8FAFC)");
+    expect(rule(".rv-sector-tile__link")).toContain("color: var(--teal, #237A33)"); // on the tile (a card)
+    expect(rule(".rv-mine-clear")).toContain("color: var(--navy, #237A33)"); // on the page background
+  });
+  it("table cells wrap a long address without squeezing a column until ordinary words break in the middle", () => {
+    expect(rule(".rv-mine-table th, .rv-mine-table td")).toContain("overflow-wrap: break-word");
+    expect(rule(".rv-mine-table th, .rv-mine-table td")).not.toContain("anywhere");
   });
 });

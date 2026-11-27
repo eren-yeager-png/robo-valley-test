@@ -1,15 +1,18 @@
 /* RoboValley contribution workflow: the portal screens' styles (the Member portals' Sectors list and "My Contributions"), shared by the
-   app and the standalone demo. Namespaced (.rv-sectors, .rv-sector-cards, .rv-sector-tile*, .rv-mine*). */
+   app and the standalone demo. Namespaced (.rv-sectors, .rv-sector-cards, .rv-sector-tile*, .rv-mine*). Colours follow the page's own
+   tokens when it has them (the app's light and dark themes: --surface, --bg, --line, --fg, --muted, --teal); the fallbacks are the
+   light colours the demo uses. */
 .rv-sectors > h1, .rv-mine > h1 { margin: 0 0 6px; }
 .rv-sector-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin-top: 14px; }
-.rv-sector-tile { border: 1px solid #E1E4EA; border-radius: 14px; padding: 16px; background: #FFFFFF; overflow-wrap: anywhere; }
+.rv-sector-tile { border: 1px solid var(--line, #E1E4EA); border-radius: 14px; padding: 16px; background: var(--surface, #FFFFFF); color: var(--fg, inherit); overflow-wrap: anywhere; }
 .rv-sector-tile h2 { margin: 0 0 6px; font-size: 1.15rem; }
-.rv-sector-tile__link { color: #237A33; font-weight: 700; text-decoration: none; }
+.rv-sector-tile__link { color: var(--teal, #237A33); font-weight: 700; text-decoration: none; }
 .rv-mine-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 10px 0 14px; }
 .rv-mine-filters label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 .rv-mine-filters select { min-height: 40px; }
 .rv-mine-table { border-collapse: collapse; width: 100%; min-width: 820px; font-size: 14px; }
-.rv-mine-table th, .rv-mine-table td { border-bottom: 1px solid #E2E8F0; padding: 8px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+/* break-word, not anywhere: a long address still wraps, but a column is never squeezed until ordinary words break in the middle */
+.rv-mine-table th, .rv-mine-table td { border-bottom: 1px solid var(--line, #E2E8F0); padding: 8px; text-align: left; vertical-align: top; overflow-wrap: break-word; }
 .rv-mine-status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #E2E8F0; color: #334155; }
 .rv-mine-published { background: #DCFCE7; color: #166534; }
 .rv-mine-rejected { background: #FEE2E2; color: #991B1B; }
@@ -17,7 +20,8 @@
 .rv-mine-pending { background: #FEF3C7; color: #92400E; }
 .rv-mine-unpublished { background: #EDE9FE; color: #5B21B6; }
 .rv-mine-draft { background: #F1F5F9; color: #475569; }
-.rv-mine-note { font-size: 12px; color: #475569; margin-top: 4px; }
-.rv-mine-detail td { background: #F8FAFC; }
+.rv-mine-note { font-size: 12px; color: var(--muted, #475569); margin-top: 4px; }
+.rv-mine-detail td { background: var(--bg, #F8FAFC); }
 .rv-mine-actions { white-space: nowrap; }
-.rv-mine-clear { border: 0; background: none; color: #237A33; font-weight: 700; cursor: pointer; padding: 0; }
+.rv-mine-new { color: var(--navy, #237A33); font-weight: 700; text-underline-offset: 2px; }
+.rv-mine-clear { border: 0; background: none; color: var(--navy, #237A33); font-weight: 700; text-decoration: underline; cursor: pointer; padding: 0; }
