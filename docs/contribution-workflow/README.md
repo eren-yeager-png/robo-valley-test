@@ -118,7 +118,9 @@ WordPress: **Settings > Contribution workflow**, one checkbox, OFF by default. O
 
 ## Tests
 
-`tests/cw-*.test.ts`: rules (unit), migrations 027 and 028, submit, the Moderator and Admin APIs, publishing (including failure and retry), notifications and spam protection, each screen in a DOM, accessibility, the standalone demo, the generated files and the plugin.
+`tests/cw-*.test.ts`: rules (unit), migrations 027 and 028, submit, the Moderator and Admin APIs, publishing (including failure and retry), notifications and spam protection, each screen in a DOM, accessibility, the standalone demo, the generated files and the plugin. `tests/cw-merge-safety.test.tsx` runs the code against a database without 027, 028 and 029.
+
+`tools/contribution-e2e/` (run by hand, needs Docker; see its README): the end-to-end check on a throw-away local stack (the app, its own Postgres, a WordPress with Astra and both plugins, a headless browser behind a safety gate), the WordPress lifecycle (switch, deactivate, reactivate, version change, uninstall, reinstall) and every migration twice on a fresh database. Nothing there can reach a live database or website.
 
 ## The spec's open points, as decided (27-11-2026)
 
