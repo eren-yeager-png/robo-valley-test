@@ -8,7 +8,8 @@
 //   4. a normal rerun: every migration must be skipped as already applied
 //   5. a forced rerun: each migration really executed again (--only NNN --force --apply), none may fail
 //   6. --status: every migration applied
-//   7. snapshot again: nothing may differ. Then the database is dropped (keep it with --keep).
+//   7. snapshot again: the rows and content of every table and the whole schema must be identical (a sequence that only moved
+//      forward with no row added is listed as a note). Then the database is dropped (keep it with --keep).
 //   node tools/contribution-e2e/migrations-twice.mjs [--keep]
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -107,13 +108,25 @@ SELECT id, 'Meera Kumar', 'PA', 'New idea', '{"title":"Demo idea"}', '{"title":"
   const applied = (st.stdout.match(/^ {2}\d{3} {2}applied /gm) || []).length;
   say(st.status === 0 && applied === ids.length && /Everything is applied\./.test(st.stdout), `--status: ${applied} of ${ids.length} applied`);
 
-  // 7. nothing changed
+  // 7. nothing changed: every table's rows and content and the whole schema identical. A sequence may only move FORWARD with no row
+  //    added (an INSERT ... ON CONFLICT DO NOTHING run again uses up an id, e.g. 016's default sector); that is listed, not a failure.
   const after = await snapshot("after");
   const diff = (a, b) => [...a.filter((x) => !b.includes(x)).map((x) => "- " + x), ...b.filter((x) => !a.includes(x)).map((x) => "+ " + x)];
-  const d = [...diff(before.data, after.data), ...diff(before.schema, after.schema)];
+  const isSeq = (l) => l.startsWith("seq ");
+  const d = [...diff(before.data.filter((l) => !isSeq(l)), after.data.filter((l) => !isSeq(l))), ...diff(before.schema, after.schema)];
+  const seqOf = (lines) => Object.fromEntries(lines.filter(isSeq).map((l) => { const m = l.match(/^seq (\S+) last=(\S+)$/); return [m[1], m[2]]; }));
+  const s0 = seqOf(before.data), s1 = seqOf(after.data), moved = [];
+  for (const name of new Set([...Object.keys(s0), ...Object.keys(s1)])) {
+    if (s0[name] === s1[name]) continue;
+    const a0 = s0[name] === "unused" ? 0 : Number(s0[name]), a1 = s1[name] === "unused" ? 0 : Number(s1[name]);
+    if (name in s0 && name in s1 && Number.isFinite(a0) && Number.isFinite(a1) && a1 > a0) moved.push(`${name} ${s0[name]} -> ${s1[name]}`);
+    else d.push(`sequence ${name}: ${s0[name] ?? "(absent)"} -> ${s1[name] ?? "(absent)"}`);
+  }
+  const tables = before.data.filter((l) => !isSeq(l)).length;
   say(d.length === 0, d.length === 0
-    ? `identical after the second run: ${before.data.length} tables and sequences (rows and content), ${before.schema.length} schema objects`
+    ? `identical after the second run: ${tables} tables (rows and content) and ${before.schema.length} schema objects`
     : `DIFFERENCES after the second run:\n  ${d.slice(0, 30).join("\n  ")}`);
+  if (moved.length) console.log(`note: sequences that moved forward with no row added (a forced rerun of an INSERT ... ON CONFLICT DO NOTHING uses up an id): ${moved.join(", ")}`);
 } catch (e) {
   say(false, `crashed: ${String((e && e.message) || e).slice(0, 600)}`);
 } finally {

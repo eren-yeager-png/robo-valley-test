@@ -96,6 +96,6 @@ Every container these scripts make carries the label `rvcw-e2e=1`. `down` remove
 3. A normal second run must skip every migration.
 4. A forced second run (`--force`) of each migration must run without an error.
 5. `--status` must report every migration as applied.
-6. The data and the whole schema must be **identical** before and after.
+6. Every table's rows and content, and the whole schema, must be **identical** before and after. A sequence that only moved forward with no row added is listed as a note. That happens when a forced rerun repeats an `INSERT … ON CONFLICT DO NOTHING`, such as 016's default sector, which uses up an id.
 
 The test-only WordPress plugin `wp-plugins/rv-e2e-dummy-fields` adds the plugin, JavaScript and suggested fields. **Never install it on a real site.**
