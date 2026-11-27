@@ -33,7 +33,7 @@ describe("the Moderator Workspace", () => {
     expect(open.textContent).toContain(String((await mock.list("workspace", "Open")).counts.open));
     expect(el.querySelectorAll(".cw-item").length).toBe((await mock.list("workspace", "Open")).items.length);
     await click(q('[data-filter="Decided"]'));
-    expect(Array.from(el.querySelectorAll(".cw-item .rv-badge")).map((b) => b.textContent).sort()).toEqual(["Published", "Published", "Rejected", "Rejected", "Unpublished"]);
+    expect(Array.from(el.querySelectorAll(".cw-item .rv-badge")).map((b) => b.textContent).sort()).toEqual(["Published", "Published", "Rejected", "Rejected", "Unpublished", "Unpublished"]);
     expect(el.textContent).toContain("Select a contribution to review.");
   });
   it("opening a Submitted idea moves it to Under Moderator Review and shows the original, the version for publishing and the buttons", async () => {

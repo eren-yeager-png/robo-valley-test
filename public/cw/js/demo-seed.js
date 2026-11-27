@@ -100,4 +100,30 @@ export async function seed(mock) {
   await open(priya);
   { const it = await item(priya); await mod.act(priya, "decline", { rowVersion: it.rowVersion, reason: "Looks like a duplicate of an earlier idea." }); }
   { const it = await item(priya); await adm.act(priya, "reopen", { rowVersion: it.rowVersion, reason: "Not a duplicate: the earlier idea was about beaches. Please review it again." }); } // Under Moderator Review, reopened
+
+  // a second idea in every status, from the demo's role users (Student Neha S., Teacher Kiran P., Parent Meera K., Contributor Dr. S. Rao)
+  const pNeha = { name: "Neha S.", type: "Student", minor: true }, pKiran = { name: "Kiran P.", type: "Teacher / lab in-charge" };
+  const pMeera = { name: "Meera K.", type: "Parent / guardian" }, pRao = { name: "Dr. S. Rao", type: "Mentor / subject expert" };
+  await add(pNeha, { kind: "New idea", title: "Solar sensor kit for the school garden", sector: "education", categories: ["STEAM"], suitableFor: ["K9–K10"], learningPath: "Make",
+    description: "A small solar-powered sensor kit that tells the class when the school garden needs water." });                // Submitted
+  const line = await add(pRao, { kind: "New idea", title: "Workshop: build a line-following robot", sector: "education", robotType: "robotic-arms", categories: ["Robotics"], suitableFor: ["ITI", "Diploma"], learningPath: "Learn",
+    description: "A one-day workshop where students build and race a line-following robot." });
+  await open(line); { const it = await item(line); await mod.act(line, "save_draft", { rowVersion: it.rowVersion, proposed: { ...it.proposed, title: "One-day workshop: build a line-following robot" }, notes: "Clarified the title." }); } // Moderator Draft
+  const club = await add(pKiran, { kind: "New idea", title: "Robotics club starter guide for schools", sector: "education", categories: ["Robotics", "STEAM"], suitableFor: ["K6–K8"], learningPath: "Learn",
+    description: "A starter guide for teachers who want to begin a robotics club with three kits." });
+  await open(club); await send(club, {}, "Good as it is.");                                                  // Pending Admin Approval
+  const terrace = await add(pMeera, { kind: "New idea", title: "Robot that waters the terrace garden", sector: "agriculture-dairy", robotType: "milking-robots", categories: ["Robotics"], suitableFor: ["K9–K10"], learningPath: "Make",
+    description: "A small robot arm on a timer that waters pots on the terrace garden." });
+  await open(terrace); await send(terrace); await changes(terrace, "Milking robots is the wrong robot type: please pick Not sure.");   // Changes Requested
+  const buddy = await add(pNeha, { kind: "New idea", title: "Robot buddy for reading practice", sector: "education", robotType: "humanoid-tutors", categories: ["Physical AI and AI"], suitableFor: ["K1–K5"], learningPath: "Learn",
+    description: "A friendly robot that listens to young children read aloud and helps with hard words." });
+  await open(buddy); await send(buddy); await changes(buddy, "Please say how the robot keeps children's voices private.");
+  { const it = await item(buddy); await mod.act(buddy, "send_request", { rowVersion: it.rowVersion, proposed: { ...it.proposed, description: it.proposed.description + " Nothing is recorded or sent anywhere." }, notes: "Added the privacy line." }); } // Resubmitted
+  const lost = await add(pKiran, { kind: "New idea", title: "Robot that sorts lost-and-found items", sector: "manufacturing", robotType: "cobots", categories: ["Robotics"], suitableFor: ["Engineering"], learningPath: "Build",
+    description: "A camera and a small arm that sort the school's lost-and-found box by type." });
+  await open(lost); await send(lost); await preview(lost); mock.failNext = true; await publish(lost);         // Publication Failed
+  const cow = await add(pRao, { kind: "New idea", title: "Cow-comfort sensors for dairy sheds", sector: "agriculture-dairy", robotType: "milking-robots", categories: ["Robotics", "Physical AI and AI"], suitableFor: ["Diploma"], learningPath: "Learn",
+    description: "Sensors that warn the farmer when a dairy shed gets too hot for the cows." });
+  await open(cow); await send(cow); await preview(cow); await publish(cow);
+  { const it = await item(cow); await adm.act(cow, "unpublish", { rowVersion: it.rowVersion }); }          // Unpublished
 }

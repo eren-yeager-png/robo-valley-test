@@ -319,60 +319,38 @@ export const PARITY = [
   "Community Ideas: \"RoboValley – Community Ideas\" with its subtitle; grouped by sector in Sector Forms order, Not sure last as \"Other ideas\"",
   "Community Ideas: each card = sector · robot type, title, <kind> for <resource path> (linked), description, chips, Idea by <first name> (<type>), Further reading, Published <date>",
   "Community Ideas: empty state \"No contributions have been published yet. Moderator drafts and pending requests are never shown here.\"",
+  "Sector page (website): \"+ Contribute to this sector\" next to the title, sticky top-right (below the title at full width on phones); every field (existing, added through \"Suggest a field\" once approved, added by a plugin) has a sticky button; long words wrap and wide tables scroll inside their card",
+  "Sector page: the buttons come back when the page changes; only the administrator's per-field setting turns a field's button off; they open the contribute flow with the sector and the field filled in and the way back",
+  "Every portal and role (Visitor, Student, Teacher, Parent, Contributor, Moderator, Admin): the shared navigation with \"My Contributions\"; the sector page in each role",
+  "Member portals: \"Sectors\" (a card for every sector, one sector drawn with the same sector page component as the website: header button, field buttons, + Suggest a field)",
+  "Moderation by sector and Sector forms: the same sector header (title on the left, the button on the right, sticky); Sector forms lists suggested fields waiting for approval, and approving one puts it on the sector page with its button",
+  "My Contributions: own items only (new ideas and current-form items), Sector, Field, Type, Submitted, Status, Moderator feedback, Actions; filters by status and sector; empty state; new ideas View only with \"Submitted ideas can't be edited. A Moderator may refine it during review.\"; pending current-form items keep Edit",
+  "Sample data everywhere: 5 sectors with 3-5 fields each (a suggested field, a plugin field, a long address, a wide table), at least 2 ideas in every status, feedback on rejected ones, a user for every role",
 ];
 
-/** The standalone demo: every built screen with mock data, plus the parity checklist. */
+/** The standalone demo: every portal and role with the SAME screens production uses, sample data everywhere, the parity checklist. */
 export function demoHtml() {
-  const screens = ["form.js", "moderator.js", "admin.js", "site.js"].filter(has);
-  const extra = ["dialog.js", "review.js", "preview.js"].filter(has);
-  const css = [read(join(SRC, "contribution-workflow.css"))];
+  const modules = ["form.js", "moderator.js", "admin.js", "site.js", "dialog.js", "review.js", "preview.js", "fields.js", "sector.js", "sectors.js", "mine.js", "demo-portals.js"].filter(has);
+  const css = [read(join(SRC, "contribution-workflow.css")), read(join(SRC, "sector.css")), read(join(SRC, "portal.css"))];
   const portalCss = [join(ROOT, "src", "app", "admin", "admin.css"), join(ROOT, "src", "app", "_cw", "cw-portal.css")].filter(existsSync).map(read);
-  const tabs = [
-    ["form", "Contribution Form", screens.includes("form.js")],
-    ["moderator", "Moderator Workspace", screens.includes("moderator.js")],
-    ["admin", "Admin Approval Dashboard", screens.includes("admin.js")],
-    ["site", "Community Ideas", screens.includes("site.js")],
-  ].filter((t) => t[2]);
   const version = (read(join(PLUGIN, "robovalley-contribution.php")).match(/const RV_CONTRIB_VERSION = '([^']+)'/) || [])[1] || "?";
-  const entry = `var api = __req("api.js");
+  const entry = `var api = __req("api.js"), portals = __req("demo-portals.js");
 var SECTORS = ${JSON.stringify(DEMO_SECTORS)};
-var mock = new api.MockAdapter({ sectors: SECTORS, me: { name: "Ananya R.", type: "Student", minor: false }, actors: { moderator: "Moderator User", admin: "Admin User" }, earlier: 2, publishDelay: 0 });
+var mock = new api.MockAdapter({ sectors: SECTORS, me: { name: "Ananya R.", type: "Student", minor: false }, actors: { moderator: "Moderator User", admin: "Admin User" }, earlier: 2, publishDelay: 0, formItems: portals.DEMO_FORM_ITEMS });
 __req("demo-seed.js").seed(mock).then(function () {
   mock.publishDelay = 900;
-  var mounted = {};
-  function show(tab) {
-    Array.prototype.forEach.call(document.querySelectorAll("[data-tab]"), function (b) { var on = b.getAttribute("data-tab") === tab; b.classList.toggle("on", on); b.setAttribute("aria-selected", on ? "true" : "false"); });
-    Array.prototype.forEach.call(document.querySelectorAll("[data-view]"), function (v) { v.hidden = v.getAttribute("data-view") !== tab; });
-    var el = document.querySelector('[data-view="' + tab + '"] [data-mount]');
-    if (tab === "form") { if (!mounted.form) __req("form.js").mount(el, { adapter: mock, sample: true, query: new URLSearchParams("") }); }
-    else if (tab === "moderator") __req("moderator.js").mount(el, { adapter: mock.as("moderator"), onChange: counts });
-    else if (tab === "admin") __req("admin.js").mount(el, { adapter: mock.as("admin"), onChange: counts, demoFailToggle: mock });
-    else if (tab === "site") __req("site.js").mount(el, { adapter: mock });
-    mounted[tab] = true;
-    counts();
-  }
-  function counts() {
-    mock.list("moderator", "Open").then(function (r) {
-      var m = document.getElementById("c-mod"), a = document.getElementById("c-adm");
-      if (m) m.textContent = r.counts.open; if (a) a.textContent = r.counts.awaiting;
-    });
-  }
-  Array.prototype.forEach.call(document.querySelectorAll("[data-tab]"), function (b) { b.addEventListener("click", function () { show(b.getAttribute("data-tab")); }); });
-  var minorBox = document.querySelector("[data-demo-minor]");
-  if (minorBox) minorBox.addEventListener("change", function () { mock.meInfo.minor = minorBox.checked; mounted.form = false; show("form"); });
-  show(location.hash.replace("#", "") || "form");
+  var screens = { form: __req("form.js"), moderator: __req("moderator.js"), admin: __req("admin.js"), site: __req("site.js"), sectors: __req("sectors.js"), mine: __req("mine.js") };
+  var demo = portals.mountPortals(document.querySelector("[data-portals]"), { mock: mock, screens: screens, sectors: mock.sectors });
+  var hash = location.hash.replace("#", "").split("/");
+  if (hash[0]) { try { demo.show(hash[0], hash[1]); } catch (e) { /* an old link: the start page */ } }
 });`;
-  const fixed = bundle([...BASE, ...extra, ...screens, "demo-seed.js"], entry);
-  const tabButtons = tabs.map(([k, label]) => `<button type="button" class="tab" role="tab" data-tab="${k}" aria-selected="false">${label}${k === "moderator" ? ' <span class="count" id="c-mod">0</span>' : k === "admin" ? ' <span class="count" id="c-adm">0</span>' : ""}</button>`).join("\n      ");
-  const minorToggle = `<label class="demo-toggle"><input type="checkbox" data-demo-minor> Demo only: the signed-in contributor is under 18 (the Earn (18+) path is not offered)</label>`;
-  const views = tabs.map(([k]) => k === "form" || k === "site"
-    ? `<section data-view="${k}" hidden>${k === "form" ? minorToggle : ""}<div class="rv-cw-root"><div data-mount></div></div></section>`
-    : `<section data-view="${k}" hidden><div class="rv"><div class="adm rv-cw-root"><div data-mount></div></div></div></section>`).join("\n    ");
+  const fixed = bundle([...BASE, ...modules, "demo-seed.js"], entry);
   return `<!DOCTYPE html>
 <!--
   RoboValley contribution workflow - STANDALONE DEMO (reference build). Plugin v${version} - mock data - opens by double-click, no server.
   GENERATED by scripts/build-contribution-workflow.mjs from the SAME files production uses (public/cw/js, public/cw/contribution-workflow.css,
-  src/app/admin/admin.css, src/app/_cw/cw-portal.css). Do not edit by hand.
+  public/cw/sector.css, src/app/admin/admin.css, src/app/_cw/cw-portal.css). Do not edit by hand.
+  Every portal and role: Visitor (the website), Student, Teacher, Parent, Contributor (Member portals), Moderator, Admin.
   PARITY CHECKLIST (every screen, state, button and message built so far):
 ${PARITY.map((p) => `    [x] ${p.replace(/--/g, "-")}`).join("\n")}
 -->
@@ -389,32 +367,48 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 .demo-head .sub { opacity: .85; font-size: 14px; }
 .demo-flow { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; }
 .demo-flow span { background: rgba(255,255,255,.12); padding: 5px 10px; border-radius: 14px; }
-.demo-wrap { max-width: 1240px; margin: 22px auto; padding: 0 16px; }
-.demo-tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
-.demo-tabs .tab { border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; font: inherit; font-weight: 700; font-size: 14px; background: #e2e8f0; color: #1e293b; min-height: 42px; }
-.demo-tabs .tab.on { background: #11634d; color: #fff; }
-.demo-tabs .count { background: #fff; color: #11634d; border-radius: 10px; padding: 1px 7px; margin-left: 6px; font-size: 12px; }
-.demo-tabs .tab:not(.on) .count { background: #11634d; color: #fff; }
-.demo-tabs .tab:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
-.demo-toggle { display: flex; gap: 8px; align-items: center; font-size: 13px; margin: 0 0 12px; color: #7c2d12; }
+.demo-wrap { max-width: 1320px; margin: 18px auto; padding: 0 16px; }
+.rvd-roles { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.rvd-role { border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; font: inherit; font-weight: 700; font-size: 14px; background: #e2e8f0; color: #1e293b; min-height: 42px; }
+.rvd-role.on { background: #11634d; color: #fff; }
+.rvd-role:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+.rvd-portal { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 18px; align-items: start; }
+.rvd-nav { background: #0f3d2e; color: #e8f3ee; border-radius: 14px; padding: 14px; position: sticky; top: 12px; }
+.rvd-portal--website .rvd-nav { background: #0b2a5b; }
+.rvd-brand { font-weight: 800; margin-bottom: 10px; font-size: 14px; } .rvd-brand small { display: block; font-weight: 400; opacity: .8; }
+.rvd-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.rvd-nav a { display: block; padding: 9px 10px; border-radius: 8px; color: inherit; text-decoration: none; font-weight: 600; font-size: 14px; }
+.rvd-nav a:hover { background: rgba(255,255,255,.1); } .rvd-nav a.active { background: #fff; color: #0f3d2e; }
+.rvd-main { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 22px; min-width: 0; }
+.rvd-main .rv .adm { background: transparent; }
+.rvd-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 14px 0; }
+.rvd-tile { border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; } .rvd-tile b { display: block; font-size: 26px; } .rvd-tile span { color: #475569; font-size: 13px; }
+.rvd-table { border-collapse: collapse; width: 100%; font-size: 14px; } .rvd-table th, .rvd-table td { border-bottom: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; vertical-align: top; }
+.rvd-list { padding-left: 18px; } .rvd-list li { margin: 6px 0; }
+.rvd-dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; } .rvd-dl dt { font-weight: 700; } .rvd-dl dd { margin: 0; }
+.rvd-bar { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.rvd-pill { border: 1px solid #c9cfcc; border-radius: 999px; padding: 6px 12px; background: #f6f7f6; color: #374151; font: inherit; font-size: 14px; cursor: pointer; text-decoration: none; }
+.rvd-pill.on { border-color: #237a33; color: #237a33; font-weight: 700; background: #fff; }
+.rvd-src { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #eef2ef; color: #3d5a44; margin-bottom: 6px; }
+.rvd-src-s { background: #e0e7ff; color: #3730a3; } .rvd-src-p { background: #fef3c7; color: #92400e; }
+.rvd-wp-article .entry-title { font-size: 34px; font-weight: 700; color: #1f2937; margin: 0 0 18px; }
+.rvd-wp-article .rv-rt, .rvd-wp-article .acme-plugin-field { max-width: 880px; margin: 0 0 24px; padding: 24px; border: 1px solid #e1e4ea; border-radius: 16px; background: #fff; box-sizing: border-box; }
+.rvd-wp-article .rv-rt table td { border: 1px solid #e1e4ea; padding: 10px 16px; white-space: nowrap; } .rvd-wp-article .rv-rt table { border-collapse: collapse; }
+.rvd-back { margin: 0 0 10px; } .rvd-page h1, .rvd-home h1 { margin-top: 0; }
+@media (max-width: 921px) { .rvd-portal { grid-template-columns: minmax(0, 1fr); } .rvd-nav { position: static; } }
 [hidden] { display: none !important; }
 ${css.join("\n")}
 ${portalCss.join("\n")}
 </style>
 </head>
 <body>
-<div class="demo-banner">Reference build · Contribution workflow · Plugin v${version} · mock data (nothing is sent anywhere)</div>
+<div class="demo-banner">Reference build · Contribution workflow · Plugin v${version} · mock data (nothing is sent anywhere) · switch roles below</div>
 <header class="demo-head">
-  <h1>RoboValley – Contributions Management</h1>
-  <div class="sub">Only an Admin can publish, and publishing updates the public Community Ideas page.</div>
+  <h1>RoboValley – Contributions in every portal</h1>
+  <div class="sub">Every role sees "+ Contribute to this sector" on every sector page and a button on every field. Only an Admin can publish.</div>
   <div class="demo-flow"><span>1. Contributor submits idea</span><span>→</span><span>2. Moderator verifies (approve as-is or edit)</span><span>→</span><span>3. Publishing request to Admin</span><span>→</span><span>4. Admin opens publish preview</span><span>→</span><span>5. Admin publishes</span><span>→</span><span>6. Community Ideas updates</span></div>
 </header>
-<main class="demo-wrap">
-  <div class="demo-tabs" role="tablist" aria-label="Roles">
-      ${tabButtons}
-  </div>
-    ${views}
-</main>
+<main class="demo-wrap"><div data-portals></div></main>
 <script>
 ${fixed}
 </script>
