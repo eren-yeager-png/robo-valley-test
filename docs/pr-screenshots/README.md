@@ -444,3 +444,203 @@ Demo, Visitor: Robots by Sector = the sector grid, published ideas only, Contrib
 | 1024 | <img src="A-demo-visitor-sector-1024-before.png" width="420" alt="A-demo-visitor-sector-1024-before.png"> | <img src="A-demo-visitor-sector-1024-after.png" width="420" alt="A-demo-visitor-sector-1024-after.png"> |
 | 390 | <img src="A-demo-visitor-sector-390-before.png" width="420" alt="A-demo-visitor-sector-390-before.png"> | <img src="A-demo-visitor-sector-390-after.png" width="420" alt="A-demo-visitor-sector-390-after.png"> |
 
+# Phase B: the data update (migration 030)
+
+Taken the same way after migration 030 was applied to the throw-away e2e database (`portal.mjs --phase B`; 216 page views, 0 problems). A page's **before** is Phase A's after picture of it (the code without 030). Names: `B-<role>-<page>-<width>-after.png`.
+
+## admin-schema (Phase B)
+
+Migration 030: the tables it changes or adds, before (001-029) and after (new columns and tables in green; nothing dropped or renamed). Taken from tools/contribution-e2e/migration-030-check.mjs on a copy of the e2e data.
+
+| Before | After |
+|---|---|
+| <img src="B-admin-schema-1440-before.png" width="420" alt="B-admin-schema-1440-before.png"> | <img src="B-admin-schema-1440-after.png" width="420" alt="B-admin-schema-1440-after.png"> |
+
+## admin-row-counts (Phase B)
+
+Migration 030 on a copy of existing data: the rows of every table before, after, after a forced second run, after the rollback and re-applied, and the 32 checks (values unchanged, identical second run, schema back after the rollback, no server error).
+
+| Before | After |
+|---|---|
+| (new page) | <img src="B-admin-row-counts-1440-after.png" width="420" alt="B-admin-row-counts-1440-after.png"> |
+
+## admin-sector-forms (Phase B)
+
+Sector Forms with the stored data: each field's source (Admin, Added by plugin with the plugin's name), status (Active / Hidden / Archived), description; Archive and Restore; Delete only when nothing uses the field and never for a plugin's field (the button says why).
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | <img src="A-admin-sector-forms-1440-after.png" width="420" alt="A-admin-sector-forms-1440-after.png"> | <img src="B-admin-sector-forms-1440-after.png" width="420" alt="B-admin-sector-forms-1440-after.png"> |
+| 1024 | <img src="A-admin-sector-forms-1024-after.png" width="420" alt="A-admin-sector-forms-1024-after.png"> | <img src="B-admin-sector-forms-1024-after.png" width="420" alt="B-admin-sector-forms-1024-after.png"> |
+| 390 | <img src="A-admin-sector-forms-390-after.png" width="420" alt="A-admin-sector-forms-390-after.png"> | <img src="B-admin-sector-forms-390-after.png" width="420" alt="B-admin-sector-forms-390-after.png"> |
+
+## admin-sector-forms-suggested (Phase B)
+
+Suggested fields are records now: Approve adds the field with "Suggested by member", Edit & approve changes the name, link code or description first, Reject needs a reason.
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | <img src="A-admin-sector-forms-suggested-1440-after.png" width="420" alt="A-admin-sector-forms-suggested-1440-after.png"> | <img src="B-admin-sector-forms-suggested-1440-after.png" width="420" alt="B-admin-sector-forms-suggested-1440-after.png"> |
+| 1024 | <img src="A-admin-sector-forms-suggested-1024-after.png" width="420" alt="A-admin-sector-forms-suggested-1024-after.png"> | <img src="B-admin-sector-forms-suggested-1024-after.png" width="420" alt="B-admin-sector-forms-suggested-1024-after.png"> |
+| 390 | <img src="A-admin-sector-forms-suggested-390-after.png" width="420" alt="A-admin-sector-forms-suggested-390-after.png"> | <img src="B-admin-sector-forms-suggested-390-after.png" width="420" alt="B-admin-sector-forms-suggested-390-after.png"> |
+
+## admin-add-field (Phase B)
+
++ Add field: the link code is made from the name and can be changed before saving; description, icon and the starting status.
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | <img src="A-admin-add-field-1440-after.png" width="420" alt="A-admin-add-field-1440-after.png"> | <img src="B-admin-add-field-1440-after.png" width="420" alt="B-admin-add-field-1440-after.png"> |
+| 1024 | <img src="A-admin-add-field-1024-after.png" width="420" alt="A-admin-add-field-1024-after.png"> | <img src="B-admin-add-field-1024-after.png" width="420" alt="B-admin-add-field-1024-after.png"> |
+| 390 | <img src="A-admin-add-field-390-after.png" width="420" alt="A-admin-add-field-390-after.png"> | <img src="B-admin-add-field-390-after.png" width="420" alt="B-admin-add-field-390-after.png"> |
+
+## admin-field-edit (Phase B)
+
+Edit (side drawer): name, description, icon and Active / Hidden; the link code never changes.
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | (new page) | <img src="B-admin-field-edit-1440-after.png" width="420" alt="B-admin-field-edit-1440-after.png"> |
+| 1024 | (new page) | <img src="B-admin-field-edit-1024-after.png" width="420" alt="B-admin-field-edit-1024-after.png"> |
+| 390 | (new page) | <img src="B-admin-field-edit-390-after.png" width="420" alt="B-admin-field-edit-390-after.png"> |
+
+## admin-audit-log (Phase B)
+
+The Audit Log reads audit_log: every approval, publishing request, publication, rejection, field, suggestion, sector and role change, written with the change itself (here the e2e run's actions and 030's backfill).
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | <img src="A-admin-audit-log-1440-after.png" width="420" alt="A-admin-audit-log-1440-after.png"> | <img src="B-admin-audit-log-1440-after.png" width="420" alt="B-admin-audit-log-1440-after.png"> |
+| 1024 | <img src="A-admin-audit-log-1024-after.png" width="420" alt="A-admin-audit-log-1024-after.png"> | <img src="B-admin-audit-log-1024-after.png" width="420" alt="B-admin-audit-log-1024-after.png"> |
+| 390 | <img src="A-admin-audit-log-390-after.png" width="420" alt="A-admin-audit-log-390-after.png"> | <img src="B-admin-audit-log-390-after.png" width="420" alt="B-admin-audit-log-390-after.png"> |
+
+## moderator-moderation (Phase B)
+
+Moderation: Approve as-is is its own step now (the idea becomes Approved, blue); Edit & approve and Reject as before.
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | <img src="A-moderator-moderation-1440-after.png" width="420" alt="A-moderator-moderation-1440-after.png"> | <img src="B-moderator-moderation-1440-after.png" width="420" alt="B-moderator-moderation-1440-after.png"> |
+| 1024 | <img src="A-moderator-moderation-1024-after.png" width="420" alt="A-moderator-moderation-1024-after.png"> | <img src="B-moderator-moderation-1024-after.png" width="420" alt="B-moderator-moderation-1024-after.png"> |
+| 390 | <img src="A-moderator-moderation-390-after.png" width="420" alt="A-moderator-moderation-390-after.png"> | <img src="B-moderator-moderation-390-after.png" width="420" alt="B-moderator-moderation-390-after.png"> |
+
+## moderator-moderation-approved (Phase B)
+
+New: an approved idea in the Approved tab with "Send publish request to Admin" (the publishing request is the next step; a Moderator never publishes).
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | (new page) | <img src="B-moderator-moderation-approved-1440-after.png" width="420" alt="B-moderator-moderation-approved-1440-after.png"> |
+| 1024 | (new page) | <img src="B-moderator-moderation-approved-1024-after.png" width="420" alt="B-moderator-moderation-approved-1024-after.png"> |
+| 390 | (new page) | <img src="B-moderator-moderation-approved-390-after.png" width="420" alt="B-moderator-moderation-approved-390-after.png"> |
+
+## moderator-moderation-edit-approve (Phase B)
+
+The drawer's main button is "Approve" (the request is sent separately).
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | <img src="A-moderator-moderation-edit-approve-1440-after.png" width="420" alt="A-moderator-moderation-edit-approve-1440-after.png"> | <img src="B-moderator-moderation-edit-approve-1440-after.png" width="420" alt="B-moderator-moderation-edit-approve-1440-after.png"> |
+| 1024 | <img src="A-moderator-moderation-edit-approve-1024-after.png" width="420" alt="A-moderator-moderation-edit-approve-1024-after.png"> | <img src="B-moderator-moderation-edit-approve-1024-after.png" width="420" alt="B-moderator-moderation-edit-approve-1024-after.png"> |
+| 390 | <img src="A-moderator-moderation-edit-approve-390-after.png" width="420" alt="A-moderator-moderation-edit-approve-390-after.png"> | <img src="B-moderator-moderation-edit-approve-390-after.png" width="420" alt="B-moderator-moderation-edit-approve-390-after.png"> |
+
+## admin-publish-requests (Phase B)
+
+Publish Requests lists only what a Moderator sent (an approved idea waits with its Moderator).
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | <img src="A-admin-publish-requests-1440-after.png" width="420" alt="A-admin-publish-requests-1440-after.png"> | <img src="B-admin-publish-requests-1440-after.png" width="420" alt="B-admin-publish-requests-1440-after.png"> |
+| 1024 | <img src="A-admin-publish-requests-1024-after.png" width="420" alt="A-admin-publish-requests-1024-after.png"> | <img src="B-admin-publish-requests-1024-after.png" width="420" alt="B-admin-publish-requests-1024-after.png"> |
+| 390 | <img src="A-admin-publish-requests-390-after.png" width="420" alt="A-admin-publish-requests-390-after.png"> | <img src="B-admin-publish-requests-390-after.png" width="420" alt="B-admin-publish-requests-390-after.png"> |
+
+## admin-sectors (Phase B)
+
+Sectors: Rename, Move up / down, Card style and Archive (or Restore) work now; + Add sector at the top.
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | <img src="A-admin-sectors-1440-after.png" width="420" alt="A-admin-sectors-1440-after.png"> | <img src="B-admin-sectors-1440-after.png" width="420" alt="B-admin-sectors-1440-after.png"> |
+| 1024 | <img src="A-admin-sectors-1024-after.png" width="420" alt="A-admin-sectors-1024-after.png"> | <img src="B-admin-sectors-1024-after.png" width="420" alt="B-admin-sectors-1024-after.png"> |
+| 390 | <img src="A-admin-sectors-390-after.png" width="420" alt="A-admin-sectors-390-after.png"> | <img src="B-admin-sectors-390-after.png" width="420" alt="B-admin-sectors-390-after.png"> |
+
+## admin-add-sector (Phase B)
+
+New: + Add sector (name; icon and colour for its card).
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | (new page) | <img src="B-admin-add-sector-1440-after.png" width="420" alt="B-admin-add-sector-1440-after.png"> |
+| 1024 | (new page) | <img src="B-admin-add-sector-1024-after.png" width="420" alt="B-admin-add-sector-1024-after.png"> |
+| 390 | (new page) | <img src="B-admin-add-sector-390-after.png" width="420" alt="B-admin-add-sector-390-after.png"> |
+
+## admin-users-roles (Phase B)
+
+Users & Roles: a moderator's sectors ("Reviews: every sector") with Edit sectors.
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | <img src="A-admin-users-roles-1440-after.png" width="420" alt="A-admin-users-roles-1440-after.png"> | <img src="B-admin-users-roles-1440-after.png" width="420" alt="B-admin-users-roles-1440-after.png"> |
+| 1024 | <img src="A-admin-users-roles-1024-after.png" width="420" alt="A-admin-users-roles-1024-after.png"> | <img src="B-admin-users-roles-1024-after.png" width="420" alt="B-admin-users-roles-1024-after.png"> |
+| 390 | <img src="A-admin-users-roles-390-after.png" width="420" alt="A-admin-users-roles-390-after.png"> | <img src="B-admin-users-roles-390-after.png" width="420" alt="B-admin-users-roles-390-after.png"> |
+
+## admin-users-edit-sectors (Phase B)
+
+New: Edit sectors (none ticked = every sector). The server limits that moderator's Moderation, items and actions to those sectors.
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | (new page) | <img src="B-admin-users-edit-sectors-1440-after.png" width="420" alt="B-admin-users-edit-sectors-1440-after.png"> |
+| 1024 | (new page) | <img src="B-admin-users-edit-sectors-1024-after.png" width="420" alt="B-admin-users-edit-sectors-1024-after.png"> |
+| 390 | (new page) | <img src="B-admin-users-edit-sectors-390-after.png" width="420" alt="B-admin-users-edit-sectors-390-after.png"> |
+
+## demo-moderator-moderation (Phase B)
+
+Demo: the same two steps (Approve, then Send publish request to Admin).
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | <img src="A-demo-moderator-moderation-1440-after.png" width="420" alt="A-demo-moderator-moderation-1440-after.png"> | <img src="B-demo-moderator-moderation-1440-after.png" width="420" alt="B-demo-moderator-moderation-1440-after.png"> |
+| 1024 | <img src="A-demo-moderator-moderation-1024-after.png" width="420" alt="A-demo-moderator-moderation-1024-after.png"> | <img src="B-demo-moderator-moderation-1024-after.png" width="420" alt="B-demo-moderator-moderation-1024-after.png"> |
+| 390 | <img src="A-demo-moderator-moderation-390-after.png" width="420" alt="A-demo-moderator-moderation-390-after.png"> | <img src="B-demo-moderator-moderation-390-after.png" width="420" alt="B-demo-moderator-moderation-390-after.png"> |
+
+## demo-admin-sector-forms (Phase B)
+
+Demo: Sector Forms with archive, delete when unused and stored suggestions.
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | <img src="A-demo-admin-sector-forms-1440-after.png" width="420" alt="A-demo-admin-sector-forms-1440-after.png"> | <img src="B-demo-admin-sector-forms-1440-after.png" width="420" alt="B-demo-admin-sector-forms-1440-after.png"> |
+| 1024 | <img src="A-demo-admin-sector-forms-1024-after.png" width="420" alt="A-demo-admin-sector-forms-1024-after.png"> | <img src="B-demo-admin-sector-forms-1024-after.png" width="420" alt="B-demo-admin-sector-forms-1024-after.png"> |
+| 390 | <img src="A-demo-admin-sector-forms-390-after.png" width="420" alt="A-demo-admin-sector-forms-390-after.png"> | <img src="B-demo-admin-sector-forms-390-after.png" width="420" alt="B-demo-admin-sector-forms-390-after.png"> |
+
+## demo-admin-sectors-admin (Phase B)
+
+Demo: Sectors with every action.
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | <img src="A-demo-admin-sectors-admin-1440-after.png" width="420" alt="A-demo-admin-sectors-admin-1440-after.png"> | <img src="B-demo-admin-sectors-admin-1440-after.png" width="420" alt="B-demo-admin-sectors-admin-1440-after.png"> |
+| 1024 | <img src="A-demo-admin-sectors-admin-1024-after.png" width="420" alt="A-demo-admin-sectors-admin-1024-after.png"> | <img src="B-demo-admin-sectors-admin-1024-after.png" width="420" alt="B-demo-admin-sectors-admin-1024-after.png"> |
+| 390 | <img src="A-demo-admin-sectors-admin-390-after.png" width="420" alt="A-demo-admin-sectors-admin-390-after.png"> | <img src="B-demo-admin-sectors-admin-390-after.png" width="420" alt="B-demo-admin-sectors-admin-390-after.png"> |
+
+## demo-admin-users (Phase B)
+
+Demo: Users & Roles with Edit sectors for the moderator.
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | <img src="A-demo-admin-users-1440-after.png" width="420" alt="A-demo-admin-users-1440-after.png"> | <img src="B-demo-admin-users-1440-after.png" width="420" alt="B-demo-admin-users-1440-after.png"> |
+| 1024 | <img src="A-demo-admin-users-1024-after.png" width="420" alt="A-demo-admin-users-1024-after.png"> | <img src="B-demo-admin-users-1024-after.png" width="420" alt="B-demo-admin-users-1024-after.png"> |
+| 390 | <img src="A-demo-admin-users-390-after.png" width="420" alt="A-demo-admin-users-390-after.png"> | <img src="B-demo-admin-users-390-after.png" width="420" alt="B-demo-admin-users-390-after.png"> |
+
+## demo-admin-audit (Phase B)
+
+Demo: the Audit Log with the new kinds (publish requested, field, suggestion, sector and role changes).
+
+| Width | Before (Phase A) | After (Phase B) |
+|---|---|---|
+| 1440 | <img src="A-demo-admin-audit-1440-after.png" width="420" alt="A-demo-admin-audit-1440-after.png"> | <img src="B-demo-admin-audit-1440-after.png" width="420" alt="B-demo-admin-audit-1440-after.png"> |
+| 1024 | <img src="A-demo-admin-audit-1024-after.png" width="420" alt="A-demo-admin-audit-1024-after.png"> | <img src="B-demo-admin-audit-1024-after.png" width="420" alt="B-demo-admin-audit-1024-after.png"> |
+| 390 | <img src="A-demo-admin-audit-390-after.png" width="420" alt="A-demo-admin-audit-390-after.png"> | <img src="B-demo-admin-audit-390-after.png" width="420" alt="B-demo-admin-audit-390-after.png"> |
+
