@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireAdminPage } from "../../../lib/adminPage";
 import CwMount from "../../_cw/CwMount";
+import "../../_cw/cw-portal.css"; // its dialogs (Archive, Rename) are styled there
 import "../../../../public/cw/portal.css";
 
 export const metadata: Metadata = { title: "Sectors | RoboValley admin", robots: { index: false, follow: false } };
