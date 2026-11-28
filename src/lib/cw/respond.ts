@@ -9,7 +9,7 @@ export const NO_STORE = { "Cache-Control": "no-store" };
 export const ok = (req: Request, body: unknown, methods: string, status = 200) => withCors(req, json({ success: true, ...(body as object) }, status, NO_STORE), methods);
 export const failed = (req: Request, f: Fail, methods: string) => withCors(req, json({ success: false, error: f.error, message: f.message }, f.status, NO_STORE), methods);
 
-/** A thrown error: "not set up yet" (migration 027 missing) or a plain server error. Logs only a label, never data. */
+/** A thrown error: "not set up yet" (migration 027 or 028 missing) or a plain server error. Logs only a label, never data. */
 export function crashed(req: Request, e: unknown, methods: string, label: string) {
   if (e instanceof NotSetUp) return withCors(req, json({ success: false, error: "NOT_SET_UP", message: "The contribution workflow is not set up yet. Please try again later." }, 503, NO_STORE), methods);
   console.error(`cw ${label} failed: server error`);

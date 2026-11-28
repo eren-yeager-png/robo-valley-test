@@ -2,6 +2,7 @@
 // its real type (read from the file when it was uploaded), never cached, never sniffed by the browser.
 import { pool } from "../../../../../../lib/db";
 import { guardReviewer } from "../../../../../../lib/reviewerGuard";
+import { scopeProblem } from "../../../../../../lib/reviewerSectors";
 import { parseId } from "../../../../../../lib/contributorGuard";
 import { getAttachment } from "../../../../../../lib/cw/store";
 import { crashed, failed } from "../../../../../../lib/cw/respond";
@@ -17,6 +18,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const missing = { ok: false as const, status: 404, error: "NOT_FOUND", message: "There is no attachment." };
   if (id === null) return failed(req, missing, METHODS);
   try {
+    const scope = await scopeProblem(pool as never, g, { idea: id }); // a reviewer limited to some sectors (migration 030)
+    if (scope) return failed(req, scope, METHODS);
     const a = await getAttachment(pool as never, id);
     if (!a) return failed(req, missing, METHODS);
     const name = a.name.replace(/[^\w.\- ]/g, "_");

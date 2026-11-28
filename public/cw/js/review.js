@@ -1,9 +1,11 @@
 // Contribution workflow: pieces shared by the Moderator Workspace and the Admin Approval Dashboard (both inside the admin portal).
+import { APPROVED, portalStatusLabel } from "./portal-rules.js";
 import { esc, fmtDate } from "./utils.js";
 import { FIELDS, FIELD_LABELS, STATUS_CLASS, STATUS_LABEL } from "./lists.js";
 import { robotLabel, sectorLabel } from "./rules.js";
 
-export const badge = (status) => `<span class="rv-badge ${STATUS_CLASS[status] || ""}">${esc(STATUS_LABEL[status] || status)}</span>`;
+// "approved" (a Moderator approved it; the publishing request is its own step, migration 030) is the Contribution Portal's status
+export const badge = (status) => `<span class="rv-badge ${status === APPROVED ? "rv-s-approved" : STATUS_CLASS[status] || ""}">${esc(portalStatusLabel(status, STATUS_LABEL))}</span>`;
 const notSet = '<span class="cw-muted">Not set</span>';
 
 /** A field's value as text (sector and robot type by name, lists joined); "" when empty. */
@@ -51,3 +53,7 @@ export const attachmentHtml = (it, adapter) => (it.attachment
 
 export const notice = (kind, html, role = "status") => `<div class="cw-notice cw-n-${kind}" role="${role}">${html}</div>`;
 export const lastFeedback = (it, type) => (it.feedback || []).filter((f) => !type || f.type === type).slice(-1)[0];
+/** The latest decision to reject: a Moderator's decline or an Admin's rejection (who, why, when). */
+export const lastDecision = (it) => (it.feedback || []).filter((f) => f.type === "decline" || f.type === "reject").slice(-1)[0];
+export const decisionWho = (f) => `${f.type === "decline" ? "Declined" : "Rejected"} by ${f.by} (${f.type === "decline" ? "Moderator" : "Admin"})`;
+export const decisionHtml = (f) => `<b>${esc(decisionWho(f))}</b> on ${esc(fmtDate(f.at))}. Reason: ${esc(f.text)}`;

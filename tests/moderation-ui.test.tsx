@@ -1,5 +1,5 @@
-// The Admin Portal pages (portal PR2, server-rendered): Contributions by Sector, one sector's list, one contribution with the Review
-// panel, and the layout. Rendered to static markup on the in-process database with the real migrations; no real database.
+// The Admin Portal's Moderation pages: Moderation itself (the shared screen, public/cw/js/moderation.js, tested in portal-screens and
+// portal-server), the old addresses that lead to it, one contribution with the Review panel (server-rendered), and the layout. Rendered to static markup on the in-process database with the real migrations; no real database.
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedUser, testDb } from "./helpers";
@@ -20,7 +20,7 @@ import path from "node:path";
 const q = (sql: string, p: unknown[] = []) => testDb().raw.query(sql, p as never);
 let seq = 0;
 const overview = async (sp: Record<string, string> = {}) => renderToStaticMarkup(await Overview({ searchParams: Promise.resolve(sp) }));
-const sector = async (slug: string, sp: Record<string, string> = {}) => renderToStaticMarkup(await SectorPage({ params: Promise.resolve({ slug }), searchParams: Promise.resolve(sp) }));
+const sector = (slug: string, sp: Record<string, string> = {}) => SectorPage({ params: Promise.resolve({ slug }), searchParams: Promise.resolve(sp) }); // always redirects to Moderation
 const detail = async (id: number | string, sp: Record<string, string> = {}) => renderToStaticMarkup(await Detail({ params: Promise.resolve({ id: String(id) }), searchParams: Promise.resolve(sp) }));
 async function person(role: string, fullName: string, moderator = false) {
   const id = Number((await seedUser({ email: `p${++seq}@example.com`, role, fullName })).id);
@@ -39,116 +39,25 @@ beforeEach(async () => {
 });
 afterEach(() => { vi.restoreAllMocks(); testDb().failOn(undefined); });
 
-describe("page 1: Contributions by Sector", () => {
-  it("shows the four tiles and one card per sector, including sectors with nothing; an item in two sectors counts under both", async () => {
-    state.viewer = await person("admin", "Ola Admin");
-    const a = await person("ST", "Asha Kumari Rao"), b = await person("TC", "Farid Mehta");
-    await make(a, "pending_review", "Solar milking robot");
-    await make(b, "pending_review", "Drone spraying workshop", ["agriculture-dairy", "education"]);
-    await make(a, "published", "Weed-picking rover club");
-    await make(b, "rejected", "Cheap drone kits");
-    await make(a, "draft", "A private draft");
-    const h = await overview();
-    expect(h).toContain("Contributions by Sector");
-    // the four numbers are the admin portal's own stat cards
-    for (const [label, n] of [["All contributions", 4], ["Pending review", 2], ["Published", 1], ["Not accepted", 1]] as const)
-      expect(h).toContain(`<div class="adm-card stat"><div class="lbl">${label}</div><div class="val">${n}</div></div>`);
-    expect(h).toContain("Contributors for Agriculture &amp; Dairy →");
-    expect(h).toContain('href="/admin/moderation/sector/agriculture-dairy"');
-    expect(h).toContain("4 contributions · 2 contributors");
-    expect(h).toContain("Contributors for Education →"); expect(h).toContain("1 contribution · 1 contributor");
-    expect(h).toContain("Contributors for Healthcare →"); expect(h).toContain("0 contributions · 0 contributors");
-    expect(h).not.toContain("A private draft");
-    expect(h).not.toMatch(/@example\.com|Kumari|Rao/);
+describe("Moderation: ONE page (the Moderator Workspace merged in), drawn by the shared screen", () => {
+  it("mounts public/cw/js/moderation.js with the sector, the tab and the live Contribute form; bad values are dropped", async () => {
+    const el = (await Overview({ searchParams: Promise.resolve({ sector: "education", tab: "pending" }) })) as any;
+    expect(el.props.screen).toBe("moderation");
+    expect(el.props.options).toMatchObject({ sector: "education", tab: "pending", basePath: "/admin/moderation" });
+    expect(el.props.options.form).toMatch(/\/contribute-now\/$/);
+    const bad = (await Overview({ searchParams: Promise.resolve({ sector: "../x", tab: "everything" }) })) as any;
+    expect([bad.props.options.sector, bad.props.options.tab]).toEqual(["", ""]);
+    expect(await overview()).toContain('class="rv-cw-root"');
   });
-  it("finds a sector by name and sorts by name; an unknown sort falls back; nothing found says so", async () => {
-    state.viewer = await person("admin", "Ola Admin");
-    const h = await overview({ q: "health", sort: "name" });
-    expect(h).toContain("Contributors for Healthcare"); expect(h).not.toContain("Contributors for Education");
-    expect(await overview({ q: "zzz", sort: "bogus" })).toContain("No sector matches “zzz”.");
-  });
-  it("an older link /moderation?item=12 opens the new detail page", async () => {
-    state.viewer = 1;
+  it("an older link /moderation?item=12 opens the detail page", async () => {
     await expect(overview({ item: "12" })).rejects.toThrow("REDIRECT:/admin/moderation/12");
   });
-  it("with no contributions at all it says so (the numbers loaded, every sector at 0), not an error", async () => {
-    state.viewer = await person("admin", "Ola Admin");
-    const h = await overview();
-    expect(h).toContain("No contributions yet."); expect(h).not.toContain("could not be loaded");
-    expect(h).toContain("Contributors for Agriculture &amp; Dairy →");
-  });
-  it("shows a plain message when the tables are missing, never details", async () => {
-    state.viewer = 1;
-    testDb().failOn((sql) => (/FROM contributions c WHERE c\.status NOT IN/.test(sql) ? Object.assign(new Error("x"), { code: "42P01" }) : undefined));
-    expect(await overview()).toContain("Reviewing is not set up on this database yet");
-    testDb().failOn((sql) => (/FROM contributions c WHERE c\.status NOT IN/.test(sql) ? new Error("password=hunter2") : undefined));
-    const h = await overview(); expect(h).toContain("could not be loaded"); expect(h).not.toContain("hunter2");
-    expect(JSON.stringify((console.error as any).mock.calls)).not.toContain("hunter2"); // nor in the server log
-  });
-});
-
-describe("page 2: one sector's list", () => {
-  it("tabs with counts (role=tab, aria-selected), the table with contributor, Also in, categories and status, and a View form link", async () => {
-    state.viewer = await person("TC", "Ravi Mod", true); state.isAdmin = false;
-    const a = await person("TC", "Asha Kumari Rao"), b = await person("ST", "Farid Mehta");
-    const x = await make(a, "pending_review", "Solar milking robot");
-    await q("INSERT INTO contribution_categories (contribution_id, category, position) VALUES ($1,'Projects',1),($1,'Labs & Makerspaces',2)", [x]);
-    await make(b, "pending_review", "Drone spraying workshop", ["agriculture-dairy", "education"]);
-    await make(a, "published", "Weed-picking rover club");
-    const h = await sector("agriculture-dairy");
-    expect(h).toContain("Contributors for Agriculture &amp; Dairy");
-    expect(h).toContain("3 contributions from 2 contributors.");
-    expect(h).toContain('role="tablist"');
-    expect(h).toMatch(/role="tab" aria-selected="true"[^>]*>New \(2\)/);
-    for (const t of ["In review (0)", "Replied (0)", "Changes requested (0)", "Published (1)", "Not accepted (0)", "Unpublished (0)", "All (3)"]) expect(h).toContain(t);
-    expect(h).toContain("Solar milking robot"); expect(h).toContain("Drone spraying workshop"); expect(h).not.toContain("Weed-picking rover club"); // New tab only
-    expect(h).toContain("Asha R."); expect(h).not.toContain("Kumari"); expect(h).toContain("Teacher / lab in-charge");
-    expect(h).toContain("Also in: Education");
-    expect(h).toContain(">Projects<"); expect(h).toContain(">Labs &amp; Makerspaces<");
-    expect(h).toContain(`href="/admin/moderation/${x}?from=agriculture-dairy&amp;tab=new"`);
-    expect(h).toContain('href="/api/review/export?sector=agriculture-dairy&amp;tab=new&amp;sort=new"');
-    expect(h).not.toMatch(/@example\.com/);
-  });
-  it("search by title or contributor, the category filter, sort, an empty tab and pages of 20", async () => {
-    state.viewer = await person("admin", "Ola Admin");
-    const a = await person("ST", "Asha Rao");
-    for (let i = 1; i <= 23; i++) await make(a, "published", `Published item number ${String(i).padStart(2, "0")}`);
-    const h1 = await sector("agriculture-dairy", { tab: "published" });
-    expect(h1).toContain("Page 1 of 2 · 23 contributions"); expect(h1).toContain("Published item number 23"); expect(h1).not.toContain("Published item number 03");
-    expect(h1).toContain('href="/admin/moderation/sector/agriculture-dairy?tab=published&amp;page=2"');
-    const h2 = await sector("agriculture-dairy", { tab: "published", page: "2" });
-    expect(h2).toContain("Published item number 01"); expect(h2).toContain("Page 2 of 2");
-    const old = await sector("agriculture-dairy", { tab: "published", sort: "old" });
-    expect(old.indexOf("number 01")).toBeLessThan(old.indexOf("number 02"));
-    expect(await sector("agriculture-dairy", { tab: "published", q: "number 07" })).toContain("Published item number 07");
-    expect(await sector("agriculture-dairy", { tab: "published", q: "asha" })).toContain("23 contributions");
-    expect(await sector("agriculture-dairy", { tab: "published", cat: "Events" })).toContain("Nothing here yet.");
-    expect(await sector("agriculture-dairy", { tab: "rejected" })).toContain("Nothing here yet.");
-  });
-  it("verified=1 / verified=0 (the admin Sector Counts links) show only pending items a reviewer has / has not verified, in the list, the CSV link and Previous / Next", async () => {
-    const admin = await person("admin", "Ola Admin"); state.viewer = admin;
-    const a = await person("ST", "Asha Rao");
-    const checked = await make(a, "pending_review", "Checked pending item"), unchecked = await make(a, "pending_review", "Unchecked pending item");
-    await make(a, "published", "Published, also verified earlier");
-    await q("INSERT INTO contribution_reviews (contribution_id, reviewer_id, action) VALUES ($1,$2,'verify')", [checked, admin]);
-    const yes = await sector("agriculture-dairy", { tab: "all", verified: "1" });
-    expect(yes).toContain("Checked pending item"); expect(yes).not.toContain("Unchecked pending item"); expect(yes).not.toContain("Published, also verified");
-    expect(yes).toContain("Showing only pending contributions a reviewer has verified.");
-    expect(yes).toContain('href="/admin/moderation/sector/agriculture-dairy?tab=all"'); // "Show everything" drops the filter
-    expect(yes).toContain("verified=1"); // kept by the CSV link and the View form links
-    expect(yes).toContain('<input type="hidden" name="verified" value="1"/>'); // and by the search form
-    const no = await sector("agriculture-dairy", { tab: "all", verified: "0" });
-    expect(no).toContain("Unchecked pending item"); expect(no).not.toContain("Checked pending item");
-    expect(no).toContain("that nobody has verified yet");
-    expect(await sector("agriculture-dairy", { tab: "all", verified: "maybe" })).toContain("Published, also verified"); // anything else: no filter
-    const d = await detail(checked, { from: "agriculture-dairy", tab: "all", verified: "1" });
-    expect(d).toContain("1 of 1"); // Previous / Next stay inside the filtered list
-    expect(d).toContain('href="/admin/moderation/sector/agriculture-dairy?tab=all&amp;verified=1"'); // and so does the way back
-  });
-  it("an unknown or malformed sector says so", async () => {
-    state.viewer = 1;
-    expect(await sector("no-such-sector")).toContain("We could not find that sector.");
-    expect(await sector("../etc")).toContain("We could not find that sector.");
+  it("the old address of one sector's list goes to that sector's panel, on the matching tab (the Sectors page's verified links too)", async () => {
+    await expect(sector("education", { tab: "new" })).rejects.toThrow("REDIRECT:/admin/moderation?sector=education&tab=pending");
+    await expect(sector("education", { tab: "published" })).rejects.toThrow("REDIRECT:/admin/moderation?sector=education&tab=published");
+    await expect(sector("education", { tab: "all", verified: "1" })).rejects.toThrow("REDIRECT:/admin/moderation?sector=education&tab=approved");
+    await expect(sector("education", { verified: "0" })).rejects.toThrow("REDIRECT:/admin/moderation?sector=education&tab=pending");
+    await expect(sector("Not A Slug")).rejects.toThrow(/REDIRECT:\/admin\/moderation$/);
   });
 });
 
@@ -256,13 +165,14 @@ describe("the layout and the forms", () => {
     await expect(Overview({ searchParams: Promise.resolve({}) })).rejects.toThrow(/REDIRECT/);
     state.guard = "ok"; state.isAdmin = false;
     const h = renderToStaticMarkup(await Layout({ children: null }));
-    // the admin portal's shell; a moderator's sidebar holds Moderation and the Moderator Workspace only, Moderation marked as the current page
+    // the admin portal's shell; a moderator's sidebar holds Moderation (the Workspace is merged into it) and My Contributions, Moderation marked as the current page
     expect(h).toContain('class="adm-side"'); expect(h).toContain('class="adm-top"'); expect(h).toContain("<small>Moderator</small>");
-    expect(h.match(/href="\/admin\/[^"]*"/g)).toEqual(['href="/admin/moderation"', 'href="/admin/workspace"']);
+    expect(h.match(/href="\/admin\/[^"]*"/g)).toEqual(['href="/admin/moderation"']);
+    expect(h).toContain('href="/my-contributions"');
     expect(h).toMatch(/<a aria-current="page" class="active" href="\/admin\/moderation">/);
     state.isAdmin = true;
     const a = renderToStaticMarkup(await Layout({ children: null }));
-    expect(a.match(/href="\/admin\/[^"]*"/g)).toHaveLength(14); expect(a).toContain("<small>Admin</small>"); expect(a.match(/aria-current="page"/g)).toHaveLength(1);
+    expect(a.match(/href="\/admin\/[^"]*"/g)).toHaveLength(15); expect(a).toContain("<small>Admin</small>"); expect(a.match(/aria-current="page"/g)).toHaveLength(1);
     expect(h).not.toMatch(/Sign Out|sign-out|logout/i);
     for (const f of ["page.tsx", "DecisionForm.tsx", "ReplyNoteForm.tsx", "layout.tsx", "sector/[slug]/page.tsx", "[id]/page.tsx"]) expect(fs.readFileSync(path.join(__dirname, "../src/app/(reviewer)/admin/moderation", f), "utf8"), f).not.toMatch(/dangerouslySetInnerHTML|innerHTML/);
   });

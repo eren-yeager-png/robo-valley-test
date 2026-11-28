@@ -22,6 +22,7 @@ import * as addRoute from "../src/app/api/admin/sector-forms/[slug]/robots/route
 import * as changeRoute from "../src/app/api/admin/sector-forms/[slug]/robots/[id]/route";
 import SectorFormsPage from "../src/app/admin/sector-forms/page";
 import SectorFormPage from "../src/app/admin/sector-forms/[slug]/page";
+import * as portalRoute from "../src/app/api/admin/portal/sector-forms/route";
 import { ADMIN_NAV, titleFor } from "../src/app/admin/_components/nav";
 import { ROBOTS_PER_SECTOR, cleanRobotName, slugFor } from "../src/lib/sectorForms";
 import { MODERATOR_ROLE } from "../src/lib/reviewerHome";
@@ -45,6 +46,11 @@ const count = async () => Number(((await q("SELECT count(*)::int n FROM sector_r
 const redirectOf = async (p: Promise<unknown>) => { try { await p; return null; } catch (e) { const x = /^REDIRECT:(.*)$/.exec(String((e as Error).message)); if (x) return x[1]; throw e; } };
 const html = async (p: Promise<any>) => renderToStaticMarkup(await p);
 const listPage = () => SectorFormsPage();
+/** Sector Forms' data for the page's screen (public/cw/js/sector-forms.js draws it in the browser) */
+async function portal(slug = "") {
+  const r = await portalRoute.GET(req(`/api/admin/portal/sector-forms${slug ? `?sector=${slug}` : ""}`, "GET"));
+  return { r, b: (await r.json()) as any };
+}
 const formPage = (slug: string) => SectorFormPage({ params: Promise.resolve({ slug }) });
 const missingTable = () => testDb().failOn((sql) => (/sector_robot_types/.test(sql) ? Object.assign(new Error('relation "sector_robot_types" does not exist'), { code: "42P01" }) : undefined));
 
@@ -138,10 +144,15 @@ describe("who may open and change Sector forms", () => {
     expect((await robots()).map((r) => [r.name, r.is_active])).toEqual([["Drone sprayers", false]]);
   });
 
-  it("robot types can never be deleted, and nothing else is offered: the routes have no DELETE, GET or PUT", () => {
+  // Contribution Portal (Phase B): a field may be DELETED, but only when no contribution of any status uses it and no plugin manages it
+  // (P2's "never deleted" rule is replaced; the behaviour is tested in tests/portal-fields-030.test.ts). Nothing else is offered.
+  it("a field can be deleted only after the checks; nothing else is offered: the routes have no GET or PUT", () => {
     expect(Object.keys(addRoute).filter((k) => /^[A-Z]+$/.test(k))).toEqual(["POST"]);
-    expect(Object.keys(changeRoute).filter((k) => /^[A-Z]+$/.test(k))).toEqual(["PATCH"]);
-    expect(readFileSync("src/lib/sectorForms.ts", "utf8").replace(/\/\/.*$/gm, "")).not.toMatch(/DELETE\s+FROM/i);
+    expect(Object.keys(changeRoute).filter((k) => /^[A-Z]+$/.test(k)).sort()).toEqual(["DELETE", "PATCH"]);
+    const code = readFileSync("src/lib/sectorForms.ts", "utf8").replace(/\/\/.*$/gm, "");
+    expect(code.match(/DELETE\s+FROM/gi)).toHaveLength(1); // deleteRobotType's, after its checks
+    expect(code.indexOf("DELETE FROM sector_robot_types")).toBeGreaterThan(code.indexOf("const uses = await fieldUses(db, s, cur);"));
+    expect(code.indexOf("const uses = await fieldUses(db, s, cur);")).toBeGreaterThan(code.indexOf('if (cur.source === "plugin") return fail(409, "PLUGIN_MANAGED"'));
   });
 });
 
@@ -251,32 +262,36 @@ describe("changing robot types (administrator)", () => {
 describe("before migration 024, and when the database fails", () => {
   beforeEach(() => signInAs(admin, "admin"));
 
-  it("before 024: adding and changing answer 503 NOT_SET_UP; the pages say migration 024 is needed and still list the sectors", async () => {
+  it("before 024: adding and changing answer 503 NOT_SET_UP; the page's data says fields are not set up and still lists the sectors", async () => {
     missingTable();
     const a = await add("agriculture-dairy", { name: "Drone sprayers" });
     expect([a.r.status, a.b.error]).toEqual([503, "NOT_SET_UP"]);
     expect((await change("agriculture-dairy", 1, { active: false })).r.status).toBe(503);
-    const list = await html(listPage());
-    expect(list).toContain("Robot types are not set up on this database yet");
-    expect(list).toContain("Migration 024 is needed");
-    expect(list).toContain("Agriculture &amp; Dairy");
-    const form = await html(formPage("agriculture-dairy"));
-    expect(form).toContain("Migration 024 is needed");
+    const d = await portal();
+    expect(d.r.status).toBe(200);
+    expect(d.b.robotsReady).toBe(false); // the screen says "Fields are not set up on this database yet (migration 024)" and adds nothing
+    expect(d.b.sectors.map((x: any) => x.name)).toContain("Agriculture & Dairy");
+    expect(readFileSync("public/cw/js/sector-forms.js", "utf8")).toContain("Fields are not set up on this database yet (migration 024)");
+    const form = await html(formPage("agriculture-dairy")); // the sector's questions still open
+    expect(form).toContain("Questions");
     expect(form).not.toContain("Add robot type");
   });
 
   it("without the sector tables (012): a setup notice, not a crash", async () => {
     testDb().failOn((sql) => (/FROM sectors/.test(sql) ? Object.assign(new Error('relation "sectors" does not exist'), { code: "42P01" }) : undefined));
-    expect(await html(listPage())).toContain("Sectors are not set up on this database yet");
+    const d = await portal();
+    expect([d.r.status, d.b.message]).toEqual([503, "Sectors are not set up on this database yet."]);
     expect(await html(formPage("agriculture-dairy"))).toContain("Sectors are not set up on this database yet");
   });
 
-  it("a database failure: 500 with a fixed message and no details; the page says it could not be loaded", async () => {
+  it("a database failure: 500 with a fixed message and no details", async () => {
     testDb().failOn((sql) => (/sector_robot_types|FROM sectors/.test(sql) ? new Error("secret detail: password=hunter2") : undefined));
     const a = await add("agriculture-dairy", { name: "Drone sprayers" });
     expect(a.r.status).toBe(500);
     expect(JSON.stringify(a.b)).not.toMatch(/hunter2|secret/);
-    expect(await html(listPage())).toContain("Sector forms could not be loaded");
+    const d = await portal();
+    expect([d.r.status, d.b.message]).toEqual([500, "Sector forms could not be loaded. Please try again."]);
+    expect(JSON.stringify(d.b)).not.toMatch(/hunter2|secret/);
   });
 
   it("only Sector forms and the robot module (P3) read the new table, so everything else works before 024 exactly as before", () => {
@@ -291,36 +306,30 @@ describe("before migration 024, and when the database fails", () => {
 describe("the pages (administrator)", () => {
   beforeEach(() => signInAs(admin, "admin"));
 
-  it("the list: every non-demo sector, whether it is offered, how many robot types are on and off, and a link to its form", async () => {
-    const d = (await add("agriculture-dairy", { name: "Drone sprayers" })).b.robot.id;
-    await add("agriculture-dairy", { name: "Milking robots" });
-    await change("agriculture-dairy", d, { active: false });
-    const h = await html(listPage());
-    expect(h).toContain("Sector forms");
-    expect(h).toContain('href="/admin/sector-forms/agriculture-dairy"');
-    expect(h).toContain("1 on · 1 off");
-    expect(h).toContain("None yet");
-    expect(h).toMatch(/Healthcare[\s\S]*Not offered/);
-    expect(h).not.toContain("Demo sector");
-    expect(h.indexOf("Agriculture")).toBeLessThan(h.indexOf("Education"));
+  it("the page mounts the shared Sector Forms screen with the sector and the live Contribute form; bad values are dropped", async () => {
+    const el = (await listPage()) as any;
+    expect(el.props.screen).toBe("sectorForms");
+    expect(el.props.options).toMatchObject({ sector: "", basePath: "/admin/sector-forms", questionsPath: "/admin/sector-forms" });
+    expect(((await SectorFormsPage({ searchParams: Promise.resolve({ sector: "education" }) })) as any).props.options.sector).toBe("education");
+    expect(((await SectorFormsPage({ searchParams: Promise.resolve({ sector: "<x>" }) })) as any).props.options.sector).toBe("");
   });
 
-  it("one sector: its robot types in order with their link codes and status; the preview shows only those that are on, after 'Not sure'", async () => {
+  it("the data: every non-demo sector (offered or not) with its number of fields; one sector's fields in order with link codes and state", async () => {
     const d = (await add("agriculture-dairy", { name: "Drone sprayers" })).b.robot.id;
     await add("agriculture-dairy", { name: "Milking robots" });
     await add("agriculture-dairy", { name: "Weeding robots" });
     await change("agriculture-dairy", d, { active: false });
-    const h = await html(formPage("agriculture-dairy"));
-    expect(h).toContain("Sector form: Agriculture &amp; Dairy");
-    expect(h).toContain("<code>drone-sprayers</code>");
-    expect(h).toMatch(/Drone sprayers[\s\S]*Off[\s\S]*Milking robots[\s\S]*On/);
-    expect(h).toContain("Robot types are never deleted");
-    const preview = h.slice(h.indexOf("What members will pick from"));
-    expect(preview).toMatch(/<option value="" selected="">Not sure<\/option><option value="milking-robots">Milking robots<\/option><option value="weeding-robots">Weeding robots<\/option><\/select>/);
-    expect(preview).not.toContain("Drone sprayers");
+    const r = await portal("agriculture-dairy");
+    expect(r.r.status).toBe(200);
+    expect(r.b.sectors.map((x: any) => [x.slug, x.active, x.fields])).toEqual([["agriculture-dairy", true, 3], ["education", true, 0], ["healthcare", false, 0]]); // no demo sector
+    expect(r.b.fields.map((f: any) => [f.slug, f.active, f.source, f.contributions])).toEqual([["drone-sprayers", false, "admin", 0], ["milking-robots", true, "admin", 0], ["weeding-robots", true, "admin", 0]]);
+    expect((await portal("no-such-sector")).b.sector.slug).toBe("agriculture-dairy"); // an unknown sector opens the first one
   });
 
-  it("a sector that is not offered says so; unknown and demo sectors are not found", async () => {
+  it("a sector's Questions page: a sector that is not offered says so; unknown and demo sectors are not found", async () => {
+    const h = await html(formPage("agriculture-dairy"));
+    expect(h).toContain("Sector form: Agriculture &amp; Dairy · Questions");
+    expect(h).toContain('href="/admin/sector-forms?sector=agriculture-dairy"');
     expect(await html(formPage("healthcare"))).toContain("This sector is not offered on the Contribute form right now");
     for (const slug of ["no-such-sector", "demo-sector", "Bad Slug"]) await expect(formPage(slug), slug).rejects.toThrow("NOT_FOUND");
   });

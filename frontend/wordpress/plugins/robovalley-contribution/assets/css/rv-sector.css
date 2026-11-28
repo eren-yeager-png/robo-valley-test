@@ -1,0 +1,140 @@
+/* RoboValley contribution workflow: the shared SECTOR PAGE styles (public/cw/js/sector.js + fields.js), one copy for the website (the
+   plugin's assets/css/rv-sector.css), the app's sector screens and the standalone demo. Every selector is namespaced (.rv-sector-*,
+   .rv-contribute-*, .rv-fields-root, .rv-table-scroll, .rv-cf-*, .rv-has-*), so it cannot restyle the theme; the !important rules keep a
+   theme or another plugin from hiding or breaking the buttons. Breakpoint: 921px (Astra's tablet width, the website's rule). */
+
+/* ---- the buttons (the header one and the one on every field share the look of the reference) ---- */
+.rv-contribute-btn.rv-contribute-btn--header,
+.rv-contribute-field .rv-contribute-btn.rv-contribute-btn--field {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box !important;
+  min-height: 44px !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 10px 18px !important;
+  border: 1.5px solid #237A33 !important;
+  border-radius: 8px !important;
+  background: #FFFFFF !important;
+  color: #237A33 !important;
+  font-family: inherit;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  text-decoration: none !important;
+  white-space: nowrap;
+  box-shadow: none;
+  transform: none !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  cursor: pointer;
+}
+.rv-contribute-btn.rv-contribute-btn--header:hover,
+.rv-contribute-field .rv-contribute-btn.rv-contribute-btn--field:hover { background: #F1F8F2 !important; color: #1B5E28 !important; }
+.rv-contribute-btn.rv-contribute-btn--header:focus-visible,
+.rv-contribute-field .rv-contribute-btn.rv-contribute-btn--field:focus-visible { outline: 3px solid #9AD3B5 !important; outline-offset: 2px; }
+.rv-contribute-btn.rv-contribute-btn--header svg,
+.rv-contribute-field .rv-contribute-btn svg { flex: none; }
+.rv-contribute-field .rv-contribute-btn.rv-contribute-btn--field { box-shadow: 0 4px 14px rgba(16, 70, 52, .16); }
+
+/* ---- the header: title on the left, the button on the right, sticky top-right while the page scrolls ---- */
+.rv-sector-title { margin: 0; font-size: 2rem; line-height: 1.2; font-weight: 700; color: #1F2937; overflow-wrap: anywhere; }
+.rv-sector-sub { margin: 6px 0 0; color: var(--muted, #4B5563); }
+.rv-sector-cta { visibility: visible !important; opacity: 1 !important; display: block !important; }
+/* a page laid out by sector.js (the app, the demo) */
+.rv-sector-page { color: var(--fg, #1F2937); }
+/* the main column is as wide as the website's content cards (their width is set once, in rv-contribution-v2's rv-site.css; 55rem is
+   the same at the default text size) */
+.rv-sector-grid { display: grid; grid-template-columns: minmax(0, 55rem) auto; justify-content: space-between; align-items: start; gap: 24px 40px; }
+.rv-sector-main { min-width: 0; }
+.rv-sector-head { margin: 0 0 20px; min-width: 0; }
+.rv-sector-aside { position: -webkit-sticky; position: sticky; top: var(--rv-sticky-top, 16px); z-index: 30; }
+/* the reviewer screens: one bar with the title and the button, sticky at the top */
+.rv-sector-headbar { position: -webkit-sticky; position: sticky; top: 0; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding: 12px 0; margin: 0 0 16px; background: var(--rv-sector-bar-bg, #FFFFFF); }
+.rv-sector-headbar__text { flex: 1 1 320px; min-width: 0; }
+/* a page laid out by the theme (the website): a zero-height rail in the top-right of the article holds the button */
+.rv-has-sector-rail > .rv-sector-rail {
+  position: -webkit-sticky !important;
+  position: sticky !important;
+  top: calc(var(--wp-admin--admin-bar--height, 0px) + 16px) !important;
+  float: right !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  z-index: 30 !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+.rv-sector-rail > .rv-sector-cta { position: absolute !important; top: 0 !important; right: 0 !important; }
+.rv-has-sector-rail .rv-sector-head,
+.rv-has-sector-rail .rv-fields-root { margin-right: calc(var(--rv-cta-width, 250px) + 24px); } /* the cards never go under the button */
+
+/* the current form's own header button (rv-contribution-v2, when it is on) would be a second one: this page's header button replaces it */
+.rv-has-sector-rail .rv-c2-sector-cta { display: none !important; }
+
+/* ---- the content cards and long content ---- */
+/* the page's own colours when it has them (the app's light and dark themes: --surface, --line, --fg, --muted, --teal), else white cards */
+.rv-sector-card { background: var(--surface, #FFFFFF); border: 1px solid var(--line, #E1E4EA); border-radius: 16px; padding: 24px; margin: 0 0 24px; box-sizing: border-box; color: var(--fg, #1B1F3B); }
+.rv-sector-card > h2 { margin: 0 0 12px; font-size: 1.35rem; line-height: 1.3; }
+.rv-sector-card > :last-child { margin-bottom: 0; }
+/* inherited by everything inside, the website's .rv-rt blocks included (their own rule lives in rv-site.css only) */
+.rv-fields-root, .rv-sector-card { overflow-wrap: anywhere; min-width: 0; }
+.rv-fields-root img, .rv-fields-root video, .rv-fields-root iframe { max-width: 100%; height: auto; }
+.rv-table-scroll { display: block; width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 0 16px; }
+.rv-table-scroll > table { margin: 0; }
+.rv-fields-root table td, .rv-fields-root table th { overflow-wrap: normal; }
+.rv-sector-suggest { margin: 8px 0 0; color: var(--muted, #4B5563); font-size: .95rem; }
+/* on the page's own background: its heading colour (at least 4.5:1 in the app's light and dark themes), underlined so it reads as a link */
+.rv-sector-suggest__link { color: var(--navy, #237A33); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---- the button on every field: sticky INSIDE its field (never fixed to the page) ---- */
+.rv-contribute-field {
+  position: -webkit-sticky !important;
+  position: sticky !important;
+  top: auto !important;
+  bottom: 12px !important;
+  z-index: 20 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  float: none !important;
+  clear: both;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 16px 0 0 !important;
+  padding: 0 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  transform: none !important;
+  pointer-events: none;
+}
+.rv-has-contribute-field > .rv-contribute-field { flex: 0 0 100% !important; grid-column: 1 / -1 !important; order: 2147483647 !important; }
+.rv-has-contribute-field--row { flex-wrap: wrap !important; }
+.rv-cf-clip-x { overflow-x: clip !important; }
+.rv-cf-clip-y { overflow-y: clip !important; }
+
+/* ---- phones and tablets: the button below the title at full width; the field buttons full width at the bottom of their field ---- */
+@media (max-width: 921px) {
+  .rv-sector-grid { grid-template-columns: minmax(0, 1fr); }
+  .rv-sector-aside { position: static; order: -1; }
+  .rv-sector-grid > .rv-sector-main { display: contents; }
+  .rv-sector-grid > .rv-sector-main > .rv-sector-head { order: -2; }
+  .rv-sector-aside .rv-contribute-btn.rv-contribute-btn--header,
+  .rv-sector-headbar .rv-contribute-btn.rv-contribute-btn--header,
+  .rv-sector-rail .rv-contribute-btn.rv-contribute-btn--header { width: 100% !important; }
+  .rv-sector-headbar .rv-sector-cta { flex: 1 1 100%; }
+  .rv-has-sector-rail { display: flex !important; flex-direction: column !important; }
+  .rv-has-sector-rail > * { order: 3; }
+  .rv-has-sector-rail > .rv-sector-head, .rv-has-sector-rail > .entry-header { order: 1; }
+  .rv-has-sector-rail > .rv-sector-rail { order: 2; position: static !important; float: none !important; width: auto !important; height: auto !important; margin: 0 0 16px !important; }
+  .rv-sector-rail > .rv-sector-cta { position: static !important; }
+  .rv-has-sector-rail .rv-sector-head, .rv-has-sector-rail .rv-fields-root { margin-right: 0; }
+  .rv-contribute-field { bottom: 0 !important; }
+  .rv-contribute-field .rv-contribute-btn.rv-contribute-btn--field { width: 100% !important; border-radius: 10px !important; }
+}

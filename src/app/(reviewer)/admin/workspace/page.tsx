@@ -1,11 +1,11 @@
+import { redirect } from "next/navigation";
 import { requireReviewerPage } from "../../../../lib/reviewerPage";
-import CwMount from "../../../_cw/CwMount";
 
 export const dynamic = "force-dynamic";
 
-// The screen itself is the plain JavaScript module public/cw/js/moderator.js (the same file the standalone demo runs).
+// The Moderator Workspace is merged into Moderation: the same review opens there (Edit & approve, View) for every idea sent with
+// Share Your Idea. The old address keeps working and goes to Moderation.
 export default async function WorkspacePage() {
-  const me = await requireReviewerPage({ passwordChange: true });
-  if (me.mustChangePassword) return null;
-  return <CwMount screen="moderator" />;
+  await requireReviewerPage({ passwordChange: true });
+  redirect("/admin/moderation");
 }

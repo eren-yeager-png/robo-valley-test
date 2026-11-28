@@ -42,10 +42,10 @@ export const $$ = (root, sel) => Array.from(root.querySelectorAll(sel));
 export const checkedValues = (root, name) => $$(root, `input[name="${name}"]:checked`).map((x) => x.value);
 
 /** <option> tags for a list of [value, label] pairs (or plain strings). */
-export function options(list, selected) {
+export function options(list, selected, { disabled = [] } = {}) {
   return list.map((o) => {
     const [v, l] = Array.isArray(o) ? o : [o, o];
-    return `<option value="${esc(v)}"${v === selected ? " selected" : ""}>${esc(l)}</option>`;
+    return `<option value="${esc(v)}"${v === selected ? " selected" : ""}${disabled.includes(v) ? " disabled" : ""}>${esc(l)}</option>`;
   }).join("");
 }
 

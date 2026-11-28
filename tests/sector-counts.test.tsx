@@ -86,7 +86,8 @@ describe("the numbers", () => {
     await seedAll(); // one draft in Agriculture & Dairy, one draft without a sector
     const before = await sectorStatusCounts(testDb().raw as never);
     for (const row of [...before.sectors, before.sum, before.unique]) expect(Object.keys(row)).not.toContain("draft");
-    expect(Object.keys(before)).toEqual(["sectors", "sum", "unique"]); // no "withoutSector" either: only drafts ever had no sector
+    expect(Object.keys(before)).toEqual(["sectors", "sum", "unique", "features"]); // no "withoutSector" either: only drafts ever had no sector
+    expect(before.features).toEqual({ sectorsData: true }); // migration 030: sector icons, colours and archiving
     await mk("Another draft in education", "draft", ["education"]);
     await mk("A draft in healthcare too", "draft", ["healthcare"]);
     const after = await sectorStatusCounts(testDb().raw as never);
@@ -205,27 +206,14 @@ describe("the Moderation list filters the counts link to", () => {
   });
 });
 
-describe("the page", () => {
+describe("the page (Sectors) and the answers its screen shows", () => {
   const html = async () => renderToStaticMarkup((await SectorCountsPage()) as React.ReactElement);
-  it("shows every sector with its counts, a sum row and a unique row, and explains the difference", async () => {
+  it("mounts the shared Sectors screen (public/cw/js/sectors-admin.js) with the sector asked for", async () => {
     await seedAll(); signInAs(admin, "admin");
-    const h = await html();
-    for (const w of ["Agriculture", "Education", "Healthcare", "Total of the sector rows", "Unique contributions", "counted once in each of them", "Drafts are private to their authors, so they are never counted"]) expect(h).toContain(w);
-    const head = h.slice(h.indexOf("<thead>"), h.indexOf("</thead>"));
-    expect([...head.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map((m) => m[1])).toEqual(["Sector", "Submitted", "Verified", "Changes requested", "Approved / published", "Rejected", "Unpublished", "Total"]); // no Draft column
-    expect(h).not.toMatch(/no sector yet/);
-  });
-  it("links each non-zero count to that sector's list in the Admin Portal; zeros, drafts and the two total rows are plain numbers", async () => {
-    await seedAll(); signInAs(admin, "admin");
-    const h = await html();
-    expect(h).toContain('href="/admin/moderation/sector/education?tab=published"');
-    expect(h).toContain('href="/admin/moderation/sector/agriculture-dairy?tab=all&amp;verified=1"');
-    expect(h).toContain('href="/admin/moderation/sector/education?tab=all&amp;verified=0"');
-    expect(h).toContain('href="/admin/moderation/sector/education?tab=rejected"');
-    expect(h).not.toContain("/admin/moderation/sector/agriculture-dairy?tab=rejected"); // agriculture has no rejected item: just a 0
-    expect(h).not.toMatch(/href="\/(admin\/)?moderation\?/); // nothing points at the old single-page queue any more
-    const totals = h.slice(h.indexOf("Total of the sector rows"));
-    expect(totals).not.toContain("<a "); // the sum and unique rows span sectors: no links
+    const el = (await SectorCountsPage({ searchParams: Promise.resolve({ sector: "education" }) })) as any;
+    expect([el.props.screen, el.props.options.sector, el.props.options.basePath]).toEqual(["sectorsAdmin", "education", "/admin/sectors"]);
+    expect(((await SectorCountsPage({ searchParams: Promise.resolve({ sector: "x y" }) })) as any).props.options.sector).toBe("");
+    expect(await html()).toContain('class="rv-cw-root"');
   });
   it("is for administrators: a visitor is sent to sign in, a member to their dashboard, a moderator to their dashboard", async () => {
     await seedAll();
@@ -235,34 +223,20 @@ describe("the page", () => {
     await q("UPDATE users SET is_moderator = true WHERE id = $1", [mod]);
     signInAs(mod, "TC"); await expect(html()).rejects.toThrow("REDIRECT:/dashboard");
   });
-  it("a database failure shows an error notice, not a crash or details", async () => {
-    signInAs(admin ? admin : 0, "admin");
-    await seedAll(); signInAs(admin, "admin");
-    testDb().failOn((sql) => (/FROM sectors/.test(sql) ? new Error("secret detail") : undefined));
-    const h = await html();
-    expect(h).toContain("could not be loaded");
-    expect(h).not.toContain("secret detail");
-  });
-  it("a missing table says the migrations are needed (not 'the database did not answer'), and the log names the table", async () => {
+  it("a missing table: 503 saying the migrations are needed (not 'the database did not answer'), and the log names the table", async () => {
     admin = Number((await seedUser({ email: `boss${++seq}@example.com`, role: "admin", fullName: "Boss" })).id); signInAs(admin, "admin");
     testDb().failOn((sql) => (/FROM sectors/.test(sql) ? Object.assign(new Error('relation "contribution_scopes" does not exist'), { code: "42P01" }) : undefined));
-    const h = await html();
-    expect(h).toContain("Contributions are not set up on this database yet"); expect(h).toContain("migrations 012 to 019");
-    expect(h).not.toContain("did not answer"); expect(h).not.toContain("contribution_scopes"); // the page stays plain; the cause is in the log
+    const { r, b } = await call();
+    expect([r.status, b.error]).toEqual([503, "NOT_SET_UP"]);
+    expect(b.message).toContain("Contributions are not set up on this database yet"); expect(b.message).toContain("migrations 012 to 019");
+    expect(b.message).not.toContain("did not answer"); expect(JSON.stringify(b)).not.toContain("contribution_scopes"); // plain; the cause is in the log
     expect((console.error as any).mock.calls.map((c: unknown[]) => c[0])).toContain('admin sector counts: database error 42P01 (relation "contribution_scopes" does not exist)');
     testDb().failOn((sql) => (/FROM sectors/.test(sql) ? Object.assign(new Error("connect ECONNREFUSED 10.0.0.1:5432"), { code: "ECONNREFUSED" }) : undefined));
-    const down = await html();
-    expect(down).toContain("The database did not answer"); expect(down).not.toContain("10.0.0.1");
+    const down = await call();
+    expect([down.r.status, down.b.message]).toEqual([503, "The database did not answer. Nothing was changed. Please try again in a moment."]);
+    expect(JSON.stringify(down.b)).not.toContain("10.0.0.1");
   });
-  it("loads with zero contributions: says 'No contributions yet' (not an error) and still lists every sector at 0", async () => {
-    admin = Number((await seedUser({ email: `boss${++seq}@example.com`, role: "admin", fullName: "Boss" })).id); signInAs(admin, "admin");
-    const h = await html();
-    expect(h).toContain("No contributions yet"); expect(h).not.toContain("could not be loaded");
-    expect(h).toContain("Agriculture"); expect(h).not.toContain("<a ");
-    await seedAll();
-    expect(await html()).not.toContain("No contributions yet");
-  });
-  it("is in the admin navigation", () => {
-    expect(ADMIN_NAV.some((n) => n.href === "/admin/sectors")).toBe(true);
+  it("is in the admin navigation as Sectors", () => {
+    expect(ADMIN_NAV.find((n) => n.href === "/admin/sectors")?.label).toBe("Sectors");
   });
 });

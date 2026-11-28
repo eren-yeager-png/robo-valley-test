@@ -3,6 +3,7 @@ import { json, readJson } from "../../../../../lib/http";
 import { pool } from "../../../../../lib/db";
 import { addReply, type Fail } from "../../../../../lib/contributionReplies";
 import { guardReviewer } from "../../../../../lib/reviewerGuard";
+import { scopeProblem } from "../../../../../lib/reviewerSectors";
 import { parseId } from "../../../../../lib/contributorGuard";
 
 export const runtime = "nodejs";
@@ -20,6 +21,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if ("error" in body) return withCors(req, body.error, METHODS);
   const o = typeof body.body === "object" && body.body !== null && !Array.isArray(body.body) ? (body.body as Record<string, unknown>) : {};
   try {
+    const scope = await scopeProblem(pool as never, g, { form: id }); // a reviewer limited to some sectors (migration 030)
+    if (scope) return withCors(req, json({ success: false, error: scope.error, message: scope.message }, scope.status), METHODS);
     const r = await addReply(pool as never, g.userId, id, o.message);
     if (r.ok) return withCors(req, json({ success: true, id: r.id, at: r.at, emailed: r.emailed }, 201), METHODS);
     const f = r as Fail;

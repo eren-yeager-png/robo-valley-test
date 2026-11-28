@@ -5,10 +5,12 @@ import { originAllowed, withCors } from "./cors";
 import { getCurrentUser } from "./currentUser";
 import { pool } from "./db";
 import { reviewerOf } from "./moderators";
+import { reviewerSectors } from "./reviewerSectors";
 import { hitRateLimit, rateLimitEnabled, rateLimitedResponse, type RateScope } from "./apiRateLimit";
 import { clientIp } from "./projectsRateLimit";
 
-export type ReviewerGuarded = { res: Response } | { userId: number; isAdmin: boolean };
+/** sectors: the sectors this reviewer reviews (migration 030, set in Users & Roles); null = every sector (always for administrators). */
+export type ReviewerGuarded = { res: Response } | { userId: number; isAdmin: boolean; sectors: string[] | null };
 
 export async function guardReviewer(req: Request, methods: string, scope: Extract<RateScope, "modUser" | "modDecision"> = "modUser", opts: { passwordChange?: boolean } = {}): Promise<ReviewerGuarded> {
   const out = (r: Response) => ({ res: withCors(req, r, methods) });
@@ -26,5 +28,5 @@ export async function guardReviewer(req: Request, methods: string, scope: Extrac
     const d = await hitRateLimit(`rev:${r.userId}`, scope);
     if (!d.allowed) return out(rateLimitedResponse(d.retryAfterSeconds, "using this page"));
   }
-  return { userId: r.userId, isAdmin: r.isAdmin };
+  return { userId: r.userId, isAdmin: r.isAdmin, sectors: await reviewerSectors(pool as never, r.userId, r.isAdmin) };
 }

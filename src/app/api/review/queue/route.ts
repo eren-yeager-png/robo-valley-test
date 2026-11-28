@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const g = await guardReviewer(req, METHODS);
   if ("res" in g) return g.res;
   try {
-    const items = await listQueue(pool as never, new URL(req.url).searchParams.get("status") ?? "pending_review");
+    const items = await listQueue(pool as never, new URL(req.url).searchParams.get("status") ?? "pending_review", { allowed: g.sectors });
     return withCors(req, json({ success: true, items }), METHODS);
   } catch (e) {
     if ((e as { code?: string })?.code === "42P01") return withCors(req, json({ success: false, error: "NOT_SET_UP", message: "Reviewing is not set up yet." }, 503), METHODS);

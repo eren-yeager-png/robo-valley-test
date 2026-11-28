@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const filter = Object.prototype.hasOwnProperty.call(filters, asked) ? asked : Object.keys(filters)[0];
   try {
     const sectors = await loadSectors(pool as never);
-    const { items, counts } = await listContributions(pool as never, filters[filter], sectors);
+    const { items, counts } = await listContributions(pool as never, filters[filter], sectors, g.sectors);
     return ok(req, { view, filter, items, counts, ...(view === "workspace" ? { earlier: await earlierOpenCount(pool as never) } : {}) }, METHODS);
   } catch (e) {
     return crashed(req, e, METHODS, "review list");

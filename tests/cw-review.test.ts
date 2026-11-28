@@ -129,7 +129,7 @@ describe("drafts, reset and sending", () => {
     expect((await step(id, "decline", { reason: "  " })).b.message).toBe(MESSAGES.reasonRequired);
     const r = await step(id, "decline", { reason: "Already on the site." });
     expect(r.b.item.status).toBe("rejected");
-    expect(r.b.item.feedback).toEqual([expect.objectContaining({ type: "reject", text: "Already on the site.", by: "Priya Moderator" })]);
+    expect(r.b.item.feedback).toEqual([expect.objectContaining({ type: "decline", text: "Already on the site.", by: "Priya Moderator" })]); // a Moderator's decline
     expect(r.b.item.history.at(-1).text).toBe("Declined the idea. Reason: Already on the site.");
   });
 });

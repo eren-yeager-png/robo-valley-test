@@ -172,7 +172,8 @@ describe("migration 012", () => {
 
 /** Undoes the later migrations whose tables point at 012's, newest first. Their tables are empty here, so none of them refuses. */
 async function undoLater(pg: PGlite, name: string) {
-  await applyFile(runner(pg), name, read("db/rollback/026_down.sql")); // newest first (026: questions point at sectors)
+  await applyFile(runner(pg), name, read("db/rollback/030_down.sql")); // newest first (030: suggestions, plugin fields and moderator sectors point at sectors)
+  await applyFile(runner(pg), name, read("db/rollback/026_down.sql")); // 026: questions point at sectors
   await applyFile(runner(pg), name, read("db/rollback/025_down.sql")); // 025 points at 024, and 024 at sectors
   await applyFile(runner(pg), name, read("db/rollback/024_down.sql")); // 024: robot types point at sectors
   await applyFile(runner(pg), name, read("db/rollback/019_down.sql"));
@@ -186,7 +187,8 @@ describe("rollback 012", () => {
   it("removes exactly the new objects, keeps everything else, and the migration can be applied again", async () => {
     const { pg, name } = await build();
     const P019 = ["contribution_replies", "contribution_notes", "contribution_views", "contribution_categories", "contribution_category_links", "contribution_work_log"];
-    const before = (await tables(pg)).filter((t) => !NEW.includes(t) && !PHOTOS.includes(t) && t !== "contribution_reviews" && !P019.includes(t) && t !== "sector_robot_types" && t !== "sector_questions");
+    const P030 = ["field_suggestions", "plugins", "plugin_fields", "moderator_sectors", "audit_log"]; // undone first by undoLater
+    const before = (await tables(pg)).filter((t) => !NEW.includes(t) && !PHOTOS.includes(t) && t !== "contribution_reviews" && !P019.includes(t) && !P030.includes(t) && t !== "sector_robot_types" && t !== "sector_questions");
     await pg.exec("delete from sectors where slug in ('education','healthcare')"); // the owner decided the added sectors may go (otherwise it refuses: next test)
     await expect(applyFile(runner(pg), name, read(DOWN))).rejects.toThrow(/depend/); // 013 (photos), 014 (contacts), 017 (reviews) depend on contributions, 024 (robot types) and 026 (questions) on sectors: undo them first
     await pg.exec("ROLLBACK");
@@ -256,7 +258,7 @@ describe("rollback 012", () => {
   it("REFUSES when the owner's agriculture-dairy row existed before 016, even with exactly 016's values (review probe P1b)", async () => {
     const { pg, name } = await migratedClone((id) => id < "016"); // 001-015
     await pg.exec("insert into sectors (slug, name, sort_order, is_active, is_demo) values ('agriculture-dairy', 'Agriculture & Dairy', 10, true, false)");
-    for (const f of pickFiles().filter((x: string) => x.replace(/\\/g, "/").split("/").pop()!.slice(0, 3) >= "016")) await applyFile(runner(pg), name, read(f)); // then 016-026
+    for (const f of pickFiles().filter((x: string) => x.replace(/\\/g, "/").split("/").pop()!.slice(0, 3) >= "016")) await applyFile(runner(pg), name, read(f)); // then 016 onwards
     await undoLater(pg, name);
     await applyFile(runner(pg), name, read(D016)); // 016 did not make the row (its insert did nothing), so rollback 016 keeps it
     expect((await pg.query(AGRI)).rows).toEqual([{ slug: "agriculture-dairy", name: "Agriculture & Dairy", sort_order: 10, is_active: true, is_demo: false }]);

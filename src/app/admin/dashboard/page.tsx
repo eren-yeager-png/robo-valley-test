@@ -6,6 +6,8 @@ import { datasetsByCategory, getOverview, loginsByDay, parseRange, RANGES, regis
 import ChangePasswordForm from "./ChangePasswordForm";
 import Chart from "../_components/ChartsLoader";
 import { DataTable, Notice, PageHeader, SetupNotice, StatCard, when } from "../_components/ui";
+import CwMount from "../../_cw/CwMount";
+import "../../../../public/cw/portal.css";
 
 export const metadata: Metadata = { title: "Admin overview | RoboValley", robots: { index: false, follow: false } };
 
@@ -31,7 +33,11 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
 
   return (
     <>
-      <PageHeader title="Admin dashboard" lead="A live summary of RoboValley, counted from the database." />
+      {/* the Contribution Portal's Overview first (public/cw/js/overview.js): publish requests, published this week, rejected, active
+          contributors and the sector grid; then the site's own data, unchanged */}
+      <CwMount screen="overview" options={{ requestsPath: "/admin/approvals" }} />
+      <h2 className="adm-site-data">Site data</h2>
+      <p className="muted adm-site-data-lead">A live summary of RoboValley, counted from the database.</p>
       <div className="adm-grid">
         <StatCard label="Registered users" value={o.users} hint="Excludes administrators" />
         <StatCard label="Categories" value={o.categories} hint={`${o.activeCategories} with live data`} />

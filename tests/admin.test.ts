@@ -110,7 +110,7 @@ describe("/admin/dashboard", () => {
     const a = await seedUser({ email: "yasaswinipilla41@gmail.com", role: "admin" });
     signIn(a.id);
     const html = renderToStaticMarkup(await AdminDashboard());
-    expect(html).toContain("Admin dashboard");
+    expect(html).toContain("Site data"); // the Contribution Portal's Overview comes first (public/cw/js/overview.js, drawn in the browser), then the site's data
     expect(html).toContain("Registered users"); // the email and the sign-out button are in the layout (tests/admin-ui.test.tsx)
     expect(html).not.toContain("Choose a new password");
   });
@@ -203,7 +203,7 @@ describe("admin dashboard access end to end", () => {
     signIn(a.id);
     for (let i = 0; i < 3; i++) {
       await expect(DashboardHome()).rejects.toThrow("REDIRECT:/admin/dashboard");
-      expect(renderToStaticMarkup(await AdminDashboard())).toContain("Admin dashboard");
+      expect(renderToStaticMarkup(await AdminDashboard())).toContain("Site data");
     }
   });
 

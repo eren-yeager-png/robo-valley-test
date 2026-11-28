@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     const profile = await contributorProfile(pool as never, g.userId);
     if (!profile) return failed(req, { ok: false, status: 401, error: "SIGN_IN_REQUIRED", message: R.MESSAGES.signIn }, METHODS);
     const sectors = await loadSectors(pool as never);
-    const { errors, value } = R.validateSubmission(data, { sectors, name: profile.fullName });
+    const { errors, value } = R.validateSubmission(data, { sectors, name: profile.fullName, minor: profile.minor }); // no Earn (18+) for a minor
 
     let attachment: { fileName: string; mime: string; bytes: Uint8Array; sha256: string } | null = null;
     const file = form.get("attachment");

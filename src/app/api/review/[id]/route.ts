@@ -3,6 +3,7 @@ import { json } from "../../../../lib/http";
 import { pool } from "../../../../lib/db";
 import { getForReview } from "../../../../lib/contributionReview";
 import { guardReviewer } from "../../../../lib/reviewerGuard";
+import { scopeProblem } from "../../../../lib/reviewerSectors";
 import { parseId } from "../../../../lib/contributorGuard";
 import { recordView } from "../../../../lib/contributionViews";
 
@@ -19,6 +20,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const missing = () => withCors(req, json({ success: false, error: "NOT_FOUND", message: "We could not find that contribution." }, 404), METHODS);
   if (id === null) return missing();
   try {
+    const scope = await scopeProblem(pool as never, g, { form: id }); // a reviewer limited to some sectors (migration 030)
+    if (scope) return withCors(req, json({ success: false, error: scope.error, message: scope.message }, scope.status), METHODS);
     await recordView(pool as never, g.userId, id);
     const item = await getForReview(pool as never, g.userId, id, g.isAdmin);
     return item ? withCors(req, json({ success: true, item }), METHODS) : missing();

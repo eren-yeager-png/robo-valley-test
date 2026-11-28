@@ -119,19 +119,22 @@ describe("publishing (acceptance 12, 13, 15)", () => {
     await step(id, "publish").then((r) => expect(r.status).toBe(409)); // published: nothing more to do
     expect(await cards()).toBe(1);
   });
-  it("a failed verification after the update puts the earlier public card back exactly as it was", async () => {
+  it("a failed verification after the update puts the earlier public card back exactly as it was; the idea stays Published", async () => {
     const id = await readyToPublish();
     await step(id, "publish");
     const before = await publicItems();
-    // a new round: changes requested, edited, resubmitted, previewed, and this time the read-back fails
+    // an edit after publishing (spec section 15), previewed, and this time the read-back fails
     await step(id, "request_changes", { feedback: "x" }).then((r) => expect(r.status).toBe(409)); // not from Published
-    await q("UPDATE cw_contributions SET status = 'resubmitted', proposed = jsonb_set(proposed, '{title}', '\"Second title\"'), row_version = row_version + 1 WHERE id = $1", [id]);
-    await q("INSERT INTO cw_contribution_versions (contribution_id, v, by_name, role, data) SELECT id, 2, 'Priya Moderator', 'Moderator', proposed FROM cw_contributions WHERE id = $1", [id]);
+    await step(id, "admin_edit", { title: "Second title", description: "A small robot that picks up plastic on the beach." });
     await step(id, "preview");
     armPublishFault("verify", "The public page still showed the old version.");
     const f = await step(id, "publish");
-    expect(f.b.item.status).toBe("failed");
+    expect(f.b.item).toMatchObject({ status: "published", publishedVersion: 1, publishError: "The public page still showed the old version." }); // the earlier card is still live
     expect(await publicItems()).toEqual(before);
+    expect(await cards()).toBe(1);
+    const r = await step(id, "publish"); // Retry Publish
+    expect(r.b.item).toMatchObject({ status: "published", publishedVersion: 2, publishError: null });
+    expect((await publicItems()).map((x: any) => x.title)).toEqual(["Second title"]);
     expect(await cards()).toBe(1);
   });
   it("any failure after the attempt started ends as Publication Failed with a plain message (never stuck In Progress); Retry works", async () => {

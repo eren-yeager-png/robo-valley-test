@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getDashboardContext } from "../../lib/dashboardContext";
 import DashboardShell from "./DashboardShell";
 import { siteUrl } from "../../lib/session";
+import { memberNavItems } from "../../lib/memberNav";
 import { UnauthorizedState } from "./states";
 import "../join/join.css";
 import "../login/login.css";
@@ -25,12 +26,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   const { user, dash } = ctx;
-  const items = [
-    { href: "/dashboard", label: "Home" },
-    ...dash.sections.map((s) => ({ href: `/dashboard/${s.slug}`, label: s.label })),
-    { href: "/dashboard/contributions", label: "My contributions" },
-    { href: "/dashboard/notifications", label: "Notifications" },
-    { href: "/dashboard/profile", label: "Profile & settings" },
-  ];
-  return <DashboardShell userName={user.fullName} roleLabel={dash.label} items={items} site={siteUrl()}>{children}</DashboardShell>;
+  // the same navigation in every Member portal (src/lib/memberNav.ts), "My Contributions" included
+  return <DashboardShell userName={user.fullName} roleLabel={dash.label} items={memberNavItems(dash)} site={siteUrl()}>{children}</DashboardShell>;
 }

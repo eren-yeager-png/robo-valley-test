@@ -19,7 +19,7 @@ const tables = async (pg: PGlite) =>
 describe("migration files", () => {
   it("are in order, with no number used twice, and rollback is NOT in the migrations folder", () => {
     const names = pickFiles().map((f) => f.split(/[\\/]/).pop());
-    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql", "005_service_datasets.sql", "006_pincode_locations.sql", "007_service_categories.sql", "008_login_events.sql", "009_upload_attachments.sql", "010_dedupe_uploads.sql", "011_api_rate_limits.sql", "012_contributions.sql", "013_contribution_photos.sql", "014_contribution_contacts.sql", "015_moderator_flag.sql", "016_sector_seed.sql", "017_review_statuses.sql", "018_contribution_dedupe.sql", "019_moderation_portal.sql", "020_password_reset.sql", "021_contact_share.sql", "022_contribution_origin.sql", "023_contribution_type_chosen.sql", "024_sector_robot_types.sql", "025_contribution_robots.sql", "026_sector_questions.sql", "027_contribution_workflow.sql"]);
+    expect(names).toEqual(["001_signup_additions.sql", "002_email_verification.sql", "003_otp_and_login_throttle.sql", "004_admin_support.sql", "005_service_datasets.sql", "006_pincode_locations.sql", "007_service_categories.sql", "008_login_events.sql", "009_upload_attachments.sql", "010_dedupe_uploads.sql", "011_api_rate_limits.sql", "012_contributions.sql", "013_contribution_photos.sql", "014_contribution_contacts.sql", "015_moderator_flag.sql", "016_sector_seed.sql", "017_review_statuses.sql", "018_contribution_dedupe.sql", "019_moderation_portal.sql", "020_password_reset.sql", "021_contact_share.sql", "022_contribution_origin.sql", "023_contribution_type_chosen.sql", "024_sector_robot_types.sql", "025_contribution_robots.sql", "026_sector_questions.sql", "027_contribution_workflow.sql", "028_contribution_workflow_decisions.sql", "029_contribution_demo_flag.sql", "030_contribution_portal.sql"]);
     const nums = names.map((n) => Number(n!.slice(0, 3)));
     expect(nums).toEqual([...nums].sort((a, b) => a - b)); // ordered ...
     expect(new Set(nums).size).toBe(nums.length); // ... and no number used twice
@@ -39,7 +39,13 @@ describe("migration files", () => {
         .replace("ALTER TABLE contributions DROP CONSTRAINT IF EXISTS contributions_status_ck;", "")
         .replace("ALTER TABLE contribution_reviews DROP CONSTRAINT IF EXISTS contribution_reviews_action_ck;", "")
         .replace("ALTER TABLE contribution_reviews DROP CONSTRAINT IF EXISTS contribution_reviews_note_ck;", "")
-        .replace("DELETE FROM contribution_title_keys WHERE contribution_id = cid;", "") : sql; // 018 widens two rules the same way, and its key-sync function removes only the safeguard rows of one contribution
+        .replace("DELETE FROM contribution_title_keys WHERE contribution_id = cid;", "") : f.includes("028_") ? sql
+        .replace("ALTER TABLE cw_contributions DROP CONSTRAINT IF EXISTS cw_contributions_status_ck;", "")
+        .replace("ALTER TABLE cw_contributions DROP CONSTRAINT IF EXISTS cw_contributions_published_ck;", "")
+        .replace("ALTER TABLE cw_contribution_feedback DROP CONSTRAINT IF EXISTS cw_contribution_feedback_ck;", "") : f.includes("030_") ? sql
+        // 030 widens the idea status rule the same way, and fills the new field status from is_active (only rows that still disagree)
+        .replace("ALTER TABLE cw_contributions DROP CONSTRAINT IF EXISTS cw_contributions_status_ck;", "")
+        .replace("UPDATE sector_robot_types SET status = 'hidden' WHERE NOT is_active AND status = 'active' AND current_setting('rv.backfill_030') = 'on';", "") : sql; // 018 widens two rules the same way, and its key-sync function removes only the safeguard rows of one contribution; 028 widens three of 027's checks the same way (same names, no data touched)
       expect(checked, f).not.toMatch(/\b(DROP|TRUNCATE|DELETE FROM|UPDATE\s+\w+\s+SET)\b/i);
     }
     for (const n of ["003", "008", "009"]) expect(read(`db/rollback/${n}_down.sql`), n).toMatch(/DROP TABLE IF EXISTS/);
@@ -101,7 +107,7 @@ describe("database-name guard (option B: fails closed)", () => {
     await pg.exec("ROLLBACK");
     expect(await tables(pg)).toEqual(expect.arrayContaining(["login_attempts", "otp_challenges"])); // nothing was dropped
     await applyFile(runner(pg), name, read("db/rollback/003_down.sql"));
-    expect(await tables(pg)).toEqual(["api_rate_limits", "contribution_categories", "contribution_category_links", "contribution_contacts", "contribution_notes", "contribution_photo_blobs", "contribution_photos", "contribution_replies", "contribution_reviews", "contribution_scopes", "contribution_title_keys", "contribution_views", "contribution_work_log", "contributions", "cw_contribution_attachments", "cw_contribution_feedback", "cw_contribution_history", "cw_contribution_versions", "cw_contributions", "cw_public_contributions", "guardian_details", "login_events", "moderator_audit", "password_reset_tokens", "pincode_locations", "sector_questions", "sector_robot_types", "sectors", "service_dataset_rows", "service_datasets", "upload_attachment_blobs", "upload_attachments", "upload_audit_log", "users"]); // 003 tables gone, every other table untouched
+    expect(await tables(pg)).toEqual(["api_rate_limits", "audit_log", "contribution_categories", "contribution_category_links", "contribution_contacts", "contribution_notes", "contribution_photo_blobs", "contribution_photos", "contribution_replies", "contribution_reviews", "contribution_scopes", "contribution_title_keys", "contribution_views", "contribution_work_log", "contributions", "cw_contribution_attachments", "cw_contribution_feedback", "cw_contribution_history", "cw_contribution_versions", "cw_contributions", "cw_public_contributions", "field_suggestions", "guardian_details", "login_events", "moderator_audit", "moderator_sectors", "password_reset_tokens", "pincode_locations", "plugin_fields", "plugins", "sector_questions", "sector_robot_types", "sectors", "service_dataset_rows", "service_datasets", "upload_attachment_blobs", "upload_attachments", "upload_audit_log", "users"]); // 003 tables gone, every other table untouched
     expect(Number((await pg.query("select count(*)::int n from users")).rows[0]!["n" as never])).toBe(1); // data untouched
     await pg.close();
   });

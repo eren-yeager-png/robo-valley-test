@@ -2,6 +2,8 @@
 // Builds everything that is GENERATED from the contribution workflow's source files (public/cw), so nothing is ever hand-copied:
 //   frontend/wordpress/plugins/robovalley-contribution/assets/js/robovalley-contribution.js   the WordPress screens, as ONE script
 //   frontend/wordpress/plugins/robovalley-contribution/assets/css/contribution-workflow.css  a byte-identical copy of the stylesheet
+//   frontend/wordpress/plugins/robovalley-contribution/assets/js/rv-sector.js              the sector pages: header button + field buttons
+//   frontend/wordpress/plugins/robovalley-contribution/assets/css/rv-sector.css            their stylesheet (a byte-identical copy)
 //   docs/reference/contribution_demo.html                                                  the standalone demo (double-click, no server)
 // The ES modules are joined by a tiny module bundler (each module keeps its own scope), so one versioned file is served: imports
 // between ES modules would not carry the plugin's ?ver= and could be served stale after an update. tests/cw-build.test.ts checks
@@ -18,6 +20,8 @@ const read = (p) => readFileSync(p, "utf8").replace(/\r\n/g, "\n");
 export const OUT = {
   pluginJs: join(PLUGIN, "assets", "js", "robovalley-contribution.js"),
   pluginCss: join(PLUGIN, "assets", "css", "contribution-workflow.css"),
+  sectorJs: join(PLUGIN, "assets", "js", "rv-sector.js"),
+  sectorCss: join(PLUGIN, "assets", "css", "rv-sector.css"),
   demo: join(ROOT, "docs", "reference", "contribution_demo.html"),
 };
 
@@ -65,12 +69,209 @@ ${mounts}
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();`);
 }
 
+/** The sector pages' script (sector-buttons.php loads it): the header button and a button on every field, kept there. */
+export function sectorScript() {
+  return bundle(["utils.js", "fields.js", "sector.js"], `function go() {
+  var cfg = window.rvContribFields || {};
+  if (cfg.started) return;
+  cfg.started = true;
+  var h = __req("sector.js").startSectorPage(cfg, document);
+  cfg.refresh = h.refresh; // for a plugin that wants its new field handled at once (it is handled anyway on the next change)
+  window.rvContribFields = cfg;
+}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go); else go();`);
+}
+
 export const DEMO_SECTORS = [
-  { slug: "agriculture-dairy", name: "Agriculture & Dairy", robots: [{ slug: "milking-robots", name: "Milking robots" }, { slug: "weeding-robots", name: "Weeding robots" }, { slug: "drone-sprayers", name: "Drone sprayers" }] },
-  { slug: "healthcare", name: "Healthcare", robots: [{ slug: "pharmacy-robots", name: "Pharmacy robots" }, { slug: "delivery-robots", name: "Delivery robots" }] },
-  { slug: "education", name: "Education", robots: [{ slug: "robotic-arms", name: "Robotic arms" }, { slug: "humanoid-tutors", name: "Humanoid tutors" }] },
-  { slug: "manufacturing", name: "Manufacturing", robots: [{ slug: "cobots", name: "Collaborative robots (cobots)" }] },
-  { slug: "environment", name: "Environment", robots: [{ slug: "beach-cleaners", name: "Beach-cleaning robots" }] },
+  {
+    "slug": "agriculture-dairy",
+    "name": "Agriculture & Dairy",
+    "pageTitle": "Agriculture and Dairy",
+    "description": "Farm and dairy robots: milking, spraying, weeding and sensing.",
+    "robots": [
+      {
+        "slug": "milking-robots",
+        "name": "Milking robots"
+      },
+      {
+        "slug": "weeding-robots",
+        "name": "Weeding robots"
+      },
+      {
+        "slug": "drone-sprayers",
+        "name": "Drone sprayers"
+      }
+    ],
+    "fields": [
+      {
+        "id": "about-this-sector",
+        "title": "About this sector",
+        "html": "<p>A rich-text block.</p><p>https://example.com/averyveryveryveryveryveryveryveryveryveryverylongaddresswithoutanyspaceatallinit/more/more/more</p><table><tr><td>one very long cell without wrapping</td><td>two</td><td>three</td><td>four</td><td>five</td><td>six</td></tr></table>"
+      },
+      {
+        "id": "milking-robots",
+        "title": "Milking robots",
+        "html": "<p>A milking robot lets each cow choose when to be milked, cleans the teats and records the milk of every cow, so the farmer sees early signs of illness.</p><p>A milking robot lets each cow choose when to be milked, cleans the teats and records the milk of every cow, so the farmer sees early signs of illness.</p>"
+      },
+      {
+        "id": "drone-sprayers",
+        "title": "Drone sprayers",
+        "html": "<p><b>Drones that spray crops from the air, covering a field in minutes with less chemical and no contact for the worker.</b></p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p><p>They fly a planned route over the field and spray pesticide, fertiliser or nutrients evenly. They suit paddy, cotton, sugarcane and orchards. Pilots need training and a registered drone under the national drone rules.</p>"
+      },
+      {
+        "id": "soil-and-water-sensors",
+        "title": "Soil and water sensors",
+        "source": "suggested",
+        "html": "<p>Small sensors in the field report soil moisture and water levels, so farmers water only where and when it is needed.</p><p>Small sensors in the field report soil moisture and water levels, so farmers water only where and when it is needed.</p>"
+      },
+      {
+        "id": "local-dealers",
+        "title": "Local dealers and service centres",
+        "source": "plugin",
+        "html": "<p>A directory plugin lists the dealers and service centres near you for the robots in this sector.</p><p>A directory plugin lists the dealers and service centres near you for the robots in this sector.</p>"
+      }
+    ]
+  },
+  {
+    "slug": "healthcare",
+    "name": "Healthcare",
+    "description": "Robots in hospitals and clinics: pharmacy, delivery and rehabilitation.",
+    "robots": [
+      {
+        "slug": "pharmacy-robots",
+        "name": "Pharmacy robots"
+      },
+      {
+        "slug": "delivery-robots",
+        "name": "Delivery robots"
+      }
+    ],
+    "fields": [
+      {
+        "id": "about-this-sector",
+        "title": "About this sector",
+        "html": "<p>Robots that save nurses' time and help patients recover.</p><table><thead><tr><th>Robot</th><th>Where it works</th><th>Typical cost band</th><th>Training needed</th><th>Power</th><th>Who maintains it</th><th>Where to see one</th></tr></thead><tbody><tr><td>Pharmacy robot</td><td>Hospital pharmacy</td><td>High</td><td>Two weeks</td><td>Mains</td><td>Supplier contract</td><td>District hospital</td></tr><tr><td>Delivery robot</td><td>Corridors and wards</td><td>Medium</td><td>One day</td><td>Battery</td><td>Hospital technician</td><td>Medical college</td></tr></tbody></table>"
+      },
+      {
+        "id": "pharmacy-robots",
+        "title": "Pharmacy robots",
+        "html": "<p>Robots that pick and pack medicines without mistakes.</p><p>Robots that pick and pack medicines without mistakes.</p>"
+      },
+      {
+        "id": "delivery-robots",
+        "title": "Delivery robots",
+        "html": "<p>Robots that carry medicines and samples between wards.</p><p>Robots that carry medicines and samples between wards.</p>"
+      }
+    ]
+  },
+  {
+    "slug": "education",
+    "name": "Education",
+    "description": "Robots for classrooms and labs: kits, arms and tutors.",
+    "robots": [
+      {
+        "slug": "robotic-arms",
+        "name": "Robotic arms"
+      },
+      {
+        "slug": "humanoid-tutors",
+        "name": "Humanoid tutors"
+      }
+    ],
+    "fields": [
+      {
+        "id": "about-this-sector",
+        "title": "About this sector",
+        "html": "<p>Kits and robots that schools use to teach STEAM.</p>"
+      },
+      {
+        "id": "robotic-arms",
+        "title": "Robotic arms",
+        "html": "<p>Small arms students assemble and program.</p><p>Small arms students assemble and program.</p>"
+      },
+      {
+        "id": "humanoid-tutors",
+        "title": "Humanoid tutors",
+        "html": "<p>Robots that help children practise reading and maths.</p><p>Robots that help children practise reading and maths.</p>"
+      },
+      {
+        "id": "coding-robots",
+        "title": "Coding robots for young learners",
+        "source": "suggested",
+        "html": "<p>Floor robots children program with cards. Guide: https://example.org/guides/coding-robots-for-young-learners-in-government-schools-step-by-step-with-printable-cards</p>"
+      }
+    ]
+  },
+  {
+    "slug": "manufacturing",
+    "name": "Manufacturing",
+    "description": "Robots on the factory floor: cobots, welding and moving parts.",
+    "robots": [
+      {
+        "slug": "cobots",
+        "name": "Collaborative robots (cobots)"
+      },
+      {
+        "slug": "welding-robots",
+        "name": "Welding robots"
+      },
+      {
+        "slug": "agvs",
+        "name": "Automated guided vehicles"
+      }
+    ],
+    "fields": [
+      {
+        "id": "about-this-sector",
+        "title": "About this sector",
+        "html": "<p>How small factories start with robots.</p>"
+      },
+      {
+        "id": "cobots",
+        "title": "Collaborative robots (cobots)",
+        "html": "<p>Robot arms that work safely next to people.</p><p>Robot arms that work safely next to people.</p>"
+      },
+      {
+        "id": "welding-robots",
+        "title": "Welding robots",
+        "html": "<p>Robots that weld the same joint perfectly all day.</p><p>Robots that weld the same joint perfectly all day.</p>"
+      },
+      {
+        "id": "spare-parts",
+        "title": "Spare parts directory",
+        "source": "plugin",
+        "html": "<p>A parts plugin lists where to buy spare parts for each robot.</p><p>A parts plugin lists where to buy spare parts for each robot.</p>"
+      }
+    ]
+  },
+  {
+    "slug": "environment",
+    "name": "Environment",
+    "description": "Robots that clean beaches, rivers and air.",
+    "robots": [
+      {
+        "slug": "beach-cleaners",
+        "name": "Beach-cleaning robots"
+      }
+    ],
+    "fields": [
+      {
+        "id": "about-this-sector",
+        "title": "About this sector",
+        "html": "<p>Robots that keep nature clean.</p>"
+      },
+      {
+        "id": "beach-cleaners",
+        "title": "Beach-cleaning robots",
+        "html": "<p>Robots that sieve plastic out of sand.</p><p>Robots that sieve plastic out of sand.</p>"
+      },
+      {
+        "id": "river-drones",
+        "title": "River-cleaning drones",
+        "html": "<p>Floating drones that collect rubbish from rivers.</p><p>Floating drones that collect rubbish from rivers.</p>"
+      }
+    ]
+  }
 ];
 
 /** The parity checklist: every screen, state, button and message of the build (also in the pull request, ticked). */
@@ -83,85 +284,91 @@ export const PARITY = [
   "Contribution Form: Idea title, Describe your idea, Photo / attachment (JPEG, PNG or PDF, 4 MB, type read from the file)",
   "Contribution Form: Reference links rows, + Add another link, removing the last row leaves one empty row",
   "Contribution Form: Suitable for pills, Suggested path pills with the Earn (18+) helper text",
+  "Contribution Form: a contributor under 18 is not offered the Earn (18+) path (and the app refuses it if sent anyway)",
   "Contribution Form: all six validation messages shown together in one red notice; submit blocked",
   "Contribution Form: success message \"Thank you! Your <kind> RV-xxxx has been submitted for review. It is not public until an Admin publishes it.\"",
   "Contribution Form: sign-in required; administrators and moderators are told they review",
-  "Moderator Workspace: intro text; list with filters Open (default, with count), Awaiting Admin, Changes Requested, Decided, All; \"Nothing here.\"",
+  "Moderator Workspace: intro text; list with filters Open (default, with count), Awaiting Admin, Changes Requested, Decided (with Unpublished), All; \"Nothing here.\"",
   "Moderator Workspace: \"Earlier contributions (old form): N, open in Moderation\"",
   "Moderator Workspace: list card = status badge, RV number, working title, kind · contributor · type · sector",
   "Moderator Workspace: first open of a Submitted idea moves it to Under Moderator Review and records the moderator",
-  "Moderator Workspace: header, submitted-by line, attachment chip; banners for Changes Requested, with Admin, Published, Rejected",
+  "Moderator Workspace: header, submitted-by line, attachment chip; banners for Changes Requested, Reopened by Admin (with the reason), with Admin, Published, Unpublished, Declined or Rejected (who, when, why)",
   "Moderator Workspace: read-only Request box (kind, resource fields and ID, link, what should change, reference links)",
   "Moderator Workspace: Original submission (read-only) next to Version for publishing (Edited / Unchanged) with every field editable",
   "Moderator Workspace: Internal notes for Admin (never shown publicly)",
+  "Moderator Workspace: Earn (18+) cannot be chosen for a minor's idea (the option is disabled with a note; the app refuses it with a clear message)",
   "Moderator Workspace: Save Draft, Reset to Original, Submit Publishing Request to Admin, Decline Idea (dialog, reason required) and the helper text",
   "Moderator Workspace: messages \"Draft saved. Nothing has been published.\" / \"Request sent to Admin. Status: ... It is still not public.\" and both send rules",
   "Moderator Workspace: activity history, newest first; read-only once with Admin, published or rejected",
-  "Admin Approval Dashboard: intro text; filters Awaiting me (default, with count), With Moderators, Changes Requested, Published, Rejected, All",
-  "Admin Approval Dashboard: list card = status badge, RV number, title, kind · contributor · sector · by moderator",
+  "Admin Approval Dashboard: intro text; filters Awaiting me (default, with count), With Moderators, Changes Requested, Published (with Unpublished, own badge), Rejected, All",
+  "Admin Approval Dashboard: list card = status badge, RV number, title, kind · contributor · sector · by moderator; in Rejected also who declined or rejected, and when",
   "Admin Approval Dashboard: Contributor box and Moderator box (Not yet assigned / Request vN sent ... / Edited by Moderator or Approved as-is)",
   "Admin Approval Dashboard: the same read-only Request box; Original vs. version to publish with a word-level diff and \"changed\" tags; Moderator notes or \"No notes.\"",
   "Admin Approval Dashboard: preview notice (amber, then green \"You have reviewed the publish preview for this version.\"); Publish disabled until the current version is previewed",
   "Admin Approval Dashboard: Open Publish Preview, Publish to Website / Retry Publish, Edit Before Publishing (title and description), Request Changes and Reject (dialogs, text required)",
   "Admin Approval Dashboard: banners Publication failed (safe retry), Published successfully (verified), Publishing in progress, still with the Moderator; previous versions; history",
+  "Admin Approval Dashboard: Unpublish on Published items (confirmation): the card is removed, status Unpublished, logged in history",
+  "Admin Approval Dashboard: Edit Before Publishing on Published and Unpublished items makes a new version (\"Version N has changes that are not on the public website yet\"); the live card changes only after a new preview and publish",
+  "Admin Approval Dashboard: Rejected items show who declined (Moderator) or rejected (Admin), the reason and when; Reopen (reason required) sends the idea back to Under Moderator Review",
+  "Admin Approval Dashboard: a version with the Earn (18+) path on a minor's idea cannot be previewed or published (clear message)",
   "Publish Preview: modal \"Publish Preview\", meta RV-xxxx · version N · <sector> section, yellow PREVIEW ONLY banner, dark RoboValley › Community Ideas › <Sector> header, the shared card",
   "Publish Preview: Download preview (.html) works offline, Open in new tab (\"Your browser blocked the new tab. Use Download instead.\"), Done reviewing",
   "Publishing: Clicked Publish (attempt N); Publication In Progress notice; Published only after the public record reads back the approved content",
   "Publishing: a failure shows \"Publication failed: ...\" and Retry Publish; the public page is unchanged; a retry never makes a second card",
+  "Publishing: publishing again after Unpublish or after an edit updates the same card (never a duplicate); a failed update keeps the earlier card live and the idea Published",
   "Community Ideas: \"RoboValley – Community Ideas\" with its subtitle; grouped by sector in Sector Forms order, Not sure last as \"Other ideas\"",
   "Community Ideas: each card = sector · robot type, title, <kind> for <resource path> (linked), description, chips, Idea by <first name> (<type>), Further reading, Published <date>",
   "Community Ideas: empty state \"No contributions have been published yet. Moderator drafts and pending requests are never shown here.\"",
+  "Sector page (website): \"+ Contribute to this sector\" next to the title, sticky top-right (below the title at full width on phones); every field (existing, added through \"Suggest a field\" once approved, added by a plugin) has a sticky button; long words wrap and wide tables scroll inside their card",
+  "Sector page: the buttons come back when the page changes; only the administrator's per-field setting turns a field's button off; they open the contribute flow with the sector and the field filled in and the way back",
+  "Every portal and role (Visitor, Student, Teacher, Parent, Contributor, Moderator, Admin): one sidebar item per page; \"My Contributions\" in every portal except the Admin's (the Admin uses \"View as\"); the sector page in each role",
+  "Contribution Portal layout: every Moderator and Admin page in an \"adm rvd-adm\" container (one column, 24px gaps); a page is header row (28px title, one-line description, the page's button) -> sector grid -> panel (white, 24px padding, 22px heading and subtitle, primary button on the right)",
+  "Sector grid (one shared component): equal cards with 16px corners (never a pill), an icon, the name and a meta line from the page; optional count badge, amber dot and chip; hover lift, focus ring, selected = green border, tint and check; a <button aria-pressed>; 2 columns under 600px, 1 under 380px",
+  "Tables: sticky header, 56px rows (64px for fields), Sent as \"19 Sep 2026, 1:20 pm\" on one line, status badges (amber pending review, blue approved, purple publish requested, green published, red rejected), actions on the right, empty state \"No contributions in this sector yet\"",
+  "Visitor: Robots by Sector = the sector grid with the published ideas and every field's Contribute button (sign in to contribute), and the website's own sector page with its header and field buttons",
+  "Student and Teacher: Sectors = grid with idea counts, published ideas, Contribute on the sector and on every field; the Teacher sees view-only \"Classroom pick\" tags",
+  "Parent: \"Explore sectors for your family\": \"Relevant to your child\" chip on sectors with ideas safe for children (those first), tabs Published ideas | Safe for kids | My contributions (read-only Title, Status, Sent)",
+  "Contributor: Dashboard, Sectors, My Contributions; each sector card counts \"my ideas\"; \"Contribute to <Sector>\" opens the short form (Title, Field, Description, Attachment); a field's Contribute fills the field in; sent ideas go to review with a toast",
+  "My Contributions: Title (code, field, type), Sector, Status (the reviewer's reason under a rejected one), Sent, View / Edit; filters by status and sector",
+  "Moderation (the Moderator Workspace merged in): grid with pending counts, \"Contributors for <Sector>\", tabs All | Pending review | Approved | Rejected | Published with counts, one table for Share Your Idea and the current form: Approve as-is, Edit & approve (side drawer with the changes against the original), Reject (reason required); current-form items: Approve as-is (verified), Reject, View form; the sector's fields read-only",
+  "Publish Requests (the Admin Approval Dashboard merged in): compact sector grid as a filter, tabs Awaiting me | Published | Rejected | Unpublished | All, Title | Sector | Contributor | Approved by | Sent; Open publish preview with Publish, Send back to moderator and Reject; Details drawer with the full review",
+  "Admin: Overview (Pending publish requests, Published this week, Rejected, Active contributors, sector grid), Sectors (grid, details, every sector's numbers), Users & Roles (View as), Community Ideas, Audit Log (who, role, action, item, details, filters)",
+  "Sector Forms: grid \"n fields · m suggestions\" with an amber dot, \"Sector form: <Sector>\", + Add field (dialog), tabs Fields | Suggested fields with counts; fields table: order (drag or move up/down), name and slug, source badge (Admin, Suggested by member, Added by plugin), contributions, Active/Hidden switch, Contribute, Edit (drawer), Rename, Archive, Delete (blocked while contributions use it, never for a plugin's field)",
+  "Sector Forms: Suggested fields table (Suggested name, Suggested by, Reason, Sent): Approve and Edit & approve add the field at once (it is on the sector page with its button), Reject needs a reason; empty state \"No suggestions waiting for this sector...\"",
+  "Sample data everywhere: 5 sectors with 3-5 fields each (a suggested field, a plugin field, a long address, a wide table), at least 2 ideas in every status, feedback on rejected ones, a user for every role",
+  "Data update (migration 030): Approve is its own step (status Approved, blue); an approved idea offers Send publish request to Admin, Back to draft and Reject; Publish Requests shows only what was sent",
+  "Data update: fields have a status (Active, Hidden, Archived), a description and an icon; + Add field takes an editable link code; Archive keeps contributions (Restore brings it back); Delete asks first and only when nothing uses the field; a plugin's field is never deleted",
+  "Data update: suggested fields are their own records: Approve / Edit & approve (name, link code, description) add the field with the Suggested by member badge; Reject needs a reason",
+  "Data update: Admin > Sectors: + Add sector, Rename, Move up / down, Card style (icon, colour), Archive (refused while contributions there wait) and Restore",
+  "Data update: Users & Roles: Edit sectors limits a moderator to some sectors (Moderation then shows only those); the Audit Log lists every approval, request, publication, rejection, field, suggestion, sector and role change",
 ];
 
-/** The standalone demo: every built screen with mock data, plus the parity checklist. */
+/** The standalone demo: every portal and role with the SAME screens production uses, sample data everywhere, the parity checklist. */
 export function demoHtml() {
-  const screens = ["form.js", "moderator.js", "admin.js", "site.js"].filter(has);
-  const extra = ["dialog.js", "review.js", "preview.js"].filter(has);
-  const css = [read(join(SRC, "contribution-workflow.css"))];
+  const modules = ["portal-rules.js", "form.js", "moderator.js", "admin.js", "site.js", "dialog.js", "review.js", "preview.js", "fields.js", "sector.js", "portal-status.js", "portal-ui.js",
+    "sector-grid.js", "portal-api.js", "mine.js", "contribute-modal.js", "sectors.js", "moderation.js", "requests.js", "sector-forms.js", "overview.js", "sectors-admin.js", "audit.js",
+    "demo-portal.js", "demo-portals.js"].filter(has);
+  const css = [read(join(SRC, "contribution-workflow.css")), read(join(SRC, "sector.css")), read(join(SRC, "portal.css"))];
   const portalCss = [join(ROOT, "src", "app", "admin", "admin.css"), join(ROOT, "src", "app", "_cw", "cw-portal.css")].filter(existsSync).map(read);
-  const tabs = [
-    ["form", "Contribution Form", screens.includes("form.js")],
-    ["moderator", "Moderator Workspace", screens.includes("moderator.js")],
-    ["admin", "Admin Approval Dashboard", screens.includes("admin.js")],
-    ["site", "Community Ideas", screens.includes("site.js")],
-  ].filter((t) => t[2]);
   const version = (read(join(PLUGIN, "robovalley-contribution.php")).match(/const RV_CONTRIB_VERSION = '([^']+)'/) || [])[1] || "?";
-  const entry = `var api = __req("api.js");
+  const entry = `var api = __req("api.js"), portals = __req("demo-portals.js");
 var SECTORS = ${JSON.stringify(DEMO_SECTORS)};
-var mock = new api.MockAdapter({ sectors: SECTORS, me: { name: "Ananya R.", type: "Student", minor: false }, actors: { moderator: "Moderator User", admin: "Admin User" }, earlier: 2, publishDelay: 0 });
+var mock = new api.MockAdapter({ sectors: SECTORS, me: { name: "Ananya R.", type: "Student", minor: false }, actors: { moderator: "Moderator User", admin: "Admin User" }, earlier: 2, publishDelay: 0, formItems: portals.DEMO_FORM_ITEMS });
 __req("demo-seed.js").seed(mock).then(function () {
   mock.publishDelay = 900;
-  var mounted = {};
-  function show(tab) {
-    Array.prototype.forEach.call(document.querySelectorAll("[data-tab]"), function (b) { var on = b.getAttribute("data-tab") === tab; b.classList.toggle("on", on); b.setAttribute("aria-selected", on ? "true" : "false"); });
-    Array.prototype.forEach.call(document.querySelectorAll("[data-view]"), function (v) { v.hidden = v.getAttribute("data-view") !== tab; });
-    var el = document.querySelector('[data-view="' + tab + '"] [data-mount]');
-    if (tab === "form") { if (!mounted.form) __req("form.js").mount(el, { adapter: mock, sample: true, query: new URLSearchParams("") }); }
-    else if (tab === "moderator") __req("moderator.js").mount(el, { adapter: mock.as("moderator"), onChange: counts });
-    else if (tab === "admin") __req("admin.js").mount(el, { adapter: mock.as("admin"), onChange: counts, demoFailToggle: mock });
-    else if (tab === "site") __req("site.js").mount(el, { adapter: mock });
-    mounted[tab] = true;
-    counts();
-  }
-  function counts() {
-    mock.list("moderator", "Open").then(function (r) {
-      var m = document.getElementById("c-mod"), a = document.getElementById("c-adm");
-      if (m) m.textContent = r.counts.open; if (a) a.textContent = r.counts.awaiting;
-    });
-  }
-  Array.prototype.forEach.call(document.querySelectorAll("[data-tab]"), function (b) { b.addEventListener("click", function () { show(b.getAttribute("data-tab")); }); });
-  show(location.hash.replace("#", "") || "form");
+  var screens = { form: __req("form.js"), site: __req("site.js"), sectors: __req("sectors.js"), mine: __req("mine.js"), moderation: __req("moderation.js"), requests: __req("requests.js"),
+    sectorForms: __req("sector-forms.js"), overview: __req("overview.js"), audit: __req("audit.js"), sectorsAdmin: __req("sectors-admin.js") };
+  var demo = portals.mountPortals(document.querySelector("[data-portals]"), { mock: mock, screens: screens, sectors: mock.sectors });
+  var hash = location.hash.replace("#", "").split("/");
+  if (hash[0]) { try { demo.show(hash[0], hash[1]); } catch (e) { /* an old link: the start page */ } }
 });`;
-  const fixed = bundle([...BASE, ...extra, ...screens, "demo-seed.js"], entry);
-  const tabButtons = tabs.map(([k, label]) => `<button type="button" class="tab" role="tab" data-tab="${k}" aria-selected="false">${label}${k === "moderator" ? ' <span class="count" id="c-mod">0</span>' : k === "admin" ? ' <span class="count" id="c-adm">0</span>' : ""}</button>`).join("\n      ");
-  const views = tabs.map(([k]) => k === "form" || k === "site"
-    ? `<section data-view="${k}" hidden><div class="rv-cw-root"><div data-mount></div></div></section>`
-    : `<section data-view="${k}" hidden><div class="rv"><div class="adm rv-cw-root"><div data-mount></div></div></div></section>`).join("\n    ");
+  const fixed = bundle([...BASE, ...modules, "demo-seed.js"], entry);
   return `<!DOCTYPE html>
 <!--
   RoboValley contribution workflow - STANDALONE DEMO (reference build). Plugin v${version} - mock data - opens by double-click, no server.
   GENERATED by scripts/build-contribution-workflow.mjs from the SAME files production uses (public/cw/js, public/cw/contribution-workflow.css,
-  src/app/admin/admin.css, src/app/_cw/cw-portal.css). Do not edit by hand.
+  public/cw/sector.css, src/app/admin/admin.css, src/app/_cw/cw-portal.css). Do not edit by hand.
+  Every portal and role: Visitor (the website), Student, Teacher, Parent, Contributor (Member portals), Moderator, Admin.
   PARITY CHECKLIST (every screen, state, button and message built so far):
 ${PARITY.map((p) => `    [x] ${p.replace(/--/g, "-")}`).join("\n")}
 -->
@@ -178,31 +385,42 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 .demo-head .sub { opacity: .85; font-size: 14px; }
 .demo-flow { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; }
 .demo-flow span { background: rgba(255,255,255,.12); padding: 5px 10px; border-radius: 14px; }
-.demo-wrap { max-width: 1240px; margin: 22px auto; padding: 0 16px; }
-.demo-tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
-.demo-tabs .tab { border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; font: inherit; font-weight: 700; font-size: 14px; background: #e2e8f0; color: #1e293b; min-height: 42px; }
-.demo-tabs .tab.on { background: #11634d; color: #fff; }
-.demo-tabs .count { background: #fff; color: #11634d; border-radius: 10px; padding: 1px 7px; margin-left: 6px; font-size: 12px; }
-.demo-tabs .tab:not(.on) .count { background: #11634d; color: #fff; }
-.demo-tabs .tab:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+.demo-wrap { max-width: 1320px; margin: 18px auto; padding: 0 16px; }
+.rvd-roles { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.rvd-role { border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; font: inherit; font-weight: 700; font-size: 14px; background: #e2e8f0; color: #1e293b; min-height: 42px; }
+.rvd-role.on { background: #11634d; color: #fff; }
+.rvd-role:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+.rvd-portal { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 18px; align-items: start; }
+.rvd-nav { background: #0f3d2e; color: #e8f3ee; border-radius: 14px; padding: 14px; position: sticky; top: 12px; }
+.rvd-portal--website .rvd-nav { background: #0b2a5b; }
+.rvd-brand { font-weight: 800; margin-bottom: 10px; font-size: 14px; } .rvd-brand small { display: block; font-weight: 400; opacity: .8; }
+.rvd-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.rvd-nav a { display: block; padding: 9px 10px; border-radius: 8px; color: inherit; text-decoration: none; font-weight: 600; font-size: 14px; }
+.rvd-nav a:hover { background: rgba(255,255,255,.1); } .rvd-nav a.active { background: #fff; color: #0f3d2e; }
+.rvd-main { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; min-width: 0; max-width: 1200px; box-sizing: border-box; }
+.rvd-main .rv .adm { background: transparent; }
+.rvd-list { padding-left: 18px; } .rvd-list li { margin: 6px 0; }
+.rvd-src { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #eef2ef; color: #3d5a44; margin-bottom: 6px; }
+.rvd-src-s { background: #e0e7ff; color: #3730a3; } .rvd-src-p { background: #fef3c7; color: #92400e; }
+.rvd-wp-article .entry-title { font-size: 34px; font-weight: 700; color: #1f2937; margin: 0 0 18px; }
+.rvd-wp-article .rv-rt, .rvd-wp-article .acme-plugin-field { max-width: 880px; margin: 0 0 24px; padding: 24px; border: 1px solid #e1e4ea; border-radius: 16px; background: #fff; box-sizing: border-box; }
+.rvd-wp-article .rv-rt table td { border: 1px solid #e1e4ea; padding: 10px 16px; white-space: nowrap; } .rvd-wp-article .rv-rt table { border-collapse: collapse; }
+.rvd-back { margin: 0 0 10px; } .rvd-page h1, .rvd-home h1 { margin-top: 0; }
+@media (max-width: 921px) { .rvd-portal { grid-template-columns: minmax(0, 1fr); } .rvd-nav { position: static; } }
+@media (max-width: 599.98px) { .demo-head { padding: 16px; } .demo-wrap { padding: 0 8px; } .rvd-main { padding: 16px; } }
 [hidden] { display: none !important; }
 ${css.join("\n")}
 ${portalCss.join("\n")}
 </style>
 </head>
 <body>
-<div class="demo-banner">Reference build · Contribution workflow · Plugin v${version} · mock data (nothing is sent anywhere)</div>
+<div class="demo-banner">Reference build · Contribution workflow · Plugin v${version} · mock data (nothing is sent anywhere) · switch roles below</div>
 <header class="demo-head">
-  <h1>RoboValley – Contributions Management</h1>
-  <div class="sub">Only an Admin can publish, and publishing updates the public Community Ideas page.</div>
+  <h1>RoboValley – Contributions in every portal</h1>
+  <div class="sub">Every role sees "+ Contribute to this sector" on every sector page and a button on every field. Only an Admin can publish.</div>
   <div class="demo-flow"><span>1. Contributor submits idea</span><span>→</span><span>2. Moderator verifies (approve as-is or edit)</span><span>→</span><span>3. Publishing request to Admin</span><span>→</span><span>4. Admin opens publish preview</span><span>→</span><span>5. Admin publishes</span><span>→</span><span>6. Community Ideas updates</span></div>
 </header>
-<main class="demo-wrap">
-  <div class="demo-tabs" role="tablist" aria-label="Roles">
-      ${tabButtons}
-  </div>
-    ${views}
-</main>
+<main class="demo-wrap"><div data-portals></div></main>
 <script>
 ${fixed}
 </script>
@@ -215,6 +433,8 @@ export function outputs() {
   return {
     [OUT.pluginJs]: pluginScript(),
     [OUT.pluginCss]: read(join(SRC, "contribution-workflow.css")),
+    [OUT.sectorJs]: sectorScript(),
+    [OUT.sectorCss]: read(join(SRC, "sector.css")),
     [OUT.demo]: demoHtml(),
   };
 }
