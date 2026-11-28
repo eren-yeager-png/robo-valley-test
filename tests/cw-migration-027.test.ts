@@ -8,8 +8,9 @@ import { migratedClone } from "./helpers/migratedClone";
 
 const read = (p: string) => readFileSync(p, "utf8");
 const runner = (pg: any) => ({ setExpected: (n: string) => pg.query("select set_config('rv.expected_db', $1, false)", [n]), exec: (sql: string) => pg.exec(sql) });
+// 027's own checks run on the database as 027 to 029 leave it: 030 adds a trigger of its own and is rolled back before 027 (newest first).
 async function db() {
-  const { pg, name } = await migratedClone();
+  const { pg, name } = await migratedClone((id) => id <= "029");
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('Ananya Rao','a@example.com','ST','x')");
   const uid = Number(((await pg.query("select id from users")).rows[0] as any).id);
   const add = async () => Number(((await pg.query(

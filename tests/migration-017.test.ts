@@ -19,8 +19,9 @@ const DOWN = "db/rollback/017_down.sql";
 const n = async (pg: PGlite, sql: string) => Number(((await pg.query(sql)).rows[0] as any).n);
 
 async function build(upTo017 = true) {
-  // up to 018 only: 019's work-log view reads contribution_reviews, so 019 needs 017 and is undone first (see tests/migration-019.test.ts)
-  const { pg, name } = await migratedClone((id) => id !== "019" && (upTo017 || (id !== "017" && id !== "018"))); // built once per file, a fresh copy per test (tests/helpers/migratedClone.ts)
+  // up to 018 only: 019's work-log view reads contribution_reviews, so 019 needs 017 and is undone first (see tests/migration-019.test.ts);
+  // 030 builds on 017 too (the Audit Log's backfill reads the decisions), so it is left out the same way
+  const { pg, name } = await migratedClone((id) => id !== "019" && id !== "030" && (upTo017 || (id !== "017" && id !== "018"))); // built once per file, a fresh copy per test (tests/helpers/migratedClone.ts)
   await pg.exec("insert into users (full_name,email,role,password_hash) values ('A','a@example.com','TC','x'),('B','b@example.com','TC','x')");
   await pg.exec("insert into sectors (slug,name) values ('education','Education') on conflict do nothing");
   return { pg, name };
