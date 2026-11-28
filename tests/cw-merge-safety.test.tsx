@@ -103,8 +103,9 @@ describe("merged before migrations 027-029 and before the new plugin: what live 
     expect([rev.status, rev.b.error]).toEqual([503, "NOT_SET_UP"]);
   });
   it("the admin navigation shows the new pages; Settings lists 027, 028 and 029 as not applied with the developer's steps", async () => {
-    expect(ADMIN_NAV.map((x) => x.href)).toEqual(expect.arrayContaining(["/admin/workspace", "/admin/approvals", "/my-contributions"]));
-    expect(MODERATOR_NAV.map((x) => x.href)).toEqual(["/admin/moderation", "/admin/workspace", "/my-contributions"]);
+    expect(ADMIN_NAV.map((x) => x.href)).toEqual(expect.arrayContaining(["/admin/approvals", "/admin/moderation", "/admin/community-ideas", "/admin/audit-log"]));
+    expect(ADMIN_NAV.map((x) => x.href)).not.toContain("/admin/workspace"); // merged into Moderation
+    expect(MODERATOR_NAV.map((x) => x.href)).toEqual(["/admin/moderation", "/my-contributions"]);
     await signIn("boss@example.com", "correct horse");
     st.path = "/admin/settings";
     const h = renderToStaticMarkup(<>{await SettingsPage()}</>);

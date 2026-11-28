@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-// The "My Contributions" screen (public/cw/js/mine.js), the same module in every portal and in the demo: the columns, filters by status
-// and sector, the empty state with a way to contribute, View for every item, and NO Edit for a new-workflow idea (only the note).
+// The "My Contributions" screen (public/cw/js/mine.js), the same module in every portal and in the demo: the portal's columns (Title,
+// Sector, Status, Sent, Actions), filters by status and sector, the empty state with a way to contribute, View for every item, and NO
+// Edit for a new-workflow idea (only the note).
 import { beforeEach, describe, expect, it } from "vitest";
 import { mount, NEW_IDEA_NOTE } from "../public/cw/js/mine.js";
 
@@ -17,15 +18,17 @@ const open = async (items = ITEMS) => {
   await mount(el, { adapter: { mine: async () => ({ items, contributeUrl: "https://site.example/contribute-now/" }) } });
   await settle();
 };
-const rows = () => Array.from(el.querySelectorAll(".rv-mine-table tbody tr:not(.rv-mine-detail)"));
+const rows = () => Array.from(el.querySelectorAll(".rv-pp-table tbody tr:not(.rv-mine-detail)"));
 const select = async (f: string, v: string) => { const s = el.querySelector(`[data-f="${f}"]`) as HTMLSelectElement; s.value = v; s.dispatchEvent(new Event("change")); await settle(); };
 
 beforeEach(() => { document.body.innerHTML = ""; });
 
 describe("My Contributions", () => {
-  it("lists my items with the columns asked for: Title, Sector, Field, Type, Submitted, Status, Moderator feedback, Actions", async () => {
+  it("lists my items with the portal's columns: Title (code, field, type), Sector, Status (with the reason), Sent, Actions", async () => {
     await open();
-    expect(Array.from(el.querySelectorAll("thead th")).map((t) => t.textContent)).toEqual(["Title", "Sector", "Field", "Type", "Submitted", "Status", "Moderator feedback", "Actions"]);
+    expect(Array.from(el.querySelectorAll("thead th")).map((t) => t.textContent)).toEqual(["Title", "Sector", "Status", "Sent", "Actions"]);
+    expect(el.querySelector(".rv-pp-sub")!.textContent).toBe("RV-1025 · Milking robots · New idea");
+    expect(el.querySelector(".rv-pp-col-sent time")).not.toBeNull();
     expect(rows()).toHaveLength(3);
     expect(el.textContent).toContain("Not a contribution.");
   });

@@ -31,12 +31,20 @@ export const USERS = {
   mod: { email: "e2e-mod@example.com", name: "Ravi Kumar", role: "TC", minor: false, moderator: true },
   member: { email: "e2e-member@example.com", name: "Sita Devi", role: "TC", minor: false, moderator: false },
   minor: { email: "e2e-minor@example.com", name: "Neha Sharma", role: "ST", minor: true, moderator: false },
+  // the Contribution Portal's other views (portal.mjs): a parent and a contributor (a mentor, from the Partners & providers group)
+  parent: { email: "e2e-parent@example.com", name: "Meera Kumari", role: "PA", minor: false, moderator: false },
+  mentor: { email: "e2e-mentor@example.com", name: "Rao Prasad", role: "ME", minor: false, moderator: false },
 };
 
 const file = () => join(STATE, "secrets.json");
 /** The throw-away secrets (made on first use, never printed). */
 export function secrets() {
-  if (existsSync(file())) return JSON.parse(readFileSync(file(), "utf8"));
+  if (existsSync(file())) {
+    const s = JSON.parse(readFileSync(file(), "utf8"));
+    const missing = Object.keys(USERS).filter((k) => !s.users[k]); // a person added to USERS after the secrets were made
+    if (missing.length) { for (const k of missing) s.users[k] = randomBytes(18).toString("hex"); writeFileSync(file(), JSON.stringify(s), { mode: 0o600 }); }
+    return s;
+  }
   mkdirSync(STATE, { recursive: true });
   const r = (n = 18) => randomBytes(n).toString("hex");
   const s = { db: r(), session: r(32), wpdb: r(12), wpadmin: r(12), users: Object.fromEntries(Object.keys(USERS).map((k) => [k, r()])) };
@@ -55,6 +63,7 @@ export const baseEnv = () => Object.fromEntries(PASS_ON.filter((k) => env[k] !==
 export const appEnv = () => ({
   ...baseEnv(), DATABASE_URL: databaseUrl(), SESSION_SECRET: secrets().session, SITE_URL: `${WP}/`, ALLOWED_ORIGINS: WP,
   OTP_PROVIDER: "mock", NEXT_TELEMETRY_DISABLED: "1",
+  CW_PORTAL_FORM: "on", // the contributor's short form in the Member portal (portal.mjs); off by default in the real app
 });
 /** Refuses anything that is not this computer (the tools never talk to another host). */
 export function assertLocal(url) {

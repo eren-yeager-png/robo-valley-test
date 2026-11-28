@@ -7,7 +7,7 @@ import { moderatorFlags, recentModeratorChanges, type ModeratorChangeRow } from 
 import ModeratorToggle from "../_components/ModeratorToggle";
 import { DataTable, Notice, PageHeader, Pager, StatCard, when } from "../_components/ui";
 
-export const metadata: Metadata = { title: "Users | RoboValley admin", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Users & Roles | RoboValley admin", robots: { index: false, follow: false } };
 
 type SP = { page?: string; q?: string; role?: string };
 
@@ -30,7 +30,7 @@ export default async function UsersPage({ searchParams }: { searchParams?: Promi
     if (mods.ready) changes = await recentModeratorChanges(pool, 10);
   } catch {
     console.error("admin users: could not read the data");
-    return (<><PageHeader title="User management" /><Notice kind="error" title="Users could not be loaded">The database did not answer. Please try again.</Notice></>);
+    return (<><PageHeader title="Users & Roles" /><Notice kind="error" title="Users could not be loaded">The database did not answer. Please try again.</Notice></>);
   }
   const params: Record<string, string> = {};
   if (q) params.q = q;
@@ -38,7 +38,7 @@ export default async function UsersPage({ searchParams }: { searchParams?: Promi
 
   return (
     <>
-      <PageHeader title="User management" lead={mods.ready ? "Everyone who has registered. Administrators can make someone a moderator or remove the flag; each change is recorded." : "Everyone who has registered. This list is read-only."} />
+      <PageHeader title="Users & Roles" lead={(mods.ready ? "Everyone who has registered. Administrators can make someone a moderator or remove the flag; each change is recorded." : "Everyone who has registered. This list is read-only.") + " \"View as\" shows what a person sees, read-only."} />
       <div className="adm-grid">
         <StatCard label="Matching accounts" value={result.total} />
         {roles.slice(0, 3).map((r) => <StatCard key={r.role} label={r.label} value={r.count} />)}
@@ -54,7 +54,7 @@ export default async function UsersPage({ searchParams }: { searchParams?: Promi
         <button className="btn primary" type="submit">Filter</button>
         {(q || role) && <a className="btn" href="/admin/users">Clear</a>}
       </form>
-      <DataTable caption="Registered users" head={mods.ready ? ["Name", "Moderator", "Email", "Role", "Joined"] : ["Name", "Email", "Role", "Joined"]} empty="No accounts match."
+      <DataTable caption="Registered users" head={mods.ready ? ["Name", "Moderator", "Email", "Role", "Joined", ""] : ["Name", "Email", "Role", "Joined", ""]} empty="No accounts match."
         rows={result.rows.map((u) => (
           <tr key={u.id}><td className="cell-wrap">{u.name}</td>
           {mods.ready && (
@@ -62,7 +62,7 @@ export default async function UsersPage({ searchParams }: { searchParams?: Promi
               <span className={"adm-pill" + (mods.flags.get(u.id) ? "" : " mute")}>{mods.flags.get(u.id) ? "Moderator" : "No"}</span>
               <ModeratorToggle userId={u.id} name={u.name} moderator={mods.flags.get(u.id) === true} self={u.id === admin.id} />
             </td>
-          )}<td className="cell-wrap">{u.email}</td><td><span className={"adm-pill" + (u.role === "admin" ? " warn" : "")}>{u.roleLabel}</span></td><td>{when(u.joined)}</td></tr>
+          )}<td className="cell-wrap">{u.email}</td><td><span className={"adm-pill" + (u.role === "admin" ? " warn" : "")}>{u.roleLabel}</span></td><td>{when(u.joined)}</td><td><a className="btn" href={`/admin/users/${u.id}/view`} aria-label={`View as ${u.name}`}>View as</a></td></tr>
         ))} />
       {mods.ready && changes.length > 0 && (
         <section aria-labelledby="mod-changes">

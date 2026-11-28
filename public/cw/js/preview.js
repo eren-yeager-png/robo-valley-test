@@ -4,8 +4,11 @@ import { esc } from "./utils.js";
 import { renderPreviewDocument } from "./card.js";
 import { MESSAGES } from "./lists.js";
 
-/** Opens the preview for a public record; resolves when it is closed ("Close" or "Done reviewing"). */
-export function openPreview(record, { meta = "", doc = document } = {}) {
+/**
+ * Opens the preview for a public record; resolves when it is closed ("Close" or "Done reviewing") with undefined, or with the key of
+ * one of `actions` ([{ key, label, tone: "success" | "danger" | "" , disabled }]: Publish Requests' Publish, Send back, Reject).
+ */
+export function openPreview(record, { meta = "", doc = document, actions = [] } = {}) {
   return new Promise((resolve) => {
     const html = renderPreviewDocument(record);
     const back = doc.activeElement;
@@ -18,12 +21,14 @@ export function openPreview(record, { meta = "", doc = document } = {}) {
       <div class="cw-modal-f" data-foot>
         <button type="button" class="btn" data-x="download">Download preview (.html)</button>
         <button type="button" class="btn" data-x="tab">Open in new tab</button>
-        <button type="button" class="btn primary" data-x="done">Done reviewing</button>
+        ${actions.length ? actions.map((a) => `<button type="button" class="btn${a.tone ? " " + esc(a.tone) : ""}" data-pv-act="${esc(a.key)}"${a.disabled ? " disabled" : ""}>${esc(a.label)}</button>`).join("")
+          : '<button type="button" class="btn primary" data-x="done">Done reviewing</button>'}
       </div><div data-pv-msg aria-live="polite"></div></div>`;
     (doc.querySelector(".rv-cw-root") || doc.body).appendChild(wrap);
     wrap.querySelector("[data-frame]").srcdoc = html;
     const blobUrl = () => URL.createObjectURL(new Blob([html], { type: "text/html" }));
-    const close = () => { wrap.remove(); doc.removeEventListener("keydown", onKey, true); if (back && back.focus) back.focus(); resolve(); };
+    const close = (key) => { wrap.remove(); doc.removeEventListener("keydown", onKey, true); if (back && back.focus) back.focus(); resolve(typeof key === "string" ? key : undefined); };
+    wrap.querySelectorAll("[data-pv-act]").forEach((b) => b.addEventListener("click", () => close(b.getAttribute("data-pv-act"))));
     const onKey = (e) => {
       if (e.key === "Escape") { e.preventDefault(); close(); }
       if (e.key === "Tab") {
@@ -32,8 +37,9 @@ export function openPreview(record, { meta = "", doc = document } = {}) {
         if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
       }
     };
-    wrap.querySelector('[data-x="close"]').addEventListener("click", close);
-    wrap.querySelector('[data-x="done"]').addEventListener("click", close);
+    wrap.querySelector('[data-x="close"]').addEventListener("click", () => close());
+    const done = wrap.querySelector('[data-x="done"]');
+    if (done) done.addEventListener("click", () => close());
     wrap.querySelector('[data-x="download"]').addEventListener("click", () => {
       const a = doc.createElement("a");
       a.href = blobUrl(); a.download = `${record.code}-publish-preview.html`;

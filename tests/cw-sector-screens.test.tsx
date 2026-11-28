@@ -1,5 +1,5 @@
-// The shared sector header on the app's own sector screens: Moderation by sector (administrators and moderators) and Sector forms
-// (administrators). The GUARD: EVERY sector (also one added later) renders "+ Contribute to this sector" with its sector filled in.
+// The shared sector header on the app's own sector screens: a sector's Questions page (administrators; server-rendered) and Moderation by
+// sector (now the sector's panel in Moderation, drawn in the browser by public/cw/js/moderation.js with the same button). The GUARD: EVERY sector (also one added later) renders "+ Contribute to this sector" with its sector filled in.
 // The markup is the website's own (public/cw/js/sector.js), rendered on the server. In-process database (PGlite), real pages.
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -48,15 +48,17 @@ describe("every sector renders the header button on the app's sector screens", (
     expect(slugs).toContain("space-robots");
     for (const slug of slugs) assertHeader(await html(SectorFormPage({ params: Promise.resolve({ slug }) })), slug);
   });
-  it("Moderation by sector (administrators and moderators): every sector", async () => {
+  it("Moderation by sector: the old address opens the sector's panel in Moderation (drawn by moderation.js, with the same header button)", async () => {
     const mod = Number((await seedUser({ email: `m${++seq}@example.com`, role: "TC", fullName: "Priya Moderator" })).id);
     await q("UPDATE users SET is_moderator = true WHERE id = $1", [mod]);
     signInAs(mod, "TC");
     for (const slug of ["agriculture-dairy", "education", "healthcare", "manufacturing"]) {
-      const h = await html(ModerationSectorPage({ params: Promise.resolve({ slug }), searchParams: Promise.resolve({}) }));
-      assertHeader(h, slug);
-      expect(h).toContain("Contributors for");
+      await expect(ModerationSectorPage({ params: Promise.resolve({ slug }), searchParams: Promise.resolve({}) })).rejects.toThrow(`REDIRECT:/admin/moderation?sector=${slug}`);
     }
+    // the panel's header uses the website's own button (public/cw/js/sector.js), for every sector: tests/portal-screens.test.ts and cw-demo.test.ts
+    const src = (await import("node:fs")).readFileSync("public/cw/js/moderation.js", "utf8");
+    expect(src).toContain('import { contributeHref, headerButtonHtml } from "./sector.js";');
+    expect(src).toMatch(/headerButtonHtml\(contributeHref\(form, \{ sector: s\.slug, returnTo: here\(\) \}\)\)/);
   });
 });
 

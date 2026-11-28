@@ -3,7 +3,11 @@
 // browser at run time (not bundled), so the portal, the WordPress plugin and the standalone demo run the SAME files.
 import { useEffect, useRef } from "react";
 
-const SRC = { moderator: "/cw/js/moderator.js", admin: "/cw/js/admin.js", mine: "/cw/js/mine.js", sectors: "/cw/js/sectors.js" } as const;
+const SRC = {
+  moderator: "/cw/js/moderator.js", admin: "/cw/js/admin.js", mine: "/cw/js/mine.js", sectors: "/cw/js/sectors.js",
+  moderation: "/cw/js/moderation.js", requests: "/cw/js/requests.js", sectorForms: "/cw/js/sector-forms.js", overview: "/cw/js/overview.js",
+  audit: "/cw/js/audit.js", site: "/cw/js/site.js", sectorsAdmin: "/cw/js/sectors-admin.js", contribute: "/cw/js/contribute-modal.js",
+} as const;
 
 export default function CwMount({ screen, options = {} }: { screen: keyof typeof SRC; options?: Record<string, unknown> }) {
   const ref = useRef<HTMLDivElement>(null);

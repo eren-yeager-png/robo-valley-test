@@ -252,10 +252,10 @@ export type SectorList = {
   counts: Record<PortalTab, number>; contributions: number; contributors: number;
   rows: PortalRow[]; page: number; pages: number; matching: number; categoriesUsed: string[];
 };
-type FullRow = PortalRow & { userId: number; verified: boolean; typeLabel: string }; // typeLabel: the CSV's Type column
+export type FullRow = PortalRow & { userId: number; verified: boolean; typeLabel: string }; // typeLabel: the CSV's Type column
 
 /** One sector's items with everything the list, the CSV and previous / next need. Needs migration 019. */
-async function sectorRows(db: Db, slug: string): Promise<{ sector: { slug: string; name: string }; rows: FullRow[] } | null> {
+export async function sectorRows(db: Db, slug: string): Promise<{ sector: { slug: string; name: string }; rows: FullRow[] } | null> {
   const sec = (await db.query("SELECT slug, name FROM sectors WHERE slug = $1 AND NOT is_demo", [slug])).rows[0];
   if (!sec) return null;
   const { rows } = await db.query(

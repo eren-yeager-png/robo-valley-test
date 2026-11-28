@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-// Every Member portal's "Sectors" (public/cw/js/sectors.js): a card for every sector, and one sector drawn with the SAME shared sector
-// page component as the website (sector.js). The GUARD: for EVERY sector the page has its header button and no rendered field is without
+// Every Member portal's "Sectors" (public/cw/js/sectors.js): the shared sector grid and the selected sector's panel, and one sector drawn
+// with the SAME shared sector page component as the website (sector.js). The GUARD: for EVERY sector the page has its header button and no rendered field is without
 // its button; a sector or field added later appears by itself.
 import { beforeEach, describe, expect, it } from "vitest";
 import { mount, fieldsOf } from "../public/cw/js/sectors.js";
@@ -13,19 +13,35 @@ const open = async (sectors: any[], slug = "") => {
   handle?.stop?.();
   document.body.innerHTML = '<main><div id="s"></div></main>';
   el = document.getElementById("s")!;
-  handle = await mount(el, { adapter: { formConfig: async () => ({ sectors }) }, form: "https://site.example/contribute-now/", slug, returnTo: "https://app.example/dashboard/sectors/x" });
+  handle = await mount(el, { adapter: { formConfig: async () => ({ sectors }), publicList: async () => ({ items: [] }) }, form: "https://site.example/contribute-now/", slug, basePath: "/dashboard/sectors", returnTo: "https://app.example/dashboard/sectors/x" });
   await settle();
 };
 
 beforeEach(() => { handle?.stop?.(); handle = null; document.body.innerHTML = ""; });
 
-describe("the Sectors list", () => {
-  it("a card for every sector with a short description and View sector; a new sector appears by itself", async () => {
+describe("the Sectors list: the sector grid and the selected sector's panel", () => {
+  it("a card (a button) for every sector, a new sector appearing by itself; the panel's header button and a Contribute on every field", async () => {
     await open([...DEMO_SECTORS, { slug: "space-robots", name: "Space robots", robots: [{ slug: "rovers", name: "Rovers" }] }]);
-    const cards = Array.from(el.querySelectorAll(".rv-sector-tile"));
-    expect(cards.map((c) => c.querySelector("h2")!.textContent)).toEqual([...DEMO_SECTORS.map((s: any) => s.name), "Space robots"]);
-    expect((cards[0].querySelector("a") as HTMLAnchorElement).getAttribute("href")).toBe("/dashboard/sectors/agriculture-dairy");
-    expect(cards.at(-1)!.textContent).toContain("Robots at work in Space robots");
+    const cards = Array.from(el.querySelectorAll(".rv-sg-card"));
+    expect(cards.map((c) => c.querySelector(".rv-sg-name")!.textContent)).toEqual([...DEMO_SECTORS.map((s: any) => s.name), "Space robots"]);
+    expect(cards.every((c) => c.tagName === "BUTTON")).toBe(true);
+    expect(cards[0].getAttribute("aria-pressed")).toBe("true");
+    (cards.at(-1) as HTMLButtonElement).click(); await settle();
+    expect(el.querySelector(".rv-pp-panel__title")!.textContent).toBe("Ideas for Space robots");
+    const header = el.querySelectorAll(".rv-pp-panel .rv-contribute-btn--header");
+    expect(header).toHaveLength(1);
+    expect(new URL((header[0] as HTMLAnchorElement).href).searchParams.get("sector")).toBe("space-robots");
+    const field = el.querySelector('.rv-pp-fieldcard[data-rv-field="rovers"] a') as HTMLAnchorElement;
+    expect([new URL(field.href).searchParams.get("sector"), new URL(field.href).searchParams.get("field")]).toEqual(["space-robots", "rovers"]);
+    expect((el.querySelector('.rv-pp-panel a[href="/dashboard/sectors/space-robots"]') as HTMLAnchorElement).textContent).toBe("Open the sector page");
+  });
+  it("EVERY sector's panel: one header button and no field without its Contribute button", async () => {
+    await open(DEMO_SECTORS as any[]);
+    for (const s of DEMO_SECTORS as any[]) {
+      (el.querySelector(`.rv-sg-card[data-sector="${s.slug}"]`) as HTMLButtonElement).click(); await settle();
+      expect(el.querySelectorAll(".rv-pp-panel .rv-contribute-btn--header"), s.slug).toHaveLength(1);
+      expect(Array.from(el.querySelectorAll(".rv-pp-fieldcard")).filter((f) => !f.querySelector("a[href]")), s.slug).toEqual([]);
+    }
   });
 });
 

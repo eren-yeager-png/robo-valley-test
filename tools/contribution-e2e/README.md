@@ -1,4 +1,4 @@
-# Contribution workflow: end-to-end, lifecycle and migrations-twice checks
+# Contribution workflow: end-to-end, lifecycle, migrations-twice and portal checks
 
 These scripts check the contribution workflow on a **throw-away stack on your own computer**:
 
@@ -28,6 +28,7 @@ node tools/contribution-e2e/rig.mjs up            # Postgres + base schema + eve
 node tools/contribution-e2e/e2e.mjs               # the end-to-end check (prints PASS/FAIL per check, screenshots in tools/contribution-e2e/out/)
 node tools/contribution-e2e/lifecycle.mjs         # WordPress lifecycle: switch, deactivate, reactivate, version change, uninstall, reinstall
 node tools/contribution-e2e/migrations-twice.mjs  # every migration twice on a fresh database (in the same Postgres container)
+node tools/contribution-e2e/portal.mjs --label after  # every portal page in every role at 1440, 1024 and 390 px (app and demo), with screenshots
 node tools/contribution-e2e/rig.mjs down          # stop and delete everything, including the made-up secrets
 ```
 
@@ -99,3 +100,23 @@ Every container these scripts make carries the label `rvcw-e2e=1`. `down` remove
 6. Every table's rows and content, and the whole schema, must be **identical** before and after. A sequence that only moved forward with no row added is listed as a note. That happens when a forced rerun repeats an `INSERT … ON CONFLICT DO NOTHING`, such as 016's default sector, which uses up an id.
 
 The test-only WordPress plugin `wp-plugins/rv-e2e-dummy-fields` adds the plugin, JavaScript and suggested fields. **Never install it on a real site.**
+
+## The portal check (`portal.mjs`)
+
+It needs only the Postgres container and the app (`pg-up`, `build`, `app-up`); WordPress is not used. Once per database it adds the
+portal's sample data: two more made-up people (a parent and a mentor), a few items sent with the current form (one verified), and ideas
+sent with Share Your Idea through the app's own API (some approved, two published, one declined, one "Suggest a field").
+
+Then, signed in as each role (administrator, moderator, student, teacher, parent, contributor), it opens every portal page at 1440, 1024
+and 390 pixels wide, and every page of the standalone demo in every role, and checks:
+
+- the page never scrolls sideways;
+- the blocks of the page (header, sector grid, panel) never overlap;
+- no button is stretched to its container's width;
+- no word is broken in the middle (slugs have an ellipsis instead);
+- every Sent date is on one line;
+- the keyboard reaches the page, with a visible focus ring (at 1440).
+
+Each page view is saved as `<phase>-<role>-<page>-<width>-<label>.png` in `--out` (default `tools/contribution-e2e/out/portal`), and the
+results in `<phase>-checks-<label>.json`. With `--label before` problems are recorded but do not fail the run (use it on the code before
+a change); `--only app` or `--only demo` runs one half; `--demo <file>` checks another copy of the demo.

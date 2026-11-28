@@ -58,14 +58,14 @@ describe("admin top bar: one account control", () => {
 });
 
 describe("admin shell", () => {
-  it("shows the fourteen sections with the current page highlighted, and no standalone email or Sign out button", () => {
+  it("shows the fifteen sections with the current page highlighted, and no standalone email or Sign out button", () => {
     h.path = "/admin/users";
     render(<AdminShell landingUrl={LANDING} locked={false}><p>body</p></AdminShell>);
     const nav = screen.getByRole("navigation");
-    expect(within(nav).getAllByRole("link")).toHaveLength(15); // Sector Counts, then Sector Forms (P2), then the Moderator Workspace and the Admin Approval Dashboard (contribution workflow), then My Contributions (every portal) were added
-    expect(within(nav).getByRole("link", { name: /User Management/ }).getAttribute("aria-current")).toBe("page");
+    expect(within(nav).getAllByRole("link")).toHaveLength(15); // the Contribution Portal's pages first (Overview, Publish Requests, Moderation, Sector Forms, Sectors, Users & Roles, Community Ideas, Audit Log), then the data pages and Settings
+    expect(within(nav).getByRole("link", { name: /Users & Roles/ }).getAttribute("aria-current")).toBe("page");
     expect(within(nav).getByRole("link", { name: /Overview/ }).getAttribute("aria-current")).toBeNull();
-    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("User Management");
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Users & Roles");
     expect(screen.queryByText("boss@robovalley.com")).toBeNull();
     expect(screen.queryByRole("button", { name: /sign out/i })).toBeNull();
     expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();

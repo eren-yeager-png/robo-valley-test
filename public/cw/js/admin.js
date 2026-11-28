@@ -1,7 +1,8 @@
-// Contribution workflow: the Admin Approval Dashboard (admin portal, /admin/approvals; and the demo). The demo's screen, through the
-// adapter: filters, the Contributor and Moderator boxes, the request, original vs version to publish as a word diff, Moderator notes,
-// Edit Before Publishing (title and description), the Publish Preview, Publish (enabled only after the CURRENT version was previewed;
-// "Retry Publish" after a failure), Request Changes and Reject (dialogs with a required text), previous versions and history.
+// Contribution workflow: the Admin's review of one idea (adminPanel), and the Admin Approval Dashboard screen built from it (kept for
+// the demo's parity checks; the admin portal shows the same review in Publish Requests' "Details" drawer, public/cw/js/requests.js).
+// The Contributor and Moderator boxes, the request, original vs version to publish as a word diff, Moderator notes, Edit Before
+// Publishing (title and description), the Publish Preview, Publish (enabled only after the CURRENT version was previewed; "Retry
+// Publish" after a failure), Request Changes and Reject (dialogs with a required text), previous versions and history.
 // After publishing (spec section 15, decided 27-11-2026): Unpublish (Published only; the card is removed), Edit Before Publishing on
 // Published and Unpublished items (a new version that needs a new preview; the live card changes only when published again), and
 // Reopen on Rejected items (reason required; back to Under Moderator Review), with who declined or rejected, why and when.
@@ -15,49 +16,22 @@ import { attachmentHtml, badge, decisionHtml, decisionWho, fieldText, fieldsHtml
 
 const INTRO = "Review the original idea, the Moderator's changes, notes and history. Open the publish preview to see exactly how it will look on the website, then decide.";
 
-export async function mount(el, opts = {}) {
-  const adapter = opts.adapter || new RestAdapter(opts.base || "");
-  const st = { filter: "Awaiting me", selected: null, item: null, sectors: [], editing: false, publishing: false };
-  el.classList.add("rv-cw-root");
-  const demo = opts.demoFailToggle ? `<label class="cw-demo-toggle"><input type="checkbox" data-demo-fail> Demo only: make the next publish attempt fail (to test error handling and safe retry)</label>` : "";
-  el.innerHTML = `<section class="adm-card cw-intro" aria-labelledby="cw-adm-h"><h2 id="cw-adm-h">Admin Approval Dashboard</h2><p class="cw-muted">${esc(INTRO)}</p>${demo}</section>
-  <div class="cw-layout"><div class="cw-listcol"><div class="cw-filters" role="group" aria-label="Filter" data-filters></div><div data-list aria-live="polite"></div></div><div data-detail></div></div>`;
-  if (opts.demoFailToggle) $(el, "[data-demo-fail]").addEventListener("change", (e) => { opts.demoFailToggle.failNext = e.target.checked; });
-  try { st.sectors = (await adapter.formConfig()).sectors || []; } catch { st.sectors = []; }
-
-  const say = (html) => { const m = $(el, "[data-msg]"); if (m) m.innerHTML = html; };
+/** The Admin's review of ONE idea, drawn into `d`. ctx = { adapter, sectors, item, onChanged?(item, action) }. */
+export function adminPanel(d, ctx) {
+  const adapter = ctx.adapter, sectors = ctx.sectors || [];
+  const st = { item: ctx.item, editing: false, publishing: false };
+  const say = (html) => { const m = $(d, "[data-msg]"); if (m) m.innerHTML = html; };
+  const changed = async (action) => { if (ctx.onChanged) await ctx.onChanged(st.item, action); };
   const fail = async (e) => {
-    if (e && e.status === 409 && e.error === "STALE") { await load(st.selected); say(notice("err", esc(MESSAGES.stale), "alert")); return; }
+    if (e && e.status === 409 && e.error === "STALE") {
+      try { st.item = (await adapter.detail(st.item.id)).item; } catch { /* keep what we have */ }
+      draw(); say(notice("err", esc(MESSAGES.stale), "alert")); await changed("stale"); return;
+    }
     say(notice("err", esc((e && e.message) || MESSAGES.failed), "alert"));
   };
 
-  async function renderList() {
-    let r;
-    try { r = await adapter.list("approvals", st.filter); } catch (e) { $(el, "[data-list]").innerHTML = notice("err", esc(e.status === 503 ? "The contribution workflow is not set up yet." : (e.message || MESSAGES.failed)), "alert"); return; }
-    $(el, "[data-filters]").innerHTML = Object.keys(ADM_FILTERS).map((k) =>
-      `<button type="button" class="cw-chip${k === st.filter ? " on" : ""}" aria-pressed="${k === st.filter}" data-filter="${esc(k)}">${esc(k)}${k === "Awaiting me" ? ` <span class="cw-count">${r.counts.awaiting}</span>` : ""}</button>`).join("");
-    $$(el, "[data-filter]").forEach((b) => b.addEventListener("click", () => { st.filter = b.getAttribute("data-filter"); renderList(); }));
-    $(el, "[data-list]").innerHTML = r.items.length ? r.items.map((i) => `<button type="button" class="cw-item${i.id === st.selected ? " sel" : ""}" data-id="${i.id}" aria-current="${i.id === st.selected}">
-      ${badge(i.status)} <span class="cw-muted">${esc(i.code)}</span>
-      <span class="cw-t">${esc(i.title)}</span>
-      <span class="cw-muted cw-meta">${esc(i.kind)} · ${esc(i.contributorName)} · ${esc(i.sectorName)}${i.moderator ? " · by " + esc(i.moderator) : ""}</span>
-      ${i.decision ? `<span class="cw-muted cw-meta cw-decision">${esc(decisionWho(i.decision))} · ${esc(fmtDate(i.decision.at))}</span>` : ""}</button>`).join("")
-      : '<div class="cw-empty">Nothing here.</div>';
-    $$(el, "[data-id]").forEach((b) => b.addEventListener("click", () => { st.editing = false; load(Number(b.getAttribute("data-id"))); }));
-    if (opts.onChange) opts.onChange(r.counts);
-  }
-
-  async function load(id) {
-    if (!id) return;
-    st.selected = id;
-    try { st.item = (await adapter.detail(id)).item; } catch (e) { $(el, "[data-detail]").innerHTML = notice("err", esc((e && e.message) || MESSAGES.failed), "alert"); return; }
-    renderDetail();
-    await renderList();
-  }
-
-  function renderDetail() {
-    const it = st.item, d = $(el, "[data-detail]");
-    if (!it) { d.innerHTML = '<div class="adm-card"><div class="cw-empty">Select a contribution to review.</div></div>'; return; }
+  function draw() {
+    const it = st.item;
     const n = it.versions.length, last = it.versions[n - 1];
     const status = st.publishing ? STATUS.PUBLISHING : it.status;
     const decidable = canAdminAct(status) && n > 0;                         // a request: Pending, Resubmitted or Publication Failed
@@ -65,14 +39,14 @@ export async function mount(el, opts = {}) {
     const canPublish = n > 0 && canPublishNext(status, n, it.publishedVersion); // preview, then publish
     const previewOk = n > 0 && it.previewedVersion === n;
     const earn = earnBlocked(it.contributor.minor, it.proposed.learningPath);
-    const sectorName = fieldText("sector", it.proposed.sector, it.proposed, st.sectors);
+    const sectorName = fieldText("sector", it.proposed.sector, it.proposed, sectors);
     const unpub = status === STATUS.UNPUBLISHED ? (it.history || []).filter((h) => h.text === H.unpublished()).slice(-1)[0] : null;
     const decision = status === STATUS.REJECTED ? lastDecision(it) : null;
     const retry = status === STATUS.FAILED || (status === STATUS.PUBLISHED && Boolean(it.publishError) && canPublish);
     const diff = FIELDS.map((f) => {
-      const a = fieldText(f, it.original[f], it.original, st.sectors), b = fieldText(f, it.proposed[f], it.proposed, st.sectors);
-      const changed = !sameValue(it.original[f], it.proposed[f]);
-      return `<div class="cw-field"><div class="cw-k">${FIELD_LABELS[f]}${changed ? ' <span class="cw-tag">changed</span>' : ""}</div><div class="cw-v cw-diff">${wordDiff(a, b) || '<span class="cw-muted">Not set</span>'}</div></div>`;
+      const a = fieldText(f, it.original[f], it.original, sectors), b = fieldText(f, it.proposed[f], it.proposed, sectors);
+      const ch = !sameValue(it.original[f], it.proposed[f]);
+      return `<div class="cw-field"><div class="cw-k">${FIELD_LABELS[f]}${ch ? ' <span class="cw-tag">changed</span>' : ""}</div><div class="cw-v cw-diff">${wordDiff(a, b) || '<span class="cw-muted">Not set</span>'}</div></div>`;
     }).join("");
     d.innerHTML = `<article class="adm-card cw-detail" aria-labelledby="cw-a-h">
       <div class="cw-head"><h3 id="cw-a-h">${esc(it.code)} – ${esc(it.proposed.title)}</h3>${badge(status)}</div>
@@ -89,7 +63,7 @@ export async function mount(el, opts = {}) {
       ${requestHtml(it)}
       <h4 class="cw-h4">Original vs. version to publish</h4>
       <div class="cw-grid2">
-        <div class="cw-box"><h4>Original (from contributor)</h4>${fieldsHtml(it.original, st.sectors)}</div>
+        <div class="cw-box"><h4>Original (from contributor)</h4>${fieldsHtml(it.original, sectors)}</div>
         <div class="cw-box"><h4>Changes highlighted</h4>${diff}</div>
       </div>
       <p><b>Moderator notes:</b> ${it.notes ? esc(it.notes) : '<span class="cw-muted">No notes.</span>'}</p>
@@ -120,30 +94,31 @@ export async function mount(el, opts = {}) {
       try {
         const r = await adapter.act(it.id, action, { rowVersion: it.rowVersion, ...extra });
         st.item = r.item; st.editing = false;
-        renderDetail(); await renderList();
+        draw();
         if (after2) say(after2(r));
+        await changed(action);
         return r;
-      } catch (e) { renderDetail(); await fail(e); return null; }
+      } catch (e) { draw(); await fail(e); return null; }
     };
     const on = (sel, fn) => { const b = $(d, sel); if (b) b.addEventListener("click", fn); };
     on('[data-act="preview"]', async () => {
       const r = await run("preview", { version: n });
       if (r && r.record) {
         await openPreview(r.record, { meta: `${it.code} · version ${n} · ${r.record.sectorName} section` });
-        renderDetail();
+        draw();
       }
     });
     on('[data-act="publish"]', async () => {
-      st.publishing = true; renderDetail();
+      st.publishing = true; draw();
       try {
         const r = await adapter.publish(it.id, { rowVersion: it.rowVersion });
         st.item = r.item;
-      } catch (e) { st.publishing = false; renderDetail(); await fail(e); await renderList(); return; }
-      st.publishing = false; renderDetail(); await renderList();
+      } catch (e) { st.publishing = false; draw(); await fail(e); await changed("publish_failed"); return; }
+      st.publishing = false; draw(); await changed("publish");
     });
-    on('[data-act="edit"]', () => { st.editing = true; renderDetail(); const t = $(d, "#cw-a-title"); if (t) t.focus(); });
+    on('[data-act="edit"]', () => { st.editing = true; draw(); const t = $(d, "#cw-a-title"); if (t) t.focus(); });
     on('[data-act="save-edit"]', () => run("admin_edit", { title: $(d, "#cw-a-title").value, description: $(d, "#cw-a-desc").value }));
-    on('[data-act="cancel-edit"]', () => { st.editing = false; renderDetail(); });
+    on('[data-act="cancel-edit"]', () => { st.editing = false; draw(); });
     on('[data-act="changes"]', async () => {
       const text = await askReason({ title: "Request Changes", label: "What should the Moderator change? (required)", confirmText: "Request Changes", tone: "primary" });
       if (text) run("request_changes", { feedback: text });
@@ -159,6 +134,51 @@ export async function mount(el, opts = {}) {
       const text = await askReason({ title: `Reopen ${it.code}`, label: MESSAGES.reopenLabel, confirmText: "Reopen", tone: "primary" });
       if (text) run("reopen", { reason: text }, () => notice("ok", "Reopened. It is back with the Moderator (Under Moderator Review)."));
     });
+  }
+
+  draw();
+  return { get item() { return st.item; }, redraw: draw };
+}
+
+/** The Admin Approval Dashboard screen (the demo's parity build; the admin portal uses Publish Requests). */
+export async function mount(el, opts = {}) {
+  const adapter = opts.adapter || new RestAdapter(opts.base || "");
+  const st = { filter: "Awaiting me", selected: null, item: null, sectors: [] };
+  el.classList.add("rv-cw-root");
+  const demo = opts.demoFailToggle ? `<label class="cw-demo-toggle"><input type="checkbox" data-demo-fail> Demo only: make the next publish attempt fail (to test error handling and safe retry)</label>` : "";
+  el.innerHTML = `<section class="adm-card cw-intro" aria-labelledby="cw-adm-h"><h2 id="cw-adm-h">Admin Approval Dashboard</h2><p class="cw-muted">${esc(INTRO)}</p>${demo}</section>
+  <div class="cw-layout"><div class="cw-listcol"><div class="cw-filters" role="group" aria-label="Filter" data-filters></div><div data-list aria-live="polite"></div></div><div data-detail></div></div>`;
+  if (opts.demoFailToggle) $(el, "[data-demo-fail]").addEventListener("change", (e) => { opts.demoFailToggle.failNext = e.target.checked; });
+  try { st.sectors = (await adapter.formConfig()).sectors || []; } catch { st.sectors = []; }
+
+  async function renderList() {
+    let r;
+    try { r = await adapter.list("approvals", st.filter); } catch (e) { $(el, "[data-list]").innerHTML = notice("err", esc(e.status === 503 ? "The contribution workflow is not set up yet." : (e.message || MESSAGES.failed)), "alert"); return; }
+    $(el, "[data-filters]").innerHTML = Object.keys(ADM_FILTERS).map((k) =>
+      `<button type="button" class="cw-chip${k === st.filter ? " on" : ""}" aria-pressed="${k === st.filter}" data-filter="${esc(k)}">${esc(k)}${k === "Awaiting me" ? ` <span class="cw-count">${r.counts.awaiting}</span>` : ""}</button>`).join("");
+    $$(el, "[data-filter]").forEach((b) => b.addEventListener("click", () => { st.filter = b.getAttribute("data-filter"); renderList(); }));
+    $(el, "[data-list]").innerHTML = r.items.length ? r.items.map((i) => `<button type="button" class="cw-item${i.id === st.selected ? " sel" : ""}" data-id="${i.id}" aria-current="${i.id === st.selected}">
+      ${badge(i.status)} <span class="cw-muted">${esc(i.code)}</span>
+      <span class="cw-t">${esc(i.title)}</span>
+      <span class="cw-muted cw-meta">${esc(i.kind)} · ${esc(i.contributorName)} · ${esc(i.sectorName)}${i.moderator ? " · by " + esc(i.moderator) : ""}</span>
+      ${i.decision ? `<span class="cw-muted cw-meta cw-decision">${esc(decisionWho(i.decision))} · ${esc(fmtDate(i.decision.at))}</span>` : ""}</button>`).join("")
+      : '<div class="cw-empty">Nothing here.</div>';
+    $$(el, "[data-id]").forEach((b) => b.addEventListener("click", () => load(Number(b.getAttribute("data-id")))));
+    if (opts.onChange) opts.onChange(r.counts);
+  }
+
+  async function load(id) {
+    if (!id) return;
+    st.selected = id;
+    try { st.item = (await adapter.detail(id)).item; } catch (e) { $(el, "[data-detail]").innerHTML = notice("err", esc((e && e.message) || MESSAGES.failed), "alert"); return; }
+    renderDetail();
+    await renderList();
+  }
+
+  function renderDetail() {
+    const d = $(el, "[data-detail]");
+    if (!st.item) { d.innerHTML = '<div class="adm-card"><div class="cw-empty">Select a contribution to review.</div></div>'; return; }
+    adminPanel(d, { adapter, sectors: st.sectors, item: st.item, onChanged: async (item) => { st.item = item; await renderList(); } });
   }
 
   renderDetail();
