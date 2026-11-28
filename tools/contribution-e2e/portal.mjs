@@ -148,6 +148,24 @@ async function seedIdeas(b) {
   console.log("portal sample data: added");
 }
 
+// Phase B (migration 030, --phase B): a few states worth seeing, in the throw-away data only: an idea a Moderator approved that waits for
+// its publishing request, a field a plugin manages (a made-up plugin row: the real registry is filled by the plugin from Phase C on) and
+// an archived field.
+async function seedPhaseB(b) {
+  if (Number(sql("SELECT count(*) FROM cw_contributions WHERE status = 'approved'")) === 0) {
+    if ((await signIn(b, "member")) !== 200) throw new Error("sign-in failed: member");
+    const r = await submitIdea(b, { title: "Robot reading buddy for the library", description: "A small robot that listens to children read aloud and helps them with hard words.", sector: "education", categories: ["Robotics"], suitableFor: ["K1–K5"] });
+    if (!r.id) throw new Error(`submit failed: ${J(r)}`);
+    if ((await signIn(b, "mod")) !== 200) throw new Error("sign-in failed: mod");
+    const a = await step(b, r.id, "approve");
+    if (!a.item || a.item.status !== "approved") console.log("note: approving did not finish:", J(a).slice(0, 200));
+  }
+  sql("INSERT INTO plugins (plugin_key, name, version, description) VALUES ('classroom-kit', 'Classroom Kit', '1.0.0', 'Adds robot kit fields to the Education sector.') ON CONFLICT (plugin_key) DO NOTHING");
+  sql("INSERT INTO sector_robot_types (sector_id, slug, name, sort_order, source, plugin_key, description) SELECT id, 'kit-finder', 'Kit finder', 90, 'plugin', 'classroom-kit', 'Find the robot kits your school can borrow.' FROM sectors WHERE slug = 'education' ON CONFLICT DO NOTHING");
+  sql("INSERT INTO sector_robot_types (sector_id, slug, name, sort_order, status) SELECT id, 'old-kits', 'Old kits', 95, 'archived' FROM sectors WHERE slug = 'education' ON CONFLICT DO NOTHING");
+  console.log("Phase B sample states: ready");
+}
+
 const BOTH = "before,after";
 // [role (who signs in), page, address, ready, labels it applies to]
 const APP_PAGES = () => {
@@ -184,6 +202,12 @@ const INTERACTIONS = [
   ["admin", "admin", "publish-preview", "/admin/approvals", "!!document.querySelector('[data-act=\"preview\"]')", "document.querySelector('[data-act=\"preview\"]').click()", "!!document.querySelector('.cw-modal [data-pv-act]')"],
   ["admin", "admin", "add-field", "/admin/sector-forms?sector=healthcare", "!!document.querySelector('[data-add]')", "document.querySelector('[data-add]').click()", "!!document.querySelector('.rv-pp-modal')"],
   ["parent", "parent", "sectors-my-contributions-tab", "/dashboard/sectors?sector=education", "!!document.querySelector('[data-tab=\"mine\"]')", "document.querySelector('[data-tab=\"mine\"]').click()", "!!document.querySelector('[data-mine] .rv-pp-table, [data-mine] .rv-pp-empty')"],
+  ...(PHASE === "B" ? [
+    ["mod", "moderator", "moderation-approved", "/admin/moderation?sector=education&tab=approved", "!!document.querySelector('[data-act=\"send\"]')", "document.querySelector('[data-act=\"send\"]').focus()", "document.activeElement && document.activeElement.getAttribute('data-act') === 'send'"],
+    ["admin", "admin", "field-edit", "/admin/sector-forms?sector=education", "!!document.querySelector('[data-edit]')", "document.querySelector('[data-edit]').click()", "!!document.querySelector('.rv-pp-drawer [data-fieldform]')"],
+    ["admin", "admin", "add-sector", "/admin/sectors?sector=education", "!!document.querySelector('[data-sec=\"add\"]')", "document.querySelector('[data-sec=\"add\"]').click()", "!!document.querySelector('.rv-pp-modal [data-secform]')"],
+    ["admin", "admin", "users-edit-sectors", "/admin/users", "!!document.querySelector('.rv-ms button')", "document.querySelector('.rv-ms button').click()", "!!document.querySelector('.rv-ms-list')"],
+  ] : []),
   ["mentor", "contributor", "contribute-dialog", "/dashboard/sectors?sector=agriculture-dairy", "!!document.querySelector('[data-quick]')", "(document.querySelector('[data-quick=\"drone-sprayers\"]') || document.querySelector('[data-quick]')).click()", "!!document.querySelector('.rv-pp-modal')"],
 ];
 
@@ -191,6 +215,7 @@ async function appRun(b) {
   seedSql();
   await seed(); // the people (idempotent)
   await seedIdeas(b);
+  if (PHASE === "B") await seedPhaseB(b);
   for (const [who, role, page, path, ready, labels] of APP_PAGES()) {
     if (!labels.split(",").includes(LABEL)) continue;
     if ((await signIn(b, who)) !== 200) throw new Error(`sign-in failed: ${who}`);

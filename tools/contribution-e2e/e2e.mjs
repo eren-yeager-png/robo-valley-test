@@ -220,10 +220,21 @@ try {
   await setVal(D("#cw-m-title"), PUB_TITLE);
   check("D3a the drawer shows the change against the original while typing", (await ev(`!!document.querySelector(${J(D("[data-livediff] ins"))})`)) === true);
   await shot(join(out, "d-edit-approve.png"));
-  await click(D('[data-act="send"]'));
+  const lastToast = () => ev("(Array.from(document.querySelectorAll('.rv-pp-toast')).pop()||{}).textContent||''");
+  await click(D('[data-act="send"]')); // the drawer's main button: "Approve" (migration 030: approving is its own step)
+  await untilSql(`SELECT status FROM cw_contributions WHERE id = ${id}`, "approved");
+  check("D3 Approve (its own step, migration 030): Approved by Moderator, who and when are stored, a toast says so, still not public",
+    sql(`SELECT status FROM cw_contributions WHERE id = ${id}`) === "approved" && sql(`SELECT approved_by IS NOT NULL AND approved_at IS NOT NULL FROM cw_contributions WHERE id = ${id}`) === "t"
+    && /^Approved: /.test(await lastToast()) && sql(`SELECT count(*) FROM cw_public_contributions WHERE contribution_id = ${id}`) === "0");
+  await waitFor(`!!document.querySelector('tr[data-row="w-${id}"] [data-act="send"]')`);
+  await shot(join(out, "d-moderation-approved.png"), { full: true });
+  await rowAct(code, "send");
   await untilSql(`SELECT status FROM cw_contributions WHERE id = ${id}`, "pending");
-  check("D3 Approve and send to Admin: Pending Admin Approval, a toast says so, still not public",
-    sql(`SELECT status FROM cw_contributions WHERE id = ${id}`) === "pending" && /Approved and sent to an Admin/.test(await ev("(document.querySelector('.rv-pp-toast')||{}).textContent||''")) && sql(`SELECT count(*) FROM cw_public_contributions WHERE contribution_id = ${id}`) === "0");
+  check("D4 Send publish request to Admin: Pending Admin Approval, a toast says so, still not public",
+    sql(`SELECT status FROM cw_contributions WHERE id = ${id}`) === "pending" && sql(`SELECT publish_requested_at IS NOT NULL FROM cw_contributions WHERE id = ${id}`) === "t"
+    && /Publishing request sent to an Admin/.test(await lastToast()) && sql(`SELECT count(*) FROM cw_public_contributions WHERE contribution_id = ${id}`) === "0");
+  check("D5 the Audit Log has the approval and the request (migration 030)",
+    sql(`SELECT string_agg(action, ',' ORDER BY id) FROM audit_log WHERE target_type = 'idea' AND target_id = ${id}`) === "approve,send_request");
   await shot(join(out, "d-moderation.png"), { full: true });
 
   // ---------------------------------------------------------------- E. the admin: preview, then publish

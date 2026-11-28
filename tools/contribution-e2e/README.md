@@ -29,6 +29,7 @@ node tools/contribution-e2e/e2e.mjs               # the end-to-end check (prints
 node tools/contribution-e2e/lifecycle.mjs         # WordPress lifecycle: switch, deactivate, reactivate, version change, uninstall, reinstall
 node tools/contribution-e2e/migrations-twice.mjs  # every migration twice on a fresh database (in the same Postgres container)
 node tools/contribution-e2e/portal.mjs --label after  # every portal page in every role at 1440, 1024 and 390 px (app and demo), with screenshots
+node tools/contribution-e2e/migration-030-check.mjs  # migration 030 on a COPY of the e2e data: counts, unchanged values, twice, rollback (run before 030 reaches rvcw_e2e)
 node tools/contribution-e2e/rig.mjs down          # stop and delete everything, including the made-up secrets
 ```
 
@@ -99,6 +100,21 @@ Every container these scripts make carries the label `rvcw-e2e=1`. `down` remove
 5. `--status` must report every migration as applied.
 6. Every table's rows and content, and the whole schema, must be **identical** before and after. A sequence that only moved forward with no row added is listed as a note. That happens when a forced rerun repeats an `INSERT … ON CONFLICT DO NOTHING`, such as 016's default sector, which uses up an id.
 
+**`migration-030-check.mjs`** runs migration 030 (the Contribution Portal's data) on a copy of the existing e2e data. Run it while
+`rvcw_e2e` is still before 030 (it stops if the copy already has 030).
+
+1. `rvcw_copy` is made from `rvcw_e2e` with `pg_dump | psql`. Nothing else is touched, and the copy is dropped at the end (`--keep` keeps it).
+2. Before: row counts, `--status` (030 missing), the schema, and a content hash of every value earlier migrations store. For `sectors`,
+   `sector_robot_types` and `cw_contributions` that is their pre-030 columns; for every other table, whole rows.
+3. A dry run, then `--only 030 --apply`. Every hash must be unchanged, 030 applied, and the backfill counted.
+4. A forced second run: every row of every table and the whole schema must be identical.
+5. The rollback (`db/rollback/030_down.sql`): the schema and the values are back to step 2. Then a re-apply: identical to step 3.
+6. The Postgres server's log: no `ERROR` line during the run.
+
+It writes `out/migration-030/report.md`, `report.json` and pages for the PR's pictures. `--shots docs/pr-screenshots` saves the
+schema (before and after) and row-count pictures with the browser behind the safety gate. A CHECK constraint is compared by its
+allowed values: the copy's `pg_dump | psql` stores the same list in another written form.
+
 The test-only WordPress plugin `wp-plugins/rv-e2e-dummy-fields` adds the plugin, JavaScript and suggested fields. **Never install it on a real site.**
 
 ## The portal check (`portal.mjs`)
@@ -120,3 +136,11 @@ and 390 pixels wide, and every page of the standalone demo in every role, and ch
 Each page view is saved as `<phase>-<role>-<page>-<width>-<label>.png` in `--out` (default `tools/contribution-e2e/out/portal`), and the
 results in `<phase>-checks-<label>.json`. With `--label before` problems are recorded but do not fail the run (use it on the code before
 a change); `--only app` or `--only demo` runs one half; `--demo <file>` checks another copy of the demo.
+
+With `--phase B` (after migration 030), it also adds a few states to the throw-away data and takes them:
+
+- an idea a Moderator approved that waits for its publishing request;
+- a field a made-up plugin manages (the real registry is filled by the plugin from Phase C on);
+- an archived field.
+
+It then opens Moderation's Approved tab, a field's Edit drawer, "+ Add sector" and a moderator's "Edit sectors" in Users & Roles.
