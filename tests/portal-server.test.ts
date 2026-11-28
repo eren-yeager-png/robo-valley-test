@@ -93,6 +93,17 @@ describe("Moderation's data: both kinds of contributions, one status model", () 
     expect(edu).toMatchObject({ pending: 2, requested: 2, total: 4 });
     expect(r.b.exportUrl).toBe("/api/review/export?sector=education&tab=all");
   });
+  it("a Rejected idea says who declined it (Moderator) or rejected it (Admin), and when", async () => {
+    const a = await idea(student, { title: "Declined by a moderator" });
+    await act(mod, a, "decline", { reason: "Not about robots at all." });
+    as(mod);
+    const r = await get(portalRoute, "/api/review/portal?view=moderation&sector=education");
+    const row = r.b.rows.find((x: any) => x.key === `w-${a}`);
+    expect(row).toMatchObject({ display: "rejected", decision: { label: "Declined by Priya Moderator (Moderator)" } });
+    expect(row.decision.at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    as(admin);
+    expect((await get(portalRoute, "/api/review/portal?view=requests")).b.rows.find((x: any) => x.key === `w-${a}`).decision.label).toBe("Declined by Priya Moderator (Moderator)");
+  });
   it("with no sector asked for, the sector with the most waiting opens", async () => {
     await formItem(teacher, "Hospital delivery robot visit", "pending_review", "healthcare");
     await formItem(teacher, "Pharmacy robot open day", "pending_review", "healthcare");

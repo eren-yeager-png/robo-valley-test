@@ -58,8 +58,12 @@ const click = async (sel) => { await ev(`(function(){var e=document.querySelecto
 // works for plain inputs and for React-controlled ones (the native setter, then the events React listens to)
 const setVal = (sel, v) => ev(`(function(){var e=document.querySelector(${J(sel)});var p=e.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:e.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(p,'value').set.call(e,${J(v)});e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return true})()`);
 const is404 = () => ev("document.body.classList.contains('error404')");
-const openItem = (code) => ev(`(function(){var b=Array.from(document.querySelectorAll('.cw-item')).find(function(x){return x.textContent.indexOf(${J(code)})>-1});if(b)b.click();return !!b})()`);
-const badge = () => ev("(document.querySelector('.cw-detail .rv-badge')||{}).textContent||''");
+const badge = () => ev("(document.querySelector('.rv-pp-drawer .cw-detail .rv-badge, .cw-detail .rv-badge')||{}).textContent||''");
+// the Contribution Portal's tables (Moderation, Publish Requests): a row by its code, and one of its buttons
+const rowAct = (code, act) => ev(`(function(){var r=Array.from(document.querySelectorAll('tr[data-row]')).find(function(x){return x.textContent.indexOf(${J(code)})>-1});var b=r&&r.querySelector('[data-act="'+${J(act)}+'"]');if(b)b.click();return !!b})()`);
+const rowText = (code) => ev(`(function(){var r=Array.from(document.querySelectorAll('tr[data-row]')).find(function(x){return x.textContent.indexOf(${J(code)})>-1});return r?r.textContent:''})()`);
+const D = (sel) => `.rv-pp-drawer ${sel}`; // inside the side drawer (the table rows have buttons with the same names)
+const drawerIs = (label) => `(document.querySelector('.rv-pp-drawer .cw-detail .rv-badge')||{}).textContent === ${J(label)}`;
 const answerDialog = async (reason) => { await waitFor("!!document.querySelector('.rv-dlg [data-x=\"ok\"]')"); if (reason !== undefined) await setVal(".rv-dlg textarea", reason); await sleep(150); await click('.rv-dlg [data-x="ok"]'); };
 const sectorPage = async (url = SECTOR) => { await go(url, "!!document.querySelector('.rv-contribute-btn--header')"); await waitFor("!!document.querySelector('[data-rv-field=\"js-feed-planner\"] .rv-contribute-btn--field')", 8000); await sleep(200); return ev(SECTOR_INFO); };
 const fieldOf = (info, id) => info.fields.find((f) => f.id === id);
@@ -206,32 +210,37 @@ try {
 
   // ---------------------------------------------------------------- D. the moderator (admin portal)
   check("app sign-in (moderator)", (await signIn("mod")) === 200);
-  await go(APP + "/admin/workspace", "!!document.querySelector('.cw-item')");
-  const earlier = await ev("(document.querySelector('[data-earlier]')||{}).textContent || ''");
-  check("D1 /admin/workspace lists the idea; the older (current form) contributions are counted", (await text()).includes(code) && /Earlier contributions \(old form\): [1-9]\d*, open in Moderation/.test(earlier), earlier);
-  await openItem(code);
-  await waitFor("!!document.querySelector('#cw-m-title')");
-  check("D2 opening it moves it to Under Moderator Review", (await badge()) === "Under Moderator Review");
-  await setVal("#cw-m-title", PUB_TITLE);
-  await click('[data-act="send"]');
-  await waitFor("!!document.querySelector('[data-msg] .cw-n-ok')", 10000);
-  check("D3 Submit Publishing Request: 'Request sent to Admin. Status: Pending Admin Approval. It is still not public.'", (await ev("document.querySelector('[data-msg]').textContent")) === "Request sent to Admin. Status: Pending Admin Approval. It is still not public.");
-  await shot(join(out, "d-workspace.png"), { full: true });
+  await go(APP + "/admin/workspace", "!!document.querySelector('tr[data-row]')"); // the old address opens Moderation (the Workspace is merged in)
+  check("D0 /admin/workspace opens Moderation", (await ev("location.pathname")) === "/admin/moderation");
+  await go(APP + "/admin/moderation?sector=agriculture-dairy", "!!document.querySelector('tr[data-row]')");
+  check("D1 Moderation lists the idea in its sector, in ONE table with the current form's items", (await rowText(code)).includes("Share Your Idea") && (await ev("Array.from(document.querySelectorAll('tr[data-row]')).some(function(r){return r.textContent.indexOf('Current form')>-1})")) === true);
+  await rowAct(code, "edit");
+  await waitFor(`!!document.querySelector(${J(D("#cw-m-title"))})`);
+  check("D2 Edit & approve opens the review in a side drawer; opening it moves the idea to Under Moderator Review", (await badge()) === "Under Moderator Review");
+  await setVal(D("#cw-m-title"), PUB_TITLE);
+  check("D3a the drawer shows the change against the original while typing", (await ev(`!!document.querySelector(${J(D("[data-livediff] ins"))})`)) === true);
+  await shot(join(out, "d-edit-approve.png"));
+  await click(D('[data-act="send"]'));
+  await untilSql(`SELECT status FROM cw_contributions WHERE id = ${id}`, "pending");
+  check("D3 Approve and send to Admin: Pending Admin Approval, a toast says so, still not public",
+    sql(`SELECT status FROM cw_contributions WHERE id = ${id}`) === "pending" && /Approved and sent to an Admin/.test(await ev("(document.querySelector('.rv-pp-toast')||{}).textContent||''")) && sql(`SELECT count(*) FROM cw_public_contributions WHERE contribution_id = ${id}`) === "0");
+  await shot(join(out, "d-moderation.png"), { full: true });
 
   // ---------------------------------------------------------------- E. the admin: preview, then publish
   check("app sign-in (admin)", (await signIn("admin")) === 200);
-  await go(APP + "/admin/approvals", "!!document.querySelector('.cw-item')");
-  await openItem(code);
-  await waitFor("!!document.querySelector('[data-act=\"publish\"]')");
-  check("E1 the word diff shows the Moderator's change; Publish is disabled until the preview", (await ev("document.querySelector('.cw-diff ins') !== null")) && (await ev("document.querySelector('[data-act=\"publish\"]').disabled")));
-  await click('[data-act="preview"]');
+  await go(APP + "/admin/approvals", "!!document.querySelector('tr[data-row]')");
+  check("E0 Publish Requests (the Approval Dashboard merged in) lists the request with who approved it", (await rowText(code)).includes(USERS.mod.name));
+  await rowAct(code, "details");
+  await waitFor(`!!document.querySelector(${J(D('[data-act="publish"]'))})`);
+  check("E1 the word diff shows the Moderator's change; Publish is disabled until the preview", (await ev(`document.querySelector(${J(D(".cw-diff ins"))}) !== null`)) && (await ev(`document.querySelector(${J(D('[data-act="publish"]'))}).disabled`)));
+  await click(D('[data-act="preview"]'));
   await waitFor("!!document.querySelector('.cw-modal iframe')");
   const src = await ev("document.querySelector('.cw-modal iframe').srcdoc");
   check("E2 the Publish Preview shows the shared card with the approved title, and nothing internal", src.includes("PREVIEW ONLY") && src.includes(PUB_TITLE) && !src.includes(WHO.member.email));
   await click('.cw-modal [data-x="done"]');
-  check("E3 after the preview, Publish is enabled", !(await ev("document.querySelector('[data-act=\"publish\"]').disabled")));
-  await click('[data-act="publish"]');
-  await waitFor("document.querySelector('.cw-detail .rv-badge') && document.querySelector('.cw-detail .rv-badge').textContent === 'Published'", 20000);
+  check("E3 after the preview, Publish is enabled", !(await ev(`document.querySelector(${J(D('[data-act="publish"]'))}).disabled`)));
+  await click(D('[data-act="publish"]'));
+  await waitFor(drawerIs("Published"), 20000);
   check("E4 Published, and verified in its section", /Published successfully on .+\. Verified on the public website in the Agriculture & Dairy section\./.test(await text()));
   await shot(join(out, "e-published.png"), { full: true });
 
@@ -244,27 +253,27 @@ try {
 
   // ---------------------------------------------------------------- J. Unpublish (Admin only), then publish again
   check("app sign-in (admin)", (await signIn("admin")) === 200);
-  await go(APP + "/admin/approvals", "!!document.querySelector('[data-filter]')");
-  await click('[data-filter="Published"]');
-  await openItem(code);
-  await waitFor("!!document.querySelector('[data-act=\"unpublish\"]')");
-  await click('[data-act="unpublish"]');
+  await go(APP + "/admin/approvals", "!!document.querySelector('[data-tab]')");
+  await click('[data-tab="published"]');
+  await rowAct(code, "details");
+  await waitFor(`!!document.querySelector(${J(D('[data-act="unpublish"]'))})`);
+  await click(D('[data-act="unpublish"]'));
   await answerDialog();
-  await waitFor("document.querySelector('.cw-detail .rv-badge') && document.querySelector('.cw-detail .rv-badge').textContent === 'Unpublished'", 15000);
+  await waitFor(drawerIs("Unpublished"), 15000);
   check("J1 Unpublish (after a confirmation): status Unpublished, and the card is gone from the public table in the same step",
     sql(`SELECT status FROM cw_contributions WHERE id = ${id}`) === "unpublished" && sql(`SELECT count(*) FROM cw_public_contributions WHERE contribution_id = ${id}`) === "0");
   await visitor();
   await go(W + "/community-ideas/");
   check("J2 Community Ideas no longer shows it", !(await text()).includes(PUB_TITLE));
   check("app sign-in (admin)", (await signIn("admin")) === 200);
-  await go(APP + "/admin/approvals", "!!document.querySelector('[data-filter]')");
-  await click('[data-filter="Published"]');
-  await openItem(code);
-  await waitFor("!!document.querySelector('[data-act=\"preview\"]')");
-  check("J3 publishing it again needs a new preview first", await ev("document.querySelector('[data-act=\"publish\"]').disabled"));
-  await click('[data-act="preview"]'); await waitFor("!!document.querySelector('.cw-modal')"); await click('.cw-modal [data-x="done"]');
-  await click('[data-act="publish"]');
-  await waitFor("document.querySelector('.cw-detail .rv-badge') && document.querySelector('.cw-detail .rv-badge').textContent === 'Published'", 20000);
+  await go(APP + "/admin/approvals", "!!document.querySelector('[data-tab]')");
+  await click('[data-tab="unpublished"]');
+  await rowAct(code, "details");
+  await waitFor(`!!document.querySelector(${J(D('[data-act="preview"]'))})`);
+  check("J3 publishing it again needs a new preview first", await ev(`document.querySelector(${J(D('[data-act="publish"]'))}).disabled`));
+  await click(D('[data-act="preview"]')); await waitFor("!!document.querySelector('.cw-modal')"); await click('.cw-modal [data-x="done"]');
+  await click(D('[data-act="publish"]'));
+  await waitFor(drawerIs("Published"), 20000);
   check("J4 published again: exactly one card", sql(`SELECT status FROM cw_contributions WHERE id = ${id}`) === "published" && sql(`SELECT count(*) FROM cw_public_contributions WHERE contribution_id = ${id}`) === "1");
 
   // ---------------------------------------------------------------- G. a failed publish, then a retry (exactly one card each)
@@ -274,29 +283,34 @@ try {
   const second = await newIdea(`Solar weeding robot for small farms ${RUN}`), id2 = second.id;
   if (!id2) throw new Error("the second idea was not accepted: " + J(second));
   check("app sign-in (moderator)", (await signIn("mod")) === 200);
-  await go(APP + "/admin/workspace", "!!document.querySelector('.cw-item')");
+  await go(APP + "/admin/moderation?sector=agriculture-dairy", "!!document.querySelector('tr[data-row]')");
   const sendReq = (n) => ev(`fetch('/api/cw/review/${n}').then(function(r){return r.json()}).then(function(d){var it=d.item;return fetch('/api/cw/review/${n}',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'send_request',rowVersion:it.rowVersion,proposed:it.proposed,notes:''})}).then(function(r){return r.status})})`);
   check("G1 a second idea is sent to Admin", (await sendReq(id2)) === 200);
   check("app sign-in (admin)", (await signIn("admin")) === 200);
-  await go(APP + "/admin/approvals", "!!document.querySelector('.cw-item')");
-  await openItem(`RV-${id2}`);
-  await waitFor("!!document.querySelector('[data-act=\"preview\"]')");
-  await click('[data-act="preview"]'); await waitFor("!!document.querySelector('.cw-modal')"); await click('.cw-modal [data-x="done"]');
+  await go(APP + "/admin/approvals", "!!document.querySelector('tr[data-row]')");
+  await rowAct(`RV-${id2}`, "preview"); // the row's own publish preview: Publish, Send back to moderator, Reject
+  await waitFor("!!document.querySelector('.cw-modal [data-pv-act]')");
+  check("G0 a request's \"Open publish preview\" shows the card with Publish, Send back to moderator and Reject",
+    J(await ev("Array.from(document.querySelectorAll('.cw-modal [data-pv-act]')).map(function(b){return b.textContent})")) === J(["Publish", "Send back to moderator", "Reject"]));
+  await click('.cw-modal [data-x="close"]');
+  await rowAct(`RV-${id2}`, "details");
+  await waitFor(`!!document.querySelector(${J(D('[data-act="preview"]'))})`);
+  await click(D('[data-act="preview"]')); await waitFor("!!document.querySelector('.cw-modal')"); await click('.cw-modal [data-x="done"]');
   const pubBefore = Number(sql("SELECT count(*) FROM cw_public_contributions"));
   sql("ALTER TABLE cw_public_contributions RENAME TO cw_public_contributions_offline");
   let failedText = "";
   try {
-    await click('[data-act="publish"]');
-    await waitFor("document.querySelector('.cw-detail .rv-badge') && document.querySelector('.cw-detail .rv-badge').textContent === 'Publication Failed'", 20000);
-    failedText = (await text()).replace(/\s+/g, " ");
+    await click(D('[data-act="publish"]'));
+    await waitFor(drawerIs("Publication Failed"), 20000);
+    failedText = String(await ev("document.querySelector('.rv-pp-drawer').innerText")).replace(/\s+/g, " ");
   } finally {
     sql("ALTER TABLE cw_public_contributions_offline RENAME TO cw_public_contributions"); // always back, whatever happened
   }
   check("G2 the public table is unreachable: Publication Failed, a plain message, safe-retry note, Retry Publish offered",
     failedText.includes("Publication failed: The public website could not be updated. Nothing was changed on the public website. You can safely retry; it will not create a duplicate.") && (failedText.match(/Nothing was changed/g) || []).length === 1 && (await ev("document.querySelector('[data-act=\"publish\"]').textContent")) === "Retry Publish", failedText.slice(0, 400));
   check("G3 the public website is unchanged (no card added or lost)", Number(sql("SELECT count(*) FROM cw_public_contributions")) === pubBefore && sql(`SELECT count(*) FROM cw_public_contributions WHERE contribution_id = ${id2}`) === "0");
-  await click('[data-act="publish"]');
-  await waitFor("document.querySelector('.cw-detail .rv-badge') && document.querySelector('.cw-detail .rv-badge').textContent === 'Published'", 20000);
+  await click(D('[data-act="publish"]'));
+  await waitFor(drawerIs("Published"), 20000);
   check("G4 Retry Publish succeeds; exactly one card for the idea", Number(sql("SELECT count(*) FROM cw_public_contributions")) === pubBefore + 1 && sql(`SELECT count(*) FROM cw_public_contributions WHERE contribution_id = ${id2}`) === "1");
   check("G5 history: attempt 1 failed, attempt 2 published", /Publication FAILED: The public website could not be updated/.test(sql(`SELECT string_agg(text, ' | ' ORDER BY id) FROM cw_contribution_history WHERE contribution_id = ${id2}`)) && sql(`SELECT publish_attempts FROM cw_contributions WHERE id = ${id2}`) === "2");
 
@@ -306,24 +320,22 @@ try {
   const third = await newIdea(`Robot that counts eggs ${RUN}`), id3 = third.id;
   if (!id3) throw new Error("the third idea was not accepted: " + J(third));
   check("app sign-in (moderator)", (await signIn("mod")) === 200);
-  await go(APP + "/admin/workspace", "!!document.querySelector('.cw-item')");
-  await openItem(`RV-${id3}`);
-  await waitFor("!!document.querySelector('[data-act=\"decline\"]')");
-  await click('[data-act="decline"]');
+  await go(APP + "/admin/moderation?sector=agriculture-dairy", "!!document.querySelector('tr[data-row]')");
+  await rowAct(`RV-${id3}`, "reject"); // Reject from the table: a reason is required
   await answerDialog("Already covered by the poultry robots idea.");
   await untilSql(`SELECT status FROM cw_contributions WHERE id = ${id3}`, "rejected");
   check("K1 the Moderator declines with a reason: Rejected, the reason kept as feedback", sql(`SELECT status FROM cw_contributions WHERE id = ${id3}`) === "rejected" && sql(`SELECT count(*) FROM cw_contribution_feedback WHERE contribution_id = ${id3} AND type = 'decline'`) === "1");
   check("app sign-in (admin)", (await signIn("admin")) === 200);
-  await go(APP + "/admin/approvals", "!!document.querySelector('[data-filter]')");
-  await click('[data-filter="Rejected"]');
-  const row = await ev(`(function(){var b=Array.from(document.querySelectorAll('.cw-item')).find(function(x){return x.textContent.indexOf('RV-${id3}')>-1});return b?b.textContent:''})()`);
-  check("K2 the Admin's Rejected filter shows who declined it and when", row.includes(USERS.mod.name) && /\d/.test(row), row);
-  await openItem(`RV-${id3}`);
-  await waitFor("!!document.querySelector('[data-act=\"reopen\"]')");
-  check("K3 ...and why", (await text()).includes("Already covered by the poultry robots idea."));
-  await click('[data-act="reopen"]');
+  await go(APP + "/admin/approvals", "!!document.querySelector('[data-tab]')");
+  await click('[data-tab="rejected"]');
+  const row = await rowText(`RV-${id3}`);
+  check("K2 the Admin's Rejected tab shows who declined it (Moderator) and when", row.includes(`Declined by ${USERS.mod.name} (Moderator)`) && /\d{4}, \d{1,2}:\d{2} [ap]m/.test(row), row);
+  await rowAct(`RV-${id3}`, "details");
+  await waitFor(`!!document.querySelector(${J(D('[data-act="reopen"]'))})`);
+  check("K3 ...and why", String(await ev("document.querySelector('.rv-pp-drawer').innerText")).includes("Already covered by the poultry robots idea."));
+  await click(D('[data-act="reopen"]'));
   await answerDialog("Different enough: it counts eggs, not birds.");
-  await waitFor("document.querySelector('.cw-detail .rv-badge') && document.querySelector('.cw-detail .rv-badge').textContent === 'Under Moderator Review'", 15000);
+  await waitFor(drawerIs("Under Moderator Review"), 15000);
   check("K4 Reopen (reason required): back to the Moderator, Under Moderator Review, the reason recorded", sql(`SELECT status FROM cw_contributions WHERE id = ${id3}`) === "under_review" && sql(`SELECT count(*) FROM cw_contribution_feedback WHERE contribution_id = ${id3} AND type = 'reopen'`) === "1");
 
   // ---------------------------------------------------------------- L. Earn (18+) is never offered to someone under 18
@@ -341,7 +353,8 @@ try {
 
   // ---------------------------------------------------------------- M. the Member portal: Sectors and My Contributions
   await go(APP + "/dashboard/sectors", "!!document.querySelector('[data-sector]')");
-  check("M1 Sectors (Member portal): a card for each sector, the nav item highlighted", (await ev("document.querySelectorAll('[data-sector]').length")) >= 3 && (await navCurrent()).includes("Sectors"));
+  check("M1 Sectors (Member portal): the sector grid (a button card for each sector) and the selected sector's panel, the nav item highlighted",
+    (await ev("document.querySelectorAll('.rv-sg button.rv-sg-card[data-sector]').length")) >= 3 && (await ev("!!document.querySelector('.rv-pp-panel .rv-contribute-btn--header')")) === true && (await navCurrent()).includes("Sectors"));
   await go(APP + "/dashboard/sectors/agriculture-dairy", "!!document.querySelector('.rv-contribute-btn--header')");
   await sleep(300);
   const portal = await ev("({header:document.querySelectorAll('.rv-contribute-btn--header').length,fields:document.querySelectorAll('[data-rv-field-id]').length,missing:Array.from(document.querySelectorAll('[data-rv-field-id]')).filter(function(f){return !f.querySelector(':scope > .rv-contribute-field .rv-contribute-btn--field[href]')}).length})");
@@ -365,11 +378,12 @@ try {
     await go(APP + "/dashboard/sectors/agriculture-dairy", "!!document.querySelector('.rv-sector-card')");
     readable[`sector-${mode}`] = await ev(CONTRAST(".rv-sector-card > h2, .rv-sector-card p, .rv-sector-suggest span, .rv-sector-suggest__link"));
     if (mode === "dark") await shot(join(out, "m-member-sector-dark.png"));
-    await go(APP + "/dashboard/sectors", "!!document.querySelector('.rv-sector-tile')");
-    readable[`tiles-${mode}`] = await ev(CONTRAST(".rv-sector-tile h2, .rv-sector-tile p, .rv-sector-tile__link"));
-    await go(APP + "/my-contributions", "!!document.querySelector('.rv-mine-table')");
-    await ev("(function(){var b=document.querySelector('.rv-mine-table [data-view], .rv-mine-table button');if(b)b.click();return true})()"); await sleep(300); // open one row's details
-    readable[`mine-${mode}`] = await ev(CONTRAST(".rv-mine-table td, .rv-mine-note, .rv-mine-detail td"));
+    await go(APP + "/dashboard/sectors", "!!document.querySelector('.rv-sg-card')");
+    readable[`grid-${mode}`] = await ev(CONTRAST(".rv-sg-name, .rv-sg-meta, .rv-pp-title, .rv-pp-desc, .rv-pp-panel__title, .rv-pp-fieldcard__name, .rv-pp-section-title"));
+    if (mode === "dark") await shot(join(out, "m-member-sectors-dark.png"));
+    await go(APP + "/my-contributions", "!!document.querySelector('.rv-pp-table, .rv-pp-empty, .cw-notice')");
+    await ev("(function(){var b=document.querySelector('.rv-pp-table [data-view]');if(b)b.click();return true})()"); await sleep(300); // open one row's details
+    readable[`mine-${mode}`] = await ev(CONTRAST(".rv-pp-table td b, .rv-pp-table td .rv-pp-sub, .rv-pp-note, .rv-mine-detail td p, .rv-pp-title"));
     if (mode === "dark") await shot(join(out, "m-my-contributions-dark.png"));
   }
   await scheme("light");
@@ -377,8 +391,8 @@ try {
 
   // ---------------------------------------------------------------- N. the reviewer screens use the same sector header
   check("app sign-in (moderator)", (await signIn("mod")) === 200);
-  await go(APP + "/admin/moderation/sector/agriculture-dairy", "!!document.querySelector('.rv-sector-headbar .rv-contribute-btn--header')");
-  check("N1 Moderation by sector: the sector header with its button", (await ev("document.querySelectorAll('.rv-sector-headbar .rv-contribute-btn--header').length")) === 1);
+  await go(APP + "/admin/moderation/sector/agriculture-dairy", "!!document.querySelector('.rv-pp-panel__head .rv-contribute-btn--header')"); // the old address: that sector's panel
+  check("N1 Moderation by sector: the sector's panel has its header row with the button", (await ev("document.querySelectorAll('.rv-pp-panel__head .rv-contribute-btn--header').length")) === 1 && (await ev("location.search")) === "?sector=agriculture-dairy");
   await shot(join(out, "n-moderator-sector-desktop.png"));
   check("app sign-in (admin)", (await signIn("admin")) === 200);
   await go(APP + "/admin/sector-forms/agriculture-dairy", "!!document.querySelector('.rv-sector-headbar .rv-contribute-btn--header')");

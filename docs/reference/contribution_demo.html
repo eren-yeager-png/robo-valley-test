@@ -384,7 +384,7 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 @media (prefers-color-scheme: dark) {
   .dshell .rv-pp, .dshell .rv-pp-drawer-bg {
     --rvp-border: var(--line); --rvp-surface: var(--surface); --rvp-soft: var(--bg); --rvp-fg: var(--fg); --rvp-muted: var(--muted); --rvp-input: var(--line);
-    --rvp-green-soft: rgba(35, 122, 51, .25); --rvp-focus: #93C5FD;
+    --rvp-green-soft: #18382F; --rvp-focus: #93C5FD; /* opaque: the green tint over the dark surface */
   }
 }
 
@@ -589,7 +589,7 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 .rv-sg-t8 { --rv-sg-tint: #F3F8EA; --rv-sg-ink: #4D6B12; }
 @media (prefers-color-scheme: dark) {
   .dshell .rv-sg-card { background: var(--surface); }
-  .dshell .rv-sg-card.is-selected { background: rgba(35, 122, 51, .25); }
+  .dshell .rv-sg-card.is-selected { background: #18382F; } /* opaque, so every text on it keeps 4.5:1 */
   .dshell .rv-sg-icon { background: var(--rv-sg-tint); }
   .dshell .rv-sg-count, .dshell .rv-sg-chip { background: var(--bg); color: var(--fg); }
 }
@@ -3377,7 +3377,7 @@ const { esc } = __req("utils.js");
 const { askReason } = __req("dialog.js");
 const { contributeHref, headerButtonHtml } = __req("sector.js");
 const { bindSectorGrid, plural, sectorGridHtml } = __req("sector-grid.js");
-const { bindTabs, matches, noticeHtml, openDrawer, pageHeader, panelHtml, sentHtml, slugHtml, sourceBadge, statusBadge, tableHtml, tabsHtml, toast } = __req("portal-ui.js");
+const { bindTabs, fmtSent, matches, noticeHtml, openDrawer, pageHeader, panelHtml, sentHtml, slugHtml, sourceBadge, statusBadge, tableHtml, tabsHtml, toast } = __req("portal-ui.js");
 const { MODERATION_TABS, inTab, tabCounts } = __req("portal-status.js");
 const { reviewPanel } = __req("moderator.js");
 const { PortalRest } = __req("portal-api.js");
@@ -3434,7 +3434,7 @@ async function mount(el, opts = {}) {
   const rowHtml = (r) => `<tr data-row="${esc(r.key)}">
     <td class="rv-pp-col-title"><b>${esc(r.title)}</b><span class="rv-pp-sub">${esc(r.code)} · ${esc(SOURCE[r.source] || "")}${r.alsoIn && r.alsoIn.length ? ` · Also in: ${esc(r.alsoIn.join(", "))}` : ""}</span></td>
     <td>${esc(r.contributor)}${r.contributorType ? `<span class="rv-pp-sub">${esc(r.contributorType)}</span>` : ""}</td>
-    <td>${statusBadge(r.display, r.note)}</td>
+    <td>${statusBadge(r.display, r.decision ? `${r.decision.label}${r.decision.at ? ` · ${fmtSent(r.decision.at)}` : ""}` : r.note)}</td>
     <td class="rv-pp-col-sent">${sentHtml(r.sentAt)}</td>
     <td class="rv-pp-col-actions"><div class="rv-pp-rowact">${actionsHtml(r)}</div></td></tr>`;
 
@@ -3591,7 +3591,7 @@ const { askReason } = __req("dialog.js");
 const { openPreview } = __req("preview.js");
 const { adminPanel } = __req("admin.js");
 const { bindSectorGrid, plural, sectorGridHtml } = __req("sector-grid.js");
-const { bindTabs, matches, noticeHtml, openDrawer, pageHeader, panelHtml, sentHtml, statusBadge, tableHtml, tabsHtml, toast } = __req("portal-ui.js");
+const { bindTabs, fmtSent, matches, noticeHtml, openDrawer, pageHeader, panelHtml, sentHtml, statusBadge, tableHtml, tabsHtml, toast } = __req("portal-ui.js");
 const { REQUEST_TABS, inTab, tabCounts } = __req("portal-status.js");
 const { PortalRest } = __req("portal-api.js");
 
@@ -3628,7 +3628,7 @@ async function mount(el, opts = {}) {
     <td class="rv-pp-col-title"><b>${esc(r.title)}</b><span class="rv-pp-sub">${esc(r.code)}${r.source === "form" ? " · Current form" : ""}</span></td>
     <td>${esc(r.sectorName || "Not sure")}</td>
     <td>${esc(r.contributor)}${r.contributorType ? `<span class="rv-pp-sub">${esc(r.contributorType)}</span>` : ""}</td>
-    <td>${r.approvedBy ? esc(r.approvedBy) : '<span class="rv-pp-muted">—</span>'}<span class="rv-pp-sub">${statusBadge(r.display, r.note)}</span></td>
+    <td>${r.approvedBy ? esc(r.approvedBy) : '<span class="rv-pp-muted">—</span>'}<span class="rv-pp-sub">${statusBadge(r.display, r.decision ? `${r.decision.label}${r.decision.at ? ` · ${fmtSent(r.decision.at)}` : ""}` : r.note)}</span></td>
     <td class="rv-pp-col-sent">${sentHtml(r.sentAt)}</td>
     <td class="rv-pp-col-actions"><div class="rv-pp-rowact">${actionsHtml(r)}</div></td></tr>`;
 
@@ -4191,7 +4191,9 @@ function createDemoPortal(mock, { formItems = [], suggestions = [], plugins = {}
   };
   const workflowRow = (it, view) => {
     const last = it.versions && it.versions.length ? it.versions[it.versions.length - 1] : null;
+    const dec = it.status === "rejected" ? (it.feedback || []).filter((f) => f.type === "decline" || f.type === "reject").slice(-1)[0] : null;
     return {
+      ...(dec ? { decision: { label: `${dec.type === "decline" ? "Declined" : "Rejected"} by ${dec.by} (${dec.type === "decline" ? "Moderator" : "Admin"})`, at: dec.at } } : {}),
       key: `w-${it.id}`, source: "workflow", id: it.id, code: it.code, title: it.proposed.title, contributor: it.contributor.name, contributorType: it.contributor.typeLabel,
       status: it.status, display: workflowToPortal(it.status), note: WORKFLOW_NOTE[it.status] || "", sentAt: view === "requests" && last ? last.at : it.submittedAt,
       approvedBy: it.moderator || null, sector: workflowSector(it), sectorName: sectorLabel(workflowSector(it), mock.sectors), categories: [], alsoIn: [],

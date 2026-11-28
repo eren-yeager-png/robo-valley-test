@@ -12,7 +12,7 @@ import { esc } from "./utils.js";
 import { askReason } from "./dialog.js";
 import { contributeHref, headerButtonHtml } from "./sector.js";
 import { bindSectorGrid, plural, sectorGridHtml } from "./sector-grid.js";
-import { bindTabs, matches, noticeHtml, openDrawer, pageHeader, panelHtml, sentHtml, slugHtml, sourceBadge, statusBadge, tableHtml, tabsHtml, toast } from "./portal-ui.js";
+import { bindTabs, fmtSent, matches, noticeHtml, openDrawer, pageHeader, panelHtml, sentHtml, slugHtml, sourceBadge, statusBadge, tableHtml, tabsHtml, toast } from "./portal-ui.js";
 import { MODERATION_TABS, inTab, tabCounts } from "./portal-status.js";
 import { reviewPanel } from "./moderator.js";
 import { PortalRest } from "./portal-api.js";
@@ -69,7 +69,7 @@ export async function mount(el, opts = {}) {
   const rowHtml = (r) => `<tr data-row="${esc(r.key)}">
     <td class="rv-pp-col-title"><b>${esc(r.title)}</b><span class="rv-pp-sub">${esc(r.code)} · ${esc(SOURCE[r.source] || "")}${r.alsoIn && r.alsoIn.length ? ` · Also in: ${esc(r.alsoIn.join(", "))}` : ""}</span></td>
     <td>${esc(r.contributor)}${r.contributorType ? `<span class="rv-pp-sub">${esc(r.contributorType)}</span>` : ""}</td>
-    <td>${statusBadge(r.display, r.note)}</td>
+    <td>${statusBadge(r.display, r.decision ? `${r.decision.label}${r.decision.at ? ` · ${fmtSent(r.decision.at)}` : ""}` : r.note)}</td>
     <td class="rv-pp-col-sent">${sentHtml(r.sentAt)}</td>
     <td class="rv-pp-col-actions"><div class="rv-pp-rowact">${actionsHtml(r)}</div></td></tr>`;
 

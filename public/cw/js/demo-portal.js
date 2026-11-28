@@ -71,7 +71,9 @@ export function createDemoPortal(mock, { formItems = [], suggestions = [], plugi
   };
   const workflowRow = (it, view) => {
     const last = it.versions && it.versions.length ? it.versions[it.versions.length - 1] : null;
+    const dec = it.status === "rejected" ? (it.feedback || []).filter((f) => f.type === "decline" || f.type === "reject").slice(-1)[0] : null;
     return {
+      ...(dec ? { decision: { label: `${dec.type === "decline" ? "Declined" : "Rejected"} by ${dec.by} (${dec.type === "decline" ? "Moderator" : "Admin"})`, at: dec.at } } : {}),
       key: `w-${it.id}`, source: "workflow", id: it.id, code: it.code, title: it.proposed.title, contributor: it.contributor.name, contributorType: it.contributor.typeLabel,
       status: it.status, display: workflowToPortal(it.status), note: WORKFLOW_NOTE[it.status] || "", sentAt: view === "requests" && last ? last.at : it.submittedAt,
       approvedBy: it.moderator || null, sector: workflowSector(it), sectorName: sectorLabel(workflowSector(it), mock.sectors), categories: [], alsoIn: [],

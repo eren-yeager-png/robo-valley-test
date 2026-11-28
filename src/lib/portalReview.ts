@@ -20,6 +20,8 @@ export type PortalRow = {
   key: string; source: "workflow" | "form"; id: number; code: string; title: string; contributor: string; contributorType: string;
   status: string; display: string; note: string; sentAt: string | null; approvedBy: string | null; sector: string; sectorName: string;
   categories: string[]; alsoIn: string[]; actions: string[]; viewUrl: string | null;
+  /** a Rejected idea: who declined it (a Moderator) or rejected it (an Admin), and when */
+  decision?: { label: string; at: string | null };
 };
 export class PortalNotSetUp extends Error { constructor() { super("Reviewing is not set up on this database yet."); } }
 
@@ -66,6 +68,23 @@ function workflowRow(r: any, sectors: { slug: string; name: string }[], view: Po
   };
 }
 
+/** Who declined (a Moderator) or rejected (an Admin) each Rejected idea, and when: the latest decision of each. */
+async function decisions(db: Db, rows: { id: number; status: string }[], absent: string[]): Promise<Map<number, { label: string; at: string | null }>> {
+  const ids = rows.filter((r) => r.status === "rejected").map((r) => r.id);
+  const out = new Map<number, { label: string; at: string | null }>();
+  if (!ids.length) return out;
+  const found = await part(async () => (await db.query(
+    "SELECT DISTINCT ON (contribution_id) contribution_id, type, by_name, created_at FROM cw_contribution_feedback WHERE contribution_id = ANY($1::bigint[]) AND type IN ('decline', 'reject') ORDER BY contribution_id, id DESC",
+    [ids])).rows, [] as any[], absent, "feedback");
+  for (const f of found) out.set(Number(f.contribution_id), { label: `${f.type === "decline" ? "Declined" : "Rejected"} by ${f.by_name} (${f.type === "decline" ? "Moderator" : "Admin"})`, at: iso(f.created_at) });
+  return out;
+}
+const withDecisions = async (db: Db, rows: PortalRow[], absent: string[]) => {
+  const d = await decisions(db, rows.filter((r) => r.source === "workflow"), absent);
+  for (const r of rows) if (r.source === "workflow" && d.has(r.id)) r.decision = d.get(r.id);
+  return rows;
+};
+
 const formNote = (status: string, display: string, verified: boolean) =>
   verified && status === "pending_review" ? "Verified by a reviewer" : (FORM_NOTE as Record<string, string>)[status] ?? (display === "in_review" ? "In review" : display === "replied" ? "Replied" : "");
 
@@ -103,6 +122,7 @@ export async function portalData(db: Db, o: { view: PortalView; sector: string; 
     const wf = await part(async () => (await db.query(`SELECT ${WF_COLS} FROM cw_contributions c WHERE c.proposed->>'sector' = $1 ORDER BY c.submitted_at DESC, c.id DESC`, [pick.slug])).rows, [] as any[], absent, "workflow");
     for (const r of wf) out.rows.push(workflowRow(r, names, "moderation"));
     out.rows.sort((a, b) => String(b.sentAt ?? "").localeCompare(String(a.sentAt ?? "")));
+    await withDecisions(db, out.rows, absent);
     if (form) out.exportUrl = `/api/review/export?${new URLSearchParams({ sector: pick.slug, tab: "all" }).toString()}`;
     const sf = await sectorForm(db as never, pick.slug).catch(() => null);
     if (sf && sf.robotsReady) {
@@ -141,6 +161,7 @@ export async function portalData(db: Db, o: { view: PortalView; sector: string; 
     out.sector = s ? { slug: s.slug, name: s.name } : null;
     out.rows = [...wfRows.filter((r) => r.display !== "pending"), ...formRows].filter(inSector)
       .sort((a, b) => String(b.sentAt ?? "").localeCompare(String(a.sentAt ?? "")));
+    await withDecisions(db, out.rows, absent);
     return out;
   }
 

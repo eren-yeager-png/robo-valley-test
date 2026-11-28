@@ -60,7 +60,7 @@
 @media (prefers-color-scheme: dark) {
   .dshell .rv-pp, .dshell .rv-pp-drawer-bg {
     --rvp-border: var(--line); --rvp-surface: var(--surface); --rvp-soft: var(--bg); --rvp-fg: var(--fg); --rvp-muted: var(--muted); --rvp-input: var(--line);
-    --rvp-green-soft: rgba(35, 122, 51, .25); --rvp-focus: #93C5FD;
+    --rvp-green-soft: #18382F; --rvp-focus: #93C5FD; /* opaque: the green tint over the dark surface */
   }
 }
 
@@ -265,7 +265,7 @@
 .rv-sg-t8 { --rv-sg-tint: #F3F8EA; --rv-sg-ink: #4D6B12; }
 @media (prefers-color-scheme: dark) {
   .dshell .rv-sg-card { background: var(--surface); }
-  .dshell .rv-sg-card.is-selected { background: rgba(35, 122, 51, .25); }
+  .dshell .rv-sg-card.is-selected { background: #18382F; } /* opaque, so every text on it keeps 4.5:1 */
   .dshell .rv-sg-icon { background: var(--rv-sg-tint); }
   .dshell .rv-sg-count, .dshell .rv-sg-chip { background: var(--bg); color: var(--fg); }
 }
