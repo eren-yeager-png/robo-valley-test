@@ -3826,22 +3826,31 @@ async function mount(el, opts = {}) {
   const say = (html) => { const m = el.querySelector("[data-msg]"); if (m) m.innerHTML = html; };
   const failed = (e) => say(noticeHtml("err", esc((e && e.message) || "That did not work. Nothing was changed. Please try again.")));
   const byId = (id) => fields().find((f) => String(f.id) === String(id));
+  /** One request at a time per button: a second click while it is saving sends nothing. */
+  const once = async (btn, fn) => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try { await fn(); } catch (e) { failed(e); } finally { if (btn.isConnected) btn.disabled = false; }
+  };
 
   function bindPanel() {
     const add = el.querySelector("[data-add]");
     if (add) add.addEventListener("click", addField);
-    el.querySelectorAll("[data-move]").forEach((b) => b.addEventListener("click", async () => {
-      try { await adapter.changeField(st.sector, b.getAttribute("data-id"), { move: b.getAttribute("data-move") }); await refresh(`[data-move="${b.getAttribute("data-move")}"][data-id="${b.getAttribute("data-id")}"]`); } catch (e) { failed(e); }
-    }));
-    el.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", async () => {
+    el.querySelectorAll("[data-move]").forEach((b) => b.addEventListener("click", () => once(b, async () => {
+      await adapter.changeField(st.sector, b.getAttribute("data-id"), { move: b.getAttribute("data-move") });
+      await refresh(`[data-move="${b.getAttribute("data-move")}"][data-id="${b.getAttribute("data-id")}"]`);
+    })));
+    el.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", () => once(b, async () => {
       const f = byId(b.getAttribute("data-toggle"));
-      try { await adapter.changeField(st.sector, f.id, { active: !f.active }); toast(el, `${f.name} is now ${f.active ? "hidden from" : "shown on"} the form.`); await refresh(`[data-toggle="${f.id}"]`); } catch (e) { failed(e); }
-    }));
+      await adapter.changeField(st.sector, f.id, { active: !f.active });
+      toast(el, `${f.name} is now ${f.active ? "hidden from" : "shown on"} the form.`);
+      await refresh(`[data-toggle="${f.id}"]`);
+    })));
     el.querySelectorAll("[data-rename]").forEach((b) => b.addEventListener("click", async () => {
       const f = byId(b.getAttribute("data-rename"));
       const name = await askText({ title: `Rename ${f.name}`, label: "New name (as on the robot card on the sector page)", value: f.name, confirmText: "Rename", hint: "The link code stays the same." });
       if (!name || name === f.name) return;
-      try { await adapter.changeField(st.sector, f.id, { name }); toast(el, `Renamed to ${name}.`); await refresh(); } catch (e) { failed(e); }
+      await once(b, async () => { await adapter.changeField(st.sector, f.id, { name }); toast(el, `Renamed to ${name}.`); await refresh(); });
     }));
     el.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => editField(byId(b.getAttribute("data-edit")))));
     el.querySelectorAll("[data-approve], [data-edit-approve]").forEach((b) => b.addEventListener("click", () => approve(b.getAttribute("data-approve") || b.getAttribute("data-edit-approve"), b.hasAttribute("data-edit-approve"))));
@@ -3881,16 +3890,19 @@ async function mount(el, opts = {}) {
     const f = dr.body.querySelector("[data-fieldform]"), name = f.querySelector('[name="name"]'), slug = f.querySelector('[name="slug"]');
     name.addEventListener("input", () => { slug.value = slugOf(name.value); });
     dr.foot.querySelector('[data-x="cancel"]').addEventListener("click", dr.close);
+    const saveBtn = dr.foot.querySelector('[data-x="save"]');
     const save = async () => {
       const v = name.value.trim(), active = f.querySelector('[name="active"]:checked').value === "1";
       if (v.length < 2) { f.querySelector("[data-formmsg]").innerHTML = noticeHtml("err", "Please type a name (at least 2 characters)."); name.focus(); return; }
+      if (saveBtn.disabled) return; // already saving
+      saveBtn.disabled = true;
       try {
         const r = await adapter.addField(st.sector, { name: v });
         if (!active && r && r.robot) await adapter.changeField(st.sector, r.robot.id, { active: false });
         dr.close(); toast(el, `Added ${v}. It is on the sector page at once, with its Contribute button.`); st.tab = "fields"; await refresh();
-      } catch (e) { f.querySelector("[data-formmsg]").innerHTML = noticeHtml("err", esc((e && e.message) || "The field could not be added.")); }
+      } catch (e) { saveBtn.disabled = false; f.querySelector("[data-formmsg]").innerHTML = noticeHtml("err", esc((e && e.message) || "The field could not be added.")); }
     };
-    dr.foot.querySelector('[data-x="save"]').addEventListener("click", save);
+    saveBtn.addEventListener("click", save);
     f.addEventListener("submit", (e) => { e.preventDefault(); save(); });
   }
   function editField(fld) {
