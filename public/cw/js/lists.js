@@ -12,6 +12,7 @@ export const RESOURCE_TYPES = {
 export const CATEGORIES = ["STEAM", "Robotics", "Physical AI and AI", "Re-engineering"];
 export const LEVELS = ["K1–K5", "K6–K8", "K9–K10", "K11–K12", "ITI", "Diploma", "Engineering", "Advanced", "Not sure"];
 export const PATHS = ["Learn", "Make", "Present", "Earn (18+)", "Build", "Not sure"];
+export const EARN = "Earn (18+)"; // only for learners 18 and above: never for a minor's idea (users.age_category)
 
 // Sectors and robot types come from Sector Forms (the app's database). "Not sure" is always offered as well.
 export const NOT_SURE = "not-sure";
@@ -24,20 +25,30 @@ export const PUBLIC_NAME_DISPLAY = "first-name-and-type";
 export const STATUS = {
   SUBMITTED: "submitted", REVIEW: "under_review", DRAFT: "draft", PENDING: "pending", CHANGES: "changes_requested",
   RESUBMITTED: "resubmitted", PUBLISHING: "publishing", PUBLISHED: "published", FAILED: "failed", REJECTED: "rejected",
+  UNPUBLISHED: "unpublished",
 };
 export const STATUS_LABEL = {
   submitted: "Submitted", under_review: "Under Moderator Review", draft: "Moderator Draft", pending: "Pending Admin Approval",
   changes_requested: "Changes Requested", resubmitted: "Resubmitted for Approval", publishing: "Publication In Progress",
-  published: "Published", failed: "Publication Failed", rejected: "Rejected",
+  published: "Published", failed: "Publication Failed", rejected: "Rejected", unpublished: "Unpublished",
 };
 export const STATUS_CLASS = {
   submitted: "rv-s-submitted", under_review: "rv-s-review", draft: "rv-s-draft", pending: "rv-s-pending", changes_requested: "rv-s-changes",
   resubmitted: "rv-s-pending", publishing: "rv-s-publishing", published: "rv-s-published", failed: "rv-s-failed", rejected: "rv-s-rejected",
+  unpublished: "rv-s-unpublished",
 };
+// "My Contributions" (every portal): one status set for the workflow's ideas and for what was sent with the current form.
+export const MINE_STATUS = {
+  workflow: { submitted: "pending", under_review: "pending", draft: "pending", changes_requested: "pending", pending: "approved", resubmitted: "approved",
+    publishing: "approved", failed: "approved", published: "published", unpublished: "unpublished", rejected: "rejected" },
+  form: { draft: "draft", pending_review: "pending", changes_requested: "pending", published: "published", unpublished: "unpublished", rejected: "rejected" },
+};
+export const MINE_LABEL = { draft: "Draft", pending: "Pending", approved: "Approved", published: "Published", unpublished: "Unpublished", rejected: "Rejected" };
 // What a contributor sees in "My contributions" (the internal steps are not theirs to follow).
 export const CONTRIBUTOR_STATUS_LABEL = {
   submitted: "Submitted", under_review: "In review", draft: "In review", pending: "In review", changes_requested: "In review",
   resubmitted: "In review", publishing: "In review", failed: "In review", published: "Published", rejected: "Not accepted",
+  unpublished: "No longer public",
 };
 
 export const FIELDS = ["title", "description", "sector", "robotType", "categories", "suitableFor", "learningPath"];
@@ -51,14 +62,14 @@ export const MOD_FILTERS = {
   "Open": [S.SUBMITTED, S.REVIEW, S.DRAFT, S.CHANGES],
   "Awaiting Admin": [S.PENDING, S.RESUBMITTED, S.PUBLISHING, S.FAILED],
   "Changes Requested": [S.CHANGES],
-  "Decided": [S.PUBLISHED, S.REJECTED],
+  "Decided": [S.PUBLISHED, S.UNPUBLISHED, S.REJECTED],
   "All": null,
 };
 export const ADM_FILTERS = {
   "Awaiting me": [S.PENDING, S.RESUBMITTED, S.FAILED],
   "With Moderators": [S.SUBMITTED, S.REVIEW, S.DRAFT],
   "Changes Requested": [S.CHANGES],
-  "Published": [S.PUBLISHED],
+  "Published": [S.PUBLISHED, S.UNPUBLISHED], // Unpublished ones keep their own badge
   "Rejected": [S.REJECTED],
   "All": null,
 };
@@ -84,11 +95,14 @@ export const MESSAGES = {
   tooManyRefs: "Add at most 10 reference links.",
   attachmentType: "The attachment must be a JPEG or PNG image, or a PDF.",
   attachmentSize: "The attachment must be 4 MB or smaller.",
+  earnMinor: "The Earn (18+) path is for learners 18 and above. Please choose another path.",
   // the Moderator Workspace
   sendLength: "Title is required and description must be at least 20 characters.",
   sendCategory: "Pick at least one category before sending to Admin.",
   draftSaved: "Draft saved. Nothing has been published.",
   reasonRequired: "Please write a reason.",
+  earnMinorReview: "Earn (18+) is not available for this idea: the contributor is under 18. Please choose another path.",
+  earnMinorHint: "Earn (18+) is not available: the contributor is under 18.",
   // the Admin Approval Dashboard
   previewFirst: "Open the publish preview first.",
   previewNotice: "Open the publish preview to see exactly how this will look on the website. Publishing is enabled after you review it.",
@@ -97,6 +111,11 @@ export const MESSAGES = {
   stale: "Someone else changed this contribution a moment ago. It has been reloaded; please check it and try again.",
   notAllowed: "This action is not available for this contribution right now.",
   adminOnly: "Only an administrator can do that.",
+  earnMinorPublish: "This version has the Earn (18+) path, but the contributor is under 18. Use Request Changes so the Moderator can choose another path.",
+  nothingNew: "Nothing new to publish: the live card already shows this version.",
+  unpublishText: "The card is removed from the Community Ideas page at once. To publish it again later: open the publish preview, then publish.",
+  unpublished: "Unpublished. The card is no longer on the public website.",
+  reopenLabel: "Why are you reopening this idea? The Moderator will see your reason. (required)",
   // the public website
   publicEmpty: "No contributions have been published yet. Moderator drafts and pending requests are never shown here.",
   // general

@@ -184,3 +184,29 @@ export async function changeRobotType(db: Db, adminId: number, sectorSlug: strin
     throw e;
   }
 }
+
+/**
+ * Contribution Portal: how many contributions chose each robot type (field) of a sector: items sent with the current form
+ * (contribution_scopes.robot_type_id, migration 025; drafts, removed and demo items left out) plus Share Your Idea ideas whose current or
+ * original version names it (migration 027). A table that does not exist yet simply adds nothing.
+ */
+export async function fieldUseCounts(db: Db, sectorSlug: string): Promise<Map<number, number>> {
+  const out = new Map<number, number>();
+  const s = parseSectorSlug(sectorSlug) ? await sectorBySlug(db, sectorSlug) : null;
+  if (!s) return out;
+  const add = (id: number, n: number) => out.set(id, (out.get(id) ?? 0) + n);
+  try {
+    const { rows } = await db.query(
+      "SELECT cs.robot_type_id AS id, count(DISTINCT c.id)::int AS n FROM contribution_scopes cs JOIN contributions c ON c.id = cs.contribution_id " +
+      "WHERE cs.sector_id = $1 AND cs.robot_type_id IS NOT NULL AND c.status NOT IN ('draft','removed') AND NOT c.is_demo GROUP BY cs.robot_type_id", [s.id]);
+    for (const r of rows) add(Number(r.id), Number(r.n));
+  } catch (e) { if (!["42P01", "42703"].includes(code(e) ?? "")) throw e; }
+  try {
+    const { rows } = await db.query(
+      "SELECT r.id, count(DISTINCT c.id)::int AS n FROM sector_robot_types r JOIN cw_contributions c ON " +
+      "((c.proposed->>'sector') = $2 AND (c.proposed->>'robotType') = r.slug) OR ((c.original->>'sector') = $2 AND (c.original->>'robotType') = r.slug) " +
+      "WHERE r.sector_id = $1 GROUP BY r.id", [s.id, s.slug]);
+    for (const r of rows) add(Number(r.id), Number(r.n));
+  } catch (e) { if (!["42P01", "42703"].includes(code(e) ?? "")) throw e; }
+  return out;
+}

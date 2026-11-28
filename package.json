@@ -15,7 +15,8 @@
     "seed:moderator": "node --env-file-if-exists=.env.local scripts/seed-moderator.mjs",
     "seed:admins": "node --env-file-if-exists=.env.local scripts/seed-admins.mjs",
     "seed:sample": "node --env-file-if-exists=.env.local scripts/seed-sample-data.mjs",
-    "build:contrib-demo": "node scripts/build-contrib-demo.mjs"
+    "build:contrib-demo": "node scripts/build-contrib-demo.mjs",
+    "seed:contribution-demo": "node --env-file-if-exists=.env.local scripts/seed-contribution-demo.mjs"
   },
   "keywords": [],
   "author": "",

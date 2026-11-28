@@ -1,8 +1,8 @@
 // Contribution workflow: the rules. ONE copy, imported by the app's server (src/lib/cw) AND by the browser (the demo's mock data
 // adapter), so the status machine, the validation messages and the history wording can never differ between them.
 import {
-  ATTACHMENT_TYPES, CATEGORIES, FEATURES, FIELDS, FIELD_LABELS, KINDS, LEVELS, LIMITS, MESSAGES, NEW_IDEA, NOT_SURE, NOT_SURE_LABEL,
-  PATHS, PUBLIC_NAME_DISPLAY, RESOURCE_TYPES, STATUS,
+  ATTACHMENT_TYPES, CATEGORIES, EARN, FEATURES, FIELDS, FIELD_LABELS, KINDS, LEVELS, LIMITS, MESSAGES, MINE_LABEL, MINE_STATUS, NEW_IDEA, NOT_SURE,
+  NOT_SURE_LABEL, PATHS, PUBLIC_NAME_DISPLAY, RESOURCE_TYPES, STATUS,
 } from "./lists.js";
 
 const S = STATUS;
@@ -25,11 +25,15 @@ const str = (v) => (typeof v === "string" ? v.trim() : "");
 const strList = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string").map((x) => x.trim()).filter(Boolean) : []);
 const uniq = (a) => Array.from(new Set(a));
 
+/** The Earn (18+) path is never allowed on a minor's idea (the contributor's users.age_category at submission time). */
+export const earnBlocked = (minor, path) => minor === true && path === EARN;
+
 /**
  * Checks a submission exactly as the demo does (all errors together, in this order), then the limits and lists.
- * `sectors`: [{ slug, name, robots: [{ slug, name }] }] from Sector Forms. Returns { errors: string[], value } where value is clean.
+ * `sectors`: [{ slug, name, robots: [{ slug, name }] }] from Sector Forms; `minor`: the contributor is under 18 (from the profile).
+ * Returns { errors: string[], value } where value is clean.
  */
-export function validateSubmission(input, { sectors = [], name = "" } = {}) {
+export function validateSubmission(input, { sectors = [], name = "", minor = false } = {}) {
   const i = input && typeof input === "object" ? input : {};
   const kind = KINDS.includes(i.kind) ? i.kind : "";
   const refers = i.refers === true;
@@ -63,6 +67,7 @@ export function validateSubmission(input, { sectors = [], name = "" } = {}) {
   if (long) errors.push(MESSAGES.tooLong);
   if (references.length > LIMITS.references) errors.push(MESSAGES.tooManyRefs);
   if (!kind || badChoice(value, sectors) || (resource && (!FEATURES.includes(resource.feature) || !RESOURCE_TYPES[resource.type]))) errors.push(MESSAGES.badChoice);
+  if (earnBlocked(minor, value.learningPath)) errors.push(MESSAGES.earnMinor);
   return { errors, value };
 }
 
@@ -83,8 +88,8 @@ export function validateSend(p) {
   return null;
 }
 
-/** Cleans a proposed version sent by a Moderator (same shape as the original). Returns { error, value }. */
-export function cleanProposed(input, { sectors = [] } = {}) {
+/** Cleans a proposed version sent by a Moderator (same shape as the original). `minor`: the contributor is under 18. Returns { error, value }. */
+export function cleanProposed(input, { sectors = [], minor = false } = {}) {
   const i = input && typeof input === "object" ? input : {};
   const value = {
     title: str(i.title), description: str(i.description), sector: str(i.sector) || NOT_SURE, robotType: str(i.robotType) || NOT_SURE,
@@ -92,6 +97,7 @@ export function cleanProposed(input, { sectors = [] } = {}) {
   };
   if (value.title.length > LIMITS.title || value.description.length > LIMITS.description) return { error: MESSAGES.tooLong, value };
   if (badChoice(value, sectors)) return { error: MESSAGES.badChoice, value };
+  if (earnBlocked(minor, value.learningPath)) return { error: MESSAGES.earnMinorReview, value };
   return { error: null, value };
 }
 
@@ -102,24 +108,37 @@ export const changedFields = (now, base) => FIELDS.filter((f) => !sameValue(now[
 export const isModified = (c) => changedFields(c.proposed, c.original).length > 0;
 
 // ---------------------------------------------------------------- the status machine (spec section 5)
-// TODO (open decisions, spec section 15; not built on purpose, decide before adding):
-//   * unpublish or edit after publishing        * appeal or resubmission after Rejected
-//   * age enforcement for the Earn (18+) path    * whether a Moderator's decline is visible to / reversible by an Admin
-//   * whether Admins may edit fields beyond Title and Description
+// Spec section 15, decided by the owner (27-11-2026):
+//   * Unpublish: Admin only, from Published -> Unpublished (the public card is removed). Publishing again is the normal flow (preview,
+//     then publish) and updates the same card.
+//   * Edit after publishing: the Admin's "Edit Before Publishing" also works on Published and Unpublished items. It makes a new version
+//     that needs a new preview; the live card changes only when the Admin publishes again.
+//   * No appeal by contributors after Rejected (they can always share a new idea). The Admin may Reopen a Rejected item (reason
+//     required) -> Under Moderator Review. This also reverses a Moderator's decline, which Admins see in the Rejected filter.
+//   * Earn (18+) is never allowed on a minor's idea: not in the form, not by the Moderator, not published by the Admin.
+//   * Admins edit Title and Description only, as in the demo.
 export const MOD_EDITABLE = [S.SUBMITTED, S.REVIEW, S.DRAFT, S.CHANGES];
 export const ADMIN_ACTIONABLE = [S.PENDING, S.RESUBMITTED, S.FAILED];
+export const AFTER_PUBLISHING = [S.PUBLISHED, S.UNPUBLISHED];
 export const canModeratorEdit = (status) => MOD_EDITABLE.includes(status);
 export const canAdminAct = (status) => ADMIN_ACTIONABLE.includes(status);
-export const ADMIN_ACTIONS = ["preview", "admin_edit", "request_changes", "reject", "publish"];
+/** May the Admin preview and publish now? A request (Pending, Resubmitted, Failed), an Unpublished item, or a Published item whose
+ *  current version is newer than the one on the live card. */
+export function canPublishNext(status, versions, publishedVersion) {
+  if (canAdminAct(status) || status === S.UNPUBLISHED) return true;
+  return status === S.PUBLISHED && (Number(versions) || 0) > (Number(publishedVersion) || 0);
+}
+export const ADMIN_ACTIONS = ["preview", "admin_edit", "request_changes", "reject", "publish", "unpublish", "reopen"];
 export const MODERATOR_ACTIONS = ["open", "save_draft", "reset", "send_request", "decline"];
 export const WORKSPACE_ACTIONS = MODERATOR_ACTIONS; // the same list, named after the workspace
 
 /**
- * The ONE transition function. `c` = { status, versions: n } (n = number of versions so far). Returns { ok: true, to } or
- * { ok: false }. Every transition not listed in the spec is refused.
+ * The ONE transition function. `c` = { status, versions, publishedVersion, live }: versions = number of versions so far,
+ * publishedVersion = the version on the live card (if any), live = a public card exists (used by "publish_fail" only).
+ * Returns { ok: true, to } or { ok: false }. Every transition not listed is refused.
  */
 export function nextStatus(action, c) {
-  const st = c.status, versions = Number(c.versions) || 0;
+  const st = c.status, versions = Number(c.versions) || 0, next = canPublishNext(st, versions, c.publishedVersion);
   const ok = (to) => ({ ok: true, to }), no = { ok: false };
   switch (action) {
     case "open": return st === S.SUBMITTED ? ok(S.REVIEW) : ok(st); // only the first open of a Submitted item changes it
@@ -130,13 +149,16 @@ export function nextStatus(action, c) {
       if ([S.SUBMITTED, S.REVIEW, S.DRAFT].includes(st)) return ok(versions > 0 ? S.RESUBMITTED : S.PENDING);
       return no;
     case "decline": return canModeratorEdit(st) ? ok(S.REJECTED) : no;
-    case "preview": return canAdminAct(st) && versions > 0 ? ok(st) : no;
-    case "admin_edit": return canAdminAct(st) && versions > 0 ? ok(st) : no;
+    case "preview": return next && versions > 0 ? ok(st) : no;
+    case "admin_edit": return (canAdminAct(st) || AFTER_PUBLISHING.includes(st)) && versions > 0 ? ok(st) : no;
     case "request_changes": return canAdminAct(st) ? ok(S.CHANGES) : no;
     case "reject": return canAdminAct(st) ? ok(S.REJECTED) : no;
-    case "publish": return canAdminAct(st) ? ok(S.PUBLISHING) : no;
+    case "publish": return next ? ok(S.PUBLISHING) : no;
     case "publish_ok": return st === S.PUBLISHING ? ok(S.PUBLISHED) : no;
-    case "publish_fail": return st === S.PUBLISHING ? ok(S.FAILED) : no;
+    // a failed attempt: back to Published when the earlier card is still live (a failed update), otherwise Publication Failed
+    case "publish_fail": return st === S.PUBLISHING ? ok(c.live === true ? S.PUBLISHED : S.FAILED) : no;
+    case "unpublish": return st === S.PUBLISHED ? ok(S.UNPUBLISHED) : no;
+    case "reopen": return st === S.REJECTED ? ok(S.REVIEW) : no;
     default: return no;
   }
 }
@@ -153,6 +175,9 @@ export const history = {
   declined: (r) => "Declined the idea. Reason: " + r,
   previewed: (n) => `Opened the publish preview for v${n}.`,
   adminEdit: (ch, n) => `Edited the proposed content (changed: ${ch.join(", ")}). Saved as v${n}; Moderator version kept.`,
+  adminEditAfter: (ch, n) => `Edited the proposed content after publishing (changed: ${ch.join(", ")}). Saved as v${n}; the public card changes only when it is published again.`,
+  unpublished: () => "Unpublished: removed the card from the public website. It can be published again (preview, then publish).",
+  reopened: (r) => "Reopened the idea for Moderator review. Reason: " + r,
   changes: (r) => "Requested changes: " + r,
   rejected: (r) => "Rejected the publishing request. Reason: " + r,
   publishClick: (n) => `Clicked Publish (attempt ${n}).`,
@@ -207,3 +232,8 @@ export function sniffType(bytes) {
 }
 export const attachmentAllowed = (mime) => ATTACHMENT_TYPES.includes(mime);
 export const codeOf = (id) => `RV-${id}`;
+/** "My Contributions": the status a contributor sees, { key, label }; source "workflow" (new ideas) or "form" (the current form). */
+export function mineStatus(source, status) {
+  const key = (MINE_STATUS[source] || {})[status] || "pending";
+  return { key, label: MINE_LABEL[key] };
+}

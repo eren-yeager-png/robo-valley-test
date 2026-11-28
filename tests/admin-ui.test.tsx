@@ -48,9 +48,11 @@ describe("admin layout and navigation", () => {
   it("lists every admin section as a working link; the header account menu slot (the avatar) is the only account control: no green Admin button, no email, no sign-out button", async () => {
     signIn(admin.id);
     const h = await html(AdminLayout({ children: <p>PAGE BODY</p> }));
-    expect(ADMIN_NAV).toHaveLength(14); // Sector Counts, then Sector Forms (P2), then the Moderator Workspace and the Admin Approval Dashboard (contribution workflow) were added
+    expect(ADMIN_NAV).toHaveLength(15); // the Contribution Portal's eight pages first, then the data pages and Settings (no Moderator Workspace, no My Contributions: merged into Moderation / View as)
     for (const n of ADMIN_NAV) { expect(h).toContain(`href="${n.href}"`); expect(h).toContain(n.label.replace("&", "&amp;")); }
-    for (const label of ["Overview", "Manage Categories", "Manage Datasets", "Upload Files", "Upload History", "Login Activity", "Reports &amp; Analytics", "User Management", "Settings"]) expect(h).toContain(label);
+    for (const label of ["Overview", "Publish Requests", "Moderation", "Sector Forms", "Sectors", "Users &amp; Roles", "Community Ideas", "Audit Log", "Manage Categories", "Manage Datasets", "Upload Files", "Upload History", "Login Activity", "Reports &amp; Analytics", "Settings"]) expect(h).toContain(label);
+    expect(ADMIN_NAV.map((n) => n.label).slice(0, 8)).toEqual(["Overview", "Publish Requests", "Moderation", "Sector Forms", "Sectors", "Users & Roles", "Community Ideas", "Audit Log"]);
+    expect(h).not.toMatch(/Moderator Workspace|Admin Approval Dashboard|User Management/);
     expect(h).toContain("RoboValley");
     expect(h).toContain("RoboValley Admin");
     expect(h.match(/data-rv-header-menu=""/g)).toHaveLength(1); // filled by public/rv-header-menu.js after the page loads
@@ -69,7 +71,9 @@ describe("admin layout and navigation", () => {
 
   it("the top-bar title follows the page", () => {
     expect(titleFor("/admin/dashboard")).toBe("Overview");
-    expect(titleFor("/admin/users")).toBe("User Management");
+    expect(titleFor("/admin/users")).toBe("Users & Roles");
+    expect(titleFor("/admin/users/12/view")).toBe("Users & Roles");
+    expect(titleFor("/admin/approvals")).toBe("Publish Requests");
     expect(titleFor("/admin/datasets/anything")).toBe("Manage Datasets");
     expect(titleFor("/somewhere-else")).toBe("Admin");
   });

@@ -8,7 +8,9 @@ import { describe, expect, it } from "vitest";
 const DIR = "frontend/wordpress/plugins/robovalley-contribution/";
 const read = (f: string) => readFileSync(f, "utf8").replace(/\r\n/g, "\n");
 const PHP = read(DIR + "robovalley-contribution.php");
-const code = PHP.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+const code = strip(PHP);
+const SB = read(DIR + "sector-buttons.php"), sb = strip(SB); // the sector pages' buttons: THE injection hook
 
 describe("identity and version", () => {
   it("folder robovalley-contribution, main file, text domain; header version = RV_CONTRIB_VERSION", () => {
@@ -17,7 +19,7 @@ describe("identity and version", () => {
     expect(PHP).toContain("Text Domain: robovalley-contribution");
   });
   it("every file it loads carries the plugin version (a cache purge serves the new files)", () => {
-    for (const m of code.matchAll(/wp_enqueue_(style|script)\(([^;]+)\);/g)) expect(m[2]).toContain("RV_CONTRIB_VERSION");
+    for (const m of (code + sb).matchAll(/wp_enqueue_(style|script)\(([^;]+)\);/g)) expect(m[2]).toContain("RV_CONTRIB_VERSION");
   });
 });
 
@@ -40,13 +42,16 @@ describe("zero manual setup, never touching what exists", () => {
     expect(code).toContain("register_activation_hook( __FILE__, 'rv_contrib_setup' )");
     expect(code).toContain("get_option( RV_CONTRIB_OPTION ) !== RV_CONTRIB_VERSION");
   });
-  it("uses the app address the current form already uses; its ONE setting is the switch-over", () => {
+  it("uses the app address the current form already uses; its settings: the switch-over and the per-field button switch", () => {
     expect(code).toContain("defined( 'RV_CONTRIBUTION_APP_URL' )");
     expect(code.match(/register_setting\(/g)).toHaveLength(1);
     expect(code).toMatch(/register_setting\(\s*'rv_contrib',\s*RV_CONTRIB_SWITCH,/);
+    expect(sb.match(/register_setting\(/g)).toHaveLength(1);
+    expect(sb).toMatch(/register_setting\(\s*'rv_contrib',\s*RV_CONTRIB_FIELDS_OFF,/);
   });
   it("no WordPress tables, no WordPress roles or capabilities, no page builder, no theme files", () => {
-    expect(code).not.toMatch(/dbDelta|CREATE TABLE|\$wpdb->query|add_role|add_cap|elementor|get_template_part|locate_template/i);
+    expect(code + sb).not.toMatch(/dbDelta|CREATE TABLE|\$wpdb->query|add_role|add_cap|get_template_part|locate_template/i);
+    expect(code).not.toMatch(/elementor/i); // (sector-buttons.php only names Elementor's section classes in a comment)
   });
 });
 
@@ -91,7 +96,8 @@ describe("the current Contribute form (rv-contribution-v2) is untouched", () => 
     }
   });
   it("the new plugin never calls the current form's code or edits its pages; it only names their addresses for the switch-over", () => {
-    expect(code).not.toMatch(/rv_c2_/);
+    expect(code + sb).not.toMatch(/rv_c2_/);
+    expect(sb.split("\n").filter((l) => /contribute-now/.test(l)).map((l) => l.trim())).toEqual(["return home_url( '/' . ( $slugs ? $slugs[0] : 'contribute-now' ) . '/' );"]);
     const named = code.split("\n").filter((l) => /contribute-now|'contribution'|'contributor'/.test(l)).map((l) => l.trim());
     expect(named).toEqual(["$raw = defined( 'RV_CONTRIBUTION_PAGES' ) ? (string) RV_CONTRIBUTION_PAGES : 'contribute-now,contribution,contributor';"]);
   });
@@ -126,5 +132,46 @@ describe("the switch-over (one setting, OFF by default; turning it off restores 
     expect(code).toContain("add_action( 'update_option_' . RV_CONTRIB_SWITCH, 'rv_contrib_apply_visibility_after_save' );");
     expect(code).toContain("add_action( 'add_option_' . RV_CONTRIB_SWITCH, 'rv_contrib_apply_visibility_after_save' );");
     expect(code).toMatch(/register_deactivation_hook\(\s*__FILE__,\s*function \(\) \{\s*rv_contrib_apply_visibility\( false \);/);
+  });
+});
+
+describe("\"Contribute to this sector\" on every sector page and every field (sector-buttons.php: THE injection hook)", () => {
+  it("is loaded by the plugin itself, so it is active whenever the plugin is", () => {
+    expect(code).toContain("require_once __DIR__ . '/sector-buttons.php';");
+  });
+  it("marks the content area at a LATE priority (after other plugins and page builders), on sector pages only", () => {
+    const f = sb.slice(sb.indexOf("'the_content'"), sb.indexOf("'wp_enqueue_scripts'"));
+    expect(f).toMatch(/'' === rv_contrib_fields_page_slug\(\)/);
+    expect(f).toContain('<div class="rv-fields-root" data-rv-sector="');
+    expect(f).toMatch(/\},\s*PHP_INT_MAX - 10\s*\);/);
+  });
+  it("sector pages = every child page of the Robots by Sector page (new ones too), or one named by the rv_contrib_sector_slug filter", () => {
+    expect(sb).toContain("defined( 'RV_CONTRIBUTION_SECTOR_PARENT' ) ? sanitize_title( (string) RV_CONTRIBUTION_SECTOR_PARENT ) : 'robots-by-sector'");
+    expect(sb).toContain("apply_filters( 'rv_contrib_sector_slug', $slug )");
+    expect(sb).toContain("apply_filters( 'rv_contrib_field_selectors', array() )");
+  });
+  it("loads its script and stylesheet late, on sector pages only, with the version; prints them anyway if another plugin dequeued them", () => {
+    const e = sb.slice(sb.indexOf("'wp_enqueue_scripts'"), sb.indexOf("'wp_print_footer_scripts'"));
+    expect(e).toMatch(/if \( '' === rv_contrib_fields_page_slug\(\) \) \{\s*return;/);
+    expect(e).toContain("plugins_url( 'assets/js/rv-sector.js', __FILE__ ), array(), RV_CONTRIB_VERSION, true");
+    expect(e).toMatch(/\},\s*PHP_INT_MAX - 10\s*\);/);
+    const fb = sb.slice(sb.indexOf("'wp_print_footer_scripts'"), sb.indexOf("'admin_init'"));
+    expect(fb).toContain("wp_script_is( 'rv-sector', 'done' )");
+    expect(fb).toMatch(/\},\s*PHP_INT_MAX\s*\);/);
+  });
+  it("shows to every visitor and role: no role, sign-in or switch check hides it; only the per-field setting does", () => {
+    expect(sb).not.toMatch(/current_user_can|is_user_logged_in|RV_CONTRIBUTE_PUBLIC|is_admin\(\)/);
+    expect(sb).toContain("'off'        => rv_contrib_fields_off(),");
+    expect(sb).toContain("$parts = array_map( 'sanitize_title', explode( '/', trim( (string) $line ), 2 ) );"); // cleaned, at most "<sector>/<field>"
+    expect(read(DIR + "uninstall.php")).toContain("'rv_contrib_fields_off'");
+  });
+  it("leads to the contribute flow that is live: Share Your Idea once switched over, otherwise the current form's page", () => {
+    expect(sb).toMatch(/\$new = rv_contrib_switched\(\) \? rv_contrib_form_url\(\) : '';/);
+  });
+  it("the switch-over redirect keeps a cleaned field, resource and way back (a page cached before the switch-over)", () => {
+    const hook = code.slice(code.indexOf("'template_redirect'", code.indexOf("function rv_contrib_old_slugs")), code.indexOf("'the_content'", code.indexOf("function rv_contrib_old_slugs")));
+    expect(hook).toContain("sanitize_title( wp_unslash( (string) $_GET['field'] ) )");
+    expect(hook).toContain("esc_url_raw( wp_unslash( (string) $_GET[ $arg ] ), array( 'http', 'https' ) )");
+    expect(hook).toContain("foreach ( array( 'resource_url', 'return_to' ) as $arg )");
   });
 });

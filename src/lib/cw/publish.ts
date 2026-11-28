@@ -1,12 +1,14 @@
-// Publishing (spec section 10). Admin only; only from Pending, Resubmitted or Publication Failed; only when the CURRENT version was
-// opened in the Publish Preview. Steps, each in its own transaction so the "Publication In Progress" state is real:
+// Publishing (spec section 10). Admin only; from Pending, Resubmitted, Publication Failed or Unpublished, or from Published when the
+// current version is newer than the live card (an edit after publishing); only when the CURRENT version was opened in the Publish
+// Preview. Never an Earn (18+) path on a minor's idea. Steps, each in its own transaction so the "Publication In Progress" state is real:
 //   1-3  lock the row, check, set status = publishing, publish_attempts + 1, history "Clicked Publish (attempt N)."
 //   4    upsert the public record BY CONTRIBUTION ID (a retry or a double click never makes a second card)
 //   5    nothing to rebuild: the Community Ideas page reads the public API every time it is viewed (no-store)
 //   6    verify by reading the record back through the public API's own reader and comparing it with the approved version
 //   7    success: status = published (+ published_version, published_at), history by "System"
-//   8    any error, timeout or mismatch: the public record is put back exactly as it was (or removed if it was new), status =
-//        failed with publish_error, history by "System". Status becomes Published only after the read-back matched.
+//   8    any error, timeout or mismatch: the public record is put back exactly as it was (or removed if it was new), publish_error
+//        and a history line by "System"; the status goes back to Published when the earlier card is still live (a failed update),
+//        otherwise to Publication Failed. Status becomes Published with the new version only after the read-back matched.
 import * as R from "./shared";
 import { loadSectors } from "./lookups";
 import { getContribution, guarded, NotSetUp, readPublic, type Actor, type Detail, type Fail, type Pool, type Q } from "./store";
@@ -23,6 +25,13 @@ function plainError(e: unknown): string {
   return String(err.message || TIMED_OUT).slice(0, 400);
 }
 const fail = (status: number, error: string, message: string): Fail => ({ ok: false, status, error, message });
+
+/** Is the card from the last successful publish still on the public website (the earlier, verified version)? */
+async function earlierCardLive(db: Q, id: number, publishedVersion: unknown): Promise<boolean> {
+  if (publishedVersion === null || publishedVersion === undefined) return false;
+  const r = (await db.query("SELECT version FROM cw_public_contributions WHERE contribution_id = $1", [id])).rows[0];
+  return Boolean(r) && Number(r.version) === Number(publishedVersion);
+}
 
 // A fault for tests (spec: "a server-side test hook that exists only in non-production environments"). It cannot be armed in production.
 let fault: null | { at: "upsert" | "verify"; message: string } = null;
@@ -55,29 +64,35 @@ export async function publish(pool: Pool, input: { id: number; actor: Actor; row
   if (!actor.isAdmin) return fail(403, "ADMIN_ONLY", R.MESSAGES.adminOnly);
   return guarded(async () => {
     // 1-3: check and mark "Publication In Progress"
-    const started = await tx(pool, async (c): Promise<Fail | { ok: true; versions: number }> => {
-      const row = (await c.query(`SELECT status, row_version, previewed_version, publish_attempts, updated_at < now() - interval '${STALE}' AS stale FROM cw_contributions WHERE id = $1 FOR UPDATE`, [id])).rows[0];
+    const started = await tx(pool, async (c): Promise<Fail | { ok: true; versions: number; publishedVersion: unknown }> => {
+      const row = (await c.query(`SELECT status, row_version, previewed_version, published_version, publish_attempts, contributor_minor, proposed ->> 'learningPath' AS path,
+        updated_at < now() - interval '${STALE}' AS stale FROM cw_contributions WHERE id = $1 FOR UPDATE`, [id])).rows[0];
       if (!row) return fail(404, "NOT_FOUND", "We could not find that contribution.");
       if (Number(input.rowVersion) !== Number(row.row_version)) return fail(409, "STALE", R.MESSAGES.stale);
       const versions = Number((await c.query("SELECT count(*)::int AS n FROM cw_contribution_versions WHERE contribution_id = $1", [id])).rows[0].n);
       let status = String(row.status);
       if (status === R.STATUS.PUBLISHING && row.stale === true) {
         // an attempt that never finished (the server stopped mid-way): it timed out, so it counts as failed and may be retried
-        await c.query("UPDATE cw_contributions SET status = 'failed', publish_error = $2, updated_at = now() WHERE id = $1", [id, TIMED_OUT]);
+        const live = await earlierCardLive(c, id, row.published_version);
+        status = String(R.nextStatus("publish_fail", { status, live }).to);
+        await c.query("UPDATE cw_contributions SET status = $2, publish_error = $3, updated_at = now() WHERE id = $1", [id, status, TIMED_OUT]);
         await c.query("INSERT INTO cw_contribution_history (contribution_id, actor, text) VALUES ($1, 'System', $2)", [id, R.history.failed(TIMED_OUT)]);
-        status = R.STATUS.FAILED;
       }
-      const step = R.nextStatus("publish", { status, versions });
-      if (!step.ok) return fail(409, "NOT_ALLOWED", R.MESSAGES.notAllowed); // includes a second click while In Progress
+      const step = R.nextStatus("publish", { status, versions, publishedVersion: row.published_version });
+      if (!step.ok) {
+        if (status === R.STATUS.PUBLISHED) return fail(409, "NOTHING_NEW", R.MESSAGES.nothingNew);
+        return fail(409, "NOT_ALLOWED", R.MESSAGES.notAllowed); // includes a second click while In Progress
+      }
       if (versions < 1 || Number(row.previewed_version) !== versions) return fail(409, "PREVIEW_FIRST", R.MESSAGES.previewFirst);
+      if (R.earnBlocked(row.contributor_minor === true, row.path)) return fail(409, "EARN_MINOR", R.MESSAGES.earnMinorPublish);
       const attempt = Number(row.publish_attempts) + 1;
       await c.query("UPDATE cw_contributions SET status = $2, publish_attempts = $3, row_version = row_version + 1, updated_at = now() WHERE id = $1", [id, step.to, attempt]);
       await c.query("INSERT INTO cw_contribution_history (contribution_id, actor, actor_user_id, text) VALUES ($1, $2, $3, $4)", [id, actor.name, actor.userId, R.history.publishClick(attempt)]);
-      return { ok: true as const, versions };
+      return { ok: true as const, versions, publishedVersion: row.published_version };
     });
     if (!started.ok) return started as Fail;
 
-    const n = (started as { versions: number }).versions;
+    const { versions: n, publishedVersion: publishedBefore } = started as { ok: true; versions: number; publishedVersion: unknown };
     // From here on every failure ends as Publication Failed (never stuck In Progress), and the public site is left as it was.
     let error: string | null = null, wrote = false;
     let before: Awaited<ReturnType<typeof readPublic>> = null, sectorName = "";
@@ -121,7 +136,10 @@ export async function publish(pool: Pool, input: { id: number; actor: Actor; row
         await c.query("UPDATE cw_contributions SET status = 'published', published_version = $2, published_at = now(), publish_error = NULL, row_version = row_version + 1, updated_at = now() WHERE id = $1", [id, n]);
         await c.query("INSERT INTO cw_contribution_history (contribution_id, actor, text) VALUES ($1, 'System', $2)", [id, R.history.published(n, sectorName)]);
       } else {
-        await c.query("UPDATE cw_contributions SET status = 'failed', publish_error = $2, row_version = row_version + 1, updated_at = now() WHERE id = $1", [id, error]);
+        // a failed UPDATE of a published idea leaves the earlier card live: the idea stays Published (with the error shown)
+        const live = await earlierCardLive(c, id, publishedBefore);
+        const to = String(R.nextStatus("publish_fail", { status: R.STATUS.PUBLISHING, live }).to);
+        await c.query("UPDATE cw_contributions SET status = $2, publish_error = $3, row_version = row_version + 1, updated_at = now() WHERE id = $1", [id, to, error]);
         await c.query("INSERT INTO cw_contribution_history (contribution_id, actor, text) VALUES ($1, 'System', $2)", [id, R.history.failed(error)]);
       }
     });

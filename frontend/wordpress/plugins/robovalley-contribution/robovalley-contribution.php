@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoboValley Contribution
  * Description: The Contribution Publishing Workflow on the website: the "Share Your Idea" form ([rv_contribution_form]) and the public "Community Ideas" page ([rv_community_ideas]). A thin shell: the screens are plain HTML, CSS and JavaScript, and all data lives in the RoboValley app (no WordPress tables, no WordPress roles). The Moderator Workspace and the Admin Approval Dashboard are in the app's admin portal.
- * Version: 1.4.0
+ * Version: 1.5.0
  * Requires at least: 6.4
  * Requires PHP: 7.4
  * Author: RoboValley
@@ -20,15 +20,22 @@
  * (contribute-now, contribution, contributor, or RV_CONTRIBUTION_PAGES) redirect to "Share Your Idea" with 301 (keeping ?sector=, never
  * cached so it can be undone), and the "Contribute to this sector" button points at the new form. OFF (or this plugin deactivated):
  * exactly today's behaviour: the pages are private again, no redirect, the button as the current form prints it.
+ *
+ * "+ CONTRIBUTE TO THIS SECTOR" IN THE HEADER AND ON EVERY FIELD of every Robots by Sector page (sector-buttons.php: THE injection
+ * hooks, do not remove them). On as soon as the plugin is active, for every visitor and role, independent of the switch-over: they open
+ * the contribute flow that is live (the current form, or "Share Your Idea" once switched over) with the sector (and the field) filled
+ * in. A per-field off switch on the settings page is the only way to hide a field's button.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const RV_CONTRIB_VERSION = '1.4.0';
+const RV_CONTRIB_VERSION = '1.5.0';
 const RV_CONTRIB_OPTION  = 'rv_contrib_setup_version';
 const RV_CONTRIB_SWITCH  = 'rv_contrib_switch_over';
+
+require_once __DIR__ . '/sector-buttons.php'; // the header button and the field buttons of the sector pages: the one injection hook
 
 /** The pages this plugin owns: option name => [slug, title, shortcode]. */
 function rv_contrib_pages() {
@@ -236,6 +243,21 @@ add_action(
 		if ( '' !== $sector ) {
 			$to = add_query_arg( 'sector', $sector, $to );
 		}
+		// a sector page's button on a page cached before the switch-over: keep the field, the resource and the way back
+		$field = isset( $_GET['field'] ) ? sanitize_title( wp_unslash( (string) $_GET['field'] ) ) : '';
+		if ( '' !== $field ) {
+			$to = add_query_arg( 'field', $field, $to );
+		}
+		$path = isset( $_GET['resource_path'] ) ? mb_substr( sanitize_text_field( wp_unslash( (string) $_GET['resource_path'] ) ), 0, 300 ) : '';
+		if ( '' !== $path ) {
+			$to = add_query_arg( 'resource_path', rawurlencode( $path ), $to );
+		}
+		foreach ( array( 'resource_url', 'return_to' ) as $arg ) {
+			$u = isset( $_GET[ $arg ] ) ? esc_url_raw( wp_unslash( (string) $_GET[ $arg ] ), array( 'http', 'https' ) ) : '';
+			if ( '' !== $u && strlen( $u ) <= 2048 ) {
+				$to = add_query_arg( $arg, rawurlencode( $u ), $to );
+			}
+		}
 		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
 			define( 'DONOTCACHEPAGE', true );
 		}
@@ -314,6 +336,7 @@ function rv_contrib_settings_page() {
 	settings_fields( 'rv_contrib' );
 	echo '<p><label><input type="checkbox" name="' . esc_attr( RV_CONTRIB_SWITCH ) . '" value="1" ' . checked( $on, true, false ) . '> ' . esc_html__( 'Switch over to the new contribution workflow', 'robovalley-contribution' ) . '</label></p>';
 	echo '<p>' . esc_html__( 'When ON: "Share Your Idea" and "Community Ideas" are public, the current form pages send visitors to "Share Your Idea" (keeping the sector), and "Contribute to this sector" opens the new form. When OFF: exactly today\'s behaviour (the two pages are private again). Purge the site cache after changing it.', 'robovalley-contribution' ) . '</p>';
+	echo rv_contrib_fields_settings_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts
 	submit_button();
 	echo '</form></div>';
 }

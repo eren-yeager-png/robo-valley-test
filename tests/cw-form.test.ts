@@ -2,7 +2,8 @@
 // The "Share Your Idea" form (public/cw/js/form.js) in a browser-like DOM with the mock adapter: what shows when, the automatic
 // resource ID, the robot list following the sector, all errors in one red notice, the success message, and sign-in / reviewer notes.
 import { beforeEach, describe, expect, it } from "vitest";
-import { mount } from "../public/cw/js/form.js";
+import { mount, safeBack } from "../public/cw/js/form.js";
+import { validateContributeReturn } from "../src/lib/contributeReturnTo";
 import { MockAdapter } from "../public/cw/js/api.js";
 import { MESSAGES } from "../public/cw/js/lists.js";
 
@@ -107,5 +108,58 @@ describe("the form", () => {
     await mount(el, { adapter: rev as never, query: new URLSearchParams("") });
     expect(el.textContent).toContain(MESSAGES.reviewerCannot);
     expect(el.querySelector("form")).toBeNull();
+  });
+});
+
+describe("signing in from a sector page's button, and coming back", () => {
+  const SITE = "http://127.0.0.1:8099";
+  const FROM = `${SITE}/robots-by-sector/agriculture-dairy/`;
+  // what a field button on a sector page opens (fields.js hrefFor): the sector, the field, the resource path and the way back
+  const opened = new URL(`${SITE}/share-your-idea/`);
+  for (const [k, v] of [["sector", "agriculture-dairy"], ["field", "milking-robots"], ["resource_path", "Robots by Sector › Agriculture and Dairy › Milking robots"], ["resource_url", FROM], ["return_to", FROM]]) opened.searchParams.set(k, v);
+  const store = () => { const m = new Map<string, string>(); return { m, getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) }; };
+
+  it("signed out: the Sign in link comes back to an address the app accepts; after signing in the field, path and way back are all there", async () => {
+    const storage = store();
+    el = document.createElement("div"); document.body.appendChild(el);
+    const out = { me: async () => ({ signedIn: false }), formConfig: async () => ({ sectors: SECTORS }), loginUrl: (b: string) => "https://app.example/login?returnTo=" + encodeURIComponent(b) };
+    await mount(el, { adapter: out as never, location: opened as never, storage });
+    const returnTo = new URL((el.querySelector("a.rv-btn") as HTMLAnchorElement).href).searchParams.get("returnTo")!;
+    // the app's own check of a return address (the sign-in page sends the visitor back only if it passes)
+    expect(validateContributeReturn(returnTo, `${SITE}/`, "/share-your-idea/")).toBe(`${SITE}/share-your-idea/?sector=agriculture-dairy&robot=milking-robots`);
+    expect(validateContributeReturn(opened.toString(), `${SITE}/`, "/share-your-idea/")).toBeNull(); // why: the full address would be refused
+    // back from the sign-in page, signed in
+    el = document.createElement("div"); document.body.innerHTML = ""; document.body.appendChild(el);
+    mock = new MockAdapter({ sectors: SECTORS, me: { name: "Ananya R.", type: "Student", minor: false } });
+    await mount(el, { adapter: mock, location: new URL(returnTo) as never, storage });
+    expect($("#rv-f-sector").value).toBe("agriculture-dairy");
+    expect($("#rv-f-robot").value).toBe("milking-robots");
+    expect((el.querySelector('input[name="rv-refers"]') as HTMLInputElement).checked).toBe(true);
+    expect($("#rv-f-rpath").value).toBe("Robots by Sector › Agriculture and Dairy › Milking robots");
+    expect(storage.m.size).toBe(0); // used once
+    type("#rv-f-title", "Milking robot that texts the farmer"); type("#rv-f-desc", "It sends a text when a cow looks unwell."); choose("rv-cat", "Robotics");
+    await submit();
+    expect((el.querySelector("[data-msg] a.rv-back") as HTMLAnchorElement).getAttribute("href")).toBe(FROM);
+  });
+  it("only the same sector's kept values come back, and a page opened with its own values keeps them", async () => {
+    const storage = store();
+    el = document.createElement("div"); document.body.appendChild(el);
+    const out = { me: async () => ({ signedIn: false }), formConfig: async () => ({ sectors: SECTORS }), loginUrl: (b: string) => b };
+    await mount(el, { adapter: out as never, location: opened as never, storage });
+    mock = new MockAdapter({ sectors: SECTORS, me: { name: "Ananya R.", type: "Student", minor: false } });
+    await mount(el, { adapter: mock, location: new URL(`${SITE}/share-your-idea/?sector=healthcare`) as never, storage });
+    expect($("#rv-f-sector").value).toBe("healthcare");
+    expect((el.querySelector('input[name="rv-refers"]') as HTMLInputElement).checked).toBe(false);
+    await mount(el, { adapter: out as never, location: opened as never, storage });
+    await mount(el, { adapter: mock, location: new URL(`${SITE}/share-your-idea/?sector=agriculture-dairy&field=drone-sprayers`) as never, storage });
+    expect($("#rv-f-rpath").value).toBe(""); // its own field, not the kept one
+  });
+  it("\"Back to the page you came from\" never leads to another website", () => {
+    const ok = [SITE, "http://127.0.0.1:3041"];
+    expect(safeBack("/robots-by-sector/agriculture-dairy/", ok)).toBe("/robots-by-sector/agriculture-dairy/");
+    expect(safeBack(FROM, ok)).toBe(FROM);
+    expect(safeBack("http://127.0.0.1:3041/dashboard/sectors/agriculture-dairy", ok)).toBe("http://127.0.0.1:3041/dashboard/sectors/agriculture-dairy");
+    for (const bad of ["https://evil.example/", "//evil.example/x", "/\\evil.example", "javascript:alert(1)", "data:text/html,x", "http://127.0.0.1:9999/x"]) expect(safeBack(bad, ok), bad).toBe("");
+    expect(safeBack(FROM)).toBe(""); // no allowed origins given: only paths
   });
 });

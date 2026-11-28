@@ -59,6 +59,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     if (action === "send_request") notifyAfter("sent", id);
     if (action === "decline" || action === "reject") notifyAfter("rejected", id);
     if (action === "request_changes") notifyAfter("changes", id);
+    if (action === "reopen") notifyAfter("reopened", id);
     return ok(req, { item: r.detail, ...(r.message ? { message: r.message } : {}), ...(r.record ? { record: r.record } : {}) }, METHODS);
   } catch (e) {
     return crashed(req, e, METHODS, "review action");

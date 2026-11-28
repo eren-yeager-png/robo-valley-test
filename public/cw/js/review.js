@@ -51,3 +51,7 @@ export const attachmentHtml = (it, adapter) => (it.attachment
 
 export const notice = (kind, html, role = "status") => `<div class="cw-notice cw-n-${kind}" role="${role}">${html}</div>`;
 export const lastFeedback = (it, type) => (it.feedback || []).filter((f) => !type || f.type === type).slice(-1)[0];
+/** The latest decision to reject: a Moderator's decline or an Admin's rejection (who, why, when). */
+export const lastDecision = (it) => (it.feedback || []).filter((f) => f.type === "decline" || f.type === "reject").slice(-1)[0];
+export const decisionWho = (f) => `${f.type === "decline" ? "Declined" : "Rejected"} by ${f.by} (${f.type === "decline" ? "Moderator" : "Admin"})`;
+export const decisionHtml = (f) => `<b>${esc(decisionWho(f))}</b> on ${esc(fmtDate(f.at))}. Reason: ${esc(f.text)}`;

@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { seedUser, testDb } from "./helpers";
+import { seedUser, testDb, testPool } from "./helpers";
 import { createSessionToken } from "../src/lib/session";
 
 const m = vi.hoisted(() => ({ cookie: undefined as string | undefined }));
@@ -20,7 +20,7 @@ vi.mock("next/navigation", () => ({
 
 import * as addRoute from "../src/app/api/admin/sector-forms/[slug]/questions/route";
 import * as changeRoute from "../src/app/api/admin/sector-forms/[slug]/questions/[id]/route";
-import SectorFormsPage from "../src/app/admin/sector-forms/page";
+import { sectorFormsPortal } from "../src/lib/portalFields";
 import SectorFormPage from "../src/app/admin/sector-forms/[slug]/page";
 import { cleanChoices, cleanQuestionLabel, parseNewQuestion } from "../src/lib/sectorQuestions";
 import { MODERATOR_ROLE } from "../src/lib/reviewerHome";
@@ -169,14 +169,14 @@ describe("the rules (administrator)", () => {
     expect((await change("agriculture-dairy", a, { active: false, required: false })).status).toBe(400);
     expect((await rows("education"))[0].is_active).toBe(true);
   });
-  it("before migration 026: adding and changing answer 503; the page says migration 026 is needed and still shows the robot types", async () => {
+  it("before migration 026: adding and changing answer 503; the questions page says migration 026 is needed; Sector Forms' data has no count", async () => {
     testDb().failOn((sql) => (/sector_questions/.test(sql) ? Object.assign(new Error('relation "sector_questions" does not exist'), { code: "42P01" }) : undefined));
     expect((await add("agriculture-dairy", text("How many animals?"))).status).toBe(503);
     expect((await change("agriculture-dairy", 1, { active: false })).status).toBe(503);
     const h = await html(formPage("agriculture-dairy"));
     expect(h).toContain("Questions are not set up on this database yet"); expect(h).toContain("Migration 026 is needed");
-    expect(h).toContain("Robot types"); expect(h).not.toContain("Add question");
-    expect(await html(SectorFormsPage())).toMatch(/Questions on/);
+    expect(h).not.toContain("Add question");
+    expect((await sectorFormsPortal(testPool(), "agriculture-dairy")).questionsOn).toBeNull(); // the screen then shows no "Questions on" line
   });
 });
 
@@ -198,9 +198,10 @@ describe("the pages (administrator)", () => {
   it("the list shows how many questions are on in each sector", async () => {
     await add("agriculture-dairy", text("How many animals?"));
     await add("agriculture-dairy", text("Who milks the cows?"));
-    const h = await html(SectorFormsPage());
-    expect(h).toMatch(/Agriculture &amp; Dairy[\s\S]*?2 of 5/);
-    expect(h).toMatch(/Education[\s\S]*?0 of 5/);
+    // Sector Forms' screen shows "Questions on this sector's form: n of 5." for the sector that is open (public/cw/js/sector-forms.js)
+    expect((await sectorFormsPortal(testDb().raw as never, "agriculture-dairy")).questionsOn).toBe(2);
+    expect((await sectorFormsPortal(testDb().raw as never, "education")).questionsOn).toBe(0);
+    expect(readFileSync("public/cw/js/sector-forms.js", "utf8")).toContain("Questions on this sector's form: ${d.questionsOn} of 5.");
   });
 });
 

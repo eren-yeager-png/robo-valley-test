@@ -90,15 +90,44 @@ describe("the status machine: every listed transition, and nothing else (spec se
     ["reject", S.PENDING, 1, S.REJECTED], ["reject", S.RESUBMITTED, 2, S.REJECTED], ["reject", S.FAILED, 1, S.REJECTED],
     ["publish", S.PENDING, 1, S.PUBLISHING], ["publish", S.RESUBMITTED, 2, S.PUBLISHING], ["publish", S.FAILED, 1, S.PUBLISHING],
     ["publish_ok", S.PUBLISHING, 1, S.PUBLISHED], ["publish_fail", S.PUBLISHING, 1, S.FAILED],
+    // spec section 15, decided 27-11-2026 (the live card shows version 1 in these rows: publishedVersion = 1)
+    ["unpublish", S.PUBLISHED, 1, S.UNPUBLISHED],
+    ["reopen", S.REJECTED, 0, S.REVIEW], ["reopen", S.REJECTED, 2, S.REVIEW],
+    ["admin_edit", S.PENDING, 1, S.PENDING], ["admin_edit", S.RESUBMITTED, 2, S.RESUBMITTED], ["admin_edit", S.FAILED, 1, S.FAILED],
+    ["admin_edit", S.PUBLISHED, 1, S.PUBLISHED], ["admin_edit", S.UNPUBLISHED, 1, S.UNPUBLISHED],
+    ["preview", S.PENDING, 1, S.PENDING], ["preview", S.RESUBMITTED, 2, S.RESUBMITTED], ["preview", S.FAILED, 1, S.FAILED],
+    ["preview", S.UNPUBLISHED, 1, S.UNPUBLISHED], ["preview", S.PUBLISHED, 2, S.PUBLISHED],
+    ["publish", S.UNPUBLISHED, 1, S.PUBLISHING], ["publish", S.PUBLISHED, 2, S.PUBLISHING],
   ];
+  const ctx = (status: string, versions: number) => ({ status, versions, publishedVersion: 1 });
   it("allows each listed transition to the listed status", () => {
-    for (const [action, from, v, to] of table) expect(R.nextStatus(action, { status: from, versions: v }), `${action} from ${from}`).toEqual({ ok: true, to });
+    for (const [action, from, v, to] of table) expect(R.nextStatus(action, ctx(from, v)), `${action} from ${from}`).toEqual({ ok: true, to });
   });
-  it("refuses every other status for each state-changing action", () => {
-    for (const action of ["save_draft", "send_request", "decline", "request_changes", "reject", "publish", "publish_ok", "publish_fail"]) {
+  it("refuses every other status for each state-changing action (including the new ones)", () => {
+    for (const action of ["save_draft", "send_request", "decline", "request_changes", "reject", "publish", "publish_ok", "publish_fail", "unpublish", "reopen", "admin_edit", "preview"]) {
       const allowed = table.filter((t) => t[0] === action).map((t) => t[1]);
-      for (const st of all.filter((s) => !allowed.includes(s))) expect(R.nextStatus(action, { status: st, versions: 1 }).ok, `${action} from ${st}`).toBe(false);
+      for (const st of all.filter((s) => !allowed.includes(s))) expect(R.nextStatus(action, ctx(st, 1)).ok, `${action} from ${st}`).toBe(false);
     }
+  });
+  it("Unpublish only from Published; Reopen only from Rejected, to Under Moderator Review", () => {
+    for (const st of all) expect(R.nextStatus("unpublish", ctx(st, 1)), st).toEqual(st === S.PUBLISHED ? { ok: true, to: S.UNPUBLISHED } : { ok: false });
+    for (const st of all) expect(R.nextStatus("reopen", ctx(st, 1)), st).toEqual(st === S.REJECTED ? { ok: true, to: S.REVIEW } : { ok: false });
+  });
+  it("after publishing: preview and publish only when the current version is newer than the live card; an Unpublished item always", () => {
+    expect(R.nextStatus("publish", { status: S.PUBLISHED, versions: 1, publishedVersion: 1 }).ok).toBe(false); // nothing new
+    expect(R.nextStatus("preview", { status: S.PUBLISHED, versions: 1, publishedVersion: 1 }).ok).toBe(false);
+    expect(R.nextStatus("publish", { status: S.PUBLISHED, versions: 2, publishedVersion: 1 })).toEqual({ ok: true, to: S.PUBLISHING }); // an edit after publishing
+    expect(R.nextStatus("publish", { status: S.UNPUBLISHED, versions: 1, publishedVersion: 1 })).toEqual({ ok: true, to: S.PUBLISHING }); // publish again
+    expect(R.nextStatus("admin_edit", { status: S.PUBLISHED, versions: 0 }).ok).toBe(false); // a version is needed first
+    expect(R.canPublishNext(S.PUBLISHED, 3, 2)).toBe(true);
+    expect(R.canPublishNext(S.PUBLISHED, 2, 2)).toBe(false);
+    expect(R.canPublishNext(S.REJECTED, 2, null)).toBe(false);
+  });
+  it("a failed attempt goes back to Published only while the earlier card is still live; otherwise Publication Failed", () => {
+    expect(R.nextStatus("publish_fail", { status: S.PUBLISHING, live: true })).toEqual({ ok: true, to: S.PUBLISHED });
+    expect(R.nextStatus("publish_fail", { status: S.PUBLISHING, live: false })).toEqual({ ok: true, to: S.FAILED });
+    expect(R.nextStatus("publish_fail", { status: S.PUBLISHING })).toEqual({ ok: true, to: S.FAILED });
+    expect(R.nextStatus("publish_fail", { status: S.PUBLISHED, live: true }).ok).toBe(false);
   });
   it("Moderators edit only in Submitted, Under Review, Draft and Changes Requested; Admins act only in Pending, Resubmitted and Failed", () => {
     expect(all.filter(R.canModeratorEdit).sort()).toEqual([S.CHANGES, S.DRAFT, S.SUBMITTED, S.REVIEW].sort());
@@ -128,6 +157,9 @@ describe("history wording (exactly the demo's)", () => {
     expect(h.publishClick(2)).toBe("Clicked Publish (attempt 2).");
     expect(h.published(2, "Healthcare")).toBe('Published v2 to the public "Healthcare" section, refreshed the page and verified it shows the approved content.');
     expect(h.failed("Timeout.")).toBe("Publication FAILED: Timeout. Public website unchanged.");
+    expect(h.adminEditAfter(["Title"], 3)).toBe("Edited the proposed content after publishing (changed: Title). Saved as v3; the public card changes only when it is published again.");
+    expect(h.unpublished()).toBe("Unpublished: removed the card from the public website. It can be published again (preview, then publish).");
+    expect(h.reopened("Not a duplicate.")).toBe("Reopened the idea for Moderator review. Reason: Not a duplicate.");
   });
   it("changed fields use the labels and compare lists by value", () => {
     const a = { title: "T", description: "D", sector: "s", robotType: "r", categories: ["A", "B"], suitableFor: [], learningPath: "" };
