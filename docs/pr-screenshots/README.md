@@ -644,3 +644,11 @@ Demo: the Audit Log with the new kinds (publish requested, field, suggestion, se
 | 1024 | <img src="A-demo-admin-audit-1024-after.png" width="420" alt="A-demo-admin-audit-1024-after.png"> | <img src="B-demo-admin-audit-1024-after.png" width="420" alt="B-demo-admin-audit-1024-after.png"> |
 | 390 | <img src="A-demo-admin-audit-390-after.png" width="420" alt="A-demo-admin-audit-390-after.png"> | <img src="B-demo-admin-audit-390-after.png" width="420" alt="B-demo-admin-audit-390-after.png"> |
 
+## admin-sectors-archive-dialog (Phase B)
+
+Fix: opened directly, Admin > Sectors showed "Archive <sector>?" (and Rename) as plain text under the page, with no backdrop (before); the page now loads the dialogs' styles, so it opens over the page (after). The sidebar is cut off: both pictures were taken on the Phase C build, whose sidebar also has Plugins; the Sectors page is the same code.
+
+| Before | After |
+|---|---|
+| <img src="B-admin-sectors-archive-dialog-1440-before.png" width="420" alt="B-admin-sectors-archive-dialog-1440-before.png"> | <img src="B-admin-sectors-archive-dialog-1440-after.png" width="420" alt="B-admin-sectors-archive-dialog-1440-after.png"> |
+
