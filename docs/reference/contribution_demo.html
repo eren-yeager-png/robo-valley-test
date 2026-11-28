@@ -416,6 +416,9 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 .rv-pp .btn.primary:hover:not(:disabled), .rv .adm .rv-pp .btn.primary:hover:not(:disabled), .rv-pp-drawer .btn.primary:hover:not(:disabled) { background: var(--rvp-green-dark); border-color: var(--rvp-green-dark); color: #FFFFFF; }
 .rv-pp .btn.danger, .rv .adm .rv-pp .btn.danger, .rv-pp-drawer .btn.danger { color: var(--rvp-red); border-color: #F0B4AE; }
 .rv-pp .btn.danger:hover:not(:disabled), .rv-pp-drawer .btn.danger:hover:not(:disabled) { background: #FEF3F2; color: var(--rvp-red); border-color: var(--rvp-red); }
+.rv-pp .btn.success, .rv .adm .rv-pp .btn.success, .rv-pp-drawer .btn.success, .rv .adm .rv-pp-drawer .btn.success { background: var(--rvp-green); border-color: var(--rvp-green); color: #FFFFFF; } /* Publish */
+.rv-pp .btn.success:hover:not(:disabled), .rv .adm .rv-pp .btn.success:hover:not(:disabled), .rv-pp-drawer .btn.success:hover:not(:disabled) { background: var(--rvp-green-dark); border-color: var(--rvp-green-dark); color: #FFFFFF; }
+.rv-pp .btn.warn, .rv .adm .rv-pp .btn.warn, .rv-pp-drawer .btn.warn { background: #FFF7E6; border-color: #E8A33A; color: #5A3B06; } /* Request changes */
 .rv-pp .btn.small, .rv-pp-drawer .btn.small { min-height: 36px; padding: 6px 10px; font-size: 13px; }
 .rv-pp .btn:disabled, .rv-pp-drawer .btn:disabled { opacity: .55; cursor: not-allowed; }
 @media (pointer: coarse) { .rv-pp .btn, .rv-pp .btn.small, .rv-pp-drawer .btn, .rv-pp-drawer .btn.small { min-height: 44px; } }
@@ -448,6 +451,9 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 .rv-pp-table td { height: 56px; padding: 8px 16px; border-bottom: 1px solid var(--rvp-border); text-align: left; vertical-align: middle; overflow-wrap: break-word; box-sizing: border-box; }
 .rv-pp-table tbody tr:last-child td { border-bottom: 0; }
 .rv-pp-table--fields td { height: 64px; }
+/* a field row has five actions: they wrap onto a second line in their cell instead of widening the table past its card */
+.rv-pp-table--fields .rv-pp-col-actions { white-space: normal; width: 1%; min-width: 300px; }
+.rv-pp-table--fields .rv-pp-rowact { flex-wrap: wrap; row-gap: 6px; }
 .rv-pp-table .rv-pp-col-title { min-width: 200px; }
 .rv-pp-table .rv-pp-col-sent, .rv-pp-table .rv-pp-col-num { white-space: nowrap; }
 .rv-pp-table .rv-pp-col-actions { text-align: right; white-space: nowrap; }
@@ -3299,7 +3305,7 @@ async function mount(el, opts = {}) {
   };
   const ideaHtml = (r) => `<article class="rv-pp-idea"><h4 class="rv-pp-idea__t">${esc(r.title)}</h4>
     <p class="rv-pp-idea__d">${esc(String(r.description || "").slice(0, 220))}${String(r.description || "").length > 220 ? "…" : ""}</p>
-    <p class="rv-pp-idea__m">${r.contributor ? `Idea by ${esc(r.contributor.name)}${r.contributor.type ? ` (${esc(r.contributor.type)})` : ""} · ` : ""}${esc(fmtSent(r.publishedAt))}</p>
+    <p class="rv-pp-idea__m">${r.contributor ? `Idea by ${esc(r.contributor.name)}${r.contributor.type ? ` (${esc(r.contributor.type)})` : ""} · ` : ""}<span class="rv-pp-sent">${esc(fmtSent(r.publishedAt))}</span></p>
     <p class="rv-pp-idea__tags">${(r.categories || []).map((c) => `<span class="rv-pp-tag">${esc(c)}</span>`).join("")}${variant === "teacher" && isClassroomPick(r) ? '<span class="rv-pp-tag rv-pp-tag--pick">Classroom pick</span>' : ""}${variant === "parent" && isSafeForKids(r) ? '<span class="rv-pp-tag rv-pp-tag--pick">Safe for kids</span>' : ""}</p></article>`;
   const ideasHtml = (list, empty) => (list.length ? `<div class="rv-pp-ideas">${list.map(ideaHtml).join("")}</div>` : emptyHtml(empty));
   const fieldsHtml = (s) => {

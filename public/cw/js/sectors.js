@@ -88,7 +88,7 @@ export async function mount(el, opts = {}) {
   };
   const ideaHtml = (r) => `<article class="rv-pp-idea"><h4 class="rv-pp-idea__t">${esc(r.title)}</h4>
     <p class="rv-pp-idea__d">${esc(String(r.description || "").slice(0, 220))}${String(r.description || "").length > 220 ? "…" : ""}</p>
-    <p class="rv-pp-idea__m">${r.contributor ? `Idea by ${esc(r.contributor.name)}${r.contributor.type ? ` (${esc(r.contributor.type)})` : ""} · ` : ""}${esc(fmtSent(r.publishedAt))}</p>
+    <p class="rv-pp-idea__m">${r.contributor ? `Idea by ${esc(r.contributor.name)}${r.contributor.type ? ` (${esc(r.contributor.type)})` : ""} · ` : ""}<span class="rv-pp-sent">${esc(fmtSent(r.publishedAt))}</span></p>
     <p class="rv-pp-idea__tags">${(r.categories || []).map((c) => `<span class="rv-pp-tag">${esc(c)}</span>`).join("")}${variant === "teacher" && isClassroomPick(r) ? '<span class="rv-pp-tag rv-pp-tag--pick">Classroom pick</span>' : ""}${variant === "parent" && isSafeForKids(r) ? '<span class="rv-pp-tag rv-pp-tag--pick">Safe for kids</span>' : ""}</p></article>`;
   const ideasHtml = (list, empty) => (list.length ? `<div class="rv-pp-ideas">${list.map(ideaHtml).join("")}</div>` : emptyHtml(empty));
   const fieldsHtml = (s) => {

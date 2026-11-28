@@ -53,7 +53,7 @@ const CHECKS = (rootSel) => `(function(){
   while ((n = w.nextNode()) && count < 6000) {
     var el = n.parentElement;
     if (!el || !el.offsetParent || el.closest('script,style,textarea,code,.rv-pp-slug,[aria-hidden="true"],.cw-diff,.rv-fields-root,.rv-sector-card,.rvd-wp')) continue;
-    var re = /\\S{4,}/g, m;
+    var re = /[A-Za-z0-9]{4,}/g, m; // runs of letters and digits: a line may break at a hyphen, a dot or an @, never inside a run
     while ((m = re.exec(n.data))) {
       count++;
       var rg = document.createRange(); rg.setStart(n, m.index); rg.setEnd(n, m.index + m[0].length);
@@ -64,22 +64,33 @@ const CHECKS = (rootSel) => `(function(){
   var multiSent = Array.prototype.filter.call(root.querySelectorAll('.rv-pp-sent'), function (t) { var lh = parseFloat(getComputedStyle(t).lineHeight) || 20; return t.getBoundingClientRect().height > lh * 1.6; }).length;
   return { hscroll: hscroll, overlaps: overlaps, stretched: stretched.slice(0, 6), broken: broken.slice(0, 6), brokenCount: broken.length, multiSent: multiSent };
 })()`;
-const FOCUS = `(function(){
+const FOCUS = (rootSel) => `(function(){
+  var root = document.querySelector(${J(rootSel)}) || document.body;
+  var focusable = root.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+  if (!focusable.length) return { ok: true, why: '' }; // nothing on this page takes the keyboard
   var a = document.activeElement;
   if (!a || a === document.body) return { ok: false, why: 'nothing focused after Tab' };
   var cs = getComputedStyle(a), ring = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0) || (cs.boxShadow && cs.boxShadow !== 'none');
   return { ok: !!ring, why: ring ? '' : 'no visible ring on ' + (a.tagName + '.' + a.className).slice(0, 60) };
 })()`;
 
-async function tabTwice(b) { for (let i = 0; i < 2; i++) { await b.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 }); await b.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 }); } await b.sleep(150); }
+/** Presses Tab (up to four times) until the keyboard is on something inside the page's own area. */
+async function tabIn(b, rootSel) {
+  for (let i = 0; i < 4; i++) {
+    await b.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 });
+    await b.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 });
+    await b.sleep(120);
+    if ((await b.ev(`(function(){var r=document.querySelector(${J(rootSel)}),a=document.activeElement;return !!(r&&a&&a!==r&&r.contains(a))})()`)) === true) return;
+  }
+}
 async function measure(b, name, rootSel, w, h, { focus = false } = {}) {
   await b.sleep(250);
   const c = await b.ev(CHECKS(rootSel));
+  await b.shot(join(OUTDIR, `${PHASE}-${name}-${w}-${LABEL}.png`), { full: true }); // before the keyboard check, so no focus ring is in the picture
   let f = null;
-  if (focus) { await b.ev("document.activeElement && document.activeElement.blur(); window.scrollTo(0,0)"); await b.ev(`(function(){var m=document.querySelector(${J(rootSel)});if(m){m.setAttribute('tabindex','-1');m.focus();m.removeAttribute('tabindex');}})()`); await tabTwice(b); f = await b.ev(FOCUS); }
+  if (focus) { await b.ev("document.activeElement && document.activeElement.blur(); window.scrollTo(0,0)"); await b.ev(`(function(){var m=document.querySelector(${J(rootSel)});if(m){m.setAttribute('tabindex','-1');m.focus();m.removeAttribute('tabindex');}})()`); await tabIn(b, rootSel); f = await b.ev(FOCUS(rootSel)); }
   const errors = b.errors.splice(0).filter((e) => !/favicon|rv-header-menu|DevTools/i.test(e));
   record({ name, width: w, c: typeof c === "object" ? c : { hscroll: false, overlaps: [], stretched: [], broken: [String(c)], brokenCount: 1, multiSent: 0 }, focus: f, errors });
-  await b.shot(join(OUTDIR, `${PHASE}-${name}-${w}-${LABEL}.png`), { full: true });
 }
 
 // ---- the app: the portal's sample data (once per database), then every page of every role
@@ -90,9 +101,10 @@ function seedSql() {
     sql(`INSERT INTO sector_robot_types (sector_id, slug, name, sort_order) SELECT id, ${sq(slug)}, ${sq(name)}, ${order} FROM sectors WHERE slug = ${sq(sector)} ON CONFLICT DO NOTHING`);
   }
   if (Number(sql("SELECT count(*) FROM contributions WHERE title = 'Robot kit lending library at school'")) > 0) return;
-  const id = (email) => sql(`SELECT id FROM users WHERE email = ${sq(email)}`);
+  const first = (out) => String(out).split(/\r?\n/)[0].trim(); // psql -tA prints the value, then the command tag ("INSERT 0 1")
+  const id = (email) => first(sql(`SELECT id FROM users WHERE email = ${sq(email)}`));
   const old = (who, title, status, sector, verifiedBy = "") => {
-    const cid = sql(`INSERT INTO contributions (user_id, type, type_chosen, title, body) VALUES (${id(who)}, 'improve', true, ${sq(title)}, 'Made up for the portal check.') RETURNING id`);
+    const cid = first(sql(`INSERT INTO contributions (user_id, type, type_chosen, title, body) VALUES (${id(who)}, 'improve', true, ${sq(title)}, 'Made up for the portal check.') RETURNING id`));
     sql(`INSERT INTO contribution_scopes (contribution_id, sector_id) SELECT ${cid}, id FROM sectors WHERE slug = ${sq(sector)}`);
     sql(`UPDATE contributions SET status = ${sq(status)}, submitted_at = now() - interval '3 days', published_at = CASE WHEN ${sq(status)} = 'published' THEN now() - interval '1 day' END WHERE id = ${cid}`);
     if (verifiedBy) sql(`INSERT INTO contribution_reviews (contribution_id, reviewer_id, action) VALUES (${cid}, ${id(verifiedBy)}, 'verify')`);
@@ -139,7 +151,7 @@ async function seedIdeas(b) {
 const BOTH = "before,after";
 // [role (who signs in), page, address, ready, labels it applies to]
 const APP_PAGES = () => {
-  const parentId = sql(`SELECT id FROM users WHERE email = ${sq(USERS.parent.email)}`);
+  const parentId = String(sql(`SELECT id FROM users WHERE email = ${sq(USERS.parent.email)}`)).split(/\r?\n/)[0].trim();
   return [
     ["admin", "admin", "overview", "/admin/dashboard", "!!document.querySelector('.adm-main h1, .adm-main h2')", BOTH],
     ["admin", "admin", "publish-requests", "/admin/approvals", "!!document.querySelector('.rv-pp-table, .rv-pp-empty, .cw-item, .cw-empty')", BOTH],
@@ -172,7 +184,7 @@ const INTERACTIONS = [
   ["admin", "admin", "publish-preview", "/admin/approvals", "!!document.querySelector('[data-act=\"preview\"]')", "document.querySelector('[data-act=\"preview\"]').click()", "!!document.querySelector('.cw-modal [data-pv-act]')"],
   ["admin", "admin", "add-field", "/admin/sector-forms?sector=healthcare", "!!document.querySelector('[data-add]')", "document.querySelector('[data-add]').click()", "!!document.querySelector('.rv-pp-modal')"],
   ["parent", "parent", "sectors-my-contributions-tab", "/dashboard/sectors?sector=education", "!!document.querySelector('[data-tab=\"mine\"]')", "document.querySelector('[data-tab=\"mine\"]').click()", "!!document.querySelector('[data-mine] .rv-pp-table, [data-mine] .rv-pp-empty')"],
-  ["mentor", "contributor", "contribute-dialog", "/dashboard/sectors?sector=agriculture-dairy", "!!document.querySelector('[data-quick]')", "document.querySelector('[data-quick=\"drone-sprayers\"], [data-quick]').click()", "!!document.querySelector('.rv-pp-modal')"],
+  ["mentor", "contributor", "contribute-dialog", "/dashboard/sectors?sector=agriculture-dairy", "!!document.querySelector('[data-quick]')", "(document.querySelector('[data-quick=\"drone-sprayers\"]') || document.querySelector('[data-quick]')).click()", "!!document.querySelector('.rv-pp-modal')"],
 ];
 
 async function appRun(b) {
