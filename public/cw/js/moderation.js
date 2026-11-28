@@ -3,7 +3,8 @@
 // panel "Contributors for <Sector>" with status tabs and counts (All | Pending review | Approved | Rejected | Published) and one table
 // for BOTH kinds of contributions: Title | Contributor | Status | Sent | Actions.
 //   Share Your Idea, pending review: [Approve as-is] [Edit & approve] (side drawer: title, description and the rest, with the changes
-//     against the original) [Reject] (a reason is required). Approving sends the publishing request to an Admin; a Moderator never
+//     against the original) [Reject] (a reason is required). With migration 030 approving is its own step (status Approved, blue) and
+//     an approved row offers [Send publish request to Admin]; before 030 approving sends the request at once. A Moderator never
 //     publishes. Other rows: [View] (the same review, read-only).
 //   Current form, pending review: [Approve as-is] (marks it verified, so it waits for an Admin) [Reject] (reason required)
 //     [View form]. These items are only ever edited by their contributor, so there is no Edit.
@@ -26,6 +27,12 @@ export const DRAWER_LABELS = {
   send: "Approve and send to Admin", save: "Save draft", reset: "Reset to original", decline: "Reject",
   hint: "Approving sends this version to an Admin, who previews it and publishes it. Moderators never publish.",
 };
+/** The drawer once approving is its own step (migration 030). */
+export const DRAWER_LABELS_APPROVE = {
+  ...DRAWER_LABELS, send: "Approve", request: "Send publish request to Admin",
+  hint: "Approving does not publish anything: you send the publishing request to an Admin next. Moderators never publish.",
+};
+const twoSteps = (d) => Boolean(d && d.features && d.features.approvedStep);
 const SOURCE = { workflow: "Share Your Idea", form: "Current form" };
 
 export async function mount(el, opts = {}) {
@@ -161,13 +168,21 @@ export async function mount(el, opts = {}) {
       if (what === "approve") {
         busy(true);
         const it = (await adapter.detail(r.id)).item;
+        const two = twoSteps(st.data);
         try {
-          await adapter.act(r.id, "send_request", { rowVersion: it.rowVersion, proposed: it.proposed, notes: it.notes });
+          await adapter.act(r.id, two ? "approve" : "send_request", { rowVersion: it.rowVersion, proposed: it.proposed, notes: it.notes });
         } catch (e) {
           if (e && e.status === 400) { busy(false); return openReview(r, e.message); } // e.g. a category is needed first: open the editor with the reason
           throw e;
         }
-        toast(el, `Approved and sent to an Admin: "${r.title}". It is not public yet.`);
+        toast(el, two ? `Approved: "${r.title}". Send the publishing request to an Admin when it is ready.` : `Approved and sent to an Admin: "${r.title}". It is not public yet.`);
+        return refresh();
+      }
+      if (what === "send") {
+        busy(true);
+        const it = (await adapter.detail(r.id)).item;
+        await adapter.act(r.id, "send_request", { rowVersion: it.rowVersion, proposed: it.proposed, notes: it.notes });
+        toast(el, `Publishing request sent to an Admin: "${r.title}". It is not public yet.`);
         return refresh();
       }
       if (what === "reject") {
@@ -194,10 +209,12 @@ export async function mount(el, opts = {}) {
     try {
       item = editing ? (await adapter.act(r.id, "open", {})).item : (await adapter.detail(r.id)).item;
     } catch (e) { dr.body.innerHTML = noticeHtml("err", esc((e && e.message) || "This contribution could not be opened.")); return; }
+    const two = twoSteps(st.data);
     reviewPanel(dr.body, {
-      adapter, sectors: st.sectors, item, labels: DRAWER_LABELS, diff: editing,
+      adapter, sectors: st.sectors, item, labels: two ? DRAWER_LABELS_APPROVE : DRAWER_LABELS, diff: editing, approve: two,
       onChanged: async (it2, action) => {
-        if (action === "send_request") { toast(el, `Approved and sent to an Admin: "${it2.proposed.title}". It is not public yet.`); dr.close(); }
+        if (action === "send_request") { toast(el, two ? `Publishing request sent to an Admin: "${it2.proposed.title}". It is not public yet.` : `Approved and sent to an Admin: "${it2.proposed.title}". It is not public yet.`); dr.close(); }
+        if (action === "approve") { toast(el, `Approved: "${it2.proposed.title}". Send the publishing request to an Admin when it is ready.`); dr.close(); }
         if (action === "decline") { toast(el, `Rejected: "${it2.original.title}".`); dr.close(); }
       },
     });

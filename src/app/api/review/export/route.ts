@@ -3,6 +3,7 @@ import { json } from "../../../../lib/http";
 import { pool } from "../../../../lib/db";
 import { exportCsv } from "../../../../lib/contributionReview";
 import { guardReviewer } from "../../../../lib/reviewerGuard";
+import { mayReview, NOT_YOUR_SECTOR } from "../../../../lib/reviewerSectors";
 import { logDbError } from "../../../../lib/dbError";
 
 export const runtime = "nodejs";
@@ -21,6 +22,7 @@ export async function GET(req: Request) {
   const slug = u.searchParams.get("sector") ?? "";
   const missing = () => withCors(req, json({ success: false, error: "NOT_FOUND", message: "We could not find that sector." }, 404), METHODS);
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug) || slug.length > 60) return missing();
+  if (!mayReview(g.sectors, [slug])) return withCors(req, json({ success: false, error: NOT_YOUR_SECTOR.error, message: NOT_YOUR_SECTOR.message }, 403), METHODS);
   try {
     const out = await exportCsv(pool as never, g.userId, slug, { tab: u.searchParams.get("tab") ?? undefined, q: u.searchParams.get("q") ?? undefined, category: u.searchParams.get("cat") ?? undefined, sort: u.searchParams.get("sort") ?? undefined, verified: u.searchParams.get("verified") ?? undefined });
     if (!out) return missing();

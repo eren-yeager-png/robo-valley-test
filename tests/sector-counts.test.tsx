@@ -86,7 +86,8 @@ describe("the numbers", () => {
     await seedAll(); // one draft in Agriculture & Dairy, one draft without a sector
     const before = await sectorStatusCounts(testDb().raw as never);
     for (const row of [...before.sectors, before.sum, before.unique]) expect(Object.keys(row)).not.toContain("draft");
-    expect(Object.keys(before)).toEqual(["sectors", "sum", "unique"]); // no "withoutSector" either: only drafts ever had no sector
+    expect(Object.keys(before)).toEqual(["sectors", "sum", "unique", "features"]); // no "withoutSector" either: only drafts ever had no sector
+    expect(before.features).toEqual({ sectorsData: true }); // migration 030: sector icons, colours and archiving
     await mk("Another draft in education", "draft", ["education"]);
     await mk("A draft in healthcare too", "draft", ["healthcare"]);
     const after = await sectorStatusCounts(testDb().raw as never);

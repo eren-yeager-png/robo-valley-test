@@ -10,6 +10,7 @@ import { askReason } from "./dialog.js";
 import { noticeHtml, openDrawer, pageHeader, panelHtml, sentHtml, statusBadge, tableHtml, toast } from "./portal-ui.js";
 import { formToPortal } from "./portal-status.js";
 import { createDemoPortal } from "./demo-portal.js";
+import { APPROVED, portalMineStatus } from "./portal-rules.js";
 
 const DEMO_SITE = "https://www.example.org"; // the demo's made-up website address
 export const ROLES = [
@@ -78,6 +79,13 @@ function websiteSectorHtml(s) {
  */
 export function mountPortals(el, ctx) {
   const st = { role: "visitor", page: {}, sector: {} };
+  // the Approved step (migration 030): the mock workflow (api.js, which the plugin bundles) does not know it; a member sees "Approved"
+  const mineOf = (who) => ctx.mock.mine(who).then((r) => ({ ...r, items: (r.items || []).map((x) => {
+    const it = x.source === "workflow" && ctx.mock.items.find((i) => i.code === x.code);
+    if (!it || it.status !== APPROVED) return x;
+    const st = portalMineStatus("workflow", it.status);
+    return { ...x, status: st.key, statusLabel: st.label };
+  }) }));
   const data = createDemoPortal(ctx.mock, { formItems: DEMO_FORM_ITEMS, suggestions: DEMO_SUGGESTIONS, plugins: DEMO_PLUGINS, users: DEMO_USERS });
   ctx.mock.formItems = data.forms; // "My Contributions" reads the same current-form items the reviewers change
   const formUrl = "#form";
@@ -165,7 +173,7 @@ export function mountPortals(el, ctx) {
     }
     if (page === "mine") {
       if (role.portal === "website") { main.innerHTML = `<div class="rv-cw-root rv-pp">${pageHeader({ title: "My Contributions", id: "rvd-mine-h" })}${noticeHtml("info", "Please sign in with your RoboValley member account to see your contributions. You come back here after signing in.")}<p><a class="btn" href="#sign-in">Sign in</a></p></div>`; return; }
-      const mine = () => ctx.mock.mine(me);
+      const mine = () => mineOf(me);
       return role.portal === "moderator" ? adm((m) => S.mine.mount(m, { adapter: { mine }, contributeUrl: formUrl })) : app((m) => S.mine.mount(m, { adapter: { mine }, contributeUrl: formUrl }));
     }
     if (page === "sectors") {
@@ -174,7 +182,7 @@ export function mountPortals(el, ctx) {
       return app((m) => S.sectors.mount(m, { adapter: memberAdapter(), form: formUrl, variant: role.variant, quickForm: role.portal === "contributor", sector: st.sector[role.key] || "", onSector: remember(role.key) }));
     }
     if (page === "home") {
-      return ctx.mock.mine(me).then((r) => {
+      return mineOf(me).then((r) => {
         const n = (k) => r.items.filter((i) => i.status === k).length;
         const go = role.portal === "contributor" ? [["sectors", "Contribute to a sector", "primary"], ["mine", "My Contributions", ""]] : [["form", "Share your idea", "primary"], ["sectors", "Browse sectors", ""], ["mine", "My Contributions", ""]];
         main.innerHTML = `<section class="rv-pp rvd-home">${pageHeader({ title: `Welcome, ${me.name}`, desc: me.type, id: "rvd-home-h" })}
@@ -207,12 +215,31 @@ export function mountPortals(el, ctx) {
     if (page === "users") {
       return adm((m) => {
         m.classList.add("rv-pp");
-        m.innerHTML = `${pageHeader({ title: "Users & Roles", desc: "Everyone with an account, their role and their portal. \"View as\" shows what that person sees.", id: "rvd-users-h" })}
-          ${panelHtml({ heading: "People", id: "rvd-users-panel-h", sub: "Assigning roles and moderators per sector come with the data update (Phase B).",
-            body: tableHtml({ caption: "Users and roles", head: [["Name", "rv-pp-col-title"], ["Role"], ["Portal"], ["", "rv-pp-col-actions"]],
-              rows: DEMO_USERS.map(([n, r, p, k]) => `<tr><td class="rv-pp-col-title"><b>${esc(n)}</b></td><td>${esc(r)}</td><td>${esc(p === "member" ? "Member portal" : p === "moderator" ? "Admin portal (moderator)" : "Admin portal")}</td>
-                <td class="rv-pp-col-actions">${k ? `<button type="button" class="btn small" data-view-as="${esc(k)}" aria-label="${esc(`View as ${n}`)}">View as</button>` : '<span class="rv-pp-muted">—</span>'}</td></tr>`) }) })}`;
-        m.querySelectorAll("[data-view-as]").forEach((b) => b.addEventListener("click", () => show(b.getAttribute("data-view-as"))));
+        const sectorName = (slug) => (ctx.mock.sectors.find((x) => x.slug === slug) || {}).name || slug;
+        const reviews = (n) => { const l = data.limits.get(n); return l && l.length ? l.map(sectorName).join(", ") : "every sector"; };
+        const draw = () => {
+          m.innerHTML = `${pageHeader({ title: "Users & Roles", desc: "Everyone with an account, their role and their portal. \"View as\" shows what that person sees.", id: "rvd-users-h" })}
+            ${panelHtml({ heading: "People", id: "rvd-users-panel-h", sub: "A moderator can be limited to some sectors (Edit sectors); administrators review every sector.",
+              body: tableHtml({ caption: "Users and roles", head: [["Name", "rv-pp-col-title"], ["Role"], ["Portal"], ["Reviews"], ["", "rv-pp-col-actions"]],
+                rows: DEMO_USERS.map(([n, r, p, k]) => `<tr><td class="rv-pp-col-title"><b>${esc(n)}</b></td><td>${esc(r)}</td><td>${esc(p === "member" ? "Member portal" : p === "moderator" ? "Admin portal (moderator)" : "Admin portal")}</td>
+                  <td>${p === "moderator" ? `${esc(reviews(n))} <button type="button" class="btn small" data-sectors="${esc(n)}" aria-label="${esc(`Edit the sectors ${n} reviews`)}">Edit sectors</button>` : p === "admin" ? "Every sector" : '<span class="rv-pp-muted">—</span>'}</td>
+                  <td class="rv-pp-col-actions">${k ? `<button type="button" class="btn small" data-view-as="${esc(k)}" aria-label="${esc(`View as ${n}`)}">View as</button>` : '<span class="rv-pp-muted">—</span>'}</td></tr>`) }) })}`;
+          m.querySelectorAll("[data-view-as]").forEach((b) => b.addEventListener("click", () => show(b.getAttribute("data-view-as"))));
+          m.querySelectorAll("[data-sectors]").forEach((b) => b.addEventListener("click", () => editSectors(b.getAttribute("data-sectors"))));
+        };
+        const editSectors = (n) => {
+          const cur = data.limits.get(n) || [];
+          const dr = openDrawer({ title: `Sectors ${n} reviews`, modal: true, doc: m.ownerDocument, host: m,
+            body: `<form class="rv-pp-form" data-ms><fieldset class="rv-sf-status"><legend>None ticked = every sector</legend>${ctx.mock.sectors.map((x) => `<label class="rv-sf-radio"><input type="checkbox" value="${esc(x.slug)}"${cur.includes(x.slug) ? " checked" : ""}> ${esc(x.name)}</label>`).join("")}</fieldset></form>`,
+            foot: '<button type="button" class="btn" data-x="cancel">Cancel</button><button type="button" class="btn primary" data-x="save">Save</button>' });
+          dr.foot.querySelector('[data-x="cancel"]').addEventListener("click", dr.close);
+          dr.foot.querySelector('[data-x="save"]').addEventListener("click", async () => {
+            const list = Array.from(dr.body.querySelectorAll("input[type=checkbox]:checked")).map((x) => x.value);
+            await as.setReviewerSectors(n, list);
+            dr.close(); draw(); toast(m, list.length ? `${n} reviews ${list.map(sectorName).join(", ")}.` : `${n} reviews every sector.`);
+          });
+        };
+        draw();
       });
     }
     main.innerHTML = '<p class="cw-muted">Nothing here.</p>';

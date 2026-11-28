@@ -110,16 +110,25 @@ describe("Moderation", () => {
     expect(rows.some((r) => r.textContent!.includes("Share Your Idea"))).toBe(true);
     expect($(".rv-pp-panel__head .rv-contribute-btn--header")).not.toBeNull();
   });
-  it("Approve as-is sends a Share Your Idea idea to the Admin (Publish requested); a Moderator never sees a Publish button", async () => {
+  // Phase B (migration 030; the demo's data has it): approving is its own step, then the Moderator sends the publishing request
+  it("Approve as-is makes a Share Your Idea idea Approved (blue); Send publish request to Admin makes it Publish requested; never a Publish button", async () => {
     const ids = await world(); fresh();
     await moderation(el, { adapter: data.as("moderator"), form: "#form", sector: "education" });
     await settle();
     expect($$("button").some((b) => /^Publish$/.test(b.textContent!.trim()))).toBe(false);
     await click(`[data-act="approve"][data-key="w-${ids.a}"]`);
+    expect((await mock.detail(ids.a)).item.status).toBe("approved");
+    const lastToast = () => Array.from(document.querySelectorAll(".rv-pp-toast")).at(-1)!.textContent;
+    expect(lastToast()).toMatch(/^Approved: .*Send the publishing request to an Admin/);
+    await click('[data-tab="approved"]');
+    expect($(`tr[data-row="w-${ids.a}"] .rv-pp-badge`).textContent).toBe("Approved");
+    expect($(`tr[data-row="w-${ids.a}"] [data-act="send"]`).textContent).toBe("Send publish request to Admin");
+    await click(`[data-act="send"][data-key="w-${ids.a}"]`);
     expect((await mock.detail(ids.a)).item.status).toBe("pending");
-    expect(document.querySelector(".rv-pp-toast")!.textContent).toMatch(/Approved and sent to an Admin/);
+    expect(lastToast()).toMatch(/Publishing request sent to an Admin/);
     await click('[data-tab="approved"]');
     expect($(`tr[data-row="w-${ids.a}"] .rv-pp-badge`).textContent).toBe("Publish requested");
+    expect($$("button").some((b) => /^Publish$/.test(b.textContent!.trim()))).toBe(false);
   });
   it("an idea with no category opens Edit & approve with the reason; the drawer shows the changes and approves", async () => {
     const ids = await world(); fresh();
@@ -133,12 +142,13 @@ describe("Moderation", () => {
     title.value = "Weeding robot open day for farmers"; title.dispatchEvent(new Event("input"));
     expect(Array.from(dr.querySelectorAll("[data-livediff] ins")).map((x) => x.textContent).join("")).toContain("for farmers");
     (dr.querySelector('input[name="cw-m-cat"]') as HTMLInputElement).click();
+    expect((dr.querySelector('[data-act="send"]') as HTMLButtonElement).textContent).toBe("Approve"); // the publishing request is the next step
     (dr.querySelector('[data-act="send"]') as HTMLButtonElement).click(); await settle();
     expect(document.querySelector(".rv-pp-drawer")).toBeNull();
     const item = (await mock.detail(ids.b)).item;
-    expect(item.status).toBe("pending");
+    expect(item.status).toBe("approved");
     expect(item.proposed.title).toBe("Weeding robot open day for farmers");
-    expect(item.history.at(-1).text).toMatch(/Edited vs original: Title, Category/);
+    expect(item.history.at(-1).text).toMatch(/^Approved with edits \(changed: Title, Category\)/);
   });
   it("Reject needs a reason (the button stays disabled until one is typed); the current form's Approve marks it verified", async () => {
     const ids = await world(); fresh();
@@ -304,7 +314,10 @@ describe("My Contributions, Overview, Sectors and the Audit Log", () => {
     await settle();
     expect($(".rv-pp-panel__title").textContent).toBe("Sector: Education");
     expect($('.rv-pp-panel a[href="/admin/moderation?sector=education&tab=pending"]')).not.toBeNull();
-    expect($$(".rv-pp-panel__head .btn").every((b) => (b as HTMLButtonElement).disabled)).toBe(true); // they come with the data update
+    // Phase B (the demo's data has migration 030): the sector's actions work (Education is in the middle of the list: it moves both ways)
+    expect($$(".rv-pp-panel__head .btn").map((b) => b.textContent)).toEqual(["Rename", "Move up", "Move down", "Card style", "Archive"]);
+    expect($$(".rv-pp-panel__head .btn").filter((b) => (b as HTMLButtonElement).disabled)).toEqual([]);
+    expect(($(".rv-pp-head .btn.primary") as HTMLButtonElement).disabled).toBe(false); // + Add sector
   });
   it("Audit Log: who, role, action, item, details, newest first, with a filter by kind", async () => {
     await audit(el, { adapter: data.as("admin") });

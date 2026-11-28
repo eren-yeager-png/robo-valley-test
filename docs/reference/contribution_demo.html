@@ -65,6 +65,11 @@
     [x] Sector Forms: grid "n fields · m suggestions" with an amber dot, "Sector form: <Sector>", + Add field (dialog), tabs Fields | Suggested fields with counts; fields table: order (drag or move up/down), name and slug, source badge (Admin, Suggested by member, Added by plugin), contributions, Active/Hidden switch, Contribute, Edit (drawer), Rename, Archive, Delete (blocked while contributions use it, never for a plugin's field)
     [x] Sector Forms: Suggested fields table (Suggested name, Suggested by, Reason, Sent): Approve and Edit & approve add the field at once (it is on the sector page with its button), Reject needs a reason; empty state "No suggestions waiting for this sector..."
     [x] Sample data everywhere: 5 sectors with 3-5 fields each (a suggested field, a plugin field, a long address, a wide table), at least 2 ideas in every status, feedback on rejected ones, a user for every role
+    [x] Data update (migration 030): Approve is its own step (status Approved, blue); an approved idea offers Send publish request to Admin, Back to draft and Reject; Publish Requests shows only what was sent
+    [x] Data update: fields have a status (Active, Hidden, Archived), a description and an icon; + Add field takes an editable link code; Archive keeps contributions (Restore brings it back); Delete asks first and only when nothing uses the field; a plugin's field is never deleted
+    [x] Data update: suggested fields are their own records: Approve / Edit & approve (name, link code, description) add the field with the Suggested by member badge; Reject needs a reason
+    [x] Data update: Admin > Sectors: + Add sector, Rename, Move up / down, Card style (icon, colour), Archive (refused while contributions there wait) and Restore
+    [x] Data update: Users & Roles: Edit sectors limits a moderator to some sectors (Moderation then shows only those); the Audit Log lists every approval, request, publication, rejection, field, suggestion, sector and role change
 -->
 <html lang="en">
 <head>
@@ -427,6 +432,10 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
   box-sizing: border-box; max-width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--rvp-input); border-radius: 8px;
   background: var(--rvp-surface); color: var(--rvp-fg); font: inherit; font-size: 14px;
 }
+/* radios and checkboxes keep their own size next to their words (the site's ".rv input { width: 100% }" in join.css would stretch them) */
+.rv-pp input[type="checkbox"], .rv-pp input[type="radio"], .rv-pp-drawer input[type="checkbox"], .rv-pp-drawer input[type="radio"] {
+  width: auto; max-width: none; min-height: 0; padding: 0; margin: 0; flex: 0 0 auto;
+}
 .rv-pp :focus-visible, .rv-pp-drawer :focus-visible, .rv .adm .rv-pp :focus-visible { outline: 3px solid var(--rvp-focus); outline-offset: 2px; }
 
 /* filters above a table */
@@ -597,6 +606,8 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 @media (max-width: 599.98px) { .rv-sg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 379.98px) { .rv-sg { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .rv-sg-card { transition: none; } .rv-sg-card:hover { transform: none; } }
+/* Contribution Portal (migration 030): the Approved step's badge in the review drawer (the demo; the app's is in cw-portal.css) */
+.rv-app .rv-s-approved { background: #dbeafe; color: #1e40af; }
 
 /* Admin area, styled with the RoboValley landing page's own design tokens (robovalley-home.css: --rh-*).
    It still reuses the .btn / form classes from ../join/join.css and ../login/login.css, so those variables are
@@ -770,6 +781,13 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
   .rv .adm-card.stat .val{font-size:1.7rem}
   .rv .adm-note.setup a{margin-left:0}
 }
+/* Users & Roles (Contribution Portal, migration 030): the sectors a moderator reviews */
+.rv .adm .rv-ms { margin-top: 8px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.rv .adm .rv-ms-list { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 0; display: flex; flex-direction: column; gap: 4px; max-width: 320px; }
+.rv .adm .rv-ms-list legend { font-size: .8rem; font-weight: 700; padding: 0 4px; }
+.rv .adm .rv-ms-item { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; font-size: .85rem; text-align: left; }
+.rv .adm .rv-ms-item input[type=checkbox] { width: auto; min-width: 0; height: auto; min-height: 0; margin: 0; flex: 0 0 auto; }
+.rv .adm .rv-ms-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 
 /* RoboValley contribution workflow inside the admin portal (Moderator Workspace, Admin Approval Dashboard, Publish Preview).
    Scoped under .rv .adm like every admin page, using admin.css's colours (--brand, --line, --muted ...). No Bootstrap.
@@ -846,6 +864,8 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 .rv .adm .rv-s-changes { background: #fce7f3; color: #9d174d; } .rv .adm .rv-s-publishing { background: #dbeafe; color: #1e40af; }
 .rv .adm .rv-s-published { background: #dcfce7; color: #166534; } .rv .adm .rv-s-failed, .rv .adm .rv-s-rejected { background: #fee2e2; color: #991b1b; }
 .rv .adm .rv-s-unpublished { background: #ede9fe; color: #5b21b6; }
+/* Contribution Portal (migration 030): a Moderator approved it, the publishing request is its own step (blue, as the portal's badge) */
+.rv .adm .rv-s-approved { background: #dbeafe; color: #1e40af; }
 /* the reason dialog and the Publish Preview modal */
 .rv .adm .rv-dlg-bg, .rv .adm .cw-modal-bg { position: fixed; inset: 0; background: rgba(15, 23, 42, .55); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
 .rv .adm .rv-dlg { background: #fff; border-radius: 16px; width: min(520px, 100%); padding: 18px; box-shadow: var(--shadow); }
@@ -875,7 +895,7 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; backgro
 </header>
 <main class="demo-wrap"><div data-portals></div></main>
 <script>
-/* RoboValley contribution workflow - GENERATED by scripts/build-contribution-workflow.mjs from public/cw/js (lists.js, utils.js, rules.js, api.js, card.js, form.js, moderator.js, admin.js, site.js, dialog.js, review.js, preview.js, fields.js, sector.js, portal-status.js, portal-ui.js, sector-grid.js, portal-api.js, mine.js, contribute-modal.js, sectors.js, moderation.js, requests.js, sector-forms.js, overview.js, sectors-admin.js, audit.js, demo-portal.js, demo-portals.js, demo-seed.js). Do not edit. */
+/* RoboValley contribution workflow - GENERATED by scripts/build-contribution-workflow.mjs from public/cw/js (lists.js, utils.js, rules.js, api.js, card.js, portal-rules.js, form.js, moderator.js, admin.js, site.js, dialog.js, review.js, preview.js, fields.js, sector.js, portal-status.js, portal-ui.js, sector-grid.js, portal-api.js, mine.js, contribute-modal.js, sectors.js, moderation.js, requests.js, sector-forms.js, overview.js, sectors-admin.js, audit.js, demo-portal.js, demo-portals.js, demo-seed.js). Do not edit. */
 (function () {
 "use strict";
 var __mods = {}, __cache = {};
@@ -1660,6 +1680,60 @@ function renderPreviewDocument(r) {
 }
 Object.assign(exports, { renderPublicCard, renderListedCard, renderPreviewDocument });
 });
+__def("portal-rules.js", function (exports, __req) {
+// Contribution Portal: the extra step on top of the workflow's ONE transition function (rules.js nextStatus, which the WordPress plugin
+// bundles too and so stays exactly as it is). With migration 030 a Moderator's approval is its own step:
+//   approve        a Moderator approves an idea, as it is or edited: Submitted / Under review / Draft / Changes requested -> Approved
+//   send_request   from Approved: the publishing request goes to an Admin -> Pending Admin Approval (Resubmitted after an earlier
+//                  version), exactly as rules.js sends one from the review states (that one-step path stays allowed)
+//   save_draft / reset   from Approved: back to the Moderator's draft (the approval is undone)
+//   decline        from Approved: Rejected (with the reason)
+// Only Admins publish; Approved is never public. Every other action and status is rules.js's own answer. The app's server
+// (src/lib/cw/store.ts) and the demo's in-memory data (demo-portal.js) both ask this function, so they cannot disagree.
+const { mineStatus, nextStatus } = __req("rules.js");
+const { MINE_LABEL, STATUS } = __req("lists.js");
+
+const APPROVED = "approved";
+const APPROVED_LABEL = "Approved by Moderator";
+/** The actions this module adds to the Moderator's list (rules.js MODERATOR_ACTIONS). */
+const PORTAL_ACTIONS = ["approve"];
+const FROM_REVIEW = [STATUS.SUBMITTED, STATUS.REVIEW, STATUS.DRAFT, STATUS.CHANGES];
+
+/** May a Moderator approve an idea in this status? */
+const canApprove = (status) => FROM_REVIEW.includes(status);
+
+/** rules.js nextStatus, plus the Approved step. c = { status, versions, publishedVersion, live }. */
+function portalNextStatus(action, c) {
+  const st = c.status, versions = Number(c.versions) || 0;
+  const ok = (to) => ({ ok: true, to }), no = { ok: false };
+  if (action === "approve") return canApprove(st) ? ok(APPROVED) : no;
+  if (st === APPROVED) {
+    switch (action) {
+      case "open": return ok(APPROVED);
+      case "send_request": return ok(versions > 0 ? STATUS.RESUBMITTED : STATUS.PENDING);
+      case "save_draft":
+      case "reset": return ok(STATUS.DRAFT);
+      case "decline": return ok(STATUS.REJECTED);
+      default: return no;
+    }
+  }
+  return nextStatus(action, c);
+}
+
+/** The history line of an approval (rules.js history has the rest). `changed`: the labels of the fields that differ from the original. */
+const portalHistory = {
+  approved: (changed) => (changed.length
+    ? `Approved with edits (changed: ${changed.join(", ")}). The publishing request to an Admin is sent separately.`
+    : "Approved as-is, no changes to the original. The publishing request to an Admin is sent separately."),
+};
+
+/** "My Contributions": what a member sees (rules.js mineStatus), with the Approved step shown as "Approved" too. */
+const portalMineStatus = (source, status) => (source === "workflow" && status === APPROVED ? { key: "approved", label: MINE_LABEL.approved } : mineStatus(source, status));
+
+/** The internal label of a status, Approved included (lists.js STATUS_LABEL has the rest). */
+const portalStatusLabel = (status, labels = {}) => (status === APPROVED ? APPROVED_LABEL : labels[status] ?? String(status));
+Object.assign(exports, { APPROVED, APPROVED_LABEL, PORTAL_ACTIONS, canApprove, portalNextStatus, portalHistory, portalMineStatus, portalStatusLabel });
+});
 __def("form.js", function (exports, __req) {
 // Contribution workflow: the contributor's "Share Your Idea" form (WordPress page, shortcode [rv_contribution_form], and the demo).
 // Same fields, labels, order and messages as the demo. Name and type come from the signed-in profile and are read-only. Sector is
@@ -1915,6 +1989,7 @@ const { CATEGORIES, EARN, LEVELS, MESSAGES, MOD_FILTERS, NOT_SURE, NOT_SURE_LABE
 const { canModeratorEdit, isModified } = __req("rules.js");
 const { RestAdapter } = __req("api.js");
 const { askReason } = __req("dialog.js");
+const { APPROVED } = __req("portal-rules.js");
 const { attachmentHtml, badge, decisionHtml, fieldsHtml, historyHtml, lastDecision, lastFeedback, notice, requestHtml } = __req("review.js");
 
 const INTRO = "Verify each idea. If it is good as it is, send it to Admin unchanged. If it needs improvement, edit it first, including category, suitable for and path. The original submission is always kept. Moderators cannot publish.";
@@ -1924,8 +1999,10 @@ const REVIEW_LABELS = {
 };
 
 /**
- * The review of ONE idea, drawn into `d`. ctx = { adapter, sectors, item, labels?, diff?, onChanged?(item, action, result) }.
+ * The review of ONE idea, drawn into `d`. ctx = { adapter, sectors, item, labels?, diff?, approve?, onChanged?(item, action, result) }.
  * `diff`: also show the changes to the title and description against the original while typing (Moderation's drawer).
+ * `approve` (migration 030): the main button approves the idea (as-is or edited) instead of sending the publishing request at once; an
+ * approved idea then offers "Send publish request to Admin" (and Back to draft, Reject).
  */
 function reviewPanel(d, ctx) {
   const adapter = ctx.adapter;
@@ -1960,6 +2037,7 @@ function reviewPanel(d, ctx) {
 
   function draw() {
     const editable = canModeratorEdit(it.status), dis = editable ? "" : " disabled", ro = editable ? "" : " readonly";
+    const approved = it.status === APPROVED;
     const fb = lastFeedback(it, "changes"), rej = lastDecision(it), latest = lastFeedback(it);
     const minor = it.contributor.minor === true;
     const p = it.proposed;
@@ -1971,6 +2049,7 @@ function reviewPanel(d, ctx) {
       ${it.status === STATUS.CHANGES && fb ? notice("warn", `<b>Admin requested changes:</b> ${esc(fb.text)}<br><span class="cw-muted">${esc(fb.by)} · ${esc(fmtDate(fb.at))}</span>`) : ""}
       ${editable && latest && latest.type === "reopen" ? notice("warn", `<b>Reopened by Admin:</b> ${esc(latest.text)}<br><span class="cw-muted">${esc(latest.by)} · ${esc(fmtDate(latest.at))}</span>`) : ""}
       ${[STATUS.PENDING, STATUS.RESUBMITTED].includes(it.status) ? notice("info", "Publishing request is with Admin. You can't edit it until Admin responds.") : ""}
+      ${approved ? notice("info", "Approved by a Moderator. It is not public: send the publishing request to an Admin, or take it back to the draft to change it.") : ""}
       ${it.status === STATUS.PUBLISHED ? notice("ok", `Published by Admin on ${esc(fmtDate(it.publishedAt))}.`) : ""}
       ${it.status === STATUS.UNPUBLISHED ? notice("info", "Unpublished by Admin: it is no longer on the public website.") : ""}
       ${it.status === STATUS.REJECTED ? notice("err", rej ? decisionHtml(rej) : "Rejected.") : ""}
@@ -2001,6 +2080,11 @@ function reviewPanel(d, ctx) {
         <button type="button" class="btn danger" data-act="decline">${esc(labels.decline)}</button>
       </div>
       <p class="cw-muted">${esc(labels.hint)}</p>` : ""}
+      ${approved ? `<div class="cw-actions">
+        <button type="button" class="btn primary" data-act="request">${esc(labels.request || "Send publish request to Admin")}</button>
+        <button type="button" class="btn" data-act="redraft">Back to draft</button>
+        <button type="button" class="btn danger" data-act="decline">${esc(labels.decline)}</button>
+      </div>` : ""}
       <div data-msg aria-live="polite"></div>
       <h4 class="cw-h4">Activity history</h4>${historyHtml(it)}
     </article>`;
@@ -2013,7 +2097,7 @@ function reviewPanel(d, ctx) {
     robots();
     $(d, "#cw-m-sector").addEventListener("change", robots);
     if (ctx.diff) ["#cw-m-title", "#cw-m-desc"].forEach((sel) => $(d, sel).addEventListener("input", () => { $(d, "[data-livediff]").innerHTML = diffHtml(); }));
-    if (!editable) return;
+    if (!editable && !approved) return;
     const run = async (action, extra, after) => {
       $$(d, "[data-act]").forEach((b) => { b.disabled = true; });
       try {
@@ -2027,13 +2111,21 @@ function reviewPanel(d, ctx) {
         await fail(e);
       }
     };
+    const declineBtn = $(d, '[data-act="decline"]');
+    declineBtn.addEventListener("click", async () => {
+      const reason = await askReason({ title: labels.decline, label: "Reason for declining this idea (recorded in history)", confirmText: labels.decline });
+      if (reason) run("decline", approved ? { reason } : { ...readForm(), reason });
+    });
+    if (approved) {
+      $(d, '[data-act="request"]').addEventListener("click", () => run("send_request", { proposed: it.proposed, notes: it.notes }, (r) => notice("ok", `Request sent to Admin. Status: <b>${esc(r.item.statusLabel)}</b>. It is still not public.`)));
+      $(d, '[data-act="redraft"]').addEventListener("click", () => run("save_draft", { proposed: it.proposed, notes: it.notes }, () => notice("ok", "Back in the draft: the approval is undone.")));
+      return;
+    }
     $(d, '[data-act="save"]').addEventListener("click", () => run("save_draft", readForm(), () => notice("ok", esc(MESSAGES.draftSaved))));
     $(d, '[data-act="reset"]').addEventListener("click", () => run("reset", {}));
-    $(d, '[data-act="send"]').addEventListener("click", () => run("send_request", readForm(), (r) => notice("ok", `Request sent to Admin. Status: <b>${esc(r.item.statusLabel)}</b>. It is still not public.`)));
-    $(d, '[data-act="decline"]').addEventListener("click", async () => {
-      const reason = await askReason({ title: labels.decline, label: "Reason for declining this idea (recorded in history)", confirmText: labels.decline });
-      if (reason) run("decline", { ...readForm(), reason });
-    });
+    $(d, '[data-act="send"]').addEventListener("click", () => (ctx.approve
+      ? run("approve", readForm(), () => notice("ok", "Approved. It is not public: send the publishing request to an Admin when it is ready."))
+      : run("send_request", readForm(), (r) => notice("ok", `Request sent to Admin. Status: <b>${esc(r.item.statusLabel)}</b>. It is still not public.`))));
   }
 
   draw();
@@ -2383,11 +2475,13 @@ Object.assign(exports, { askReason, askConfirm, askText });
 });
 __def("review.js", function (exports, __req) {
 // Contribution workflow: pieces shared by the Moderator Workspace and the Admin Approval Dashboard (both inside the admin portal).
+const { APPROVED, portalStatusLabel } = __req("portal-rules.js");
 const { esc, fmtDate } = __req("utils.js");
 const { FIELDS, FIELD_LABELS, STATUS_CLASS, STATUS_LABEL } = __req("lists.js");
 const { robotLabel, sectorLabel } = __req("rules.js");
 
-const badge = (status) => `<span class="rv-badge ${STATUS_CLASS[status] || ""}">${esc(STATUS_LABEL[status] || status)}</span>`;
+// "approved" (a Moderator approved it; the publishing request is its own step, migration 030) is the Contribution Portal's status
+const badge = (status) => `<span class="rv-badge ${status === APPROVED ? "rv-s-approved" : STATUS_CLASS[status] || ""}">${esc(portalStatusLabel(status, STATUS_LABEL))}</span>`;
 const notSet = '<span class="cw-muted">Not set</span>';
 
 /** A field's value as text (sector and robot type by name, lists joined); "" when empty. */
@@ -3071,6 +3165,8 @@ __def("portal-api.js", function (exports, __req) {
 //   sectorForms(sector)       Sector Forms: every sector's numbers, one sector's fields and the suggested fields (admins)
 //   addField / changeField    add a field (robot type) / rename, switch on or off, move up or down (the existing admin routes)
 //   auditLog(query)           the Audit Log (admins)
+//   Contribution Portal, migration 030 (admins): deleteField (only an unused field), decideSuggestion (approve / reject a suggested field),
+//   addSector / changeSector (Admin > Sectors), setReviewerSectors (Users & Roles: the sectors a moderator reviews)
 const { RestAdapter } = __req("api.js");
 
 const q = (o) => {
@@ -3091,6 +3187,15 @@ class PortalRest extends RestAdapter {
     return this.call(`/api/admin/sector-forms/${encodeURIComponent(sector)}/robots/${encodeURIComponent(id)}`,
       { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(change) });
   }
+  deleteField(sector, id) {
+    return this.call(`/api/admin/sector-forms/${encodeURIComponent(sector)}/robots/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+  decideSuggestion(id, body) { return this.post(`/api/admin/portal/field-suggestions/${encodeURIComponent(id)}`, body); }
+  addSector(body) { return this.post("/api/admin/sectors", body); }
+  changeSector(slug, change) {
+    return this.call(`/api/admin/sectors/${encodeURIComponent(slug)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(change) });
+  }
+  setReviewerSectors(userId, sectors) { return this.post("/api/admin/moderators/sectors", { userId, sectors }); }
   auditLog(query = {}) { return this.call(`/api/admin/audit-log${q(query)}`); }
   sectorCounts() { return this.call("/api/admin/sector-counts"); }
 }
@@ -3368,7 +3473,8 @@ __def("moderation.js", function (exports, __req) {
 // panel "Contributors for <Sector>" with status tabs and counts (All | Pending review | Approved | Rejected | Published) and one table
 // for BOTH kinds of contributions: Title | Contributor | Status | Sent | Actions.
 //   Share Your Idea, pending review: [Approve as-is] [Edit & approve] (side drawer: title, description and the rest, with the changes
-//     against the original) [Reject] (a reason is required). Approving sends the publishing request to an Admin; a Moderator never
+//     against the original) [Reject] (a reason is required). With migration 030 approving is its own step (status Approved, blue) and
+//     an approved row offers [Send publish request to Admin]; before 030 approving sends the request at once. A Moderator never
 //     publishes. Other rows: [View] (the same review, read-only).
 //   Current form, pending review: [Approve as-is] (marks it verified, so it waits for an Admin) [Reject] (reason required)
 //     [View form]. These items are only ever edited by their contributor, so there is no Edit.
@@ -3391,6 +3497,12 @@ const DRAWER_LABELS = {
   send: "Approve and send to Admin", save: "Save draft", reset: "Reset to original", decline: "Reject",
   hint: "Approving sends this version to an Admin, who previews it and publishes it. Moderators never publish.",
 };
+/** The drawer once approving is its own step (migration 030). */
+const DRAWER_LABELS_APPROVE = {
+  ...DRAWER_LABELS, send: "Approve", request: "Send publish request to Admin",
+  hint: "Approving does not publish anything: you send the publishing request to an Admin next. Moderators never publish.",
+};
+const twoSteps = (d) => Boolean(d && d.features && d.features.approvedStep);
 const SOURCE = { workflow: "Share Your Idea", form: "Current form" };
 
 async function mount(el, opts = {}) {
@@ -3526,13 +3638,21 @@ async function mount(el, opts = {}) {
       if (what === "approve") {
         busy(true);
         const it = (await adapter.detail(r.id)).item;
+        const two = twoSteps(st.data);
         try {
-          await adapter.act(r.id, "send_request", { rowVersion: it.rowVersion, proposed: it.proposed, notes: it.notes });
+          await adapter.act(r.id, two ? "approve" : "send_request", { rowVersion: it.rowVersion, proposed: it.proposed, notes: it.notes });
         } catch (e) {
           if (e && e.status === 400) { busy(false); return openReview(r, e.message); } // e.g. a category is needed first: open the editor with the reason
           throw e;
         }
-        toast(el, `Approved and sent to an Admin: "${r.title}". It is not public yet.`);
+        toast(el, two ? `Approved: "${r.title}". Send the publishing request to an Admin when it is ready.` : `Approved and sent to an Admin: "${r.title}". It is not public yet.`);
+        return refresh();
+      }
+      if (what === "send") {
+        busy(true);
+        const it = (await adapter.detail(r.id)).item;
+        await adapter.act(r.id, "send_request", { rowVersion: it.rowVersion, proposed: it.proposed, notes: it.notes });
+        toast(el, `Publishing request sent to an Admin: "${r.title}". It is not public yet.`);
         return refresh();
       }
       if (what === "reject") {
@@ -3559,10 +3679,12 @@ async function mount(el, opts = {}) {
     try {
       item = editing ? (await adapter.act(r.id, "open", {})).item : (await adapter.detail(r.id)).item;
     } catch (e) { dr.body.innerHTML = noticeHtml("err", esc((e && e.message) || "This contribution could not be opened.")); return; }
+    const two = twoSteps(st.data);
     reviewPanel(dr.body, {
-      adapter, sectors: st.sectors, item, labels: DRAWER_LABELS, diff: editing,
+      adapter, sectors: st.sectors, item, labels: two ? DRAWER_LABELS_APPROVE : DRAWER_LABELS, diff: editing, approve: two,
       onChanged: async (it2, action) => {
-        if (action === "send_request") { toast(el, `Approved and sent to an Admin: "${it2.proposed.title}". It is not public yet.`); dr.close(); }
+        if (action === "send_request") { toast(el, two ? `Publishing request sent to an Admin: "${it2.proposed.title}". It is not public yet.` : `Approved and sent to an Admin: "${it2.proposed.title}". It is not public yet.`); dr.close(); }
+        if (action === "approve") { toast(el, `Approved: "${it2.proposed.title}". Send the publishing request to an Admin when it is ready.`); dr.close(); }
         if (action === "decline") { toast(el, `Rejected: "${it2.original.title}".`); dr.close(); }
       },
     });
@@ -3572,7 +3694,7 @@ async function mount(el, opts = {}) {
   if (await load()) render();
   return { refresh };
 }
-Object.assign(exports, { TITLE, DESC, PANEL_SUB, EMPTY, PAGE_SIZE, DRAWER_LABELS, mount });
+Object.assign(exports, { TITLE, DESC, PANEL_SUB, EMPTY, PAGE_SIZE, DRAWER_LABELS, DRAWER_LABELS_APPROVE, mount });
 });
 __def("requests.js", function (exports, __req) {
 // Contribution Portal: Publish Requests (Admins only; the app's /admin/approvals and the demo). The Admin Approval Dashboard merged
@@ -3726,13 +3848,17 @@ __def("sector-forms.js", function (exports, __req) {
 // 1 suggestion", an amber dot while suggestions wait), and the selected sector's panel "Sector form: <Sector>" with "+ Add field" and
 // two tabs with count badges: Fields and Suggested fields (amber while any wait). Questions (up to five per sector) keep their own page.
 //   Fields (a table, 64px rows): drag handle | name + slug | where it came from (Admin grey, Suggested by member indigo, Added by plugin
-//   amber) | contributions | Active/Hidden switch | Edit, Rename, Archive, Delete; Move up / Move down by keyboard; every field keeps its
-//   Contribute button. Delete is never possible while contributions use a field (Archive instead), and a plugin's field is never
-//   deleted by anyone. Archive and Delete, descriptions, icons and editable link codes need the data update (Phase B).
+//   amber with the plugin's name) | contributions | Active/Hidden switch | Edit, Rename, Archive, Delete; Move up / Move down by keyboard;
+//   every field keeps its Contribute button. Delete is never possible while a contribution uses a field (Archive instead), and a
+//   plugin's field is never deleted by anyone (the server and the database refuse too).
+//   With the data update (migration 030, data.features.fieldsData): "+ Add field" takes the link code (made from the name, editable),
+//   a description, an icon and the status; Edit (a side drawer) changes the name, description and icon; Archive keeps every
+//   contribution and takes the field out of every list members see (Restore brings it back); Delete asks first. Before 030 those
+//   parts are disabled and say why.
 //   Suggested fields: Suggested name | Suggested by | Reason | Sent | [Approve] [Edit & approve] [Reject] (reason required). Approving
-//   adds the field at once: it appears on the sector page with its Contribute button.
+//   adds the field at once ("Suggested by member"): it appears on the sector page with its Contribute button.
 const { esc } = __req("utils.js");
-const { askReason, askText } = __req("dialog.js");
+const { askConfirm, askReason, askText } = __req("dialog.js");
 const { contributeHref, headerButtonHtml } = __req("sector.js");
 const { bindSectorGrid, plural, sectorGridHtml } = __req("sector-grid.js");
 const { bindTabs, noticeHtml, openDrawer, pageHeader, panelHtml, sentHtml, slugHtml, sourceBadge, statusBadge, tableHtml, tabsHtml, toast } = __req("portal-ui.js");
@@ -3743,8 +3869,8 @@ const DESC = "Manage the fields (robot types) members pick from, and review fiel
 const PANEL_SUB = "The fields (robot types) members pick from, and the fields members suggested.";
 const NO_FIELDS = "No fields yet. Add the first field for this sector.";
 const NO_SUGGESTIONS = "No suggestions waiting for this sector. Approved fields appear on the sector page at once, with their Contribute button.";
-const LATER = "This comes with the data update (Phase B).";
-const slugOf = (s) => String(s ?? "").toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+const LATER = "This comes with the data update (migration 030).";
+const slugOf = (s) => String(s ?? "").normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
 
 async function mount(el, opts = {}) {
   const adapter = opts.adapter || new PortalRest(opts.base || "");
@@ -3762,25 +3888,34 @@ async function mount(el, opts = {}) {
     return true;
   }
   const fields = () => (st.data && st.data.fields) || [];
+  const liveFields = () => fields().filter((f) => f.status !== "archived");
   const suggestions = () => (st.data && st.data.suggestions) || [];
+  const full = () => Boolean(st.data && st.data.features && st.data.features.fieldsData);
 
   function fieldRow(f, i, n) {
+    const archived = f.status === "archived";
     const usedBy = f.contributions > 0 ? `Can't delete: ${plural(f.contributions, "contribution")} use${f.contributions === 1 ? "s" : ""} this field. Archive it instead.` : "";
-    const delTip = f.source === "plugin" ? `Managed by ${f.pluginName || "a plugin"}: it can only be hidden or archived.` : usedBy || LATER;
-    return `<tr data-field="${f.id}" draggable="true">
+    const delTip = full() ? f.deleteBlock || "" : f.source === "plugin" ? `Managed by ${f.pluginName || "a plugin"}: it can only be hidden or archived.` : usedBy || LATER;
+    const canDelete = full() && f.deletable === true;
+    const status = archived ? '<span class="rv-pp-tag">Archived</span>'
+      : `<button type="button" class="rv-sf-switch${f.active ? " is-on" : ""}" role="switch" aria-checked="${f.active}" data-toggle="${f.id}" aria-label="${esc(`${f.name}: ${f.active ? "Active" : "Hidden"}`)}"><span class="rv-sf-knob" aria-hidden="true"></span>${f.active ? "Active" : "Hidden"}</button>`;
+    const archiveBtn = !full() ? `<button type="button" class="btn small" disabled title="${esc(`Archiving keeps every contribution. ${LATER}`)}">Archive</button>`
+      : archived ? `<button type="button" class="btn small" data-restore="${f.id}" aria-label="${esc(`Restore ${f.name}`)}">Restore</button>`
+        : `<button type="button" class="btn small" data-archive="${f.id}" aria-label="${esc(`Archive ${f.name} (its contributions stay)`)}">Archive</button>`;
+    return `<tr data-field="${f.id}" draggable="true"${archived ? ' class="is-archived"' : ""}>
       <td class="rv-sf-handle"><span class="rv-sf-grip" aria-hidden="true" title="Drag to reorder">⠿</span><span class="rv-sf-move">
         <button type="button" class="btn small" data-move="up" data-id="${f.id}" aria-label="${esc(`Move ${f.name} up`)}"${i === 0 ? " disabled" : ""}>↑</button>
         <button type="button" class="btn small" data-move="down" data-id="${f.id}" aria-label="${esc(`Move ${f.name} down`)}"${i === n - 1 ? " disabled" : ""}>↓</button></span></td>
-      <td class="rv-pp-col-title"><b>${esc(f.name)}</b>${slugHtml(f.slug)}</td>
+      <td class="rv-pp-col-title"><b>${f.icon ? `<span aria-hidden="true">${esc(f.icon)}</span> ` : ""}${esc(f.name)}</b>${slugHtml(f.slug)}${f.description ? `<span class="rv-pp-sub">${esc(f.description)}</span>` : ""}</td>
       <td>${sourceBadge(f.source, f.pluginName)}</td>
       <td class="rv-pp-col-num">${f.contributions.toLocaleString("en-IN")}</td>
-      <td><button type="button" class="rv-sf-switch${f.active ? " is-on" : ""}" role="switch" aria-checked="${f.active}" data-toggle="${f.id}" aria-label="${esc(`${f.name}: ${f.active ? "Active" : "Hidden"}`)}"><span class="rv-sf-knob" aria-hidden="true"></span>${f.active ? "Active" : "Hidden"}</button></td>
+      <td>${status}</td>
       <td class="rv-pp-col-actions"><div class="rv-pp-rowact">
         <a class="btn small rv-field-contribute" href="${esc(contributeHref(form, { sector: st.sector, field: f.slug, returnTo: here() }))}" aria-label="${esc(`Contribute to ${f.name}`)}">Contribute</a>
         <button type="button" class="btn small" data-edit="${f.id}">Edit</button>
         <button type="button" class="btn small" data-rename="${f.id}">Rename</button>
-        <button type="button" class="btn small" disabled title="${esc(f.source === "plugin" ? LATER : `Archiving keeps every contribution. ${LATER}`)}">Archive</button>
-        <button type="button" class="btn small danger" disabled title="${esc(delTip)}" aria-label="${esc(`Delete ${f.name} (${delTip})`)}">Delete</button></div></td></tr>`;
+        ${archiveBtn}
+        <button type="button" class="btn small danger"${canDelete ? ` data-delete="${f.id}" aria-label="${esc(`Delete ${f.name}`)}"` : ` disabled title="${esc(delTip)}" aria-label="${esc(`Delete ${f.name} (${delTip})`)}"`}>Delete</button></div></td></tr>`;
   }
   function fieldsHtml() {
     const list = fields();
@@ -3802,8 +3937,8 @@ async function mount(el, opts = {}) {
   function render() {
     const d = st.data, s = d.sector;
     const cards = d.sectors.map((x) => ({
-      slug: x.slug, name: x.name, meta: `${plural(x.fields, "field")} · ${plural(x.suggestions, "suggestion")}`,
-      dot: x.suggestions > 0, dotLabel: `${plural(x.suggestions, "suggestion")} waiting`, chip: x.active ? "" : "Not on the form",
+      slug: x.slug, name: x.name, icon: x.icon || undefined, meta: `${plural(x.fields, "field")} · ${plural(x.suggestions, "suggestion")}`,
+      dot: x.suggestions > 0, dotLabel: `${plural(x.suggestions, "suggestion")} waiting`, chip: x.archived ? "Archived" : x.active ? "" : "Not on the form",
     }));
     const nS = suggestions().length;
     el.innerHTML = `${pageHeader({ title: TITLE, desc: DESC, id: "rv-sf-h" })}
@@ -3812,7 +3947,7 @@ async function mount(el, opts = {}) {
         heading: `Sector form: ${s.name}`, sub: PANEL_SUB, id: "rv-sf-panel-h",
         actions: `${headerButtonHtml(contributeHref(form, { sector: s.slug, returnTo: here() }))}<button type="button" class="btn primary" data-add${d.robotsReady === false ? " disabled" : ""}>+ Add field</button>`,
         body: `${s.active ? "" : noticeHtml("info", "This sector is not offered on the Contribute form right now. You can still prepare its fields.")}
-          ${tabsHtml([["fields", "Fields", fields().length], ["suggested", "Suggested fields", nS, nS ? "amber" : ""]], st.tab, { label: "Sector form", controls: "rv-sf-tab" })}
+          ${tabsHtml([["fields", "Fields", liveFields().length], ["suggested", "Suggested fields", nS, nS ? "amber" : ""]], st.tab, { label: "Sector form", controls: "rv-sf-tab" })}
           <div id="rv-sf-tab" role="tabpanel" aria-labelledby="rv-pp-tab-${st.tab}" data-tabpanel>${st.tab === "fields" ? fieldsHtml() : suggestionsHtml()}</div>
           ${d.questionsOn !== null && d.questionsOn !== undefined && opts.questionsPath ? `<p class="rv-pp-desc">Questions on this sector's form: ${d.questionsOn} of 5. <a href="${esc(`${opts.questionsPath}/${encodeURIComponent(s.slug)}`)}">Edit the questions</a></p>` : ""}
           <div data-msg aria-live="polite"></div>`,
@@ -3858,9 +3993,26 @@ async function mount(el, opts = {}) {
       if (!name || name === f.name) return;
       await once(b, async () => { await adapter.changeField(st.sector, f.id, { name }); toast(el, `Renamed to ${name}.`); await refresh(); });
     }));
+    el.querySelectorAll("[data-archive]").forEach((b) => b.addEventListener("click", async () => {
+      const f = byId(b.getAttribute("data-archive"));
+      const yes = await askConfirm({ title: `Archive ${f.name}?`, text: `Members no longer see "${f.name}" on the form or the sector page. ${plural(f.contributions, "contribution")} that chose it keep it, and you can restore it at any time.`, confirmText: "Archive", tone: "primary" });
+      if (!yes) return;
+      await once(b, async () => { await adapter.changeField(st.sector, f.id, { status: "archived" }); toast(el, `Archived ${f.name}. Its contributions stay.`); await refresh(); });
+    }));
+    el.querySelectorAll("[data-restore]").forEach((b) => b.addEventListener("click", () => once(b, async () => {
+      const f = byId(b.getAttribute("data-restore"));
+      await adapter.changeField(st.sector, f.id, { status: "active" });
+      toast(el, `Restored ${f.name}: members can pick it again.`); await refresh();
+    })));
+    el.querySelectorAll("[data-delete]").forEach((b) => b.addEventListener("click", async () => {
+      const f = byId(b.getAttribute("data-delete"));
+      const yes = await askConfirm({ title: `Delete ${f.name}?`, text: `No contribution uses "${f.name}", so it can be deleted. This cannot be undone: its link code "${f.slug}" stops working.`, confirmText: "Delete" });
+      if (!yes) return;
+      await once(b, async () => { await adapter.deleteField(st.sector, f.id); toast(el, `Deleted ${f.name}.`); await refresh(); });
+    }));
     el.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => editField(byId(b.getAttribute("data-edit")))));
-    el.querySelectorAll("[data-approve], [data-edit-approve]").forEach((b) => b.addEventListener("click", () => approve(b.getAttribute("data-approve") || b.getAttribute("data-edit-approve"), b.hasAttribute("data-edit-approve"))));
-    el.querySelectorAll("[data-reject]").forEach((b) => b.addEventListener("click", () => reject(b.getAttribute("data-reject"))));
+    el.querySelectorAll("[data-approve], [data-edit-approve]").forEach((b) => b.addEventListener("click", () => approve(b.getAttribute("data-approve") || b.getAttribute("data-edit-approve"), b.hasAttribute("data-edit-approve"), b)));
+    el.querySelectorAll("[data-reject]").forEach((b) => b.addEventListener("click", () => reject(b.getAttribute("data-reject"), b)));
     // drag to reorder: the row moves one place at a time through the same "move up / down" the buttons use
     el.querySelectorAll("tr[data-field]").forEach((tr) => {
       tr.addEventListener("dragstart", (e) => { st.drag = tr.getAttribute("data-field"); tr.classList.add("is-dragging"); if (e.dataTransfer) e.dataTransfer.effectAllowed = "move"; });
@@ -3878,56 +4030,122 @@ async function mount(el, opts = {}) {
     });
   }
 
+  /** The field form: Add (f = null) or Edit. With 030: an editable link code when adding, a description, an icon and the status. */
   function fieldFormHtml(f) {
+    const on = full();
+    const later = on ? "" : ' disabled aria-describedby="rv-sf-later"';
     return `<form class="rv-pp-form" data-fieldform novalidate>
       <label>Name<input name="name" maxlength="80" required value="${esc(f ? f.name : "")}" autocomplete="off"><span class="rv-pp-hint">As on the robot card on the sector page.</span></label>
-      <label>Link code (slug)<input name="slug" maxlength="60" value="${esc(f ? f.slug : "")}" readonly aria-describedby="rv-sf-slug-h"><span class="rv-pp-hint" id="rv-sf-slug-h">${f ? "Never changes, so links keep working." : "Made from the name; unique in this sector."} Editing it comes with the data update (Phase B).</span></label>
-      <label>Description<textarea name="description" rows="3" disabled aria-describedby="rv-sf-later"></textarea></label>
-      <label>Icon<input name="icon" maxlength="4" disabled aria-describedby="rv-sf-later"></label>
+      <label>Link code (slug)<input name="slug" maxlength="60" value="${esc(f ? f.slug : "")}"${f || !on ? " readonly" : ""} aria-describedby="rv-sf-slug-h" autocomplete="off" spellcheck="false"><span class="rv-pp-hint" id="rv-sf-slug-h">${f ? "Never changes, so links keep working." : on ? "Made from the name; you can change it now. Unique in this sector, and it never changes once added." : `Made from the name; unique in this sector. Editing it ${LATER.toLowerCase()}`}</span></label>
+      <label>Description<textarea name="description" rows="3" maxlength="500"${later}>${esc(f ? f.description || "" : "")}</textarea></label>
+      <label>Icon<input name="icon" maxlength="8" value="${esc(f ? f.icon || "" : "")}" placeholder="e.g. 🤖"${later}><span class="rv-pp-hint">A short symbol shown next to the name (optional).</span></label>
       <fieldset class="rv-sf-status"><legend>Status</legend>
         <label class="rv-sf-radio"><input type="radio" name="active" value="1"${!f || f.active ? " checked" : ""}> Active (members can pick it)</label>
-        <label class="rv-sf-radio"><input type="radio" name="active" value="0"${f && !f.active ? " checked" : ""}> Hidden</label></fieldset>
-      <p class="rv-pp-hint" id="rv-sf-later">Descriptions and icons are stored from the data update (Phase B).</p>
+        <label class="rv-sf-radio"><input type="radio" name="active" value="0"${f && !f.active && f.status !== "archived" ? " checked" : ""}> Hidden</label></fieldset>
+      ${on ? "" : `<p class="rv-pp-hint" id="rv-sf-later">Descriptions and icons are stored from the data update (migration 030).</p>`}
       <div data-formmsg aria-live="polite"></div></form>`;
   }
   function addField() {
     const dr = openDrawer({ title: `Add a field to ${st.data.sector.name}`, modal: true, doc: el.ownerDocument, host: el, body: fieldFormHtml(null),
       foot: '<button type="button" class="btn" data-x="cancel">Cancel</button><button type="button" class="btn primary" data-x="save">Add field</button>' });
     const f = dr.body.querySelector("[data-fieldform]"), name = f.querySelector('[name="name"]'), slug = f.querySelector('[name="slug"]');
-    name.addEventListener("input", () => { slug.value = slugOf(name.value); });
+    let slugTyped = false;
+    slug.addEventListener("input", () => { slugTyped = true; });
+    name.addEventListener("input", () => { if (!slugTyped) slug.value = slugOf(name.value); });
     dr.foot.querySelector('[data-x="cancel"]').addEventListener("click", dr.close);
     const saveBtn = dr.foot.querySelector('[data-x="save"]');
+    const msg = (t) => { f.querySelector("[data-formmsg]").innerHTML = noticeHtml("err", esc(t)); };
     const save = async () => {
       const v = name.value.trim(), active = f.querySelector('[name="active"]:checked').value === "1";
-      if (v.length < 2) { f.querySelector("[data-formmsg]").innerHTML = noticeHtml("err", "Please type a name (at least 2 characters)."); name.focus(); return; }
+      if (v.length < 2) { msg("Please type a name (at least 2 characters)."); name.focus(); return; }
       if (saveBtn.disabled) return; // already saving
       saveBtn.disabled = true;
       try {
-        const r = await adapter.addField(st.sector, { name: v });
-        if (!active && r && r.robot) await adapter.changeField(st.sector, r.robot.id, { active: false });
+        if (full()) {
+          const body = { name: v, status: active ? "active" : "hidden" };
+          const s = slug.value.trim(), dsc = f.querySelector('[name="description"]').value.trim(), icon = f.querySelector('[name="icon"]').value.trim();
+          if (slugTyped && s) body.slug = s;
+          if (dsc) body.description = dsc;
+          if (icon) body.icon = icon;
+          await adapter.addField(st.sector, body);
+        } else {
+          const r = await adapter.addField(st.sector, { name: v });
+          if (!active && r && r.robot) await adapter.changeField(st.sector, r.robot.id, { active: false });
+        }
         dr.close(); toast(el, `Added ${v}. It is on the sector page at once, with its Contribute button.`); st.tab = "fields"; await refresh();
-      } catch (e) { saveBtn.disabled = false; f.querySelector("[data-formmsg]").innerHTML = noticeHtml("err", esc((e && e.message) || "The field could not be added.")); }
+      } catch (e) { saveBtn.disabled = false; msg((e && e.message) || "The field could not be added."); }
     };
     saveBtn.addEventListener("click", save);
     f.addEventListener("submit", (e) => { e.preventDefault(); save(); });
   }
   function editField(fld) {
-    const dr = openDrawer({ title: `Edit ${fld.name}`, doc: el.ownerDocument, host: el, body: `${fieldFormHtml(fld)}<p class="rv-pp-desc">${sourceBadge(fld.source, fld.pluginName)} · used by ${plural(fld.contributions, "contribution")}</p>`,
+    const dr = openDrawer({ title: `Edit ${fld.name}`, doc: el.ownerDocument, host: el, body: `${fieldFormHtml(fld)}<p class="rv-pp-desc">${sourceBadge(fld.source, fld.pluginName)} · used by ${plural(fld.contributions, "contribution")}${fld.status === "archived" ? " · Archived" : ""}</p>`,
       foot: '<button type="button" class="btn" data-x="cancel">Cancel</button><button type="button" class="btn primary" data-x="save">Save</button>' });
     const f = dr.body.querySelector("[data-fieldform]");
     dr.foot.querySelector('[data-x="cancel"]').addEventListener("click", dr.close);
-    dr.foot.querySelector('[data-x="save"]').addEventListener("click", async () => {
+    const saveBtn = dr.foot.querySelector('[data-x="save"]');
+    saveBtn.addEventListener("click", async () => {
+      if (saveBtn.disabled) return;
       const name = f.querySelector('[name="name"]').value.trim(), active = f.querySelector('[name="active"]:checked').value === "1";
+      saveBtn.disabled = true;
       try {
-        if (name && name !== fld.name) await adapter.changeField(st.sector, fld.id, { name });
-        if (active !== fld.active) await adapter.changeField(st.sector, fld.id, { active });
+        if (full()) {
+          const edit = {};
+          const dsc = f.querySelector('[name="description"]').value.trim(), icon = f.querySelector('[name="icon"]').value.trim();
+          if (name && name !== fld.name) edit.name = name;
+          if (dsc !== (fld.description || "")) edit.description = dsc;
+          if (icon !== (fld.icon || "")) edit.icon = icon;
+          if (Object.keys(edit).length) await adapter.changeField(st.sector, fld.id, { edit });
+          if (fld.status !== "archived" && active !== fld.active) await adapter.changeField(st.sector, fld.id, { status: active ? "active" : "hidden" });
+        } else {
+          if (name && name !== fld.name) await adapter.changeField(st.sector, fld.id, { name });
+          if (active !== fld.active) await adapter.changeField(st.sector, fld.id, { active });
+        }
         dr.close(); toast(el, `Saved ${name || fld.name}.`); await refresh();
-      } catch (e) { f.querySelector("[data-formmsg]").innerHTML = noticeHtml("err", esc((e && e.message) || "Nothing was saved.")); }
+      } catch (e) { saveBtn.disabled = false; f.querySelector("[data-formmsg]").innerHTML = noticeHtml("err", esc((e && e.message) || "Nothing was saved.")); }
     });
   }
-  async function approve(id, edit) {
+  /** Edit & approve of a stored suggestion (030): the name, the link code and the description, then Approve. Resolves with the body or null. */
+  function editSuggestion(x) {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (v) => { if (!done) { done = true; resolve(v); } };
+      const dr = openDrawer({ title: `Edit & approve "${x.name}"`, modal: true, doc: el.ownerDocument, host: el, onClose: () => finish(null),
+        body: `<form class="rv-pp-form" data-sugform novalidate>
+          <label>Field name<input name="name" maxlength="80" required value="${esc(x.name)}" autocomplete="off"><span class="rv-pp-hint">As it will appear on the sector page.</span></label>
+          <label>Link code (slug)<input name="slug" maxlength="60" value="${esc(slugOf(x.name))}" autocomplete="off" spellcheck="false"><span class="rv-pp-hint">Unique in this sector; it never changes once added.</span></label>
+          <label>Description<textarea name="description" rows="3" maxlength="500">${esc(x.reason || "")}</textarea></label>
+          <div data-formmsg aria-live="polite"></div></form>`,
+        foot: '<button type="button" class="btn" data-x="cancel">Cancel</button><button type="button" class="btn primary" data-x="save">Approve</button>' });
+      const f = dr.body.querySelector("[data-sugform]");
+      const name = f.querySelector('[name="name"]'), slug = f.querySelector('[name="slug"]');
+      let slugTyped = false;
+      slug.addEventListener("input", () => { slugTyped = true; });
+      name.addEventListener("input", () => { if (!slugTyped) slug.value = slugOf(name.value); });
+      dr.foot.querySelector('[data-x="cancel"]').addEventListener("click", () => { finish(null); dr.close(); });
+      const go = () => {
+        const v = name.value.trim();
+        if (v.length < 2) { f.querySelector("[data-formmsg]").innerHTML = noticeHtml("err", "Please type a name (at least 2 characters)."); name.focus(); return; }
+        finish({ name: v, slug: slug.value.trim(), description: f.querySelector('[name="description"]').value.trim().slice(0, 500) });
+        dr.close();
+      };
+      dr.foot.querySelector('[data-x="save"]').addEventListener("click", go);
+      f.addEventListener("submit", (e) => { e.preventDefault(); go(); });
+    });
+  }
+  async function approve(id, edit, btn) {
     const x = suggestions().find((s) => String(s.id) === String(id));
     if (!x) return;
+    if (x.record) {
+      const body = edit ? await editSuggestion(x) : {};
+      if (!body) return;
+      await once(btn, async () => {
+        const r = await adapter.decideSuggestion(x.id, { action: "approve", ...body });
+        toast(el, (r && r.message) || `Approved: ${body.name || x.name} is a field of ${st.data.sector.name} now.`);
+        await refresh();
+      });
+      return;
+    }
     const name = edit ? await askText({ title: "Edit & approve", label: "Field name (as it will appear on the sector page)", value: x.name, confirmText: "Approve" }) : x.name;
     if (!name) return;
     try {
@@ -3936,11 +4154,15 @@ async function mount(el, opts = {}) {
       await refresh();
     } catch (e) { failed(e); }
   }
-  async function reject(id) {
+  async function reject(id, btn) {
     const x = suggestions().find((s) => String(s.id) === String(id));
     if (!x) return;
     const reason = await askReason({ title: `Reject "${x.name}"`, label: "Reason (required; recorded in the suggestion's history)", confirmText: "Reject" });
     if (!reason) return;
+    if (x.record) {
+      await once(btn, async () => { await adapter.decideSuggestion(x.id, { action: "reject", reason }); toast(el, `Rejected the suggestion "${x.name}".`); await refresh(); });
+      return;
+    }
     try {
       const it = (await adapter.detail(x.id)).item;
       const action = ["pending", "resubmitted", "failed"].includes(it.status) ? "reject" : "decline";
@@ -3991,18 +4213,22 @@ async function mount(el, opts = {}) {
 Object.assign(exports, { TITLE, DESC, STATS, mount });
 });
 __def("sectors-admin.js", function (exports, __req) {
-// Contribution Portal: the Admin's Sectors page (/admin/sectors and the demo). The header, the sector grid ("n fields · m
-// contributions"), and the selected sector's panel: its details, its contributions in every state (each number opens that list in
-// Moderation) and the sector's actions; below, every sector's numbers in one table (the former "Sector counts" page). Adding,
-// renaming, reordering and archiving a sector need the sector columns of the data update (Phase B); until then those buttons say so.
+// Contribution Portal: the Admin's Sectors page (/admin/sectors and the demo). The header with "+ Add sector", the sector grid ("n fields ·
+// m contributions"), and the selected sector's panel: its details, its contributions in every state (each number opens that list in
+// Moderation) and its actions (Rename, Move up, Move down, Card style, Archive or Restore); below, every sector's numbers in one table
+// (the former "Sector counts" page). The server checks every change (administrators only) and writes the Audit Log.
+// Archiving and the card's style need the data update (migration 030, counts.features.sectorsData): until then those buttons say so.
+// An archived sector is out of every list members see; its contributions stay. Archiving waits until nothing in the sector waits for
+// a decision. Sectors are never deleted.
 const { esc } = __req("utils.js");
+const { askConfirm, askText } = __req("dialog.js");
 const { bindSectorGrid, plural, sectorGridHtml } = __req("sector-grid.js");
-const { noticeHtml, pageHeader, panelHtml, slugHtml, tableHtml } = __req("portal-ui.js");
+const { noticeHtml, openDrawer, pageHeader, panelHtml, slugHtml, tableHtml, toast } = __req("portal-ui.js");
 const { PortalRest } = __req("portal-api.js");
 
 const TITLE = "Sectors";
 const DESC = "The sectors members contribute to: their fields, their contributions and where each one stands.";
-const LATER = "Adding, renaming, reordering and archiving sectors come with the data update (Phase B).";
+const LATER = "Archiving a sector and its card's icon and colour come with the data update (migration 030).";
 // a number -> that sector's list in Moderation, on the matching tab
 const COLS = [
   ["submitted", "Submitted", "pending"], ["verified", "Verified", "approved"], ["changesRequested", "Changes requested", "pending"],
@@ -4014,37 +4240,50 @@ async function mount(el, opts = {}) {
   const moderation = opts.moderationPath || "/admin/moderation";
   const st = { sector: opts.sector || "", counts: null, sectors: [] };
   el.classList.add("rv-cw-root", "rv-pp");
-  try {
-    const [c, f] = await Promise.all([adapter.sectorCounts(), adapter.formConfig().catch(() => ({ sectors: [] }))]);
-    st.counts = c; st.sectors = f.sectors || [];
-  } catch (e) {
-    el.innerHTML = pageHeader({ title: TITLE, desc: DESC, id: "rv-sec-h" }) + noticeHtml("err", esc((e && e.message) || "The sectors could not be loaded. Please try again."));
-    return null;
+  async function load() {
+    try {
+      const [c, f] = await Promise.all([adapter.sectorCounts(), adapter.formConfig().catch(() => ({ sectors: [] }))]);
+      st.counts = c; st.sectors = f.sectors || [];
+      return true;
+    } catch (e) {
+      el.innerHTML = pageHeader({ title: TITLE, desc: DESC, id: "rv-sec-h" }) + noticeHtml("err", esc((e && e.message) || "The sectors could not be loaded. Please try again."));
+      return false;
+    }
   }
+  if (!(await load())) return null;
+  const full = () => Boolean(st.counts && st.counts.features && st.counts.features.sectorsData);
   const fieldsOf = (slug) => ((st.sectors.find((s) => s.slug === slug) || {}).robots || []).length;
   const link = (slug, tab, v) => (tab && v > 0 ? `<a href="${esc(`${moderation}?sector=${encodeURIComponent(slug)}&tab=${tab}`)}">${v.toLocaleString("en-IN")}</a>` : v.toLocaleString("en-IN"));
   const later = (label, cls = "") => `<button type="button" class="btn${cls ? " " + cls : ""}" disabled title="${esc(LATER)}">${esc(label)}</button>`;
+  const b = (act, label, cls = "", extra = "") => `<button type="button" class="btn${cls ? " " + cls : ""}" data-sec="${act}"${extra}>${esc(label)}</button>`;
 
   function render() {
     const rows = st.counts.sectors || [];
     if (!st.sector && rows[0]) st.sector = rows[0].slug;
     const s = rows.find((x) => x.slug === st.sector) || null;
-    const cards = rows.map((x) => ({ slug: x.slug, name: x.name, meta: `${plural(fieldsOf(x.slug), "field")} · ${plural(x.total, "contribution")}`, chip: x.active ? "" : "Not on the form" }));
-    el.innerHTML = `${pageHeader({ title: TITLE, desc: DESC, id: "rv-sec-h", actions: later("+ Add sector", "primary") })}
+    const editable = rows.filter((x) => !x.demo);
+    const at = s ? editable.findIndex((x) => x.slug === s.slug) : -1;
+    const cards = rows.map((x) => ({ slug: x.slug, name: x.name, icon: x.icon || undefined, meta: `${plural(fieldsOf(x.slug), "field")} · ${plural(x.total, "contribution")}`,
+      chip: x.archived ? "Archived" : x.demo ? "Demo" : x.active ? "" : "Not on the form" }));
+    const actions = !s || s.demo ? "" : `${b("rename", "Rename")}${b("up", "Move up", "", at <= 0 ? " disabled" : "")}${b("down", "Move down", "", at < 0 || at >= editable.length - 1 ? " disabled" : "")}`
+      + (full() ? `${b("style", "Card style")}${s.archived ? b("restore", "Restore", "primary") : b("archive", "Archive", "danger")}` : `${later("Card style")}${later("Archive", "danger")}`);
+    el.innerHTML = `${pageHeader({ title: TITLE, desc: DESC, id: "rv-sec-h", actions: b("add", "+ Add sector", "primary") })}
       ${rows.length && st.counts.sum && !st.counts.sum.total ? noticeHtml("info", "<b>No contributions yet.</b> The numbers loaded, and every sector is at 0.") : ""}
       ${rows.length ? sectorGridHtml({ sectors: cards, selected: st.sector, label: "Sectors" }) : noticeHtml("info", "No sectors yet.")}
       ${s ? panelHtml({
-        heading: `Sector: ${s.name}`, id: "rv-sec-panel-h", sub: s.active ? "Offered on the Contribute form." : "Not offered on the Contribute form right now.",
-        actions: `${later("Rename")}${later("Move up")}${later("Move down")}${later("Archive", "danger")}`,
-        body: `<dl class="rv-pp-dl"><dt>Link code</dt><dd>${slugHtml(s.slug)}</dd><dt>Fields</dt><dd>${plural(fieldsOf(s.slug), "field")} <a href="${esc(`${opts.sectorFormsPath || "/admin/sector-forms"}?sector=${encodeURIComponent(s.slug)}`)}">Open in Sector Forms</a></dd></dl>
-          <p class="rv-pp-desc">${esc(LATER)}</p>
+        heading: `Sector: ${s.name}`, id: "rv-sec-panel-h",
+        sub: s.archived ? "Archived: members no longer see it. Its contributions stay." : s.active ? "Offered on the Contribute form." : "Not offered on the Contribute form right now.",
+        actions,
+        body: `<dl class="rv-pp-dl"><dt>Link code</dt><dd>${slugHtml(s.slug)}</dd>${s.icon || s.color ? `<dt>Card</dt><dd>${s.icon ? `<span aria-hidden="true">${esc(s.icon)}</span> ` : ""}${s.color ? `<code class="rv-pp-slug">${esc(s.color)}</code>` : ""}</dd>` : ""}<dt>Fields</dt><dd>${plural(fieldsOf(s.slug), "field")} <a href="${esc(`${opts.sectorFormsPath || "/admin/sector-forms"}?sector=${encodeURIComponent(s.slug)}`)}">Open in Sector Forms</a></dd></dl>
+          ${full() ? "" : `<p class="rv-pp-desc">${esc(LATER)}</p>`}
           <h3 class="rv-pp-section-title">Contributions in ${esc(s.name)}</h3>
-          ${tableHtml({ caption: `Contributions in ${s.name} by state`, head: COLS.map(([, l]) => [l, "rv-pp-col-num"]), rows: [`<tr>${COLS.map(([k, , tab]) => `<td class="rv-pp-col-num">${link(s.slug, tab, s[k])}</td>`).join("")}</tr>`] })}`,
+          ${tableHtml({ caption: `Contributions in ${s.name} by state`, head: COLS.map(([, l]) => [l, "rv-pp-col-num"]), rows: [`<tr>${COLS.map(([k, , tab]) => `<td class="rv-pp-col-num">${link(s.slug, tab, s[k])}</td>`).join("")}</tr>`] })}
+          <div data-msg aria-live="polite"></div>`,
       }) : ""}
       <section class="rv-pp-block" aria-labelledby="rv-sec-all"><h2 id="rv-sec-all" class="rv-pp-section-title">Every sector</h2>
       <p class="rv-pp-desc">How many contributions sent with the current form each sector holds in each state. A number opens that list in Moderation. A contribution in several sectors is counted once in each of them, so the sector rows can add up to more than the contributions; drafts are private to their authors, so they are never counted.</p>
       ${tableHtml({ caption: "Contributions by sector", head: [["Sector", "rv-pp-col-title"], ...COLS.map(([, l]) => [l, "rv-pp-col-num"])], empty: "There are no sectors yet.",
-        rows: [...rows.map((x) => `<tr><th scope="row">${esc(x.name)}</th>${COLS.map(([k, , tab]) => `<td class="rv-pp-col-num">${link(x.slug, tab, x[k])}</td>`).join("")}</tr>`),
+        rows: [...rows.map((x) => `<tr><th scope="row">${esc(x.name)}${x.archived ? ' <span class="rv-pp-tag">Archived</span>' : ""}</th>${COLS.map(([k, , tab]) => `<td class="rv-pp-col-num">${link(x.slug, tab, x[k])}</td>`).join("")}</tr>`),
           ...(st.counts.sum ? [`<tr class="rv-pp-sum"><th scope="row">Total of the sector rows</th>${COLS.map(([k]) => `<td class="rv-pp-col-num">${Number(st.counts.sum[k] || 0).toLocaleString("en-IN")}</td>`).join("")}</tr>`] : []),
           ...(st.counts.unique ? [`<tr class="rv-pp-sum"><th scope="row">Unique contributions</th>${COLS.map(([k]) => `<td class="rv-pp-col-num">${Number(st.counts.unique[k] || 0).toLocaleString("en-IN")}</td>`).join("")}</tr>`] : [])] })}</section>`;
     bindSectorGrid(el, (slug) => {
@@ -4054,6 +4293,94 @@ async function mount(el, opts = {}) {
       render();
       const c = el.querySelector(`.rv-sg [data-sector="${slug}"]`); if (c) c.focus();
     });
+    el.querySelectorAll("[data-sec]").forEach((btn) => btn.addEventListener("click", () => act(btn.getAttribute("data-sec"), btn, s)));
+  }
+
+  const say = (html) => { const m = el.querySelector("[data-msg]"); if (m) m.innerHTML = html; };
+  async function after(message, slug, focus) {
+    if (slug) st.sector = slug;
+    if (await load()) { render(); toast(el, message); const f = focus && el.querySelector(focus); if (f) f.focus(); }
+  }
+  async function act(what, btn, s) {
+    if (btn.disabled) return;
+    try {
+      if (what === "add") return addSector();
+      if (!s) return;
+      if (what === "rename") {
+        const name = await askText({ title: `Rename ${s.name}`, label: "New name", value: s.name, confirmText: "Rename", maxLength: 100, hint: `The link code stays "${s.slug}", so links keep working.` });
+        if (!name || name === s.name) return;
+        btn.disabled = true;
+        const r = await adapter.changeSector(s.slug, { name });
+        return after((r && r.message) || `Renamed to ${name}.`, s.slug);
+      }
+      if (what === "up" || what === "down") {
+        btn.disabled = true;
+        await adapter.changeSector(s.slug, { move: what });
+        return after("Order saved.", s.slug, `[data-sec="${what}"]`);
+      }
+      if (what === "archive") {
+        const yes = await askConfirm({ title: `Archive ${s.name}?`, text: `Members will no longer see "${s.name}" on their sector pages or on the Contribute form. Its contributions and published ideas stay, and you can restore it at any time.`, confirmText: "Archive" });
+        if (!yes) return;
+        btn.disabled = true;
+        const r = await adapter.changeSector(s.slug, { archived: true });
+        return after((r && r.message) || `Archived ${s.name}.`, s.slug);
+      }
+      if (what === "restore") {
+        btn.disabled = true;
+        const r = await adapter.changeSector(s.slug, { archived: false });
+        return after((r && r.message) || `Restored ${s.name}.`, s.slug);
+      }
+      if (what === "style") return styleSector(s);
+    } catch (e) {
+      if (btn.isConnected) btn.disabled = false;
+      say(noticeHtml("err", esc((e && e.message) || "That did not work. Nothing was changed. Please try again.")));
+    }
+    return null;
+  }
+  function formHtml(o) {
+    return `<form class="rv-pp-form" data-secform novalidate>
+      ${o.add ? `<label>Name<input name="name" maxlength="100" required autocomplete="off"><span class="rv-pp-hint">As members will see it.</span></label>` : ""}
+      ${full() ? `<label>Icon<input name="icon" maxlength="8" value="${esc(o.icon || "")}" placeholder="e.g. 🌾"><span class="rv-pp-hint">A short symbol on the sector's card (optional).</span></label>
+      <label>Colour<input name="color" maxlength="7" value="${esc(o.color || "")}" placeholder="#1F7A5C" spellcheck="false"><span class="rv-pp-hint">The card's colour as #RRGGBB (optional).</span></label>` : ""}
+      <div data-formmsg aria-live="polite"></div></form>`;
+  }
+  function addSector() {
+    const dr = openDrawer({ title: "Add a sector", modal: true, doc: el.ownerDocument, host: el, body: formHtml({ add: true }),
+      foot: '<button type="button" class="btn" data-x="cancel">Cancel</button><button type="button" class="btn primary" data-x="save">Add sector</button>' });
+    const f = dr.body.querySelector("[data-secform]"), save = dr.foot.querySelector('[data-x="save"]');
+    dr.foot.querySelector('[data-x="cancel"]').addEventListener("click", dr.close);
+    const go = async () => {
+      const name = f.querySelector('[name="name"]').value.trim();
+      if (name.length < 2) { f.querySelector("[data-formmsg]").innerHTML = noticeHtml("err", "Please type a name (at least 2 characters)."); return; }
+      if (save.disabled) return;
+      save.disabled = true;
+      const body = { name };
+      if (full()) { const i = f.querySelector('[name="icon"]').value.trim(), c = f.querySelector('[name="color"]').value.trim(); if (i) body.icon = i; if (c) body.color = c; }
+      try {
+        const r = await adapter.addSector(body);
+        dr.close();
+        await after((r && r.message) || `Added ${name}.`, r && r.sector ? r.sector.slug : "");
+      } catch (e) { save.disabled = false; f.querySelector("[data-formmsg]").innerHTML = noticeHtml("err", esc((e && e.message) || "The sector could not be added.")); }
+    };
+    save.addEventListener("click", go);
+    f.addEventListener("submit", (e) => { e.preventDefault(); go(); });
+  }
+  function styleSector(s) {
+    const dr = openDrawer({ title: `Card style: ${s.name}`, modal: true, doc: el.ownerDocument, host: el, body: formHtml({ icon: s.icon, color: s.color }),
+      foot: '<button type="button" class="btn" data-x="cancel">Cancel</button><button type="button" class="btn primary" data-x="save">Save</button>' });
+    const f = dr.body.querySelector("[data-secform]"), save = dr.foot.querySelector('[data-x="save"]');
+    dr.foot.querySelector('[data-x="cancel"]').addEventListener("click", dr.close);
+    const go = async () => {
+      if (save.disabled) return;
+      save.disabled = true;
+      try {
+        await adapter.changeSector(s.slug, { style: { icon: f.querySelector('[name="icon"]').value.trim(), color: f.querySelector('[name="color"]').value.trim() } });
+        dr.close();
+        await after(`The card of ${s.name} is updated.`, s.slug);
+      } catch (e) { save.disabled = false; f.querySelector("[data-formmsg]").innerHTML = noticeHtml("err", esc((e && e.message) || "Nothing was saved.")); }
+    };
+    save.addEventListener("click", go);
+    f.addEventListener("submit", (e) => { e.preventDefault(); go(); });
   }
   render();
   return null;
@@ -4119,12 +4446,14 @@ Object.assign(exports, { TITLE, DESC, mount });
 });
 __def("demo-portal.js", function (exports, __req) {
 // Contribution Portal: the STANDALONE DEMO's data for the portal screens (never used by the plugin or the app). The SAME methods as the
-// app's adapter (portal-api.js: portal, formDecision, sectorForms, addField, changeField, auditLog, sectorCounts), worked out in memory
-// from the demo's mock workflow (api.js MockAdapter), its current-form items and its "Suggest a field" suggestions, with the SAME status
-// model (portal-status.js), so the demo's numbers and buttons behave like production's.
+// app's adapter (portal-api.js: portal, formDecision, sectorForms, addField, changeField, deleteField, decideSuggestion, addSector,
+// changeSector, setReviewerSectors, auditLog, sectorCounts), worked out in memory from the demo's mock workflow (api.js MockAdapter), its
+// current-form items and its "Suggest a field" suggestions, with the SAME status model (portal-status.js) and the SAME extra step
+// (portal-rules.js: a Moderator's approval, then the publishing request), so the demo behaves like production with migration 030.
 const { FORM_NOTE, WORKFLOW_NOTE, formToPortal, workflowToPortal } = __req("portal-status.js");
-const { canModeratorEdit, sectorLabel } = __req("rules.js");
+const { canModeratorEdit, changedFields, cleanProposed, sectorLabel, validateSend } = __req("rules.js");
 const { ApiError } = __req("api.js");
+const { APPROVED, APPROVED_LABEL, canApprove, portalHistory } = __req("portal-rules.js");
 
 const slugOf = (s) => String(s ?? "").toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
 const at = (days) => new Date(Date.now() + (Number(days) || 0) * 864e5).toISOString();
@@ -4139,11 +4468,11 @@ const DECISIONS = {
   unpublish: { from: "published", to: "unpublished", admin: true, label: "Unpublished", kind: "unpublished" },
   republish: { from: "unpublished", to: "published", admin: true, label: "Published again", kind: "published" },
 };
-const KIND_LABEL = { submitted: "Submitted", opened: "Opened for review", draft: "Draft saved", approved: "Approved", edited: "Edited", previewed: "Previewed", published: "Published", failed: "Publish failed", unpublished: "Unpublished", sent_back: "Sent back", rejected: "Rejected", reopened: "Reopened", removed: "Removed", roles: "Role changed", fields: "Field changed", other: "Other" };
+const KIND_LABEL = { submitted: "Submitted", opened: "Opened for review", draft: "Draft saved", approved: "Approved", requested: "Publish requested", edited: "Edited", previewed: "Previewed", published: "Published", failed: "Publish failed", unpublished: "Unpublished", sent_back: "Sent back", rejected: "Rejected", reopened: "Reopened", removed: "Removed", roles: "Roles and sectors", fields: "Field changes", suggestions: "Suggested fields", sectors: "Sector changes", other: "Other" };
 /** The kind of a workflow history line (the same reading as the server's Audit Log, src/lib/auditLog.ts). */
 function historyKind(text) {
   const t = String(text);
-  const rules = [[/^Submitted through/, "submitted"], [/^Opened the contribution/, "opened"], [/^(Saved a draft|Reset the working)/, "draft"], [/^(Submitted|Resubmitted) publishing request/, "approved"],
+  const rules = [[/^Submitted through/, "submitted"], [/^Opened the contribution/, "opened"], [/^(Saved a draft|Reset the working)/, "draft"], [/^Approved (as-is|with edits)/, "approved"], [/^(Submitted|Resubmitted) publishing request/, "requested"],
     [/^Opened the publish preview/, "previewed"], [/^Edited the proposed content/, "edited"], [/^(Published v|Clicked Publish)/, "published"], [/^Publication FAILED/, "failed"],
     [/^Unpublished/, "unpublished"], [/^Requested changes/, "sent_back"], [/^(Declined the idea|Rejected the publishing request)/, "rejected"], [/^Reopened/, "reopened"]];
   return (rules.find(([re]) => re.test(t)) || [null, "other"])[1];
@@ -4155,7 +4484,10 @@ function historyKind(text) {
  */
 function createDemoPortal(mock, { formItems = [], suggestions = [], plugins = {}, users = [] } = {}) {
   const forms = formItems.map((x) => ({ ...clone(x), verified: x.verified === true, verifiedBy: x.verified ? "Moderator" : "" }));
-  const sugg = suggestions.map((x, i) => ({ ...clone(x), num: 9001 + i, status: "submitted", sentAt: at(x.at ?? -(i + 2)) }));
+  // suggested fields as their own records (migration 030): pending, approved (with the field) or rejected (with the reason)
+  const sugg = suggestions.map((x, i) => ({ ...clone(x), num: 9001 + i, status: "pending", sentAt: at(x.at ?? -(i + 2)) }));
+  const archivedSectors = []; // archived sectors: out of every member list (mock.sectors), kept here for Admin > Sectors
+  const limits = new Map(); // a moderator's sectors (Users & Roles): name -> [slug]; none = every sector
   const audit = [];
   const log = (actor, role, kind, target, details) => audit.push({ at: new Date().toISOString(), actor, role, action: kind, actionLabel: KIND_LABEL[kind] || "Other", target, details });
   let seq = 1;
@@ -4165,7 +4497,7 @@ function createDemoPortal(mock, { formItems = [], suggestions = [], plugins = {}
     const extra = (s.fields || []).filter((f) => f.id !== "about-this-sector" && !robots.some((r) => r.slug === f.id));
     s.formFields = [...robots.map((r) => ({ slug: r.slug, name: r.name, source: SOURCE[((s.fields || []).find((f) => f.id === r.slug) || {}).source] || "admin" })),
       ...extra.map((f) => ({ slug: f.id, name: f.title, source: SOURCE[f.source] || "admin" }))]
-      .map((f, i) => ({ id: seq++, active: true, order: i + 1, pluginName: f.source === "plugin" ? plugins[f.slug] || "A directory plugin" : "", ...f }));
+      .map((f, i) => ({ id: seq++, active: true, status: "active", description: "", icon: "", order: i + 1, pluginName: f.source === "plugin" ? plugins[f.slug] || "A directory plugin" : "", ...f }));
   }
   const sectorOf = (slug) => mock.sectors.find((s) => s.slug === slug);
   const workflowSector = (it) => (it.proposed && it.proposed.sector) || "";
@@ -4197,21 +4529,22 @@ function createDemoPortal(mock, { formItems = [], suggestions = [], plugins = {}
       key: `w-${it.id}`, source: "workflow", id: it.id, code: it.code, title: it.proposed.title, contributor: it.contributor.name, contributorType: it.contributor.typeLabel,
       status: it.status, display: workflowToPortal(it.status), note: WORKFLOW_NOTE[it.status] || "", sentAt: view === "requests" && last ? last.at : it.submittedAt,
       approvedBy: it.moderator || null, sector: workflowSector(it), sectorName: sectorLabel(workflowSector(it), mock.sectors), categories: [], alsoIn: [],
-      actions: view === "moderation" ? (canModeratorEdit(it.status) ? ["approve", "edit", "reject"] : ["view"]) : [], viewUrl: null,
+      actions: view === "moderation" ? (canModeratorEdit(it.status) ? ["approve", "edit", "reject"] : it.status === APPROVED ? ["send", "view"] : ["view"]) : [], viewUrl: null,
     };
   };
   const byNewest = (a, b) => String(b.sentAt || "").localeCompare(String(a.sentAt || ""));
 
   async function portal(actor, view, { sector = "" } = {}) {
-    const sectors = counts();
-    const out = { view, sectors, sector: null, rows: [], fields: [], totals: null, exportUrl: null, isAdmin: actor.isAdmin };
+    const limitedTo = actor.isAdmin ? null : limits.get(actor.name) || null;
+    const sectors = counts().filter((c) => !limitedTo || limitedTo.includes(c.slug));
+    const out = { view, sectors, sector: null, rows: [], fields: [], totals: null, exportUrl: null, isAdmin: actor.isAdmin, features: { approvedStep: true }, limitedTo };
     if (view !== "moderation" && !actor.isAdmin) throw new ApiError(403, "ADMIN_ONLY", "Only an administrator can open this.");
     if (view === "moderation") {
       const pick = sectors.find((s) => s.slug === sector) || [...sectors].sort((a, b) => b.pending - a.pending)[0];
       if (!pick) return out;
       out.sector = { slug: pick.slug, name: pick.name };
       out.rows = [...live().filter((x) => x.sector === pick.slug).map((x) => formRow(x, actor, view)), ...mock.items.filter((it) => workflowSector(it) === pick.slug).map((it) => workflowRow(it, view))].sort(byNewest);
-      out.fields = (sectorOf(pick.slug).formFields || []).map((f) => ({ slug: f.slug, name: f.name, active: f.active, source: f.source, pluginName: f.pluginName }));
+      out.fields = (sectorOf(pick.slug).formFields || []).filter((f) => f.status !== "archived").map((f) => ({ slug: f.slug, name: f.name, active: f.active, source: f.source, pluginName: f.pluginName }));
       return out;
     }
     const formReq = forms.filter((x) => x.status === "pending_review" && x.verified).map((x) => formRow(x, actor, "requests"));
@@ -4219,7 +4552,7 @@ function createDemoPortal(mock, { formItems = [], suggestions = [], plugins = {}
     if (view === "requests") {
       const s = sectors.find((x) => x.slug === sector) || null;
       out.sector = s ? { slug: s.slug, name: s.name } : null;
-      out.rows = [...wf.filter((r) => r.display !== "pending"), ...formReq].filter((r) => !sector || r.sector === sector).sort(byNewest);
+      out.rows = [...wf.filter((r) => r.display !== "pending" && r.display !== "approved"), ...formReq].filter((r) => !sector || r.sector === sector).sort(byNewest);
       return out;
     }
     const week = Date.now() - 7 * 864e5;
@@ -4247,47 +4580,192 @@ function createDemoPortal(mock, { formItems = [], suggestions = [], plugins = {}
     return { success: true, id: x.id, status: x.status, action };
   }
 
+  const allSectors = () => [...mock.sectors, ...archivedSectors];
+  const sectorAny = (slug) => allSectors().find((s) => s.slug === slug);
+  // how many contributions use a field: shown (current form: not drafts or removed) and any at all (what deleting waits for)
+  const usedBy = (s, f) => mock.items.filter((it) => [it.proposed, it.original].some((v) => v && v.sector === s.slug && v.robotType === f.slug)).length + forms.filter((x) => x.sector === s.slug && x.robot === f.slug && !["draft", "removed"].includes(x.status)).length;
+  const anyUse = (s, f) => usedBy(s, f) + forms.filter((x) => x.sector === s.slug && x.robot === f.slug && ["draft", "removed"].includes(x.status)).length;
+  const offered = (s) => { s.robots = s.formFields.filter((x) => x.status === "active").sort((a, b) => a.order - b.order).map((x) => ({ slug: x.slug, name: x.name })); };
+
   async function sectorForms(actor, sector = "") {
     if (!actor.isAdmin) throw new ApiError(403, "FORBIDDEN", "You do not have access to this.");
-    const waiting = (s) => sugg.filter((x) => x.sector === s.slug && x.status !== "rejected" && !(s.formFields || []).some((f) => f.name.toLowerCase() === x.title.toLowerCase()));
-    const s = sectorOf(sector) || mock.sectors[0];
-    const used = (f) => mock.items.filter((it) => [it.proposed, it.original].some((v) => v && v.sector === s.slug && v.robotType === f.slug)).length + forms.filter((x) => x.sector === s.slug && x.robot === f.slug && !["draft", "removed"].includes(x.status)).length;
+    const waiting = (s) => sugg.filter((x) => x.sector === s.slug && x.status === "pending");
+    const s = sectorAny(sector) || mock.sectors[0];
+    const view = (f) => {
+      const n = usedBy(s, f), any = anyUse(s, f);
+      const deleteBlock = f.source === "plugin" ? `Managed by ${f.pluginName || "a plugin"}: it cannot be deleted. Hide or archive it instead.`
+        : n > 0 ? `Can't delete: ${n} contribution${n === 1 ? " uses" : "s use"} this field. Archive it instead.` : any > 0 ? "Can't delete: a draft or removed contribution still uses this field. Archive it instead." : "";
+      return { ...f, contributions: n, deletable: !deleteBlock, deleteBlock };
+    };
     return {
-      sectors: mock.sectors.map((x) => ({ slug: x.slug, name: x.name, active: true, fields: (x.formFields || []).length, suggestions: waiting(x).length })),
-      sector: s ? { slug: s.slug, name: s.name, active: true } : null,
-      fields: s ? (s.formFields || []).slice().sort((a, b) => a.order - b.order).map((f) => ({ ...f, contributions: used(f) })) : [],
-      suggestions: s ? waiting(s).map((x) => ({ id: x.num, code: `RV-${x.num}`, name: x.title, by: x.by, reason: String(x.html || "").replace(/<[^>]+>/g, ""), sentAt: x.sentAt, status: x.status, display: "pending" })) : [],
-      questionsOn: null, robotsReady: true,
+      sectors: allSectors().map((x) => ({ slug: x.slug, name: x.name, active: !x.archived, archived: x.archived === true, icon: x.icon || "", color: x.color || "",
+        fields: (x.formFields || []).filter((f) => f.status !== "archived").length, suggestions: waiting(x).length })),
+      sector: s ? { slug: s.slug, name: s.name, active: !s.archived } : null,
+      fields: s ? (s.formFields || []).slice().sort((a, b) => a.order - b.order).map(view) : [],
+      suggestions: s ? waiting(s).map((x) => ({ id: x.num, code: `RV-${x.num}`, name: x.title, by: x.by, reason: String(x.html || "").replace(/<[^>]+>/g, ""), sentAt: x.sentAt, status: "pending", display: "pending", record: true })) : [],
+      questionsOn: null, robotsReady: true, features: { fieldsData: true },
     };
   }
-  function addField(actor, sector, body) {
-    const s = sectorOf(sector), name = String((body && body.name) || "").replace(/\s+/g, " ").trim();
+  /** Adds a field (body: name, and with 030 slug, description, icon, status), or the field an approved suggestion becomes. */
+  function addField(actor, sector, body, fromSuggestion = null) {
+    const s = sectorAny(sector), name = String((body && body.name) || "").replace(/\s+/g, " ").trim();
     if (!actor.isAdmin) throw new ApiError(403, "FORBIDDEN", "You do not have access to this.");
     if (!s || name.length < 2) throw new ApiError(400, "VALIDATION_FAILED", "Please type a name (at least 2 characters).");
-    const slug = slugOf(name);
-    if (s.formFields.some((f) => f.slug === slug || f.name.toLowerCase() === name.toLowerCase())) throw new ApiError(409, "DUPLICATE", `This sector already has a field called "${name}".`);
-    const fromSuggestion = sugg.find((x) => x.sector === s.slug && x.title.toLowerCase() === name.toLowerCase());
-    const f = { id: seq++, slug, name, active: true, order: s.formFields.length + 1, source: fromSuggestion ? "member" : "admin", pluginName: "" };
+    const typed = String((body && body.slug) || "").trim();
+    if (typed && !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(typed)) throw new ApiError(400, "VALIDATION_FAILED", "The link code can use lower-case letters, digits and single hyphens (up to 60 characters).");
+    if (s.formFields.some((f) => f.name.toLowerCase() === name.toLowerCase())) throw new ApiError(409, "DUPLICATE", `This sector already has a field called "${name}".`);
+    if (typed && s.formFields.some((f) => f.slug === typed)) throw new ApiError(409, "DUPLICATE_SLUG", `This sector already has a field with the link code "${typed}". Choose another one.`);
+    let slug = typed || slugOf(name);
+    for (let i = 2, base = slug; s.formFields.some((f) => f.slug === slug); i++) slug = `${base}-${i}`;
+    const status = body && body.status === "hidden" ? "hidden" : "active";
+    const f = { id: seq++, slug, name, active: status === "active", status, order: Math.max(0, ...s.formFields.map((x) => x.order)) + 1, source: fromSuggestion ? "member" : "admin", pluginName: "",
+      description: String((body && body.description) || "").trim().slice(0, 500), icon: String((body && body.icon) || "").trim().slice(0, 8) };
     s.formFields.push(f);
-    s.robots = [...(s.robots || []), { slug, name }];
-    s.fields = [...(s.fields || []), { id: slug, title: name, html: fromSuggestion ? fromSuggestion.html : `<p>${name} in ${s.name}.</p>`, ...(fromSuggestion ? { source: "suggested" } : {}) }];
-    log(actor.name, "Admin", "fields", `${s.name} · ${name}`, fromSuggestion ? `Approved the suggested field "${name}" (suggested by ${fromSuggestion.by})` : `Added the field "${name}"`);
-    return Promise.resolve({ success: true, robot: { id: f.id, slug, name, active: true, order: f.order } });
+    offered(s);
+    s.fields = [...(s.fields || []), { id: slug, title: name, html: fromSuggestion ? fromSuggestion.html : `<p>${f.description || `${name} in ${s.name}.`}</p>`, ...(fromSuggestion ? { source: "suggested" } : {}) }];
+    if (!fromSuggestion) log(actor.name, "Admin", "fields", `Field · ${name} (${s.slug})`, `Added the field "${name}" (link code ${slug}).`);
+    return Promise.resolve({ success: true, robot: { id: f.id, slug, name, active: f.active, order: f.order, status } });
+  }
+  function deleteField(actor, sector, id) {
+    const s = sectorAny(sector), f = s && s.formFields.find((x) => String(x.id) === String(id));
+    if (!actor.isAdmin) throw new ApiError(403, "FORBIDDEN", "You do not have access to this.");
+    if (!f) throw new ApiError(404, "NOT_FOUND", "We could not find that field.");
+    if (f.source === "plugin") throw new ApiError(409, "PLUGIN_MANAGED", `"${f.name}" is managed by a plugin and cannot be deleted. Hide or archive it instead.`);
+    const n = anyUse(s, f);
+    if (n > 0) throw new ApiError(409, "IN_USE", `Can't delete "${f.name}": ${n} contribution${n === 1 ? " uses" : "s use"} this field. Archive it instead.`);
+    s.formFields = s.formFields.filter((x) => x !== f);
+    s.fields = (s.fields || []).filter((x) => x.id !== f.slug);
+    offered(s);
+    log(actor.name, "Admin", "fields", `Field · ${f.name} (${s.slug})`, `Deleted the field "${f.name}" (link code ${f.slug}); nothing used it.`);
+    return Promise.resolve({ success: true });
+  }
+  function decideSuggestion(actor, id, body = {}) {
+    if (!actor.isAdmin) throw new ApiError(403, "ADMIN_ONLY", "Only an administrator can approve or reject a suggested field.");
+    const x = sugg.find((g) => g.num === Number(id));
+    if (!x) throw new ApiError(404, "NOT_FOUND", "We could not find that suggestion.");
+    if (x.status !== "pending") throw new ApiError(409, "ALREADY_DECIDED", `This suggestion was already ${x.status}. Reload the page.`);
+    if (body.action === "reject") {
+      const reason = String(body.reason || "").trim();
+      if (!reason) throw new ApiError(400, "VALIDATION_FAILED", "Write the reason for rejecting this suggestion.");
+      x.status = "rejected"; x.rejectReason = reason;
+      log(actor.name, "Admin", "suggestions", `Suggested field · ${x.title}`, `Rejected the suggested field "${x.title}". Reason: ${reason}`);
+      return Promise.resolve({ success: true, message: `Rejected "${x.title}". The member's idea keeps its own review.` });
+    }
+    const name = String(body.name || x.title).replace(/\s+/g, " ").trim();
+    return addField(actor, x.sector, { name, slug: body.slug, description: body.description ?? String(x.html || "").replace(/<[^>]+>/g, "") }, x).then((r) => {
+      x.status = "approved"; x.fieldId = r.robot.id;
+      log(actor.name, "Admin", "suggestions", `Suggested field · ${x.title}`, `Approved the suggested field "${x.title}"${name !== x.title ? ` as "${name}"` : ""}: it is now a field of the sector.`);
+      return { success: true, fieldId: r.robot.id, message: `"${name}" was added to the sector's fields with the "Suggested by member" badge.` };
+    });
   }
   function changeField(actor, sector, id, change) {
-    const s = sectorOf(sector);
+    const s = sectorAny(sector);
     const list = s ? s.formFields.slice().sort((a, b) => a.order - b.order) : [];
     const f = list.find((x) => String(x.id) === String(id));
     if (!actor.isAdmin) throw new ApiError(403, "FORBIDDEN", "You do not have access to this.");
     if (!f) throw new ApiError(404, "NOT_FOUND", "We could not find that field.");
-    if (typeof change.name === "string") { log(actor.name, "Admin", "fields", `${s.name} · ${f.name}`, `Renamed to "${change.name.trim()}"`); f.name = change.name.trim(); }
-    if (typeof change.active === "boolean") { f.active = change.active; log(actor.name, "Admin", "fields", `${s.name} · ${f.name}`, change.active ? "Shown on the form again" : "Hidden from the form"); }
+    if (typeof change.name === "string") { log(actor.name, "Admin", "fields", `Field · ${f.name} (${s.slug})`, `Renamed the field "${f.name}" to "${change.name.trim()}".`); f.name = change.name.trim(); }
+    if (typeof change.active === "boolean") { f.active = change.active; f.status = change.active ? "active" : f.status === "archived" ? "archived" : "hidden"; log(actor.name, "Admin", "fields", `Field · ${f.name} (${s.slug})`, change.active ? "Shown on the form again" : "Hidden from the form"); }
+    if (["active", "hidden", "archived"].includes(change.status)) {
+      const from = f.status;
+      f.status = change.status; f.active = change.status === "active";
+      log(actor.name, "Admin", "fields", `Field · ${f.name} (${s.slug})`, change.status === "archived" ? `Archived the field "${f.name}" (its contributions stay).` : from === "archived" ? `Restored the field "${f.name}".` : `Field "${f.name}": ${from} → ${change.status}.`);
+    }
+    if (change.edit && typeof change.edit === "object") {
+      const e = change.edit, changed = [];
+      if (typeof e.name === "string" && e.name.trim() && e.name.trim() !== f.name) { f.name = e.name.trim(); changed.push("name"); }
+      if (typeof e.description === "string" && e.description.trim() !== (f.description || "")) { f.description = e.description.trim().slice(0, 500); changed.push("description"); }
+      if (typeof e.icon === "string" && e.icon.trim() !== (f.icon || "")) { f.icon = e.icon.trim().slice(0, 8); changed.push("icon"); }
+      if (changed.length) log(actor.name, "Admin", "fields", `Field · ${f.name} (${s.slug})`, `Edited the field "${f.name}" (${changed.join(", ")}).`);
+    }
     if (change.move === "up" || change.move === "down") {
       const i = list.indexOf(f), j = change.move === "up" ? i - 1 : i + 1;
       if (j >= 0 && j < list.length) { const o = list[j].order; list[j].order = f.order; f.order = o; }
     }
-    s.robots = s.formFields.filter((x) => x.active).sort((a, b) => a.order - b.order).map((x) => ({ slug: x.slug, name: x.name })); // the form offers the active ones, in order
+    offered(s); // the form offers the active ones, in order
     return Promise.resolve({ success: true });
+  }
+
+  // ---- Admin > Sectors (migration 030: archive, the card's icon and colour)
+  function waitingIn(slug) {
+    return mock.items.filter((it) => workflowSector(it) === slug && !["published", "rejected", "unpublished"].includes(it.status)).length
+      + forms.filter((x) => x.sector === slug && ["pending_review", "changes_requested"].includes(x.status)).length;
+  }
+  function addSector(actor, body = {}) {
+    if (!actor.isAdmin) throw new ApiError(403, "FORBIDDEN", "You do not have access to this.");
+    const name = String(body.name || "").replace(/\s+/g, " ").trim();
+    if (name.length < 2) throw new ApiError(400, "VALIDATION_FAILED", "The name needs at least 2 characters.");
+    if (allSectors().some((x) => x.name.toLowerCase() === name.toLowerCase())) throw new ApiError(409, "DUPLICATE", `There is already a sector called "${name}".`);
+    let slug = slugOf(name) || "sector";
+    for (let i = 2, base = slug; allSectors().some((x) => x.slug === slug); i++) slug = `${base}-${i}`;
+    const s = { slug, name, robots: [], fields: [], formFields: [], icon: String(body.icon || "").trim().slice(0, 8), color: /^#[0-9A-Fa-f]{6}$/.test(String(body.color || "")) ? String(body.color).toUpperCase() : "" };
+    mock.sectors.push(s);
+    log(actor.name, "Admin", "sectors", `Sector · ${name}`, `Added the sector "${name}" (link code ${slug}).`);
+    return Promise.resolve({ success: true, sector: { slug, name }, message: `"${name}" was added at the end of the list.` });
+  }
+  function changeSector(actor, slug, change = {}) {
+    if (!actor.isAdmin) throw new ApiError(403, "FORBIDDEN", "You do not have access to this.");
+    const s = sectorAny(slug);
+    if (!s) throw new ApiError(404, "NOT_FOUND", "We could not find that sector.");
+    let message = "Saved.";
+    if (typeof change.name === "string") {
+      const name = change.name.replace(/\s+/g, " ").trim();
+      if (name.length < 2) throw new ApiError(400, "VALIDATION_FAILED", "The name needs at least 2 characters.");
+      log(actor.name, "Admin", "sectors", `Sector · ${name}`, `Renamed the sector "${s.name}" to "${name}".`);
+      s.name = name; message = `Renamed to "${name}". Its link code stays "${s.slug}".`;
+    } else if (change.move === "up" || change.move === "down") {
+      const i = mock.sectors.indexOf(s), j = change.move === "up" ? i - 1 : i + 1;
+      if (i >= 0 && j >= 0 && j < mock.sectors.length) { [mock.sectors[i], mock.sectors[j]] = [mock.sectors[j], mock.sectors[i]]; log(actor.name, "Admin", "sectors", `Sector · ${s.name}`, `Moved the sector "${s.name}" ${change.move} (now ${j + 1}).`); }
+      message = "Moved.";
+    } else if (change.archived === true) {
+      const n = waitingIn(s.slug);
+      if (n > 0) throw new ApiError(409, "STILL_WAITING", `${n} contribution${n === 1 ? " in this sector is" : "s in this sector are"} still waiting for a decision. Decide ${n === 1 ? "it" : "them"} first, then archive the sector.`);
+      mock.sectors.splice(mock.sectors.indexOf(s), 1); s.archived = true; archivedSectors.push(s);
+      log(actor.name, "Admin", "sectors", `Sector · ${s.name}`, `Archived the sector "${s.name}" (members no longer see it; its contributions stay).`);
+      message = `"${s.name}" is archived: members no longer see it. Its contributions stay.`;
+    } else if (change.archived === false) {
+      archivedSectors.splice(archivedSectors.indexOf(s), 1); s.archived = false; mock.sectors.push(s);
+      log(actor.name, "Admin", "sectors", `Sector · ${s.name}`, `Restored the sector "${s.name}".`);
+      message = `"${s.name}" is back for members.`;
+    } else if (change.style && typeof change.style === "object") {
+      if ("icon" in change.style) s.icon = String(change.style.icon || "").trim().slice(0, 8);
+      if ("color" in change.style) { const c = String(change.style.color || "").trim(); if (c && !/^#[0-9A-Fa-f]{6}$/.test(c)) throw new ApiError(400, "VALIDATION_FAILED", "The colour must look like #1F7A5C."); s.color = c.toUpperCase(); }
+      log(actor.name, "Admin", "sectors", `Sector · ${s.name}`, `Changed the card of "${s.name}".`);
+      message = "The sector's card is updated.";
+    }
+    return Promise.resolve({ success: true, message });
+  }
+  function setReviewerSectors(actor, name, sectors = []) {
+    if (!actor.isAdmin) throw new ApiError(403, "FORBIDDEN", "You do not have access to this.");
+    const list = (Array.isArray(sectors) ? sectors : []).filter((x) => mock.sectors.some((s) => s.slug === x));
+    if (list.length) limits.set(name, list); else limits.delete(name);
+    log(actor.name, "Admin", "roles", name, list.length ? `${name} reviews: ${list.join(", ")}.` : `${name} reviews every sector.`);
+    return Promise.resolve({ success: true, sectors: list.map((x) => ({ slug: x, name: (sectorOf(x) || {}).name || x })) });
+  }
+
+  // ---- the Approved step (portal-rules.js, migration 030) on top of the mock's own workflow (api.js MockAdapter, which the plugin bundles)
+  async function act(base, actor, id, action, payload = {}) {
+    const it = mock.items.find((x) => x.id === Number(id));
+    if (!it) throw new ApiError(404, "NOT_FOUND", "We could not find that contribution.");
+    if (action === "approve") {
+      if (!canApprove(it.status)) throw new ApiError(409, "NOT_ALLOWED", "This idea cannot be approved now.");
+      if (Number(payload.rowVersion) !== it.rowVersion) throw new ApiError(409, "STALE", "Someone else changed this contribution. Reload it to see the latest version.");
+      const { error, value } = cleanProposed(payload.proposed || it.proposed, { sectors: mock.sectors, minor: it.contributor.minor === true });
+      if (error) throw new ApiError(400, "VALIDATION_FAILED", error);
+      const sendError = validateSend(value);
+      if (sendError) throw new ApiError(400, "VALIDATION_FAILED", sendError);
+      const ch = changedFields(value, it.original);
+      it.proposed = value; it.notes = String(payload.notes ?? it.notes ?? "").trim(); it.status = APPROVED; it.statusLabel = APPROVED_LABEL;
+      it.moderator = it.moderator || actor.name; it.approvedBy = actor.name; it.rowVersion += 1;
+      mock.log(it, actor.name, portalHistory.approved(ch));
+      return { item: clone(it), message: "Approved. It is not public: send the publishing request to an Admin when it is ready." };
+    }
+    if (it.status === APPROVED && ["send_request", "save_draft", "reset", "decline"].includes(action)) {
+      it.status = "draft"; // the mock's own step from the Moderator's draft gives the same result (portal-rules.js: from Approved)
+      try { return await base.act(id, action, payload); } catch (e) { it.status = APPROVED; throw e; }
+    }
+    if (it.status === APPROVED && action === "open") return { item: clone(it) };
+    return base.act(id, action, payload);
   }
   async function auditLog(actor, { page = 1, action = "", q = "" } = {}) {
     if (!actor.isAdmin) throw new ApiError(403, "FORBIDDEN", "You do not have access to this.");
@@ -4307,10 +4785,10 @@ function createDemoPortal(mock, { formItems = [], suggestions = [], plugins = {}
       const k = x.status === "pending_review" ? (x.verified ? "verified" : "submitted") : x.status === "changes_requested" ? "changesRequested" : x.status;
       if (k in c) { c[k] += 1; c.total += 1; }
     };
-    const sectors = mock.sectors.map((s) => { const c = { slug: s.slug, name: s.name, active: true, ...zero() }; live().filter((x) => x.sector === s.slug).forEach((x) => add(c, x)); return c; });
+    const sectors = allSectors().map((s) => { const c = { slug: s.slug, name: s.name, active: !s.archived, demo: false, archived: s.archived === true, icon: s.icon || "", color: s.color || "", ...zero() }; live().filter((x) => x.sector === s.slug).forEach((x) => add(c, x)); return c; });
     const sum = zero(); sectors.forEach((c) => keys.forEach((k) => { sum[k] += c[k]; }));
     const unique = zero(); live().forEach((x) => add(unique, x));
-    return { sectors, sum, unique };
+    return { sectors, sum, unique, features: { sectorsData: true } };
   }
   const formItem = (id) => forms.find((x) => x.id === Number(id)) || null;
 
@@ -4319,17 +4797,23 @@ function createDemoPortal(mock, { formItems = [], suggestions = [], plugins = {}
     const base = mock.as(role), actor = { name: role === "admin" ? mock.actors.admin : mock.actors.moderator, isAdmin: role === "admin" };
     return {
       ...base,
+      act: (id, action, payload) => act(base, actor, id, action, payload),
       portal: (view, o) => portal(actor, view, o),
       formDecision: (id, action, note) => formDecision(actor, id, action, note),
       sectorForms: (sector) => sectorForms(actor, sector),
       addField: (sector, body) => addField(actor, sector, body),
       changeField: (sector, id, change) => changeField(actor, sector, id, change),
+      deleteField: (sector, id) => deleteField(actor, sector, id),
+      decideSuggestion: (id, body) => decideSuggestion(actor, id, body),
+      addSector: (body) => addSector(actor, body),
+      changeSector: (slug, change) => changeSector(actor, slug, change),
+      setReviewerSectors: (name, sectors) => setReviewerSectors(actor, name, sectors),
       auditLog: (q) => auditLog(actor, q),
       sectorCounts: () => sectorCounts(),
       mine: () => mock.mine({ name: actor.name, type: role === "admin" ? "Administrator" : "Moderator", minor: false }),
     };
   }
-  return { as, formItem, forms, suggestions: sugg, formDecision, counts };
+  return { as, formItem, forms, suggestions: sugg, formDecision, counts, limits };
 }
 Object.assign(exports, { historyKind, createDemoPortal });
 });
@@ -4346,6 +4830,7 @@ const { askReason } = __req("dialog.js");
 const { noticeHtml, openDrawer, pageHeader, panelHtml, sentHtml, statusBadge, tableHtml, toast } = __req("portal-ui.js");
 const { formToPortal } = __req("portal-status.js");
 const { createDemoPortal } = __req("demo-portal.js");
+const { APPROVED, portalMineStatus } = __req("portal-rules.js");
 
 const DEMO_SITE = "https://www.example.org"; // the demo's made-up website address
 const ROLES = [
@@ -4414,6 +4899,13 @@ function websiteSectorHtml(s) {
  */
 function mountPortals(el, ctx) {
   const st = { role: "visitor", page: {}, sector: {} };
+  // the Approved step (migration 030): the mock workflow (api.js, which the plugin bundles) does not know it; a member sees "Approved"
+  const mineOf = (who) => ctx.mock.mine(who).then((r) => ({ ...r, items: (r.items || []).map((x) => {
+    const it = x.source === "workflow" && ctx.mock.items.find((i) => i.code === x.code);
+    if (!it || it.status !== APPROVED) return x;
+    const st = portalMineStatus("workflow", it.status);
+    return { ...x, status: st.key, statusLabel: st.label };
+  }) }));
   const data = createDemoPortal(ctx.mock, { formItems: DEMO_FORM_ITEMS, suggestions: DEMO_SUGGESTIONS, plugins: DEMO_PLUGINS, users: DEMO_USERS });
   ctx.mock.formItems = data.forms; // "My Contributions" reads the same current-form items the reviewers change
   const formUrl = "#form";
@@ -4501,7 +4993,7 @@ function mountPortals(el, ctx) {
     }
     if (page === "mine") {
       if (role.portal === "website") { main.innerHTML = `<div class="rv-cw-root rv-pp">${pageHeader({ title: "My Contributions", id: "rvd-mine-h" })}${noticeHtml("info", "Please sign in with your RoboValley member account to see your contributions. You come back here after signing in.")}<p><a class="btn" href="#sign-in">Sign in</a></p></div>`; return; }
-      const mine = () => ctx.mock.mine(me);
+      const mine = () => mineOf(me);
       return role.portal === "moderator" ? adm((m) => S.mine.mount(m, { adapter: { mine }, contributeUrl: formUrl })) : app((m) => S.mine.mount(m, { adapter: { mine }, contributeUrl: formUrl }));
     }
     if (page === "sectors") {
@@ -4510,7 +5002,7 @@ function mountPortals(el, ctx) {
       return app((m) => S.sectors.mount(m, { adapter: memberAdapter(), form: formUrl, variant: role.variant, quickForm: role.portal === "contributor", sector: st.sector[role.key] || "", onSector: remember(role.key) }));
     }
     if (page === "home") {
-      return ctx.mock.mine(me).then((r) => {
+      return mineOf(me).then((r) => {
         const n = (k) => r.items.filter((i) => i.status === k).length;
         const go = role.portal === "contributor" ? [["sectors", "Contribute to a sector", "primary"], ["mine", "My Contributions", ""]] : [["form", "Share your idea", "primary"], ["sectors", "Browse sectors", ""], ["mine", "My Contributions", ""]];
         main.innerHTML = `<section class="rv-pp rvd-home">${pageHeader({ title: `Welcome, ${me.name}`, desc: me.type, id: "rvd-home-h" })}
@@ -4543,12 +5035,31 @@ function mountPortals(el, ctx) {
     if (page === "users") {
       return adm((m) => {
         m.classList.add("rv-pp");
-        m.innerHTML = `${pageHeader({ title: "Users & Roles", desc: "Everyone with an account, their role and their portal. \"View as\" shows what that person sees.", id: "rvd-users-h" })}
-          ${panelHtml({ heading: "People", id: "rvd-users-panel-h", sub: "Assigning roles and moderators per sector come with the data update (Phase B).",
-            body: tableHtml({ caption: "Users and roles", head: [["Name", "rv-pp-col-title"], ["Role"], ["Portal"], ["", "rv-pp-col-actions"]],
-              rows: DEMO_USERS.map(([n, r, p, k]) => `<tr><td class="rv-pp-col-title"><b>${esc(n)}</b></td><td>${esc(r)}</td><td>${esc(p === "member" ? "Member portal" : p === "moderator" ? "Admin portal (moderator)" : "Admin portal")}</td>
-                <td class="rv-pp-col-actions">${k ? `<button type="button" class="btn small" data-view-as="${esc(k)}" aria-label="${esc(`View as ${n}`)}">View as</button>` : '<span class="rv-pp-muted">—</span>'}</td></tr>`) }) })}`;
-        m.querySelectorAll("[data-view-as]").forEach((b) => b.addEventListener("click", () => show(b.getAttribute("data-view-as"))));
+        const sectorName = (slug) => (ctx.mock.sectors.find((x) => x.slug === slug) || {}).name || slug;
+        const reviews = (n) => { const l = data.limits.get(n); return l && l.length ? l.map(sectorName).join(", ") : "every sector"; };
+        const draw = () => {
+          m.innerHTML = `${pageHeader({ title: "Users & Roles", desc: "Everyone with an account, their role and their portal. \"View as\" shows what that person sees.", id: "rvd-users-h" })}
+            ${panelHtml({ heading: "People", id: "rvd-users-panel-h", sub: "A moderator can be limited to some sectors (Edit sectors); administrators review every sector.",
+              body: tableHtml({ caption: "Users and roles", head: [["Name", "rv-pp-col-title"], ["Role"], ["Portal"], ["Reviews"], ["", "rv-pp-col-actions"]],
+                rows: DEMO_USERS.map(([n, r, p, k]) => `<tr><td class="rv-pp-col-title"><b>${esc(n)}</b></td><td>${esc(r)}</td><td>${esc(p === "member" ? "Member portal" : p === "moderator" ? "Admin portal (moderator)" : "Admin portal")}</td>
+                  <td>${p === "moderator" ? `${esc(reviews(n))} <button type="button" class="btn small" data-sectors="${esc(n)}" aria-label="${esc(`Edit the sectors ${n} reviews`)}">Edit sectors</button>` : p === "admin" ? "Every sector" : '<span class="rv-pp-muted">—</span>'}</td>
+                  <td class="rv-pp-col-actions">${k ? `<button type="button" class="btn small" data-view-as="${esc(k)}" aria-label="${esc(`View as ${n}`)}">View as</button>` : '<span class="rv-pp-muted">—</span>'}</td></tr>`) }) })}`;
+          m.querySelectorAll("[data-view-as]").forEach((b) => b.addEventListener("click", () => show(b.getAttribute("data-view-as"))));
+          m.querySelectorAll("[data-sectors]").forEach((b) => b.addEventListener("click", () => editSectors(b.getAttribute("data-sectors"))));
+        };
+        const editSectors = (n) => {
+          const cur = data.limits.get(n) || [];
+          const dr = openDrawer({ title: `Sectors ${n} reviews`, modal: true, doc: m.ownerDocument, host: m,
+            body: `<form class="rv-pp-form" data-ms><fieldset class="rv-sf-status"><legend>None ticked = every sector</legend>${ctx.mock.sectors.map((x) => `<label class="rv-sf-radio"><input type="checkbox" value="${esc(x.slug)}"${cur.includes(x.slug) ? " checked" : ""}> ${esc(x.name)}</label>`).join("")}</fieldset></form>`,
+            foot: '<button type="button" class="btn" data-x="cancel">Cancel</button><button type="button" class="btn primary" data-x="save">Save</button>' });
+          dr.foot.querySelector('[data-x="cancel"]').addEventListener("click", dr.close);
+          dr.foot.querySelector('[data-x="save"]').addEventListener("click", async () => {
+            const list = Array.from(dr.body.querySelectorAll("input[type=checkbox]:checked")).map((x) => x.value);
+            await as.setReviewerSectors(n, list);
+            dr.close(); draw(); toast(m, list.length ? `${n} reviews ${list.map(sectorName).join(", ")}.` : `${n} reviews every sector.`);
+          });
+        };
+        draw();
       });
     }
     main.innerHTML = '<p class="cw-muted">Nothing here.</p>';

@@ -9,6 +9,7 @@ import { CATEGORIES, EARN, LEVELS, MESSAGES, MOD_FILTERS, NOT_SURE, NOT_SURE_LAB
 import { canModeratorEdit, isModified } from "./rules.js";
 import { RestAdapter } from "./api.js";
 import { askReason } from "./dialog.js";
+import { APPROVED } from "./portal-rules.js";
 import { attachmentHtml, badge, decisionHtml, fieldsHtml, historyHtml, lastDecision, lastFeedback, notice, requestHtml } from "./review.js";
 
 const INTRO = "Verify each idea. If it is good as it is, send it to Admin unchanged. If it needs improvement, edit it first, including category, suitable for and path. The original submission is always kept. Moderators cannot publish.";
@@ -18,8 +19,10 @@ export const REVIEW_LABELS = {
 };
 
 /**
- * The review of ONE idea, drawn into `d`. ctx = { adapter, sectors, item, labels?, diff?, onChanged?(item, action, result) }.
+ * The review of ONE idea, drawn into `d`. ctx = { adapter, sectors, item, labels?, diff?, approve?, onChanged?(item, action, result) }.
  * `diff`: also show the changes to the title and description against the original while typing (Moderation's drawer).
+ * `approve` (migration 030): the main button approves the idea (as-is or edited) instead of sending the publishing request at once; an
+ * approved idea then offers "Send publish request to Admin" (and Back to draft, Reject).
  */
 export function reviewPanel(d, ctx) {
   const adapter = ctx.adapter;
@@ -54,6 +57,7 @@ export function reviewPanel(d, ctx) {
 
   function draw() {
     const editable = canModeratorEdit(it.status), dis = editable ? "" : " disabled", ro = editable ? "" : " readonly";
+    const approved = it.status === APPROVED;
     const fb = lastFeedback(it, "changes"), rej = lastDecision(it), latest = lastFeedback(it);
     const minor = it.contributor.minor === true;
     const p = it.proposed;
@@ -65,6 +69,7 @@ export function reviewPanel(d, ctx) {
       ${it.status === STATUS.CHANGES && fb ? notice("warn", `<b>Admin requested changes:</b> ${esc(fb.text)}<br><span class="cw-muted">${esc(fb.by)} · ${esc(fmtDate(fb.at))}</span>`) : ""}
       ${editable && latest && latest.type === "reopen" ? notice("warn", `<b>Reopened by Admin:</b> ${esc(latest.text)}<br><span class="cw-muted">${esc(latest.by)} · ${esc(fmtDate(latest.at))}</span>`) : ""}
       ${[STATUS.PENDING, STATUS.RESUBMITTED].includes(it.status) ? notice("info", "Publishing request is with Admin. You can't edit it until Admin responds.") : ""}
+      ${approved ? notice("info", "Approved by a Moderator. It is not public: send the publishing request to an Admin, or take it back to the draft to change it.") : ""}
       ${it.status === STATUS.PUBLISHED ? notice("ok", `Published by Admin on ${esc(fmtDate(it.publishedAt))}.`) : ""}
       ${it.status === STATUS.UNPUBLISHED ? notice("info", "Unpublished by Admin: it is no longer on the public website.") : ""}
       ${it.status === STATUS.REJECTED ? notice("err", rej ? decisionHtml(rej) : "Rejected.") : ""}
@@ -95,6 +100,11 @@ export function reviewPanel(d, ctx) {
         <button type="button" class="btn danger" data-act="decline">${esc(labels.decline)}</button>
       </div>
       <p class="cw-muted">${esc(labels.hint)}</p>` : ""}
+      ${approved ? `<div class="cw-actions">
+        <button type="button" class="btn primary" data-act="request">${esc(labels.request || "Send publish request to Admin")}</button>
+        <button type="button" class="btn" data-act="redraft">Back to draft</button>
+        <button type="button" class="btn danger" data-act="decline">${esc(labels.decline)}</button>
+      </div>` : ""}
       <div data-msg aria-live="polite"></div>
       <h4 class="cw-h4">Activity history</h4>${historyHtml(it)}
     </article>`;
@@ -107,7 +117,7 @@ export function reviewPanel(d, ctx) {
     robots();
     $(d, "#cw-m-sector").addEventListener("change", robots);
     if (ctx.diff) ["#cw-m-title", "#cw-m-desc"].forEach((sel) => $(d, sel).addEventListener("input", () => { $(d, "[data-livediff]").innerHTML = diffHtml(); }));
-    if (!editable) return;
+    if (!editable && !approved) return;
     const run = async (action, extra, after) => {
       $$(d, "[data-act]").forEach((b) => { b.disabled = true; });
       try {
@@ -121,13 +131,21 @@ export function reviewPanel(d, ctx) {
         await fail(e);
       }
     };
+    const declineBtn = $(d, '[data-act="decline"]');
+    declineBtn.addEventListener("click", async () => {
+      const reason = await askReason({ title: labels.decline, label: "Reason for declining this idea (recorded in history)", confirmText: labels.decline });
+      if (reason) run("decline", approved ? { reason } : { ...readForm(), reason });
+    });
+    if (approved) {
+      $(d, '[data-act="request"]').addEventListener("click", () => run("send_request", { proposed: it.proposed, notes: it.notes }, (r) => notice("ok", `Request sent to Admin. Status: <b>${esc(r.item.statusLabel)}</b>. It is still not public.`)));
+      $(d, '[data-act="redraft"]').addEventListener("click", () => run("save_draft", { proposed: it.proposed, notes: it.notes }, () => notice("ok", "Back in the draft: the approval is undone.")));
+      return;
+    }
     $(d, '[data-act="save"]').addEventListener("click", () => run("save_draft", readForm(), () => notice("ok", esc(MESSAGES.draftSaved))));
     $(d, '[data-act="reset"]').addEventListener("click", () => run("reset", {}));
-    $(d, '[data-act="send"]').addEventListener("click", () => run("send_request", readForm(), (r) => notice("ok", `Request sent to Admin. Status: <b>${esc(r.item.statusLabel)}</b>. It is still not public.`)));
-    $(d, '[data-act="decline"]').addEventListener("click", async () => {
-      const reason = await askReason({ title: labels.decline, label: "Reason for declining this idea (recorded in history)", confirmText: labels.decline });
-      if (reason) run("decline", { ...readForm(), reason });
-    });
+    $(d, '[data-act="send"]').addEventListener("click", () => (ctx.approve
+      ? run("approve", readForm(), () => notice("ok", "Approved. It is not public: send the publishing request to an Admin when it is ready."))
+      : run("send_request", readForm(), (r) => notice("ok", `Request sent to Admin. Status: <b>${esc(r.item.statusLabel)}</b>. It is still not public.`))));
   }
 
   draw();

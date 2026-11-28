@@ -144,10 +144,15 @@ describe("who may open and change Sector forms", () => {
     expect((await robots()).map((r) => [r.name, r.is_active])).toEqual([["Drone sprayers", false]]);
   });
 
-  it("robot types can never be deleted, and nothing else is offered: the routes have no DELETE, GET or PUT", () => {
+  // Contribution Portal (Phase B): a field may be DELETED, but only when no contribution of any status uses it and no plugin manages it
+  // (P2's "never deleted" rule is replaced; the behaviour is tested in tests/portal-fields-030.test.ts). Nothing else is offered.
+  it("a field can be deleted only after the checks; nothing else is offered: the routes have no GET or PUT", () => {
     expect(Object.keys(addRoute).filter((k) => /^[A-Z]+$/.test(k))).toEqual(["POST"]);
-    expect(Object.keys(changeRoute).filter((k) => /^[A-Z]+$/.test(k))).toEqual(["PATCH"]);
-    expect(readFileSync("src/lib/sectorForms.ts", "utf8").replace(/\/\/.*$/gm, "")).not.toMatch(/DELETE\s+FROM/i);
+    expect(Object.keys(changeRoute).filter((k) => /^[A-Z]+$/.test(k)).sort()).toEqual(["DELETE", "PATCH"]);
+    const code = readFileSync("src/lib/sectorForms.ts", "utf8").replace(/\/\/.*$/gm, "");
+    expect(code.match(/DELETE\s+FROM/gi)).toHaveLength(1); // deleteRobotType's, after its checks
+    expect(code.indexOf("DELETE FROM sector_robot_types")).toBeGreaterThan(code.indexOf("const uses = await fieldUses(db, s, cur);"));
+    expect(code.indexOf("const uses = await fieldUses(db, s, cur);")).toBeGreaterThan(code.indexOf('if (cur.source === "plugin") return fail(409, "PLUGIN_MANAGED"'));
   });
 });
 

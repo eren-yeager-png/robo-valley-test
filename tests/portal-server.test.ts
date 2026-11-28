@@ -19,7 +19,11 @@ import * as formsRoute from "../src/app/api/admin/portal/sector-forms/route";
 import * as auditRoute from "../src/app/api/admin/audit-log/route";
 import { portalData } from "../src/lib/portalReview";
 import { fieldUseCounts } from "../src/lib/sectorForms";
-import { historyAction } from "../src/lib/auditLog";
+import { auditLog, historyAction } from "../src/lib/auditLog";
+import * as suggestionRoute from "../src/app/api/admin/portal/field-suggestions/[id]/route";
+import { decide } from "../src/lib/contributionReview";
+import { sectorFormsPortal } from "../src/lib/portalFields";
+import { migratedClone } from "./helpers/migratedClone";
 import { viewAs } from "../src/lib/viewAs";
 
 const q = (sql: string, p: unknown[] = []): Promise<{ rows: any[] }> => testDb().raw.query(sql, p as never) as never;
@@ -161,7 +165,8 @@ describe("Moderation's data: both kinds of contributions, one status model", () 
 });
 
 describe("Sector Forms' data", () => {
-  it("fields with where they came from and how many contributions use each; suggestions waiting until the field exists", async () => {
+  // Phase B (migration 030, which this database has): the stored source, whether a field may be deleted, and suggestions as records
+  it("fields with their stored source and how many contributions use each; suggested fields are records an Admin approves or rejects", async () => {
     const sec = (await q("SELECT id FROM sectors WHERE slug = 'education'")).rows[0].id;
     await q("INSERT INTO sector_robot_types (sector_id, slug, name, sort_order) VALUES ($1, 'robotic-arms', 'Robotic arms', 1), ($1, 'coding-kits', 'Coding kits', 2)", [sec]);
     await idea(student, { title: "Arm for the lab", robotType: "robotic-arms" });
@@ -172,11 +177,32 @@ describe("Sector Forms' data", () => {
     const r = await get(formsRoute, "/api/admin/portal/sector-forms?sector=education");
     expect(r.status).toBe(200);
     expect(r.b.sector.slug).toBe("education");
-    expect(r.b.fields.map((f: any) => [f.name, f.source, f.contributions])).toEqual([["Robotic arms", "admin", 1], ["Coding kits", "member", 0]]);
-    expect(r.b.suggestions.map((s: any) => [s.name, s.by])).toEqual([["Drone clubs", "Kiran Prasad"]]);
-    expect(r.b.sectors.find((s: any) => s.slug === "education")).toMatchObject({ fields: 2, suggestions: 1 });
+    expect(r.b.features).toEqual({ fieldsData: true });
+    expect(r.b.fields.map((f: any) => [f.name, f.source, f.contributions, f.deletable])).toEqual([["Robotic arms", "admin", 1, false], ["Coding kits", "admin", 0, true]]);
+    expect(r.b.fields[0].deleteBlock).toBe("Can't delete: 1 contribution uses this field. Archive it instead.");
+    // sending a "suggest a field" recorded it; the one named like an existing field waits too (the Admin rejects it as a duplicate)
+    expect(r.b.suggestions.map((s: any) => [s.name, s.by, s.record])).toEqual([["Drone clubs", "Kiran Prasad", true], ["Coding kits", "Kiran Prasad", true]]);
+    expect(r.b.sectors.find((s: any) => s.slug === "education")).toMatchObject({ fields: 2, suggestions: 2 });
+    const decideIt = async (id: number, body: object) => {
+      const res = await suggestionRoute.POST(new Request(`http://localhost/api/admin/portal/field-suggestions/${id}`, { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": ip() }, body: JSON.stringify(body) }),
+        { params: Promise.resolve({ id: String(id) }) });
+      return { status: res.status, b: (await res.json()) as any };
+    };
+    const [drone, coding] = r.b.suggestions;
+    const ok = await decideIt(drone.id, { action: "approve" });
+    expect(ok.status).toBe(200);
+    expect(ok.b.message).toMatch(/Suggested by member/);
+    expect((await decideIt(coding.id, { action: "approve" })).status).toBe(409); // a field of that name exists
+    expect((await decideIt(coding.id, { action: "reject" })).status).toBe(400); // the reason is required
+    expect((await decideIt(coding.id, { action: "reject", reason: "Already a field." })).status).toBe(200);
+    expect((await decideIt(coding.id, { action: "reject", reason: "Again." })).status).toBe(409); // decided already
+    const after = await get(formsRoute, "/api/admin/portal/sector-forms?sector=education");
+    expect(after.b.fields.map((f: any) => [f.name, f.source])).toEqual([["Robotic arms", "admin"], ["Coding kits", "admin"], ["Drone clubs", "member"]]);
+    expect(after.b.suggestions).toEqual([]);
+    expect((await q("SELECT action FROM audit_log WHERE target_type = 'field_suggestion' ORDER BY id")).rows.map((x) => x.action)).toEqual(["suggestion_approve", "suggestion_reject"]);
     as(mod);
     expect((await get(formsRoute, "/api/admin/portal/sector-forms")).status).toBe(403);
+    expect((await decideIt(drone.id, { action: "reject", reason: "x" })).status).toBe(403); // approving and rejecting suggestions: Admins only
   });
   it("fieldUseCounts counts current-form items by their robot and ideas by either version", async () => {
     const sec = (await q("SELECT id FROM sectors WHERE slug = 'education'")).rows[0].id;
@@ -188,19 +214,60 @@ describe("Sector Forms' data", () => {
   });
 });
 
+// Before migration 030 the portal works out what it can from the data that exists (Phase A): a throwaway copy without 030.
+describe("before migration 030: the worked-out data of Phase A", () => {
+  async function before030() {
+    const { pg } = await migratedClone((id) => id <= "029");
+    await pg.query("INSERT INTO sectors (slug, name, sort_order) VALUES ('education', 'Education', 20) ON CONFLICT (slug) DO NOTHING");
+    const sec = Number(((await pg.query("SELECT id FROM sectors WHERE slug = 'education'")).rows[0] as { id: number }).id);
+    await pg.query("INSERT INTO sector_robot_types (sector_id, slug, name, sort_order) VALUES ($1, 'coding-kits', 'Coding kits', 1)", [sec]);
+    const suggestion = (title: string) => pg.query(
+      `INSERT INTO cw_contributions (contributor_name, contributor_type, kind, resource, original, proposed) VALUES ('Kiran Prasad', 'TC', 'Suggestion', $1::jsonb, $2::jsonb, $2::jsonb) RETURNING id`,
+      [JSON.stringify({ feature: "Robots by Sector", type: "Sector page", path: "Robots by Sector › Education", url: "", change: "Add a field", id: "" }),
+        JSON.stringify({ title, description: "Why it is needed.", sector: "not-sure", robotType: "not-sure", categories: [], suitableFor: [], learningPath: "" })]);
+    const a = Number(((await suggestion("Coding kits")).rows[0] as any).id);
+    await suggestion("Drone clubs");
+    await pg.query("INSERT INTO cw_contribution_history (contribution_id, actor, text) VALUES ($1, 'Kiran Prasad (Teacher)', 'Submitted through the contribution form: Suggestion.')", [a]);
+    await pg.query("INSERT INTO cw_contribution_history (contribution_id, actor, text) VALUES ($1, 'Mohan M.', 'Submitted publishing request to Admin (version 1). Approved as-is, no changes to the original.')", [a]);
+    return pg;
+  }
+  it("Sector Forms: the source and the waiting suggestions are worked out from the ideas; nothing is stored", async () => {
+    const pg = await before030();
+    const d = await sectorFormsPortal(pg as never, "education");
+    expect(d.features).toEqual({ fieldsData: false });
+    expect(d.fields.map((f) => [f.name, f.source, f.status])).toEqual([["Coding kits", "member", "active"]]);
+    expect(d.suggestions.map((s) => [s.name, s.record])).toEqual([["Drone clubs", false]]);
+    await pg.close();
+  });
+  it("the Audit Log is worked out from the history; Moderation keeps the one-step approval", async () => {
+    const pg = await before030();
+    const log = await auditLog(pg as never, {});
+    expect(log.stored).toBe(false);
+    expect(log.rows.map((r) => r.action)).toEqual(expect.arrayContaining(["submitted", "approved"]));
+    const p = await portalData(pg as never, { view: "moderation", sector: "education", viewerId: 1, isAdmin: true });
+    expect(p.features).toEqual({ approvedStep: false });
+    await pg.close();
+  });
+});
+
 describe("the Audit Log and View as", () => {
-  it("history lines and decisions, newest first, with who and the role; filter by kind; Admins only", async () => {
+  // Phase B (migration 030): the Audit Log reads audit_log, written in the same transaction as each action
+  it("every approval, request and decision in its own row, newest first, with who and the role; filter by kind; Admins only", async () => {
     const b = await idea(teacher, { title: "Audit me" });
-    await act(mod, b, "send_request");
+    expect((await act(mod, b, "approve")).status).toBe(200);
+    expect((await act(mod, b, "send_request")).status).toBe(200);
     const f = await formItem(student, "Old audit item", "pending_review", "education");
-    await q("INSERT INTO contribution_reviews (contribution_id, reviewer_id, action, note) VALUES ($1, $2, 'reject', 'Not about robots.')", [f, mod.id]);
+    expect(await decide(testPool(), Number(mod.id), f, "reject", "Not about robots.", false)).toMatchObject({ ok: true });
     as(admin);
     const r = await get(auditRoute, "/api/admin/audit-log");
     expect(r.status).toBe(200);
+    expect(r.b.stored).toBe(true);
     const kinds = r.b.rows.map((x: any) => `${x.action}:${x.role}`);
-    expect(kinds).toEqual(expect.arrayContaining(["submitted:Contributor", "approved:Moderator", "rejected:Moderator"]));
-    expect(r.b.rows.find((x: any) => x.action === "rejected").details).toBe("Not accepted. Note: Not about robots.");
+    expect(kinds).toEqual(expect.arrayContaining(["approved:Moderator", "requested:Moderator", "rejected:Moderator"]));
+    expect(r.b.rows.find((x: any) => x.action === "rejected").details).toBe("Rejected. Note: Not about robots.");
+    expect(r.b.rows.find((x: any) => x.action === "approved" && x.target.startsWith("RV-")).details).toBe("Approved as-is");
     const only = await get(auditRoute, "/api/admin/audit-log?action=approved");
+    expect(only.b.rows.length).toBeGreaterThan(0);
     expect(only.b.rows.every((x: any) => x.action === "approved")).toBe(true);
     as(mod);
     expect((await get(auditRoute, "/api/admin/audit-log")).status).toBe(403);

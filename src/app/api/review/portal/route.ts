@@ -23,7 +23,7 @@ export async function GET(req: Request) {
   const raw = url.searchParams.get("sector") ?? "";
   const sector = raw.length <= 60 && SLUG.test(raw) ? raw : "";
   try {
-    const { absent: _absent, ...data } = await portalData(pool as never, { view, sector, viewerId: g.userId, isAdmin: g.isAdmin });
+    const { absent: _absent, ...data } = await portalData(pool as never, { view, sector, viewerId: g.userId, isAdmin: g.isAdmin, allowed: g.sectors });
     return withCors(req, json({ success: true, ...data }), METHODS);
   } catch (e) {
     if (e instanceof PortalNotSetUp) return withCors(req, json({ success: false, error: "NOT_SET_UP", message: e.message }, 503), METHODS);

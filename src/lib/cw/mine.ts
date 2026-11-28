@@ -1,6 +1,7 @@
 // "My Contributions" (every portal): the signed-in person's OWN items in one read-only list: their ideas in the contribution workflow
 // (cw_contributions) and what they sent with the current form (contributions). Each part tolerates a database without its tables, so
 // the list works before or after any migration. Nothing here changes data.
+import { portalMineStatus } from "../../../public/cw/js/portal-rules.js";
 import * as R from "./shared";
 import { loadSectors } from "./lookups";
 
@@ -30,7 +31,7 @@ export async function myContributions(db: Db, userId: number, links: { editUrl: 
       }
     }
     for (const r of rows) {
-      const o = j(r.original), st = R.mineStatus("workflow", String(r.status));
+      const o = j(r.original), st = portalMineStatus("workflow", String(r.status)); // the Approved step (030) shows as "Approved"
       items.push({
         code: R.codeOf(r.id), source: "workflow", title: String(o.title ?? ""), description: String(o.description ?? ""),
         sector: String(o.sector ?? R.NOT_SURE), sectorName: R.sectorLabel(o.sector, sectors), field: o.robotType && o.robotType !== R.NOT_SURE ? R.robotLabel(o.sector, o.robotType, sectors) : "",

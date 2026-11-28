@@ -127,7 +127,7 @@ describe("the standalone demo", () => {
     dom.window.close();
   }, 60_000);
 
-  it("Moderation approves as-is (the idea goes to Publish Requests), Reject needs a reason, and the Admin publishes from the preview", async () => {
+  it("Moderation approves as-is (Approved), sends the publishing request (Publish Requests), Reject needs a reason, and the Admin publishes from the preview", async () => {
     const { dom, w, d, go, click } = open();
     await settle(w);
     await go("moderator", "moderation");
@@ -144,7 +144,12 @@ describe("the standalone demo", () => {
       (drawer.querySelector('[data-act="send"]') as HTMLButtonElement).click(); await settle(w);
       expect(d.querySelector(".rv-pp-drawer")).toBeNull();
     }
-    expect(d.querySelector(".rv-pp-toast")!.textContent).toMatch(/Approved and sent to an Admin/);
+    // Phase B (migration 030): approving is its own step; then the Moderator sends the publishing request
+    expect(Array.from(d.querySelectorAll(".rv-pp-toast")).at(-1)!.textContent).toMatch(/^Approved: /);
+    await click('[data-main] [data-tab="approved"]');
+    expect(d.querySelector(`[data-main] tr[data-row="${key}"] .rv-pp-badge`)!.textContent).toBe("Approved");
+    await click(`[data-main] [data-act="send"][data-key="${key}"]`);
+    expect(Array.from(d.querySelectorAll(".rv-pp-toast")).at(-1)!.textContent).toMatch(/Publishing request sent to an Admin/);
     await click('[data-main] [data-tab="approved"]');
     expect(d.querySelector(`[data-main] tr[data-row="${key}"] .rv-pp-badge`)!.textContent).toBe("Publish requested");
     // Reject: the dialog's button stays disabled until a reason is typed

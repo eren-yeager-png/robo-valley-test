@@ -14,8 +14,10 @@ type Db = { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }>
 export const COUNT_KEYS = ["submitted", "verified", "changesRequested", "published", "rejected", "unpublished", "total"] as const;
 export type CountKey = (typeof COUNT_KEYS)[number];
 export type Counts = Record<CountKey, number>;
-export type SectorCountRow = { slug: string; name: string; active: boolean } & Counts;
-export type SectorCounts = { sectors: SectorCountRow[]; sum: Counts; unique: Counts };
+/** demo, archived, icon, color: for Admin > Sectors (archived, icon and color come with migration 030; false / "" before it). */
+export type SectorCountRow = { slug: string; name: string; active: boolean; demo: boolean; archived: boolean; icon: string; color: string } & Counts;
+/** features.sectorsData: migration 030 is applied (sector icons, colours and archiving). */
+export type SectorCounts = { sectors: SectorCountRow[]; sum: Counts; unique: Counts; features: { sectorsData: boolean } };
 
 const zero = (): Counts => ({ submitted: 0, verified: 0, changesRequested: 0, published: 0, rejected: 0, unpublished: 0, total: 0 });
 const n = (v: unknown) => Number(v) || 0;
@@ -47,13 +49,21 @@ async function run(db: Db, haveAudit: boolean): Promise<SectorCounts> {
        JOIN contribution_scopes cs ON cs.sector_id = s.id
        JOIN contributions c ON c.id = cs.contribution_id AND ${COUNTED}
       GROUP BY s.id ORDER BY s.sort_order, s.slug`);
-  const all = await db.query("SELECT slug, name, is_active FROM sectors ORDER BY sort_order, slug");
+  let all: { rows: any[] }, sectorsData = true;
+  try {
+    all = await db.query("SELECT slug, name, is_active, is_demo, archived_at, icon, color FROM sectors ORDER BY sort_order, slug");
+  } catch (e) {
+    if ((e as { code?: string })?.code !== "42703") throw e;
+    sectorsData = false; // migration 030 not applied yet
+    all = await db.query("SELECT slug, name, is_active, is_demo FROM sectors ORDER BY sort_order, slug");
+  }
   const counted = new Map<string, Counts>(per.rows.map((r) => [r.slug as string, countsOf(r)]));
-  const sectors: SectorCountRow[] = all.rows.map((s) => ({ slug: s.slug, name: s.name, active: s.is_active !== false, ...(counted.get(s.slug) ?? zero()) }));
+  const sectors: SectorCountRow[] = all.rows.map((s) => ({ slug: s.slug, name: s.name, active: s.is_active !== false, demo: s.is_demo === true,
+    archived: Boolean(s.archived_at), icon: String(s.icon ?? ""), color: String(s.color ?? ""), ...(counted.get(s.slug) ?? zero()) }));
   const sum = zero();
   for (const s of sectors) for (const k of COUNT_KEYS) sum[k] += s[k];
   const uniq = await db.query(`SELECT ${FILTERS(v)} FROM contributions c WHERE ${COUNTED}`);
-  return { sectors, sum, unique: countsOf(uniq.rows[0] ?? {}) };
+  return { sectors, sum, unique: countsOf(uniq.rows[0] ?? {}), features: { sectorsData } };
 }
 
 export async function sectorStatusCounts(db: Db): Promise<SectorCounts> {

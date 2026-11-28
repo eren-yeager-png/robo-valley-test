@@ -237,6 +237,15 @@ export async function resetDemo(db) {
   try {
     for (const [t, trg] of APPEND_ONLY) await db.query(`ALTER TABLE ${t} DISABLE TRIGGER ${trg}`);
     const demo = "SELECT id FROM cw_contributions WHERE is_demo";
+    // migration 030 (when applied): the demo's suggested fields and its Audit Log rows go too (the log is append-only: paused the same way)
+    const has030 = (await db.query("SELECT to_regclass('audit_log') IS NOT NULL AS ok")).rows[0]?.ok === true;
+    if (has030) {
+      await db.query(`DELETE FROM field_suggestions WHERE contribution_id IN (${demo}) OR suggested_by IN (SELECT id FROM users WHERE email LIKE '%@${DEMO_DOMAIN}')`);
+      await db.query("ALTER TABLE audit_log DISABLE TRIGGER audit_log_append_only");
+      await db.query(`DELETE FROM audit_log WHERE (target_type = 'idea' AND target_id IN (${demo})) OR (target_type = 'contribution' AND target_id >= $1 AND target_id < $2)
+                      OR actor_id IN (SELECT id FROM users WHERE email LIKE '%@${DEMO_DOMAIN}')`, [OLD_ID_BASE, OLD_ID_END]);
+      await db.query("ALTER TABLE audit_log ENABLE TRIGGER audit_log_append_only");
+    }
     for (const t of ["cw_public_contributions", "cw_contribution_attachments", "cw_contribution_feedback", "cw_contribution_history", "cw_contribution_versions"]) {
       await db.query(`DELETE FROM ${t} WHERE contribution_id IN (${demo})`);
     }
@@ -244,7 +253,9 @@ export async function resetDemo(db) {
     const form = (await db.query("DELETE FROM contributions WHERE id >= $1 AND id < $2", [OLD_ID_BASE, OLD_ID_END])).rowCount ?? 0;
     for (const [t, trg] of APPEND_ONLY) await db.query(`ALTER TABLE ${t} ENABLE TRIGGER ${trg}`);
     await db.query(`DELETE FROM sector_robot_types r WHERE r.updated_by IN (SELECT id FROM users WHERE email LIKE '%@${DEMO_DOMAIN}')
-                    AND NOT EXISTS (SELECT 1 FROM contribution_scopes s WHERE s.robot_type_id = r.id)`);
+                    AND NOT EXISTS (SELECT 1 FROM contribution_scopes s WHERE s.robot_type_id = r.id)` +
+                    // 030: a field an idea points at, or one a plugin manages, is never deleted (the database refuses both)
+                    (has030 ? " AND NOT EXISTS (SELECT 1 FROM cw_contributions c WHERE c.field_id = r.id) AND r.source <> 'plugin'" : ""));
     const users = (await db.query(`DELETE FROM users WHERE email LIKE '%@${DEMO_DOMAIN}'`)).rowCount ?? 0;
     await db.query("COMMIT");
     return { ideas, form, users };

@@ -5,6 +5,8 @@ import { listUsers, usersByRole } from "../../../lib/adminStats";
 import { ROLE_CODES } from "../../../lib/roles";
 import { moderatorFlags, recentModeratorChanges, type ModeratorChangeRow } from "../../../lib/moderators";
 import ModeratorToggle from "../_components/ModeratorToggle";
+import ModeratorSectors from "../_components/ModeratorSectors";
+import { moderatorSectorMap } from "../../../lib/reviewerSectors";
 import { DataTable, Notice, PageHeader, Pager, StatCard, when } from "../_components/ui";
 
 export const metadata: Metadata = { title: "Users & Roles | RoboValley admin", robots: { index: false, follow: false } };
@@ -23,11 +25,18 @@ export default async function UsersPage({ searchParams }: { searchParams?: Promi
   let result, roles;
   let mods: { ready: boolean; flags: Map<string, boolean> } = { ready: false, flags: new Map() };
   let changes: ModeratorChangeRow[] = [];
+  // Contribution Portal (migration 030): the sectors each moderator reviews; without 030 there is no per-sector control
+  let perSector: { ready: boolean; map: Map<string, { slug: string; name: string }[]> } = { ready: false, map: new Map() };
+  let sectorChoices: { slug: string; name: string }[] = [];
   try {
     [result, roles] = await Promise.all([listUsers(pool, { page, q, role }), usersByRole(pool)]);
     // Moderator flags are optional: without migration 015 the page works as before, with no moderator column.
     mods = await moderatorFlags(pool, result.rows.map((u) => u.id));
     if (mods.ready) changes = await recentModeratorChanges(pool, 10);
+    if (mods.ready) {
+      perSector = await moderatorSectorMap(pool as never);
+      if (perSector.ready) sectorChoices = (await pool.query("SELECT slug, name FROM sectors WHERE NOT is_demo ORDER BY sort_order, name")).rows.map((r) => ({ slug: String(r.slug), name: String(r.name) }));
+    }
   } catch {
     console.error("admin users: could not read the data");
     return (<><PageHeader title="Users & Roles" /><Notice kind="error" title="Users could not be loaded">The database did not answer. Please try again.</Notice></>);
@@ -61,6 +70,9 @@ export default async function UsersPage({ searchParams }: { searchParams?: Promi
             <td>
               <span className={"adm-pill" + (mods.flags.get(u.id) ? "" : " mute")}>{mods.flags.get(u.id) ? "Moderator" : "No"}</span>
               <ModeratorToggle userId={u.id} name={u.name} moderator={mods.flags.get(u.id) === true} self={u.id === admin.id} />
+              {perSector.ready && mods.flags.get(u.id) === true && u.role !== "admin" && (
+                <ModeratorSectors userId={u.id} name={u.name} sectors={sectorChoices} current={perSector.map.get(u.id) ?? []} />
+              )}
             </td>
           )}<td className="cell-wrap">{u.email}</td><td><span className={"adm-pill" + (u.role === "admin" ? " warn" : "")}>{u.roleLabel}</span></td><td>{when(u.joined)}</td><td><a className="btn" href={`/admin/users/${u.id}/view`} aria-label={`View as ${u.name}`}>View as</a></td></tr>
         ))} />

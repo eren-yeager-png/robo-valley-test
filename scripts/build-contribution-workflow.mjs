@@ -336,11 +336,16 @@ export const PARITY = [
   "Sector Forms: grid \"n fields · m suggestions\" with an amber dot, \"Sector form: <Sector>\", + Add field (dialog), tabs Fields | Suggested fields with counts; fields table: order (drag or move up/down), name and slug, source badge (Admin, Suggested by member, Added by plugin), contributions, Active/Hidden switch, Contribute, Edit (drawer), Rename, Archive, Delete (blocked while contributions use it, never for a plugin's field)",
   "Sector Forms: Suggested fields table (Suggested name, Suggested by, Reason, Sent): Approve and Edit & approve add the field at once (it is on the sector page with its button), Reject needs a reason; empty state \"No suggestions waiting for this sector...\"",
   "Sample data everywhere: 5 sectors with 3-5 fields each (a suggested field, a plugin field, a long address, a wide table), at least 2 ideas in every status, feedback on rejected ones, a user for every role",
+  "Data update (migration 030): Approve is its own step (status Approved, blue); an approved idea offers Send publish request to Admin, Back to draft and Reject; Publish Requests shows only what was sent",
+  "Data update: fields have a status (Active, Hidden, Archived), a description and an icon; + Add field takes an editable link code; Archive keeps contributions (Restore brings it back); Delete asks first and only when nothing uses the field; a plugin's field is never deleted",
+  "Data update: suggested fields are their own records: Approve / Edit & approve (name, link code, description) add the field with the Suggested by member badge; Reject needs a reason",
+  "Data update: Admin > Sectors: + Add sector, Rename, Move up / down, Card style (icon, colour), Archive (refused while contributions there wait) and Restore",
+  "Data update: Users & Roles: Edit sectors limits a moderator to some sectors (Moderation then shows only those); the Audit Log lists every approval, request, publication, rejection, field, suggestion, sector and role change",
 ];
 
 /** The standalone demo: every portal and role with the SAME screens production uses, sample data everywhere, the parity checklist. */
 export function demoHtml() {
-  const modules = ["form.js", "moderator.js", "admin.js", "site.js", "dialog.js", "review.js", "preview.js", "fields.js", "sector.js", "portal-status.js", "portal-ui.js",
+  const modules = ["portal-rules.js", "form.js", "moderator.js", "admin.js", "site.js", "dialog.js", "review.js", "preview.js", "fields.js", "sector.js", "portal-status.js", "portal-ui.js",
     "sector-grid.js", "portal-api.js", "mine.js", "contribute-modal.js", "sectors.js", "moderation.js", "requests.js", "sector-forms.js", "overview.js", "sectors-admin.js", "audit.js",
     "demo-portal.js", "demo-portals.js"].filter(has);
   const css = [read(join(SRC, "contribution-workflow.css")), read(join(SRC, "sector.css")), read(join(SRC, "portal.css"))];

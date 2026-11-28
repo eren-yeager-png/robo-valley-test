@@ -12,6 +12,7 @@
 import * as R from "./shared";
 import { loadSectors } from "./lookups";
 import { getContribution, guarded, NotSetUp, readPublic, type Actor, type Detail, type Fail, type Pool, type Q } from "./store";
+import { audit, optional } from "../portalAudit";
 
 const TIMEOUT = "30s";
 const STALE = "2 minutes"; // an attempt still "In Progress" after this never finished
@@ -135,12 +136,16 @@ export async function publish(pool: Pool, input: { id: number; actor: Actor; row
       if (error === null) {
         await c.query("UPDATE cw_contributions SET status = 'published', published_version = $2, published_at = now(), publish_error = NULL, row_version = row_version + 1, updated_at = now() WHERE id = $1", [id, n]);
         await c.query("INSERT INTO cw_contribution_history (contribution_id, actor, text) VALUES ($1, 'System', $2)", [id, R.history.published(n, sectorName)]);
+        // migration 030: who published, and the Audit Log row (both skipped on an older database)
+        await optional(c, "UPDATE cw_contributions SET published_by = $2 WHERE id = $1", [id, actor.userId], true);
+        await audit(c, { actorId: actor.userId, actorName: actor.name, role: "admin", action: "publish", targetType: "idea", targetId: id, meta: { code: R.codeOf(id), version: n, sector: sectorName } }, true);
       } else {
         // a failed UPDATE of a published idea leaves the earlier card live: the idea stays Published (with the error shown)
         const live = await earlierCardLive(c, id, publishedBefore);
         const to = String(R.nextStatus("publish_fail", { status: R.STATUS.PUBLISHING, live }).to);
         await c.query("UPDATE cw_contributions SET status = $2, publish_error = $3, row_version = row_version + 1, updated_at = now() WHERE id = $1", [id, to, error]);
         await c.query("INSERT INTO cw_contribution_history (contribution_id, actor, text) VALUES ($1, 'System', $2)", [id, R.history.failed(error)]);
+        await audit(c, { actorId: actor.userId, actorName: actor.name, role: "admin", action: "publish_failed", targetType: "idea", targetId: id, meta: { code: R.codeOf(id), version: n, error } }, true);
       }
     });
     return { ok: true as const, published: error === null, detail: (await getContribution(pool, id))! };

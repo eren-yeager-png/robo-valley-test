@@ -9,13 +9,15 @@ import { sectorForm } from "./sectorForms";
 import { roleLabel } from "./cw/lookups";
 import * as R from "./cw/shared";
 import { fieldSources } from "./portalFields";
+import { portalReady } from "./portalAudit";
+import { APPROVED } from "../../public/cw/js/portal-rules.js";
 
 type Db = { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }> };
 export type PortalView = "moderation" | "requests" | "overview";
 export const PORTAL_VIEWS: readonly PortalView[] = ["moderation", "requests", "overview"];
 const KEYS = ["pending", "approved", "requested", "published", "rejected", "unpublished"] as const;
 type Key = (typeof KEYS)[number];
-export type SectorCounts = { slug: string; name: string; total: number } & Record<Key, number>;
+export type SectorCounts = { slug: string; name: string; icon: string; color: string; total: number } & Record<Key, number>;
 export type PortalRow = {
   key: string; source: "workflow" | "form"; id: number; code: string; title: string; contributor: string; contributorType: string;
   status: string; display: string; note: string; sentAt: string | null; approvedBy: string | null; sector: string; sectorName: string;
@@ -34,8 +36,15 @@ async function part<T>(fn: () => Promise<T>, empty: T, absent: string[], name: s
 }
 const VERIFIED = "EXISTS (SELECT 1 FROM contribution_reviews r WHERE r.contribution_id = c.id AND r.action = 'verify')";
 
-async function sectorList(db: Db): Promise<{ slug: string; name: string }[]> {
-  return (await db.query("SELECT slug, name FROM sectors WHERE is_active AND NOT is_demo ORDER BY sort_order, name")).rows.map((r) => ({ slug: r.slug, name: r.name }));
+async function sectorList(db: Db): Promise<{ slug: string; name: string; icon: string; color: string }[]> {
+  let rows: any[];
+  try { // the card's icon and colour (migration 030)
+    rows = (await db.query("SELECT slug, name, icon, color FROM sectors WHERE is_active AND NOT is_demo ORDER BY sort_order, name")).rows;
+  } catch (e) {
+    if ((e as { code?: string } | null)?.code !== "42703") throw e;
+    rows = (await db.query("SELECT slug, name FROM sectors WHERE is_active AND NOT is_demo ORDER BY sort_order, name")).rows;
+  }
+  return rows.map((r) => ({ slug: r.slug, name: r.name, icon: String(r.icon ?? ""), color: String(r.color ?? "") }));
 }
 
 /** Every sector with its numbers per portal status (an item in several sectors counts under each, as in Moderation). */
@@ -64,7 +73,8 @@ function workflowRow(r: any, sectors: { slug: string; name: string }[], view: Po
     status, display: workflowToPortal(status), note: (WORKFLOW_NOTE as Record<string, string>)[status] ?? "",
     sentAt: view === "requests" ? iso(r.sent_at) ?? iso(r.submitted_at) : iso(r.submitted_at), approvedBy: r.moderator_name ?? null,
     sector: String(p.sector ?? ""), sectorName: R.sectorLabel(p.sector, sectors), categories: [], alsoIn: [],
-    actions: view === "moderation" ? (R.canModeratorEdit(status) ? ["approve", "edit", "reject"] : ["view"]) : [], viewUrl: null,
+    // an idea a Moderator approved (migration 030) waits for its publishing request: Send it to an Admin, or open it
+    actions: view === "moderation" ? (R.canModeratorEdit(status) ? ["approve", "edit", "reject"] : status === APPROVED ? ["send", "view"] : ["view"]) : [], viewUrl: null,
   };
 }
 
@@ -93,15 +103,23 @@ export type PortalData = {
   fields: { slug: string; name: string; active: boolean; source: string; pluginName: string }[];
   totals: { requests: number; publishedThisWeek: number; rejected: number; activeContributors: number } | null;
   exportUrl: string | null; isAdmin: boolean; absent: string[];
+  /** approvedStep: migration 030 is applied, so a Moderator's approval is its own step (then Send publish request to Admin) */
+  features: { approvedStep: boolean };
+  /** the sectors this reviewer reviews (030, Users & Roles); null = every sector */
+  limitedTo: string[] | null;
 };
 
-/** Moderation, Publish Requests or the Overview. `sector` "" = Moderation opens the sector with the most waiting (Requests: all). */
-export async function portalData(db: Db, o: { view: PortalView; sector: string; viewerId: number; isAdmin: boolean }): Promise<PortalData> {
+/** Moderation, Publish Requests or the Overview. `sector` "" = Moderation opens the sector with the most waiting (Requests: all).
+ *  `allowed`: the sectors of a reviewer limited to some (migration 030); Moderation then shows only those. */
+export async function portalData(db: Db, o: { view: PortalView; sector: string; viewerId: number; isAdmin: boolean; allowed?: string[] | null }): Promise<PortalData> {
   const absent: string[] = [];
-  const sectors = await sectorCounts(db, absent);
+  const all = await sectorCounts(db, absent);
   if (absent.includes("sectors") || (absent.includes("form") && absent.includes("workflow"))) throw new PortalNotSetUp();
-  const names = sectors.map((s) => ({ slug: s.slug, name: s.name }));
-  const out: PortalData = { view: o.view, sectors, sector: null, rows: [], fields: [], totals: null, exportUrl: null, isAdmin: o.isAdmin, absent };
+  const limitedTo = o.isAdmin ? null : o.allowed ?? null;
+  const sectors = limitedTo ? all.filter((s) => limitedTo.includes(s.slug)) : all;
+  const names = all.map((s) => ({ slug: s.slug, name: s.name }));
+  const features = { approvedStep: await portalReady(db) };
+  const out: PortalData = { view: o.view, sectors, sector: null, rows: [], fields: [], totals: null, exportUrl: null, isAdmin: o.isAdmin, absent, features, limitedTo };
 
   if (o.view === "moderation") {
     const pick = sectors.find((s) => s.slug === o.sector) ?? [...sectors].sort((a, b) => b.pending - a.pending)[0] ?? null;
@@ -126,8 +144,10 @@ export async function portalData(db: Db, o: { view: PortalView; sector: string; 
     if (form) out.exportUrl = `/api/review/export?${new URLSearchParams({ sector: pick.slug, tab: "all" }).toString()}`;
     const sf = await sectorForm(db as never, pick.slug).catch(() => null);
     if (sf && sf.robotsReady) {
-      const src = await fieldSources(db, sf.sector, sf.robots.map((x) => x.name));
-      out.fields = sf.robots.map((x) => ({ slug: x.slug, name: x.name, active: x.active, source: src.get(x.name.toLowerCase()) ?? "admin", pluginName: "" }));
+      // the source is stored from 030 on; before it, worked out from the members' suggestions (Phase A). Archived fields are not listed.
+      const src = features.approvedStep ? null : await fieldSources(db, sf.sector, sf.robots.map((x) => x.name));
+      out.fields = sf.robots.filter((x) => x.status !== "archived").map((x) => ({ slug: x.slug, name: x.name, active: x.active,
+        source: src ? src.get(x.name.toLowerCase()) ?? "admin" : x.source, pluginName: x.pluginKey ?? "" }));
     }
     return out;
   }
@@ -159,7 +179,8 @@ export async function portalData(db: Db, o: { view: PortalView; sector: string; 
   if (o.view === "requests") {
     const s = sectors.find((x) => x.slug === o.sector) ?? null;
     out.sector = s ? { slug: s.slug, name: s.name } : null;
-    out.rows = [...wfRows.filter((r) => r.display !== "pending"), ...formRows].filter(inSector)
+    // an idea still with its Moderator (pending review, or approved but not yet sent: migration 030) is not a publish request
+    out.rows = [...wfRows.filter((r) => r.display !== "pending" && r.display !== "approved"), ...formRows].filter(inSector)
       .sort((a, b) => String(b.sentAt ?? "").localeCompare(String(a.sentAt ?? "")));
     await withDecisions(db, out.rows, absent);
     return out;

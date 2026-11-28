@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { pool } from "../../../../../lib/db";
 import { requireReviewerPage } from "../../../../../lib/reviewerPage";
+import { NOT_YOUR_SECTOR, reviewerSectors, scopeProblem } from "../../../../../lib/reviewerSectors";
 import { getForReview, neighbours, type ReviewItem } from "../../../../../lib/contributionReview";
 import { recordView } from "../../../../../lib/contributionViews";
 import { STATUS_TONE } from "../../../../../lib/reviewStatus";
@@ -27,7 +28,17 @@ export default async function ContributionPage({ params, searchParams }: { param
   const sp = (await searchParams) ?? {};
   const id = /^[1-9]\d{0,9}$/.test(raw) ? Number(raw) : null;
   let item: ReviewItem | null = null, problem = "", nav = { prev: null as number | null, next: null as number | null, position: 0, of: 0 }, from = "";
+  let notYours = false;
   if (id) {
+    try {
+      // a reviewer limited to some sectors (migration 030) cannot open an item in another sector
+      notYours = Boolean(await scopeProblem(pool as never, { sectors: await reviewerSectors(pool as never, me.userId, me.isAdmin) }, { form: id }));
+    } catch (e) {
+      problem = logDbError("admin portal contribution", e) === "not_set_up" ? "Reviewing is not set up on this database yet (migrations 012 to 019 are needed)." : "This contribution could not be loaded. Please try again.";
+    }
+  }
+  if (notYours) return (<><p className="mod-crumb"><Link href="/admin/moderation">Moderation</Link></p><Notice kind="info">{NOT_YOUR_SECTOR.message}</Notice></>);
+  if (id && !problem) {
     try {
       await recordView(pool as never, me.userId, id); // opening an item marks it "In review" (never on your own item)
       item = await getForReview(pool as never, me.userId, id, me.isAdmin);

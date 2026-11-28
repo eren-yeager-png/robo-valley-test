@@ -103,6 +103,10 @@
   box-sizing: border-box; max-width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--rvp-input); border-radius: 8px;
   background: var(--rvp-surface); color: var(--rvp-fg); font: inherit; font-size: 14px;
 }
+/* radios and checkboxes keep their own size next to their words (the site's ".rv input { width: 100% }" in join.css would stretch them) */
+.rv-pp input[type="checkbox"], .rv-pp input[type="radio"], .rv-pp-drawer input[type="checkbox"], .rv-pp-drawer input[type="radio"] {
+  width: auto; max-width: none; min-height: 0; padding: 0; margin: 0; flex: 0 0 auto;
+}
 .rv-pp :focus-visible, .rv-pp-drawer :focus-visible, .rv .adm .rv-pp :focus-visible { outline: 3px solid var(--rvp-focus); outline-offset: 2px; }
 
 /* filters above a table */
@@ -273,3 +277,5 @@
 @media (max-width: 599.98px) { .rv-sg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 379.98px) { .rv-sg { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .rv-sg-card { transition: none; } .rv-sg-card:hover { transform: none; } }
+/* Contribution Portal (migration 030): the Approved step's badge in the review drawer (the demo; the app's is in cw-portal.css) */
+.rv-app .rv-s-approved { background: #dbeafe; color: #1e40af; }

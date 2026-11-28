@@ -3,6 +3,7 @@ import { preflight, withCors } from "../../../../../../lib/cors";
 import { json } from "../../../../../../lib/http";
 import { pool } from "../../../../../../lib/db";
 import { guardReviewer } from "../../../../../../lib/reviewerGuard";
+import { scopeProblem } from "../../../../../../lib/reviewerSectors";
 import { parseId } from "../../../../../../lib/contributorGuard";
 import { getPhotoBytes } from "../../../../../../lib/contributionPhotos";
 
@@ -20,6 +21,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; pho
   const missing = () => withCors(req, json({ success: false, error: "NOT_FOUND", message: "We could not find that photo." }, 404), METHODS);
   if (id === null || photoId === null) return missing();
   try {
+    if (await scopeProblem(pool as never, g, { form: id })) return missing(); // a reviewer limited to some sectors (migration 030)
     const ok = await pool.query("SELECT 1 FROM contribution_photos p JOIN contributions c ON c.id = p.contribution_id WHERE p.id = $1 AND c.id = $2 AND c.status <> 'draft'", [photoId, id]);
     if (ok.rows.length === 0) return missing();
     const photo = await getPhotoBytes(pool as never, photoId);

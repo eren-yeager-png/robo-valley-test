@@ -6,6 +6,8 @@
 //   sectorForms(sector)       Sector Forms: every sector's numbers, one sector's fields and the suggested fields (admins)
 //   addField / changeField    add a field (robot type) / rename, switch on or off, move up or down (the existing admin routes)
 //   auditLog(query)           the Audit Log (admins)
+//   Contribution Portal, migration 030 (admins): deleteField (only an unused field), decideSuggestion (approve / reject a suggested field),
+//   addSector / changeSector (Admin > Sectors), setReviewerSectors (Users & Roles: the sectors a moderator reviews)
 import { RestAdapter } from "./api.js";
 
 const q = (o) => {
@@ -26,6 +28,15 @@ export class PortalRest extends RestAdapter {
     return this.call(`/api/admin/sector-forms/${encodeURIComponent(sector)}/robots/${encodeURIComponent(id)}`,
       { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(change) });
   }
+  deleteField(sector, id) {
+    return this.call(`/api/admin/sector-forms/${encodeURIComponent(sector)}/robots/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+  decideSuggestion(id, body) { return this.post(`/api/admin/portal/field-suggestions/${encodeURIComponent(id)}`, body); }
+  addSector(body) { return this.post("/api/admin/sectors", body); }
+  changeSector(slug, change) {
+    return this.call(`/api/admin/sectors/${encodeURIComponent(slug)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(change) });
+  }
+  setReviewerSectors(userId, sectors) { return this.post("/api/admin/moderators/sectors", { userId, sectors }); }
   auditLog(query = {}) { return this.call(`/api/admin/audit-log${q(query)}`); }
   sectorCounts() { return this.call("/api/admin/sector-counts"); }
 }

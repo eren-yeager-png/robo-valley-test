@@ -57,11 +57,13 @@ describe("Sectors", () => {
     expect(el.querySelectorAll(".rv-sg-card")).toHaveLength(3);
     expect(el.querySelectorAll(".rv-pp-table a")).toHaveLength(0);
   });
-  it("adding, renaming, reordering and archiving a sector wait for the data update, and say so", async () => {
+  // Phase B: adding, renaming and reordering a sector work on any database; archiving and the card's style wait for migration 030
+  it("before migration 030: + Add sector, Rename and Move work; Card style and Archive wait for the data update, and say so", async () => {
     await open();
     const buttons = Array.from(el.querySelectorAll(".rv-pp-head .btn, .rv-pp-panel__head .btn")) as HTMLButtonElement[];
-    expect(buttons.map((b) => b.textContent)).toEqual(["+ Add sector", "Rename", "Move up", "Move down", "Archive"]);
-    expect(buttons.every((b) => b.disabled && b.title === LATER)).toBe(true);
+    expect(buttons.map((b) => b.textContent)).toEqual(["+ Add sector", "Rename", "Move up", "Move down", "Card style", "Archive"]);
+    expect(buttons.filter((b) => b.disabled && b.title === LATER).map((b) => b.textContent)).toEqual(["Card style", "Archive"]);
+    expect(buttons.filter((b) => b.disabled).map((b) => b.textContent)).toEqual(["Move up", "Card style", "Archive"]); // the first sector cannot move up
   });
   it("an answer with a message (not set up, not answering) shows that message", async () => {
     document.body.innerHTML = '<div id="m"></div>';

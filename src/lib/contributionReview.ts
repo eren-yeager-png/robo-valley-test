@@ -30,6 +30,7 @@ import { notesForReview } from "./contributionNotes";
 import { PORTAL_TABS, ROUND_START_SQL } from "./reviewStatus";
 import { directoryFor, splitFold, type DirectoryEntry } from "./directoryCategories";
 import { ROLES } from "./roles";
+import { audit, reviewerRole } from "./portalAudit";
 import { robotNamesInSector, robotsOf, type ChosenRobot } from "./contributionRobots";
 
 type Db = { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }> };
@@ -45,6 +46,10 @@ export const ACTIONS = {
   republish: { from: "unpublished", to: "published", note: "optional", adminOnly: true },
 } as const;
 export type Action = keyof typeof ACTIONS;
+/** What the Audit Log (migration 030) calls each decision: verifying is the reviewer's approval, approving publishes the item. */
+const DECISION_AUDIT: Record<Action, string> = {
+  verify: "approve", approve: "publish", request_changes: "request_changes", reject: "reject", remove: "remove", unpublish: "unpublish", republish: "publish",
+};
 export const QUEUE_STATUSES = ["pending_review", "changes_requested", "published", "unpublished", "rejected", "removed"] as const;
 /** Live statuses: the ones a duplicate can collide with (the same list as migration 018's key table). */
 export const LIVE_STATUSES = ["pending_review", "changes_requested", "published"] as const;
@@ -76,12 +81,14 @@ const code = (e: unknown) => (e as { code?: string })?.code;
 export type QueueItem = { id: number; title: string; type: string; typeLabel: string; typeChosen: boolean; status: ContributionStatus; statusLabel: string; display: DisplayStatus; displayLabel: string; sectors: string[]; submittedAt: string | null; photos: number };
 
 /** A page of the queue for one status (oldest first for the pending list, so nothing waits forever). Drafts are never listed. */
-export async function listQueue(db: Db, status: string, filter: { sector?: string | null; verified?: boolean | null } = {}): Promise<QueueItem[]> {
+export async function listQueue(db: Db, status: string, filter: { sector?: string | null; verified?: boolean | null; allowed?: string[] | null } = {}): Promise<QueueItem[]> {
   const st = (QUEUE_STATUSES as readonly string[]).includes(status) ? status : "pending_review";
   // Optional filters (used by the admin sector counts): one sector by slug, and/or only items a reviewer has verified (true) or has not verified yet (false). Values are parameters, never text in the SQL.
   const params: unknown[] = [st];
   let extra = "";
   if (filter.sector) { params.push(filter.sector); extra += " AND EXISTS (SELECT 1 FROM contribution_scopes f JOIN sectors fs ON fs.id = f.sector_id WHERE f.contribution_id = c.id AND fs.slug = $" + params.length + "::varchar)"; }
+  // a reviewer limited to some sectors (migration 030): only items in at least one of them
+  if (Array.isArray(filter.allowed)) { params.push(filter.allowed); extra += " AND EXISTS (SELECT 1 FROM contribution_scopes a JOIN sectors asec ON asec.id = a.sector_id WHERE a.contribution_id = c.id AND asec.slug = ANY($" + params.length + "::varchar[]))"; }
   if (filter.verified === true || filter.verified === false) extra += (filter.verified ? " AND EXISTS" : " AND NOT EXISTS") + " (SELECT 1 FROM contribution_reviews fr WHERE fr.contribution_id = c.id AND fr.action = 'verify')";
   const { rows } = await db.query(
     "SELECT c.id, c.title, c.type, " + typeChosenSql("c") + " AS type_chosen, c.status, c.submitted_at, " +
@@ -183,6 +190,10 @@ export async function decide(pool: Pool, reviewerId: number, id: number, rawActi
     }
     await client.query("INSERT INTO contribution_reviews (contribution_id, reviewer_id, action, note) VALUES ($1,$2,$3,$4)", [id, reviewerId, ok.action, note]);
     if (rule.to !== c.status) await client.query("UPDATE contributions SET status = $2::varchar, published_at = CASE WHEN $2::varchar = 'published' THEN now() END, updated_at = now() WHERE id = $1", [id, rule.to]);
+    // Contribution Portal (migration 030): the Audit Log row, in the same transaction (skipped on an older database)
+    const who = String((await client.query("SELECT full_name FROM users WHERE id = $1", [reviewerId])).rows[0]?.full_name ?? "");
+    await audit(client, { actorId: reviewerId, actorName: who, role: reviewerRole(isAdmin), action: DECISION_AUDIT[ok.action], targetType: "contribution", targetId: id,
+      meta: { code: `C-${id}`, decision: ok.action, from: c.status, to: rule.to, ...(note ? { note } : {}) } }, true);
     await client.query("COMMIT");
     return { ok: true, id, status: rule.to, action: ok.action };
   } catch (e) {
